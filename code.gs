@@ -37,7 +37,7 @@ function doPost(e) {
         break;
         
       // Endpoint Siswa
-      case 'get_jadwal_siswa':
+      case 'get_jadwal':
         result = getJadwalSiswa(payload.id_siswa);
         break;
       case 'mulai_ujian':
