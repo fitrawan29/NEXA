@@ -6,12 +6,112 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CBT AKM Terpadu</title>
 
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Fonts & Icons -->
+  <link href="https://fonts.googleapis.com" rel="preconnect">
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Courier+Prime&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
 
-  <!-- Font Inter -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
-    rel="stylesheet">
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+  <!-- Tailwind Config -->
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "on-background": "#191b23",
+            "primary-fixed-dim": "#b5c4ff",
+            "tertiary-fixed": "#e1e3e4",
+            "on-tertiary-fixed-variant": "#454748",
+            "on-error-container": "#93000a",
+            "primary-container": "#1a56db",
+            "inverse-primary": "#b5c4ff",
+            "inverse-on-surface": "#f0f0fb",
+            "surface-variant": "#e2e1ed",
+            "inverse-surface": "#2e3039",
+            "on-primary": "#ffffff",
+            "secondary-fixed": "#dce2f7",
+            "primary-fixed": "#dbe1ff",
+            "on-primary-fixed": "#00174d",
+            "outline": "#737686",
+            "on-primary-container": "#d4dcff",
+            "outline-variant": "#c3c5d7",
+            "background": "#faf8ff",
+            "on-secondary-fixed-variant": "#404758",
+            "surface-container-highest": "#e2e1ed",
+            "surface": "#faf8ff",
+            "secondary": "#575e70",
+            "surface-container": "#ededf8",
+            "on-tertiary": "#ffffff",
+            "on-error": "#ffffff",
+            "surface-container-low": "#f3f3fe",
+            "surface-bright": "#faf8ff",
+            "surface-container-lowest": "#ffffff",
+            "on-tertiary-fixed": "#191c1d",
+            "on-primary-fixed-variant": "#003dab",
+            "secondary-container": "#d9dff5",
+            "secondary-fixed-dim": "#c0c6db",
+            "on-secondary": "#ffffff",
+            "on-secondary-container": "#5c6274",
+            "primary": "#003fb1",
+            "tertiary-fixed-dim": "#c5c7c8",
+            "on-surface-variant": "#434654",
+            "on-tertiary-container": "#dcdedf",
+            "surface-tint": "#1353d8",
+            "tertiary-container": "#5f6263",
+            "on-surface": "#191b23",
+            "error": "#ba1a1a",
+            "surface-container-high": "#e7e7f3",
+            "tertiary": "#484a4b",
+            "on-secondary-fixed": "#141b2b",
+            "error-container": "#ffdad6",
+            "surface-dim": "#d9d9e4"
+          },
+          borderRadius: {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          spacing: {
+            "container-max": "1280px",
+            "base": "8px",
+            "gutter": "24px",
+            "lg": "24px",
+            "md": "16px",
+            "xl": "32px",
+            "xs": "4px",
+            "sm": "12px"
+          },
+          fontFamily: {
+            "headline-lg": ["Inter"],
+            "headline-lg-mobile": ["Inter"],
+            "mono-label": ["Courier Prime"],
+            "headline-sm": ["Inter"],
+            "label-md": ["Inter"],
+            "question-text": ["Inter"],
+            "headline-md": ["Inter"],
+            "body-md": ["Inter"],
+            "body-lg": ["Inter"]
+          },
+          fontSize: {
+            "headline-lg": ["32px", { lineHeight: "40px", letterSpacing: "-0.02em", fontWeight: "700" }],
+            "headline-lg-mobile": ["24px", { lineHeight: "32px", fontWeight: "700" }],
+            "mono-label": ["14px", { lineHeight: "20px", fontWeight: "400" }],
+            "headline-sm": ["20px", { lineHeight: "28px", fontWeight: "600" }],
+            "label-md": ["12px", { lineHeight: "16px", fontWeight: "600" }],
+            "question-text": ["18px", { lineHeight: "28px", fontWeight: "500" }],
+            "headline-md": ["24px", { lineHeight: "32px", fontWeight: "600" }],
+            "body-md": ["14px", { lineHeight: "20px", fontWeight: "400" }],
+            "body-lg": ["16px", { lineHeight: "24px", fontWeight: "400" }]
+          }
+        }
+      }
+    };
+  </script>
 
   <!-- React & ReactDOM -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -23,7 +123,7 @@
   <style>
     body {
       font-family: 'Inter', sans-serif;
-      background-color: #f8fafc;
+      background-color: #faf8ff; /* surface */
     }
 
     .custom-scrollbar::-webkit-scrollbar {
@@ -48,11 +148,29 @@
         opacity: 0;
         transform: translateY(15px);
       }
-
       to {
         opacity: 1;
         transform: translateY(0);
       }
+    }
+
+    /* Stitch Custom Styles */
+    .academic-input:focus {
+      outline: none;
+      border-color: #1a56db;
+      box-shadow: 0 0 0 4px rgba(26, 86, 219, 0.1);
+    }
+    .form-slider {
+      display: flex;
+      width: 200%;
+      transition: transform 0.4s ease-in-out;
+    }
+    .show-register {
+      transform: translateX(-50%);
+    }
+    .form-pane {
+      width: 50%;
+      flex-shrink: 0;
     }
   </style>
 </head>
@@ -155,82 +273,152 @@
       }, []);
 
       return (
-        <div className="min-h-screen bg-slate-50 p-4 md:p-12">
-          <div className="max-w-6xl mx-auto">
-            <div className="flex flex-col md:flex-row justify-between items-center mb-8 bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100">
+        <div className="bg-background text-on-background antialiased flex min-h-screen">
+          {/* SideNavBar */}
+          <nav className="bg-surface-container-low text-primary docked left-0 h-full w-64 border-r border-outline-variant flat no shadows fixed top-0 flex flex-col p-md z-40 hidden md:flex">
+            {/* Header */}
+            <div className="flex items-center space-x-sm mb-lg px-sm">
+              <img alt="NEXA Logo" className="w-10 h-10 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida/AEtjO1VVZfSUCXhHzY1X0SeCMcnnfH7eVLHQqeKZRoS92h6LX1juBz1mnHDbVWx1-Ba6QJacojgIbeoyE3UGy8T6Tb1_zTR54w2rmJiBCsvoFvsirZvz0_Sze5GuvCCAGNsKINOED0RXdkwpJDJinvxgu4KYdM823w67kkw4wzY5RntMk58ZhF_-cEiEvWXFYy34ycs42ktHbpwy_GH_ydOPW5eO4S5k_plk9debDcu5KRZwhT3Qv_0W8MX-"/>
               <div>
-                <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Super Administrator</h1>
-                <p className="text-slate-500 mt-1">Selamat datang, {user.nama_lengkap}</p>
-              </div>
-              <div className="flex gap-4 mt-4 md:mt-0">
-                 <a href="https://docs.google.com/spreadsheets/" target="_blank" rel="noreferrer" className="px-6 py-3 bg-emerald-50 text-emerald-700 rounded-xl font-bold hover:bg-emerald-100 transition-colors border border-emerald-200">
-                   Buka Database (Sheets)
-                 </a>
-                 <button onClick={onLogout} className="px-6 py-3 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-colors border border-red-200">Keluar Aplikasi</button>
+                <h1 className="font-headline-sm text-headline-sm font-bold text-on-surface">NEXA</h1>
+                <p className="font-label-md text-label-md text-on-surface-variant">Panel Kontrol</p>
               </div>
             </div>
+            {/* Navigation Links */}
+            <div className="flex-1 space-y-base mt-md">
+              <a className="flex items-center space-x-sm px-md py-sm bg-primary-container text-on-primary-container rounded-lg font-label-md text-label-md duration-200 ease-in-out" href="#">
+                <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>dashboard</span>
+                <span>Beranda</span>
+              </a>
+              <a href="https://docs.google.com/spreadsheets/" target="_blank" rel="noreferrer" className="flex items-center space-x-sm px-md py-sm text-on-surface-variant hover:bg-surface-container-highest transition-colors rounded-lg font-label-md text-label-md duration-200 ease-in-out">
+                <span className="material-symbols-outlined">database</span>
+                <span>Database (Sheets)</span>
+              </a>
+            </div>
+            {/* Footer Links */}
+            <div className="mt-auto pt-md border-t border-outline-variant">
+              <button onClick={onLogout} className="w-full flex items-center space-x-sm px-md py-sm text-on-surface-variant hover:bg-surface-container-highest transition-colors rounded-lg font-label-md text-label-md duration-200 ease-in-out">
+                <span className="material-symbols-outlined">logout</span>
+                <span>Keluar</span>
+              </button>
+            </div>
+          </nav>
 
-            {isLoading ? <Loader text="Menarik data dashboard..." /> : (
-              <>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                  <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center transform transition-transform hover:scale-105">
-                    <div className="text-4xl mb-2">🎓</div>
-                    <div className="text-3xl font-black text-slate-800">{dashboardData?.totalSiswa || 0}</div>
-                    <div className="text-xs font-bold text-slate-500 mt-1 uppercase tracking-wider">Total Siswa</div>
-                  </div>
-                  <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center transform transition-transform hover:scale-105">
-                    <div className="text-4xl mb-2">👨‍🏫</div>
-                    <div className="text-3xl font-black text-slate-800">{dashboardData?.totalGuru || 0}</div>
-                    <div className="text-xs font-bold text-slate-500 mt-1 uppercase tracking-wider">Total Guru</div>
-                  </div>
-                  <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center transform transition-transform hover:scale-105">
-                    <div className="text-4xl mb-2">📚</div>
-                    <div className="text-3xl font-black text-slate-800">{dashboardData?.totalJadwal || 0}</div>
-                    <div className="text-xs font-bold text-slate-500 mt-1 uppercase tracking-wider">Total Ujian</div>
-                  </div>
-                  <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center transform transition-transform hover:scale-105">
-                    <div className="text-4xl mb-2">⚡</div>
-                    <div className="text-3xl font-black text-blue-600">{dashboardData?.totalSesiAktif || 0}</div>
-                    <div className="text-xs font-bold text-slate-500 mt-1 uppercase tracking-wider">Sesi Ujian Aktif</div>
+          {/* Main Content Canvas */}
+          <main className="flex-1 ml-0 md:ml-64 flex flex-col bg-background">
+            {/* TopNavBar */}
+            <header className="bg-surface text-primary font-body-md text-body-md docked full-width top-0 border-b border-outline-variant flat no shadows sticky top-0 z-30 flex justify-between items-center px-lg h-16 transition-all">
+              <div className="md:hidden flex items-center">
+                <span className="font-headline-sm text-headline-sm font-bold text-primary">NEXA Admin</span>
+              </div>
+              <div className="hidden md:flex flex-1"></div>
+              <div className="flex items-center space-x-lg">
+                <div className="flex items-center space-x-sm">
+                  <div className="ml-sm flex items-center gap-sm cursor-pointer">
+                    <span className="text-sm font-bold text-slate-700 hidden sm:block">{user.nama_lengkap}</span>
+                    <div className="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-bold border border-outline-variant">
+                      {user.nama_lengkap.charAt(0).toUpperCase()}
+                    </div>
                   </div>
                 </div>
+              </div>
+            </header>
 
-                <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden mb-8">
-                  <div className="p-6 border-b border-slate-100 bg-slate-50/50">
-                    <h2 className="text-xl font-bold text-slate-800">Daftar Ujian Aktif (Jadwal)</h2>
+            {/* Page Content */}
+            <div className="p-md md:p-lg xl:p-xl overflow-y-auto w-full max-w-6xl mx-auto">
+              <div className="mb-lg">
+                <h2 className="font-headline-md text-headline-md text-on-surface">Dashboard Ringkasan</h2>
+                <p className="font-body-md text-body-md text-on-surface-variant mt-xs">Tinjauan sistem operasional sekolah saat ini.</p>
+              </div>
+              
+              {isLoading ? <Loader text="Menarik data dashboard..." /> : (
+                <>
+                  {/* Bento Grid - Summary Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-md mb-lg">
+                    {/* Card 1 */}
+                    <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex flex-col justify-between h-32 hover:shadow-[0_4px_8px_rgba(0,0,0,0.05)] transition-shadow">
+                      <div className="flex justify-between items-start">
+                        <p className="font-label-md text-label-md text-on-surface-variant">Total Siswa</p>
+                        <span className="material-symbols-outlined text-primary-container bg-primary-fixed p-1 rounded-lg">group</span>
+                      </div>
+                      <div>
+                        <p className="font-headline-lg text-headline-lg text-on-surface">{dashboardData?.totalSiswa || 0}</p>
+                        <p className="font-label-md text-label-md text-secondary mt-1">Siswa terdaftar</p>
+                      </div>
+                    </div>
+                    {/* Card 2 */}
+                    <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex flex-col justify-between h-32 hover:shadow-[0_4px_8px_rgba(0,0,0,0.05)] transition-shadow">
+                      <div className="flex justify-between items-start">
+                        <p className="font-label-md text-label-md text-on-surface-variant">Total Guru</p>
+                        <span className="material-symbols-outlined text-primary-container bg-primary-fixed p-1 rounded-lg">school</span>
+                      </div>
+                      <div>
+                        <p className="font-headline-lg text-headline-lg text-on-surface">{dashboardData?.totalGuru || 0}</p>
+                        <p className="font-label-md text-label-md text-secondary mt-1">Aktif mengajar</p>
+                      </div>
+                    </div>
+                    {/* Card 3 */}
+                    <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex flex-col justify-between h-32 hover:shadow-[0_4px_8px_rgba(0,0,0,0.05)] transition-shadow">
+                      <div className="flex justify-between items-start">
+                        <p className="font-label-md text-label-md text-on-surface-variant">Total Ujian</p>
+                        <span className="material-symbols-outlined text-primary-container bg-primary-fixed p-1 rounded-lg">assignment</span>
+                      </div>
+                      <div>
+                        <p className="font-headline-lg text-headline-lg text-on-surface">{dashboardData?.totalJadwal || 0}</p>
+                        <p className="font-label-md text-label-md text-secondary mt-1">Jadwal yang dibuat</p>
+                      </div>
+                    </div>
+                    {/* Card 4 */}
+                    <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex flex-col justify-between h-32 hover:shadow-[0_4px_8px_rgba(0,0,0,0.05)] transition-shadow">
+                      <div className="flex justify-between items-start">
+                        <p className="font-label-md text-label-md text-on-surface-variant">Sesi Ujian Aktif</p>
+                        <span className="material-symbols-outlined text-[#059669] bg-[#d1fae5] p-1 rounded-lg">speed</span>
+                      </div>
+                      <div>
+                        <p className="font-headline-lg text-headline-lg text-on-surface">{dashboardData?.totalSesiAktif || 0}</p>
+                        <p className="font-label-md text-label-md text-secondary mt-1">Sedang mengerjakan</p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
-                          <th className="p-4 font-bold border-b border-slate-200">ID Jadwal</th>
-                          <th className="p-4 font-bold border-b border-slate-200">Mata Pelajaran</th>
-                          <th className="p-4 font-bold border-b border-slate-200">Guru Pengampu</th>
-                          <th className="p-4 font-bold border-b border-slate-200">Waktu Mulai</th>
-                          <th className="p-4 font-bold border-b border-slate-200">Waktu Selesai</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {dashboardData?.jadwalAktif?.length > 0 ? dashboardData.jadwalAktif.map((j) => (
-                          <tr key={j.id_jadwal} className="hover:bg-blue-50/50 transition-colors border-b border-slate-100 last:border-0">
-                            <td className="p-4 font-mono text-sm text-slate-600">{j.id_jadwal}</td>
-                            <td className="p-4 font-bold text-slate-800">{j.nama_mapel}</td>
-                            <td className="p-4 text-slate-600 font-medium">{j.guru}</td>
-                            <td className="p-4 text-sm text-slate-500">{new Date(j.waktu_mulai).toLocaleString('id-ID')}</td>
-                            <td className="p-4 text-sm text-red-500 font-medium">{new Date(j.waktu_selesai).toLocaleString('id-ID')}</td>
+
+                  {/* Data Table Section */}
+                  <div className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden">
+                    <div className="p-md border-b border-outline-variant flex justify-between items-center bg-background">
+                      <h3 className="font-headline-sm text-headline-sm text-on-surface">Jadwal Ujian Aktif</h3>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-background font-label-md text-label-md text-on-surface-variant border-b border-outline-variant">
+                            <th className="py-sm px-md font-medium">ID Jadwal</th>
+                            <th className="py-sm px-md font-medium">Mata Pelajaran</th>
+                            <th className="py-sm px-md font-medium">Guru</th>
+                            <th className="py-sm px-md font-medium">Waktu Mulai</th>
+                            <th className="py-sm px-md font-medium">Waktu Selesai</th>
                           </tr>
-                        )) : (
-                          <tr>
-                            <td colSpan="5" className="p-8 text-center text-slate-500 font-medium">Tidak ada jadwal ujian aktif.</td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody className="font-body-md text-body-md text-on-surface">
+                          {dashboardData?.jadwalAktif?.length > 0 ? dashboardData.jadwalAktif.map((j) => (
+                            <tr key={j.id_jadwal} className="border-b border-outline-variant hover:bg-surface-container-low transition-colors">
+                              <td className="py-sm px-md font-mono text-outline">{j.id_jadwal}</td>
+                              <td className="py-sm px-md font-medium">{j.nama_mapel}</td>
+                              <td className="py-sm px-md">{j.guru}</td>
+                              <td className="py-sm px-md">{new Date(j.waktu_mulai).toLocaleString('id-ID')}</td>
+                              <td className="py-sm px-md text-error">{new Date(j.waktu_selesai).toLocaleString('id-ID')}</td>
+                            </tr>
+                          )) : (
+                            <tr>
+                              <td colSpan="5" className="py-md text-center text-on-surface-variant">Tidak ada jadwal aktif</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
-              </>
-            )}
-          </div>
+                </>
+              )}
+            </div>
+          </main>
         </div>
       );
     };
@@ -249,7 +437,6 @@
 
       useEffect(() => { loadJadwal(); }, []);
 
-      // Auto-refresh token tiap 5 menit saat berada di ruang monitoring
       useEffect(() => {
         let tokenInterval;
         if (selectedJadwal) {
@@ -303,131 +490,223 @@
       };
 
       return (
-        <div className="min-h-screen bg-slate-50 p-4 md:p-8">
-          <div className="max-w-7xl mx-auto">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row justify-between items-center mb-8 bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-              <div>
-                <h1 className="text-2xl font-extrabold text-slate-800">Ruang Pengawas & Guru</h1>
-                <p className="text-slate-500 font-medium">{user.nama_lengkap} — {user.instansi}</p>
+        <div className="bg-background text-on-background min-h-screen font-body-md text-body-md antialiased selection:bg-primary-container selection:text-on-primary-container flex flex-col">
+          {/* TopNavBar */}
+          <nav className="bg-surface fixed top-0 w-full z-50 flex justify-between items-center px-lg h-16 border-b border-outline-variant">
+            <div className="flex items-center gap-xl">
+              <div className="flex items-center h-8">
+                  <img src="https://lh3.googleusercontent.com/aida/AEtjO1VVZfSUCXhHzY1X0SeCMcnnfH7eVLHQqeKZRoS92h6LX1juBz1mnHDbVWx1-Ba6QJacojgIbeoyE3UGy8T6Tb1_zTR54w2rmJiBCsvoFvsirZvz0_Sze5GuvCCAGNsKINOED0RXdkwpJDJinvxgu4KYdM823w67kkw4wzY5RntMk58ZhF_-cEiEvWXFYy34ycs42ktHbpwy_GH_ydOPW5eO4S5k_plk9debDcu5KRZwhT3Qv_0W8MX-" alt="NEXA Logo" className="h-full w-auto object-contain" />
               </div>
-              <div className="mt-4 md:mt-0 flex gap-3">
-                <button onClick={loadJadwal} className="px-5 py-2.5 bg-blue-50 text-blue-700 rounded-xl font-bold hover:bg-blue-100 transition-colors">Refresh Jadwal</button>
-                <button onClick={onLogout} className="px-5 py-2.5 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-colors">Keluar</button>
+              <div className="hidden md:flex items-center h-full gap-lg">
+                <a className="h-16 flex items-center text-primary font-bold border-b-2 border-primary font-label-md text-label-md" href="#">Dashboard Pemantauan</a>
               </div>
             </div>
+            <div className="flex items-center gap-md">
+              <div className="ml-sm flex items-center gap-sm cursor-pointer">
+                <span className="text-sm font-bold text-slate-700 hidden sm:block">{user.nama_lengkap}</span>
+              </div>
+              <button onClick={onLogout} className="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-error-container/20 hover:text-error transition-colors cursor-pointer active:opacity-80 transition-all" title="Logout">
+                <span className="material-symbols-outlined">logout</span>
+              </button>
+            </div>
+          </nav>
 
-            {/* Pemilihan Jadwal */}
+          {/* Main Content Canvas */}
+          <main className="pt-[96px] px-md md:px-lg max-w-container-max mx-auto space-y-gutter pb-xl flex-1 w-full">
             {!selectedJadwal ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {jadwalAktif.map(j => (
-                  <div key={j.id_jadwal} className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
-                    <h3 className="text-xl font-bold text-slate-800 mb-1">{j.nama_mapel}</h3>
-                    <p className="text-sm text-slate-500 mb-4 font-mono">{j.id_jadwal}</p>
-                    <div className="text-sm text-slate-600 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                      <div className="flex justify-between mb-1"><span>Mulai:</span> <span className="font-semibold">{new Date(j.waktu_mulai).toLocaleString()}</span></div>
-                      <div className="flex justify-between"><span>Selesai:</span> <span className="font-semibold">{new Date(j.waktu_selesai).toLocaleString()}</span></div>
-                    </div>
-                    <button onClick={() => loadMonitoring(j.id_jadwal)} className="w-full py-3 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-900 transition-colors shadow-md">
-                      Masuk & Monitor Kelas
+              /* Pemilihan Jadwal */
+              <>
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-sm mb-lg">
+                  <div>
+                    <h1 className="font-headline-lg text-headline-lg text-on-surface">Pilih Jadwal Ujian</h1>
+                    <p className="font-body-md text-body-md text-on-surface-variant mt-1">Pilih jadwal ujian yang ingin Anda pantau.</p>
+                  </div>
+                  <div className="flex gap-sm">
+                    <button onClick={loadJadwal} className="bg-primary text-on-primary py-sm px-md rounded-lg font-label-md text-label-md hover:bg-on-primary-fixed-variant transition-colors flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[18px]">refresh</span> Refresh Jadwal
                     </button>
                   </div>
-                ))}
-              </div>
+                </div>
+
+                {isLoading ? <Loader text="Memuat jadwal ujian..." /> : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {jadwalAktif.map(j => (
+                      <div key={j.id_jadwal} className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
+                        <div>
+                          <h3 className="font-headline-sm text-headline-sm text-on-surface mb-1">{j.nama_mapel}</h3>
+                          <p className="font-mono-label text-mono-label text-on-surface-variant mb-4">{j.id_jadwal}</p>
+                          <div className="text-sm text-on-surface-variant mb-6 bg-surface p-4 rounded-xl border border-outline-variant">
+                            <div className="flex justify-between mb-1"><span>Mulai:</span> <span className="font-semibold text-on-surface">{new Date(j.waktu_mulai).toLocaleString()}</span></div>
+                            <div className="flex justify-between"><span>Selesai:</span> <span className="font-semibold text-on-surface">{new Date(j.waktu_selesai).toLocaleString()}</span></div>
+                          </div>
+                        </div>
+                        <button onClick={() => loadMonitoring(j.id_jadwal)} className="w-full bg-primary text-on-primary py-sm px-md rounded-lg font-label-md text-label-md hover:bg-on-primary-fixed-variant transition-colors flex justify-center items-center gap-2 shadow-sm">
+                          <span className="material-symbols-outlined text-[18px]">visibility</span> Monitor Kelas
+                        </button>
+                      </div>
+                    ))}
+                    {jadwalAktif.length === 0 && (
+                      <div className="col-span-full py-12 text-center text-on-surface-variant">Tidak ada jadwal ujian aktif saat ini.</div>
+                    )}
+                  </div>
+                )}
+              </>
             ) : (
               /* Area Monitoring Real-time */
-              <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden animate-fade-in-up">
-                <div className="p-6 md:p-8 bg-slate-900 text-white flex flex-col md:flex-row justify-between items-center gap-6">
+              <>
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-sm mb-lg">
                   <div>
-                    <h2 className="text-2xl font-bold flex items-center gap-3">
-                      <span className="relative flex h-3 w-3">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                      </span>
-                      Live Monitoring Siswa
-                    </h2>
-                    <p className="text-slate-400 text-sm mt-1">Sesi: {selectedJadwal}</p>
+                    <h1 className="font-headline-lg text-headline-lg text-on-surface">Live Monitoring</h1>
+                    <p className="font-body-md text-body-md text-on-surface-variant mt-1">Sesi: {selectedJadwal}</p>
                   </div>
-                  <div className="bg-white/10 p-4 rounded-2xl border border-white/20 text-center min-w-[200px]">
-                    <p className="text-sm text-slate-300 mb-1 font-medium">TOKEN AKTIF (Auto-Refresh)</p>
-                    <div className="text-4xl font-mono font-bold tracking-[0.25em] text-yellow-400 drop-shadow-md">{token}</div>
+                  <div className="flex gap-sm">
+                    <button onClick={() => setSelectedJadwal(null)} className="bg-surface-container-lowest border border-outline-variant text-on-surface py-sm px-md rounded-lg font-label-md text-label-md hover:bg-surface-container-low transition-colors flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[18px]">arrow_back</span> Kembali
+                    </button>
+                    <button onClick={() => loadMonitoring(selectedJadwal)} className="bg-primary-container text-on-primary-container py-sm px-md rounded-lg font-label-md text-label-md hover:bg-primary-fixed-dim transition-colors flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[18px]">refresh</span> Refresh
+                    </button>
                   </div>
                 </div>
 
-                <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-                  <button onClick={() => setSelectedJadwal(null)} className="text-slate-600 hover:text-slate-900 font-bold px-5 py-2.5 bg-white border border-slate-300 rounded-xl shadow-sm transition-colors">
-                    ← Kembali ke Jadwal
-                  </button>
-                  <button onClick={() => loadMonitoring(selectedJadwal)} className="text-blue-700 hover:text-blue-900 font-bold px-5 py-2.5 bg-blue-100 rounded-xl transition-colors">
-                    ↻ Refresh Tabel
-                  </button>
+                {/* Token Card */}
+                <div className="bg-primary text-on-primary rounded-xl p-lg md:p-xl shadow-[0_8px_16px_rgba(0,63,177,0.15)] relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-lg mb-gutter">
+                  <div className="absolute -right-20 -top-20 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl pointer-events-none"></div>
+                  <div className="flex flex-col gap-xs z-10 w-full md:w-auto text-center md:text-left">
+                    <h2 className="font-headline-sm text-headline-sm text-primary-fixed-dim">Token Ujian Aktif</h2>
+                    <div className="font-mono-label text-[48px] md:text-[64px] font-bold tracking-widest leading-none mt-2">
+                      {token}
+                    </div>
+                  </div>
+                  <div className="w-full md:w-1/3 flex flex-col gap-sm z-10 bg-primary-fixed-dim/20 p-md rounded-lg backdrop-blur-sm border border-primary-fixed-dim/30">
+                    <div className="flex justify-between mt-1">
+                      <p className="text-on-primary text-[12px] opacity-80">Token ini di-refresh secara otomatis.</p>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-slate-100/50 text-slate-600 text-sm uppercase tracking-wider">
-                        <th className="p-5 font-bold">Peserta</th>
-                        <th className="p-5 font-bold">Status</th>
-                        <th className="p-5 text-center font-bold">Pelanggaran</th>
-                        <th className="p-5 text-center font-bold">Skor Auto</th>
-                        <th className="p-5 text-center font-bold">Skor Uraian</th>
-                        <th className="p-5 text-right font-bold">Aksi</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {isLoading ? <tr><td colSpan="6"><Loader text="Menarik data kelas..." /></td></tr> :
-                        monitoringData.map((siswa) => (
-                          <tr key={siswa.id_siswa} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                            <td className="p-5">
-                              <div className="font-bold text-slate-900">{siswa.nama_lengkap}</div>
-                              <div className="text-xs text-slate-500 font-mono mt-1">{siswa.id_siswa}</div>
-                            </td>
-                            <td className="p-5">
-                              <span className={`px-4 py-1.5 rounded-full text-xs font-bold shadow-sm ${siswa.is_blocked ? 'bg-red-100 text-red-700 border border-red-200' :
-                                  siswa.status_ujian === 'SELESAI' ? 'bg-green-100 text-green-700 border border-green-200' :
-                                    siswa.status_ujian === 'SEDANG KERJA' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
-                                      'bg-slate-200 text-slate-700 border border-slate-300'
-                                }`}>
-                                {siswa.is_blocked ? 'TERBLOKIR' : siswa.status_ujian}
-                              </span>
-                            </td>
-                            <td className="p-5 text-center">
-                              <span className={`font-extrabold text-lg ${siswa.pelanggaran > 0 ? 'text-red-500' : 'text-slate-300'}`}>
-                                {siswa.pelanggaran} / 3
-                              </span>
-                            </td>
-                            <td className="p-5 text-center font-bold text-slate-800 text-lg">{siswa.nilai_auto || '-'}</td>
-                            <td className="p-5 text-center font-bold text-slate-800 text-lg">{siswa.nilai_uraian || '-'}</td>
-                            <td className="p-5 text-right space-x-2">
-                              {siswa.is_blocked && siswa.id_log && (
-                                <button onClick={() => unblockAkun(siswa.id_log)} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-bold shadow-md transition-transform active:scale-95">Buka Blokir</button>
-                              )}
-                              {siswa.status_ujian === 'SELESAI' && (
-                                <button onClick={() => setGradingModal({ isOpen: true, siswa, nilaiInput: siswa.nilai_uraian || '' })} className="px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 text-sm font-bold border border-indigo-200 transition-colors">Nilai Uraian</button>
-                              )}
-                            </td>
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
+                  {/* Left Column: Live Table */}
+                  <div className="col-span-1 lg:col-span-8 bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm flex flex-col overflow-hidden">
+                    <div className="p-md border-b border-outline-variant flex justify-between items-center bg-surface-container-low">
+                      <h3 className="font-headline-sm text-headline-sm text-on-surface flex items-center gap-2">
+                        <span className="material-symbols-outlined text-secondary">group</span> Status Peserta
+                      </h3>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left font-body-md text-body-md">
+                        <thead className="bg-surface-container text-on-surface-variant font-label-md text-label-md border-b border-outline-variant">
+                          <tr>
+                            <th className="py-3 px-md font-semibold">Peserta</th>
+                            <th className="py-3 px-md font-semibold text-center">Status & Pelanggaran</th>
+                            <th className="py-3 px-md font-semibold text-center">Skor (Auto / Uraian)</th>
+                            <th className="py-3 px-md font-semibold text-right">Aksi</th>
                           </tr>
-                        ))}
-                    </tbody>
-                  </table>
+                        </thead>
+                        <tbody className="divide-y divide-outline-variant">
+                          {isLoading ? <tr><td colSpan="4" className="py-12"><Loader text="Menarik data..." /></td></tr> :
+                           monitoringData.length > 0 ? monitoringData.map(siswa => (
+                             <tr key={siswa.id_siswa} className={`hover:bg-surface-container-low transition-colors group ${siswa.is_blocked ? 'bg-error-container/10' : ''}`}>
+                               <td className="py-sm px-md flex items-center gap-3">
+                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center font-label-md text-label-md font-bold ${siswa.is_blocked ? 'bg-error-container text-error' : 'bg-secondary-container text-on-secondary-container'}`}>
+                                   {siswa.nama_lengkap.substring(0, 2).toUpperCase()}
+                                 </div>
+                                 <div className="flex flex-col">
+                                   <span className={`font-semibold ${siswa.is_blocked ? 'text-error' : 'text-on-surface'}`}>{siswa.nama_lengkap}</span>
+                                   <span className="text-[12px] text-on-surface-variant">{siswa.id_siswa}</span>
+                                 </div>
+                               </td>
+                               <td className="py-sm px-md text-center">
+                                  <span className={`inline-flex items-center gap-1.5 py-1 px-2.5 rounded-full text-[12px] font-semibold mb-1 ${
+                                    siswa.is_blocked ? 'bg-error-container text-error border border-error/20' :
+                                    siswa.status_ujian === 'SELESAI' ? 'bg-surface-variant text-on-surface-variant border border-outline-variant' :
+                                    siswa.status_ujian === 'SEDANG KERJA' ? 'bg-[#e6f4ea] text-[#137333] border border-[#137333]/20' :
+                                    'bg-surface-container-high text-on-surface-variant border border-outline-variant'
+                                  }`}>
+                                    {siswa.is_blocked ? 'TERBLOKIR' : siswa.status_ujian}
+                                  </span>
+                                  {siswa.pelanggaran > 0 && (
+                                    <div className="text-[12px] text-error flex items-center justify-center gap-1">
+                                      <span className="material-symbols-outlined text-[14px]">warning</span>
+                                      {siswa.pelanggaran} / 3 Pelanggaran
+                                    </div>
+                                  )}
+                               </td>
+                               <td className="py-sm px-md text-center">
+                                 <div className="font-mono-label text-on-surface font-bold text-lg">{siswa.nilai_auto || '-'} <span className="text-on-surface-variant text-sm">/ {siswa.nilai_uraian || '-'}</span></div>
+                               </td>
+                               <td className="py-sm px-md text-right space-x-2">
+                                 {siswa.is_blocked && siswa.id_log && (
+                                    <button onClick={() => unblockAkun(siswa.id_log)} className="bg-error text-on-error py-1 px-3 rounded text-sm font-bold shadow-sm hover:opacity-90">Buka Blokir</button>
+                                 )}
+                                 {siswa.status_ujian === 'SELESAI' && (
+                                    <button onClick={() => setGradingModal({ isOpen: true, siswa, nilaiInput: siswa.nilai_uraian || '' })} className="bg-primary-container text-on-primary-container py-1 px-3 rounded text-sm font-bold shadow-sm hover:opacity-90 border border-primary-fixed-dim">Nilai Uraian</button>
+                                 )}
+                               </td>
+                             </tr>
+                           )) : (
+                             <tr>
+                               <td colSpan="4" className="py-8 text-center text-on-surface-variant">Belum ada data monitoring.</td>
+                             </tr>
+                           )
+                          }
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Stats */}
+                  <div className="col-span-1 lg:col-span-4 flex flex-col gap-gutter">
+                    <div className="grid grid-cols-2 gap-sm">
+                      <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex flex-col gap-xs shadow-sm">
+                        <div className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center mb-1">
+                          <span className="material-symbols-outlined text-secondary text-[18px]">group</span>
+                        </div>
+                        <span className="font-label-md text-label-md text-on-surface-variant">Total Peserta Sesi</span>
+                        <div className="flex items-baseline gap-1">
+                          <span className="font-headline-lg text-headline-lg text-on-surface">{monitoringData.length}</span>
+                        </div>
+                      </div>
+                      <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex flex-col gap-xs shadow-sm">
+                        <div className="w-8 h-8 rounded-full bg-[#e6f4ea] flex items-center justify-center mb-1">
+                          <span className="material-symbols-outlined text-[#137333] text-[18px]">task_alt</span>
+                        </div>
+                        <span className="font-label-md text-label-md text-on-surface-variant">Telah Selesai</span>
+                        <div className="flex items-baseline gap-1">
+                          <span className="font-headline-lg text-headline-lg text-[#137333]">{monitoringData.filter(s => s.status_ujian === 'SELESAI').length}</span>
+                        </div>
+                      </div>
+                    </div>
+                    {monitoringData.some(s => s.is_blocked) && (
+                      <div className="bg-error-container/20 border border-error-container rounded-xl p-md flex flex-col gap-sm shadow-sm relative overflow-hidden">
+                        <div className="absolute top-0 left-0 w-1 h-full bg-error"></div>
+                        <div className="flex items-center gap-2 text-error">
+                          <span className="material-symbols-outlined">warning</span>
+                          <h4 className="font-headline-sm text-headline-sm">Peringatan Sistem</h4>
+                        </div>
+                        <p className="font-body-md text-body-md text-on-surface-variant">
+                          Terdapat <strong className="text-error">{monitoringData.filter(s => s.is_blocked).length} siswa</strong> yang terblokir karena terindikasi curang atau keluar ujian.
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              </>
             )}
-          </div>
+          </main>
 
           {/* Modal Penilaian Uraian */}
           <Modal isOpen={gradingModal.isOpen} title={`Penilaian Uraian - ${gradingModal.siswa?.nama_lengkap}`} type="info" onClose={() => setGradingModal({ isOpen: false, siswa: null })}>
-            <div className="mt-4">
-              <label className="block text-sm font-bold text-slate-700 mb-2">Input Total Nilai Uraian (Angka):</label>
+            <div className="mt-4 text-left">
+              <label className="block font-label-md text-label-md text-on-surface mb-2">Input Total Nilai Uraian (Angka):</label>
               <input
                 type="number"
-                className="w-full p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-lg font-bold"
+                className="w-full pl-md pr-md py-sm bg-surface-container-lowest border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all mb-4"
                 value={gradingModal.nilaiInput}
                 onChange={(e) => setGradingModal({ ...gradingModal, nilaiInput: e.target.value })}
                 placeholder="Contoh: 85"
               />
-              <button onClick={submitNilaiUraian} className="mt-6 w-full py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg hover:bg-blue-700 transition-colors">
+              <button onClick={submitNilaiUraian} className="w-full bg-primary text-on-primary py-sm px-md rounded-lg font-label-md text-label-md hover:bg-on-primary-fixed-variant transition-colors shadow-sm">
                 Simpan Nilai
               </button>
             </div>
@@ -442,6 +721,7 @@
     const ExamRoom = ({ user, jadwal, idLog, showMessage, onFinish }) => {
       const [soal, setSoal] = useState([]);
       const [jawabanSiswa, setJawabanSiswa] = useState({});
+      const [raguRagu, setRaguRagu] = useState({});
       const [currentIndex, setCurrentIndex] = useState(0);
       const [isLoading, setIsLoading] = useState(true);
       const [violationCount, setViolationCount] = useState(0);
@@ -531,6 +811,10 @@
         });
       };
 
+      const toggleRaguRagu = (soalId) => {
+        setRaguRagu(prev => ({ ...prev, [soalId]: !prev[soalId] }));
+      };
+
       const requestSubmit = () => {
         setConfirmModal({ isOpen: true });
       };
@@ -573,136 +857,204 @@
           case 'PG':
           case 'BS':
             return s.opsi.map((op, idx) => (
-              <label key={idx} className={`block p-5 border-2 rounded-2xl mb-3 cursor-pointer transition-all ${currentAns === op ? 'bg-blue-50 border-blue-500 shadow-md transform scale-[1.01]' : 'bg-white border-slate-200 hover:border-blue-300 hover:bg-slate-50'}`}>
-                <div className="flex items-center">
-                  <input type="radio" name={s.id_soal} value={op} checked={currentAns === op} onChange={() => handleAnswerChange(s.id_soal, op, s.tipe_soal)} className="w-6 h-6 text-blue-600 border-slate-300" />
-                  <span className="ml-4 text-slate-700 text-lg font-medium">{op}</span>
-                </div>
+              <label key={idx} className={`flex items-center p-md border rounded-lg cursor-pointer transition-colors ${currentAns === op ? 'border-2 border-primary bg-primary-fixed shadow-[0_4px_8px_rgba(0,0,0,0.05)]' : 'border-outline-variant hover:bg-surface-container-low bg-surface-container-lowest'}`}>
+                <input type="radio" name={s.id_soal} value={op} checked={currentAns === op} onChange={() => handleAnswerChange(s.id_soal, op, s.tipe_soal)} className={`form-radio h-5 w-5 ${currentAns === op ? 'text-primary border-primary' : 'text-primary border-outline-variant'} focus:ring-primary focus:ring-offset-0`} />
+                <span className="ml-md font-body-lg text-body-lg text-on-surface flex-1">
+                  <span className="font-bold mr-sm">{String.fromCharCode(65 + idx)}.</span> {op}
+                </span>
               </label>
             ));
 
           case 'PGK':
-            return s.opsi.map((op, idx) => (
-              <label key={idx} className={`block p-5 border-2 rounded-2xl mb-3 cursor-pointer transition-all ${(currentAns.includes && currentAns.includes(op)) ? 'bg-indigo-50 border-indigo-500 shadow-md transform scale-[1.01]' : 'bg-white border-slate-200 hover:border-indigo-300'}`}>
-                <div className="flex items-center">
-                  <input type="checkbox" value={op} checked={currentAns.includes && currentAns.includes(op)} onChange={() => handleAnswerChange(s.id_soal, op, s.tipe_soal)} className="w-6 h-6 text-indigo-600 rounded border-slate-300" />
-                  <span className="ml-4 text-slate-700 text-lg font-medium">{op}</span>
-                </div>
-              </label>
-            ));
+            return s.opsi.map((op, idx) => {
+              const isChecked = currentAns.includes && currentAns.includes(op);
+              return (
+                <label key={idx} className={`flex items-center p-md border rounded-lg cursor-pointer transition-colors ${isChecked ? 'border-2 border-primary bg-primary-fixed shadow-[0_4px_8px_rgba(0,0,0,0.05)]' : 'border-outline-variant hover:bg-surface-container-low bg-surface-container-lowest'}`}>
+                  <input type="checkbox" value={op} checked={isChecked} onChange={() => handleAnswerChange(s.id_soal, op, s.tipe_soal)} className={`form-checkbox rounded h-5 w-5 ${isChecked ? 'text-primary border-primary' : 'text-primary border-outline-variant'} focus:ring-primary focus:ring-offset-0`} />
+                  <span className="ml-md font-body-lg text-body-lg text-on-surface flex-1">
+                    <span className="font-bold mr-sm">{String.fromCharCode(65 + idx)}.</span> {op}
+                  </span>
+                </label>
+              );
+            });
 
           case 'JODOH':
             return (
-              <div className="bg-orange-50 p-6 rounded-2xl border border-orange-200">
-                <p className="text-orange-800 font-semibold mb-4">🔗 Ketikkan pasangan yang tepat sesuai urutan instruksi di soal.</p>
-                <textarea rows="3" placeholder="Contoh: 1-A, 2-C, 3-B" value={currentAns} onChange={(e) => handleAnswerChange(s.id_soal, e.target.value, s.tipe_soal)} className="w-full p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none text-lg"></textarea>
+              <div className="bg-secondary-container p-md rounded-lg border border-outline-variant">
+                <p className="text-on-secondary-container font-label-md text-label-md mb-sm flex items-center gap-2"><span className="material-symbols-outlined text-[18px]">link</span> Ketikkan pasangan yang tepat sesuai urutan instruksi di soal.</p>
+                <textarea rows="3" placeholder="Contoh: 1-A, 2-C, 3-B" value={currentAns} onChange={(e) => handleAnswerChange(s.id_soal, e.target.value, s.tipe_soal)} className="w-full pl-md pr-md py-sm bg-surface-container-lowest border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"></textarea>
               </div>
             );
 
           case 'ISIAN':
           case 'URAIAN':
             return (
-              <textarea rows={s.tipe_soal === 'URAIAN' ? 8 : 2} placeholder="Ketik jawaban Anda di sini..." value={currentAns} onChange={(e) => handleAnswerChange(s.id_soal, e.target.value, s.tipe_soal)} className="w-full p-5 border-2 border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-lg"></textarea>
+              <textarea rows={s.tipe_soal === 'URAIAN' ? 8 : 2} placeholder="Ketik jawaban Anda di sini..." value={currentAns} onChange={(e) => handleAnswerChange(s.id_soal, e.target.value, s.tipe_soal)} className="w-full pl-md pr-md py-sm bg-surface-container-lowest border border-outline-variant rounded-lg font-body-md text-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"></textarea>
             );
 
-          default: return <p className="text-red-500 font-bold p-4 bg-red-50 rounded">⚠️ Tipe soal tidak didukung.</p>;
+          default: return <p className="text-error font-bold p-sm bg-error-container/20 rounded">⚠️ Tipe soal tidak didukung.</p>;
         }
       };
 
-      if (isLoading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center"><Loader text="Menyiapkan Soal dan Enkripsi Sesi..." /></div>;
-      if (isBlocked) return <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center space-y-4"><div className="text-6xl">⛔</div><h1 className="text-red-500 font-extrabold text-3xl">AKUN DIBLOKIR</h1><p className="text-slate-400">Hubungi pengawas untuk membuka akses.</p></div>;
+      if (isLoading) return <div className="min-h-screen bg-background flex flex-col items-center justify-center"><Loader text="Menyiapkan Soal dan Enkripsi Sesi..." /></div>;
+      if (isBlocked) return (
+        <div className="min-h-screen bg-error flex flex-col items-center justify-center space-y-4">
+          <span className="material-symbols-outlined text-[80px] text-on-error">block</span>
+          <h1 className="text-on-error font-headline-lg text-headline-lg font-bold">AKUN DIBLOKIR</h1>
+          <p className="text-on-error font-body-lg text-body-lg">Sistem mendeteksi kecurangan. Hubungi pengawas untuk membuka akses.</p>
+        </div>
+      );
 
       const currentS = soal[currentIndex];
 
+      const answeredCount = soal.filter(s => {
+          const ans = jawabanSiswa[s.id_soal];
+          return ans && (Array.isArray(ans) ? ans.length > 0 : String(ans).trim() !== '');
+      }).length;
+      const flaggedCount = Object.values(raguRagu).filter(Boolean).length;
+      const unansweredCount = soal.length - answeredCount;
+
       return (
-        <div className="min-h-screen bg-slate-100 flex flex-col select-none overflow-hidden" ref={examContainerRef} onClick={enforceFullscreen}>
-          {/* Header Bar */}
-          <div className="bg-slate-900 text-white p-4 shadow-xl flex justify-between items-center z-10">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center font-bold text-xl shadow-lg border border-blue-400">AKM</div>
-              <div>
-                <h2 className="text-xl font-bold tracking-wide">{jadwal.nama_mapel}</h2>
-                <p className="text-sm text-slate-400 font-medium">{user.nama_lengkap} ({user.id_user})</p>
-              </div>
+        <div className="font-body-md text-body-md text-on-background bg-background h-screen flex flex-col overflow-hidden select-none" ref={examContainerRef} onClick={enforceFullscreen}>
+          {/* TopNavBar */}
+          <header className="fixed top-0 w-full z-50 flex justify-between items-center px-lg h-20 bg-primary shadow-md">
+            <div className="flex items-center gap-md">
+              <img alt="NEXA Logo" className="h-10 w-auto object-contain hidden md:block" src="https://lh3.googleusercontent.com/aida/AEtjO1VVZfSUCXhHzY1X0SeCMcnnfH7eVLHQqeKZRoS92h6LX1juBz1mnHDbVWx1-Ba6QJacojgIbeoyE3UGy8T6Tb1_zTR54w2rmJiBCsvoFvsirZvz0_Sze5GuvCCAGNsKINOED0RXdkwpJDJinvxgu4KYdM823w67kkw4wzY5RntMk58ZhF_-cEiEvWXFYy34ycs42ktHbpwy_GH_ydOPW5eO4S5k_plk9debDcu5KRZwhT3Qv_0W8MX-"/>
+              <div className="font-headline-sm text-headline-sm text-on-primary font-bold md:hidden">NEXA</div>
             </div>
-
-            <div className="flex items-center gap-6">
-              <div className="flex flex-col items-end">
-                <span className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Sisa Waktu</span>
-                <div className={`text-2xl font-mono font-bold ${timeLeft.total < 300000 ? 'text-red-400 animate-pulse' : 'text-emerald-400'}`}>
-                  {String(timeLeft.hours).padStart(2, '0')}:{String(timeLeft.minutes).padStart(2, '0')}:{String(timeLeft.seconds).padStart(2, '0')}
-                </div>
+            <div className="flex items-center gap-md md:gap-xl text-on-primary">
+              <div className="flex flex-col items-end hidden sm:flex">
+                <span className="font-label-md text-label-md text-primary-fixed-dim">{user.nama_lengkap}</span>
+                <span className="font-label-md text-label-md text-primary-fixed-dim">ID: {user.id_user}</span>
               </div>
-              <div className="h-10 w-px bg-slate-700 mx-2"></div>
-              <div className="bg-slate-800 text-slate-300 px-4 py-2 rounded-xl font-bold border border-slate-700 flex flex-col items-center">
-                <span className="text-[10px] uppercase tracking-widest text-slate-500 mb-0.5">Pelanggaran</span>
-                <span className={violationCount > 0 ? 'text-red-400' : 'text-white'}>{violationCount} / 3</span>
+              <div className="h-8 w-px bg-primary-fixed-dim opacity-50 hidden sm:block"></div>
+              <div className="font-body-lg text-body-lg text-on-primary font-semibold hidden md:block max-w-[200px] truncate">{jadwal.nama_mapel}</div>
+              <div className="h-8 w-px bg-primary-fixed-dim opacity-50 hidden md:block"></div>
+              <div className={`font-headline-sm text-headline-sm ${timeLeft.total < 300000 ? 'text-error-container animate-pulse' : 'text-on-primary'} font-bold flex items-center gap-xs`}>
+                <span className="material-symbols-outlined" style={{fontVariationSettings: "'FILL' 1"}}>timer</span>
+                {String(timeLeft.hours).padStart(2, '0')}:{String(timeLeft.minutes).padStart(2, '0')}:{String(timeLeft.seconds).padStart(2, '0')}
               </div>
+              <button onClick={requestSubmit} className="font-label-md text-label-md text-on-primary font-bold hover:opacity-90 active:scale-95 transition-transform ml-sm md:ml-md bg-error text-on-error px-md py-sm rounded">Selesai</button>
             </div>
-          </div>
-
-          <div className="flex-1 flex flex-col md:flex-row h-[calc(100vh-80px)]">
-            {/* Main Workspace */}
-            <div className="flex-1 p-6 md:p-10 overflow-y-auto bg-slate-50">
-              {currentS ? (
-                <div className="max-w-4xl mx-auto bg-white p-8 md:p-12 rounded-[2rem] shadow-sm border border-slate-200">
-                  <div className="flex justify-between items-center mb-8 pb-6 border-b border-slate-100">
-                    <span className="bg-blue-50 text-blue-700 text-sm font-extrabold px-4 py-1.5 rounded-full border border-blue-200 tracking-wide">
-                      Tipe: {currentS.tipe_soal}
-                    </span>
-                    <span className="bg-amber-50 text-amber-700 text-sm font-extrabold px-4 py-1.5 rounded-full border border-amber-200 tracking-wide">
-                      Bobot: {currentS.bobot} Poin
-                    </span>
-                  </div>
-                  <div className="text-2xl text-slate-800 mb-10 leading-relaxed font-semibold">
-                    {currentS.pertanyaan}
-                  </div>
-                  <div className="space-y-3">
-                    {renderQuestionInput(currentS)}
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center text-slate-500 py-20 font-bold text-xl">Tidak ada soal yang tersedia.</div>
-              )}
-            </div>
-
-            {/* Sidebar Navigasi */}
-            <div className="w-full md:w-80 bg-white border-l border-slate-200 p-6 shadow-xl flex flex-col z-10">
-              <h3 className="font-extrabold text-slate-800 mb-6 uppercase tracking-wider text-sm flex items-center justify-between">
-                <span>Navigasi Soal</span>
-                <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded-md text-xs">{soal.length} Total</span>
-              </h3>
-
-              <div className="grid grid-cols-5 gap-2.5 overflow-y-auto flex-1 content-start pr-2 custom-scrollbar">
+          </header>
+          
+          <div className="flex flex-1 pt-20 h-full">
+            {/* SideNavBar */}
+            <aside className="hidden md:flex fixed left-0 mt-20 w-80 h-[calc(100vh-80px)] border-r border-outline-variant bg-surface flex-col p-md overflow-y-auto sidebar-scroll z-40">
+              <div className="mb-md">
+                <h2 className="font-label-md text-label-md text-on-surface font-bold">Navigasi Soal</h2>
+                <p className="font-label-md text-label-md text-on-surface-variant font-normal">Klik nomor untuk pindah soal</p>
+                {violationCount > 0 && (
+                   <p className="font-label-md text-label-md text-error mt-2 font-bold flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[16px]">warning</span> Pelanggaran: {violationCount} / 3
+                   </p>
+                )}
+              </div>
+              <div className="grid grid-cols-6 gap-sm mb-lg">
                 {soal.map((s, idx) => {
-                  const hasAnswered = !!jawabanSiswa[s.id_soal] && (Array.isArray(jawabanSiswa[s.id_soal]) ? jawabanSiswa[s.id_soal].length > 0 : String(jawabanSiswa[s.id_soal]).trim() !== '');
+                  const ans = jawabanSiswa[s.id_soal];
+                  const hasAnswered = !!ans && (Array.isArray(ans) ? ans.length > 0 : String(ans).trim() !== '');
+                  const isFlagged = raguRagu[s.id_soal];
+                  
+                  let btnClass = "w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center cursor-pointer transition-all ";
+                  
+                  if (currentIndex === idx) {
+                    btnClass += "bg-primary text-on-primary ring-2 ring-primary ring-offset-2";
+                  } else if (isFlagged) {
+                    btnClass += "bg-[#D97706] text-white"; // flagged color
+                  } else if (hasAnswered) {
+                    btnClass += "bg-[#10B981] text-white"; // answered color
+                  } else {
+                    btnClass += "border border-outline-variant text-on-surface hover:border-primary hover:text-primary";
+                  }
+                  
                   return (
-                    <button
-                      key={s.id_soal}
-                      onClick={() => setCurrentIndex(idx)}
-                      className={`aspect-square rounded-xl font-bold flex items-center justify-center transition-all transform hover:scale-105 shadow-sm border-2 ${currentIndex === idx ? 'bg-blue-600 text-white border-blue-700 ring-4 ring-blue-100' :
-                          hasAnswered ? 'bg-emerald-50 text-emerald-600 border-emerald-300' :
-                            'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
-                        }`}
-                    >
+                    <button key={s.id_soal} onClick={() => setCurrentIndex(idx)} className={btnClass}>
                       {idx + 1}
                     </button>
                   );
                 })}
               </div>
-
-              <div className="mt-6 pt-6 border-t border-slate-100">
-                <button onClick={requestSubmit} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-extrabold text-lg hover:bg-black transition-colors shadow-xl shadow-slate-900/20 active:scale-95">
-                  SELESAI & KUMPULKAN
-                </button>
+              <div className="mt-auto pt-md border-t border-outline-variant">
+                <div className="flex items-center gap-sm mb-xs">
+                  <div className="w-4 h-4 bg-[#10B981] rounded-sm"></div>
+                  <span className="font-label-md text-label-md text-on-surface-variant">Terjawab ({answeredCount})</span>
+                </div>
+                <div className="flex items-center gap-sm mb-xs">
+                  <div className="w-4 h-4 bg-[#D97706] rounded-sm"></div>
+                  <span className="font-label-md text-label-md text-on-surface-variant">Ragu-ragu ({flaggedCount})</span>
+                </div>
+                <div className="flex items-center gap-sm mb-xs">
+                  <div className="w-4 h-4 border border-outline-variant rounded-sm bg-white"></div>
+                  <span className="font-label-md text-label-md text-on-surface-variant">Belum Dijawab ({unansweredCount})</span>
+                </div>
+                <div className="flex items-center gap-sm">
+                  <div className="w-4 h-4 bg-primary rounded-sm ring-1 ring-primary ring-offset-1"></div>
+                  <span className="font-label-md text-label-md text-on-surface-variant">Posisi Saat Ini</span>
+                </div>
               </div>
-            </div>
+            </aside>
+
+            {/* Main Content (Canvas) */}
+            <main className="flex-1 md:ml-80 flex flex-col bg-background relative overflow-y-auto pb-24">
+              <div className="max-w-[1200px] mx-auto w-full p-md md:p-xl mt-sm md:mt-lg">
+                {currentS ? (
+                  <div className="bg-surface-container-lowest border-2 border-primary rounded-lg p-md md:p-xl shadow-sm mb-xl">
+                    <div className="flex justify-between items-center mb-md pb-md border-b border-outline-variant">
+                      <span className="font-headline-md text-headline-md text-on-surface">Soal No. {currentIndex + 1}</span>
+                      <div className="flex items-center gap-sm bg-surface-container py-xs px-sm rounded-full">
+                        <span className="material-symbols-outlined text-secondary" style={{fontSize: "16px"}}>category</span>
+                        <span className="font-label-md text-label-md text-secondary uppercase">{currentS.tipe_soal}</span>
+                      </div>
+                    </div>
+                    <div className="font-question-text text-question-text text-on-surface mb-xl whitespace-pre-wrap">
+                      {currentS.pertanyaan}
+                    </div>
+                    {/* Options */}
+                    <div className="space-y-sm">
+                      {renderQuestionInput(currentS)}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center text-on-surface-variant py-20 font-bold text-xl">Tidak ada soal yang tersedia.</div>
+                )}
+              </div>
+              
+              {/* Bottom Action Bar */}
+              {currentS && (
+                <div className="fixed bottom-0 md:left-80 left-0 right-0 h-20 bg-surface-container-lowest border-t border-outline-variant px-md md:px-xl flex items-center justify-between shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-40">
+                  <button 
+                    onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
+                    disabled={currentIndex === 0}
+                    className="flex items-center gap-xs px-md md:px-lg py-sm border-2 border-primary text-primary font-body-md text-body-md font-semibold rounded hover:bg-primary-fixed transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    <span className="material-symbols-outlined">arrow_back</span>
+                    <span className="hidden sm:inline">Sebelumnya</span>
+                  </button>
+                  <div className="flex items-center gap-md md:gap-lg">
+                    <label className="flex items-center cursor-pointer gap-sm group">
+                      <div className="relative flex items-center justify-center w-6 h-6 border-2 border-outline-variant rounded group-hover:border-[#D97706] transition-colors">
+                        <input type="checkbox" checked={raguRagu[currentS.id_soal] || false} onChange={() => toggleRaguRagu(currentS.id_soal)} className="absolute opacity-0 w-full h-full cursor-pointer peer"/>
+                        <span className="material-symbols-outlined text-[#D97706] opacity-0 peer-checked:opacity-100 transition-opacity" style={{fontSize: "20px", fontVariationSettings: "'FILL' 1"}}>check</span>
+                      </div>
+                      <span className="font-body-md text-body-md text-on-surface group-hover:text-[#D97706] transition-colors hidden sm:inline">Tandai Ragu-ragu</span>
+                    </label>
+                    <button 
+                      onClick={() => setCurrentIndex(Math.min(soal.length - 1, currentIndex + 1))}
+                      disabled={currentIndex === soal.length - 1}
+                      className="flex items-center gap-xs px-md md:px-lg py-sm bg-primary text-on-primary font-body-md text-body-md font-semibold rounded hover:bg-on-primary-fixed-variant transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                      <span className="hidden sm:inline">Selanjutnya</span>
+                      <span className="material-symbols-outlined">arrow_forward</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </main>
           </div>
 
           <Modal
             isOpen={confirmModal.isOpen}
             title="Konfirmasi Pengumpulan"
-            message="Yakin ingin mengumpulkan ujian sekarang? Waktu Anda masih tersisa. Anda tidak bisa kembali setelah menekan tombol Kumpulkan."
+            message={`Anda telah menjawab ${answeredCount} dari ${soal.length} soal. Yakin ingin mengumpulkan ujian sekarang? Waktu Anda masih tersisa. Anda tidak bisa kembali setelah menekan tombol Kumpulkan.`}
             type="warning"
             onClose={() => setConfirmModal({ isOpen: false })}
             onConfirm={() => executeSubmitExam(false)}
@@ -770,84 +1122,112 @@
       }
 
       return (
-        <div className="min-h-screen bg-slate-50 p-6 md:p-12">
-          <div className="max-w-6xl mx-auto">
-            <div className="flex flex-col md:flex-row justify-between items-center mb-10 bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-2 h-full bg-blue-600"></div>
-              <div>
-                <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Portal Peserta Didik</h1>
-                <p className="text-slate-500 mt-2 font-medium">Selamat datang kembali, <span className="text-blue-600 font-bold">{user.nama_lengkap}</span></p>
+        <div className="bg-background text-on-background min-h-screen font-body-md text-body-md antialiased selection:bg-primary-container selection:text-on-primary-container flex flex-col">
+          {/* TopNavBar */}
+          <nav className="bg-surface fixed top-0 w-full z-50 flex justify-between items-center px-lg h-16 border-b border-outline-variant">
+            <div className="flex items-center gap-xl">
+              <div className="flex items-center h-8">
+                  <img src="https://lh3.googleusercontent.com/aida/AEtjO1VVZfSUCXhHzY1X0SeCMcnnfH7eVLHQqeKZRoS92h6LX1juBz1mnHDbVWx1-Ba6QJacojgIbeoyE3UGy8T6Tb1_zTR54w2rmJiBCsvoFvsirZvz0_Sze5GuvCCAGNsKINOED0RXdkwpJDJinvxgu4KYdM823w67kkw4wzY5RntMk58ZhF_-cEiEvWXFYy34ycs42ktHbpwy_GH_ydOPW5eO4S5k_plk9debDcu5KRZwhT3Qv_0W8MX-" alt="NEXA Logo" className="h-full w-auto object-contain" />
               </div>
-              <button onClick={onLogout} className="mt-6 md:mt-0 px-6 py-3 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-colors shadow-sm">Keluar Akun</button>
+              <div className="hidden md:flex items-center h-full gap-lg">
+                <a className="h-16 flex items-center text-primary font-bold border-b-2 border-primary font-label-md text-label-md" href="#">Portal Ujian Siswa</a>
+              </div>
+            </div>
+            <div className="flex items-center gap-md">
+              <div className="ml-sm flex items-center gap-sm cursor-pointer">
+                <div className="flex flex-col items-end">
+                  <span className="text-sm font-bold text-slate-700 hidden sm:block">{user.nama_lengkap}</span>
+                  <span className="text-[10px] text-slate-500 hidden sm:block uppercase font-bold tracking-wider">{user.id_user}</span>
+                </div>
+              </div>
+              <button onClick={onLogout} className="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-error-container/20 hover:text-error transition-colors cursor-pointer active:opacity-80 transition-all" title="Logout">
+                <span className="material-symbols-outlined">logout</span>
+              </button>
+            </div>
+          </nav>
+
+          {/* Main Content Canvas */}
+          <main className="pt-[96px] px-md md:px-lg max-w-container-max mx-auto space-y-gutter pb-xl flex-1 w-full">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-sm mb-lg">
+              <div>
+                <h1 className="font-headline-lg text-headline-lg text-on-surface flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary text-[32px]">menu_book</span> Daftar Ujian Tersedia
+                </h1>
+                <p className="font-body-md text-body-md text-on-surface-variant mt-1">Pilih jadwal ujian dan masukkan token dari pengawas untuk memulai.</p>
+              </div>
+              <div className="flex gap-sm">
+                <button onClick={loadJadwal} className="bg-primary text-on-primary py-sm px-md rounded-lg font-label-md text-label-md hover:bg-on-primary-fixed-variant transition-colors flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[18px]">refresh</span> Refresh Jadwal
+                </button>
+              </div>
             </div>
 
-            <h2 className="text-2xl font-extrabold text-slate-800 mb-6 flex items-center gap-3">
-              📚 Daftar Ujian Tersedia
-            </h2>
-
             {isLoading ? <Loader text="Menyinkronkan jadwal..." /> : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {jadwal.map(j => (
-                  <div key={j.id_jadwal} className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-200 relative overflow-hidden flex flex-col transition-transform hover:-translate-y-1 hover:shadow-lg">
-                    <div className={`absolute top-0 left-0 w-full h-2 ${j.status_siswa === 'SELESAI' ? 'bg-emerald-500' : j.status_siswa === 'SEDANG KERJA' ? 'bg-amber-500' : 'bg-blue-600'}`}></div>
+                  <div key={j.id_jadwal} className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow flex flex-col relative overflow-hidden">
+                    <div className={`absolute top-0 left-0 w-full h-1 ${j.status_siswa === 'SELESAI' ? 'bg-[#10B981]' : j.status_siswa === 'SEDANG KERJA' ? 'bg-[#D97706]' : 'bg-primary'}`}></div>
 
-                    <h3 className="text-2xl font-extrabold text-slate-800 mb-3">{j.nama_mapel}</h3>
-                    <div className="flex items-center gap-2 mb-6">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${j.status_siswa === 'SELESAI' ? 'bg-emerald-100 text-emerald-700' :
-                          j.status_siswa === 'SEDANG KERJA' ? 'bg-amber-100 text-amber-700' :
-                            'bg-slate-100 text-slate-600'
+                    <h3 className="font-headline-sm text-headline-sm text-on-surface mb-2 pt-2">{j.nama_mapel}</h3>
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${j.status_siswa === 'SELESAI' ? 'bg-[#10B981]/10 text-[#10B981]' :
+                          j.status_siswa === 'SEDANG KERJA' ? 'bg-[#D97706]/10 text-[#D97706]' :
+                            'bg-surface-variant text-on-surface-variant'
                         }`}>
                         Status: {j.status_siswa}
                       </span>
                     </div>
 
-                    <div className="text-sm text-slate-600 mb-8 space-y-2 bg-slate-50 p-5 rounded-2xl border border-slate-100 flex-1">
-                      <div className="flex justify-between items-center border-b border-slate-200 pb-2">
-                        <span className="font-medium">Jadwal Buka</span>
-                        <span className="font-bold text-slate-800">{new Date(j.waktu_mulai).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    <div className="font-body-md text-body-md text-on-surface-variant mb-6 space-y-2 bg-surface-container-low p-4 rounded-xl border border-outline-variant flex-1">
+                      <div className="flex justify-between items-center border-b border-outline-variant pb-2">
+                        <span className="font-medium flex items-center gap-1"><span className="material-symbols-outlined text-[16px]">schedule</span> Buka</span>
+                        <span className="font-bold text-on-surface">{new Date(j.waktu_mulai).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
                       <div className="flex justify-between items-center pt-1">
-                        <span className="font-medium">Batas Tutup</span>
-                        <span className="font-bold text-red-600">{new Date(j.waktu_selesai).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        <span className="font-medium flex items-center gap-1"><span className="material-symbols-outlined text-[16px]">timer_off</span> Tutup</span>
+                        <span className="font-bold text-error">{new Date(j.waktu_selesai).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
                     </div>
 
                     {j.status_siswa !== 'SELESAI' ? (
                       selectedJadwalUntukToken === j.id_jadwal ? (
-                        <div className="animate-fade-in-up bg-blue-50 p-4 rounded-2xl border border-blue-100">
+                        <div className="animate-fade-in-up bg-primary-fixed/30 p-4 rounded-xl border border-primary-fixed-dim">
                           <input
                             type="text"
-                            placeholder="Ketik 6 Digit Token"
-                            className="w-full text-center tracking-[0.3em] font-mono font-bold text-2xl p-4 border border-blue-300 rounded-xl mb-3 focus:ring-4 focus:ring-blue-500/20 outline-none uppercase bg-white shadow-inner"
+                            placeholder="6 DIGIT TOKEN"
+                            className="w-full text-center tracking-[0.3em] font-mono font-bold text-xl p-3 border border-primary/30 rounded-lg mb-3 focus:ring-2 focus:ring-primary outline-none uppercase bg-surface-container-lowest"
                             value={inputToken}
                             onChange={(e) => setInputToken(e.target.value)}
                             maxLength={6}
                           />
-                          <div className="flex gap-3">
-                            <button onClick={() => setSelectedJadwalUntukToken(null)} className="flex-1 py-3 bg-white text-slate-600 rounded-xl font-bold hover:bg-slate-100 border border-slate-200 transition-colors">Batal</button>
-                            <button onClick={() => handleMulaiUjian(j)} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg transition-transform active:scale-95">MASUK</button>
+                          <div className="flex gap-2">
+                            <button onClick={() => setSelectedJadwalUntukToken(null)} className="flex-1 py-2 bg-surface-container-lowest text-on-surface-variant rounded-lg font-label-md text-label-md hover:bg-surface-container-low border border-outline-variant transition-colors">Batal</button>
+                            <button onClick={() => handleMulaiUjian(j)} className="flex-1 py-2 bg-primary text-on-primary rounded-lg font-label-md text-label-md hover:bg-on-primary-fixed-variant shadow-sm transition-transform active:scale-95">Masuk Ujian</button>
                           </div>
                         </div>
                       ) : (
                         <button
                           onClick={() => setSelectedJadwalUntukToken(j.id_jadwal)}
-                          className={`w-full py-4 rounded-2xl font-extrabold transition-all shadow-md active:scale-95 border ${j.status_siswa === 'SEDANG KERJA' ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200' : 'bg-slate-900 text-white hover:bg-black border-transparent'
+                          className={`w-full py-3 rounded-xl font-label-md text-label-md transition-all shadow-sm active:scale-95 border ${j.status_siswa === 'SEDANG KERJA' ? 'bg-[#D97706]/10 text-[#D97706] hover:bg-[#D97706]/20 border-[#D97706]/30' : 'bg-primary text-on-primary hover:bg-on-primary-fixed-variant border-transparent'
                             }`}
                         >
                           {j.status_siswa === 'SEDANG KERJA' ? 'LANJUTKAN UJIAN' : 'MULAI KERJAKAN'}
                         </button>
                       )
                     ) : (
-                      <button disabled className="w-full py-4 bg-slate-100 text-slate-400 rounded-2xl font-bold cursor-not-allowed border border-slate-200 flex flex-col items-center">
+                      <div className="w-full py-3 bg-surface-container text-on-surface-variant rounded-xl font-label-md text-label-md border border-outline-variant flex flex-col items-center">
                         <span>SUDAH DISELESAIKAN</span>
-                        <span className="text-xs font-normal mt-1">Nilai Objektif: {j.nilai_auto || 0}</span>
-                      </button>
+                        <span className="text-[12px] font-normal mt-1 text-on-surface font-bold">Skor Objektif: {j.nilai_auto || 0}</span>
+                      </div>
                     )}
                   </div>
                 ))}
+                {jadwal.length === 0 && (
+                  <div className="col-span-full py-12 text-center font-body-md text-on-surface-variant">Tidak ada jadwal ujian saat ini.</div>
+                )}
               </div>
             )}
-          </div>
+          </main>
         </div>
       );
     };
@@ -857,6 +1237,7 @@
     // ==========================================
     const App = () => {
       const [user, setUser] = useState(null);
+      const [isRegistering, setIsRegistering] = useState(false);
       const [loading, setLoading] = useState(false);
 
       const [username, setUsername] = useState('');
@@ -889,51 +1270,117 @@
 
       const renderView = () => {
         if (!user) {
+          const onLoginSubmit = (e) => {
+            e.preventDefault();
+            handleLogin(e);
+          };
+
+          const onRegisterSubmit = (e) => {
+            e.preventDefault();
+            showMessage('Pendaftaran Ditutup', 'Silakan hubungi administrator sekolah untuk membuat akun baru.', 'warning');
+          };
+
           return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4 relative overflow-hidden">
-              <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-600 rounded-full mix-blend-multiply filter blur-[100px] opacity-30 animate-pulse"></div>
-              <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-purple-600 rounded-full mix-blend-multiply filter blur-[100px] opacity-30 animate-pulse delay-1000"></div>
-
-              <div className="bg-white/95 backdrop-blur-xl p-8 md:p-12 rounded-[2.5rem] shadow-2xl w-full max-w-md relative z-10 border border-white/20">
-                <div className="text-center mb-10">
-                  <div className="w-20 h-20 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-blue-500/30 transform rotate-3 hover:rotate-0 transition-transform">
-                    <span className="text-white text-3xl font-extrabold tracking-tighter">CBT</span>
+            <div className="min-h-screen flex items-center justify-center bg-surface p-lg sm:p-xl md:p-gutter">
+              <div className="w-full max-w-[500px] border border-outline-variant rounded-lg bg-surface-container-lowest shadow-xl overflow-hidden relative">
+                <div className={`form-slider ${isRegistering ? 'show-register' : ''}`}>
+                  {/* MASUK FORM PANE */}
+                  <div className="form-pane p-lg flex flex-col">
+                    <div className="mb-lg">
+                      <h2 className="font-headline-md text-on-surface flex items-center gap-xs">
+                        <img alt="NEXA Logo" className="w-8 h-8 object-contain rounded" src="https://lh3.googleusercontent.com/aida/AEtjO1VVZfSUCXhHzY1X0SeCMcnnfH7eVLHQqeKZRoS92h6LX1juBz1mnHDbVWx1-Ba6QJacojgIbeoyE3UGy8T6Tb1_zTR54w2rmJiBCsvoFvsirZvz0_Sze5GuvCCAGNsKINOED0RXdkwpJDJinvxgu4KYdM823w67kkw4wzY5RntMk58ZhF_-cEiEvWXFYy34ycs42ktHbpwy_GH_ydOPW5eO4S5k_plk9debDcu5KRZwhT3Qv_0W8MX-" />
+                        NEXA
+                      </h2>
+                      <p className="font-body-md text-on-surface-variant mt-xs">Silakan masuk ke akun Anda.</p>
+                    </div>
+                    <form onSubmit={onLoginSubmit} className="flex flex-col gap-md">
+                      <div className="flex flex-col gap-xs mb-xs">
+                        <span className="font-label-md text-on-surface">Masuk Sebagai</span>
+                        <div className="flex gap-sm">
+                          {['siswa', 'guru', 'admin'].map(r => (
+                            <label key={r} className="flex-1 cursor-pointer">
+                              <input defaultChecked={r === 'siswa'} className="peer sr-only" name="login-role" type="radio" value={r} />
+                              <div className="w-full text-center py-xs px-sm rounded-DEFAULT border border-outline-variant text-on-surface-variant font-label-md peer-checked:border-primary peer-checked:bg-primary-fixed peer-checked:text-on-primary-fixed-variant transition-all capitalize">{r}</div>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-xs">
+                        <label className="font-label-md text-on-surface" htmlFor="login-username">Username / NISN</label>
+                        <div className="relative flex items-center">
+                          <span className="material-symbols-outlined absolute left-sm text-outline">person</span>
+                          <input required value={username} onChange={e => setUsername(e.target.value)} className="academic-input w-full pl-[40px] pr-sm py-sm rounded-DEFAULT border border-outline-variant bg-surface-container-lowest text-body-md text-on-surface placeholder:text-outline-variant transition-colors" id="login-username" placeholder="Masukkan Username atau NISN" type="text" />
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-xs">
+                        <label className="font-label-md text-on-surface" htmlFor="login-password">Password</label>
+                        <div className="relative flex items-center">
+                          <span className="material-symbols-outlined absolute left-sm text-outline">lock</span>
+                          <input required value={password} onChange={e => setPassword(e.target.value)} className="academic-input w-full pl-[40px] pr-sm py-sm rounded-DEFAULT border border-outline-variant bg-surface-container-lowest text-body-md text-on-surface placeholder:text-outline-variant transition-colors" id="login-password" placeholder="••••••••" type="password" />
+                        </div>
+                      </div>
+                      <div className="flex justify-end mb-sm">
+                        <a className="font-body-md text-primary font-medium hover:text-primary-container transition-colors" href="#">Lupa Password?</a>
+                      </div>
+                      <button disabled={loading} className="w-full bg-primary text-on-primary font-label-md py-sm rounded-DEFAULT hover:bg-primary-container transition-colors shadow-sm active:scale-[0.99] flex justify-center items-center gap-xs mt-auto disabled:opacity-70" type="submit">
+                        {loading ? <div className="w-5 h-5 border-2 border-primary-fixed border-t-white rounded-full animate-spin"></div> : (
+                          <>Masuk Sekarang <span className="material-symbols-outlined text-[18px]">arrow_forward</span></>
+                        )}
+                      </button>
+                    </form>
+                    <p className="text-center font-body-md text-on-surface-variant mt-md">
+                      Belum punya akun? <button onClick={() => setIsRegistering(true)} className="text-primary hover:underline font-medium" type="button">Daftar</button>
+                    </p>
                   </div>
-                  <h1 className="text-3xl font-extrabold text-slate-800 mb-2 tracking-tight">AKM Terpadu</h1>
-                  <p className="text-slate-500 font-medium">Masuk untuk memulai sesi Anda</p>
+
+                  {/* DAFTAR FORM PANE */}
+                  <div className="form-pane p-lg flex flex-col">
+                    <div className="mb-lg">
+                      <h2 className="font-headline-md text-on-surface flex items-center gap-xs">
+                        <img alt="NEXA Logo" className="w-8 h-8 object-contain rounded" src="https://lh3.googleusercontent.com/aida/AEtjO1VVZfSUCXhHzY1X0SeCMcnnfH7eVLHQqeKZRoS92h6LX1juBz1mnHDbVWx1-Ba6QJacojgIbeoyE3UGy8T6Tb1_zTR54w2rmJiBCsvoFvsirZvz0_Sze5GuvCCAGNsKINOED0RXdkwpJDJinvxgu4KYdM823w67kkw4wzY5RntMk58ZhF_-cEiEvWXFYy34ycs42ktHbpwy_GH_ydOPW5eO4S5k_plk9debDcu5KRZwhT3Qv_0W8MX-" />
+                        NEXA
+                      </h2>
+                      <p className="font-body-md text-on-surface-variant mt-xs">Buat akun baru Anda.</p>
+                    </div>
+                    <form onSubmit={onRegisterSubmit} className="flex flex-col gap-md flex-1">
+                      <div className="flex flex-col gap-xs mb-xs">
+                        <span className="font-label-md text-on-surface">Daftar Sebagai</span>
+                        <div className="flex gap-sm">
+                          {['siswa', 'guru', 'admin'].map(r => (
+                            <label key={r} className="flex-1 cursor-pointer">
+                              <input defaultChecked={r === 'siswa'} className="peer sr-only" name="reg-role" type="radio" value={r} />
+                              <div className="w-full text-center py-xs px-sm rounded-DEFAULT border border-outline-variant text-on-surface-variant font-label-md peer-checked:border-primary peer-checked:bg-primary-fixed peer-checked:text-on-primary-fixed-variant transition-all capitalize">{r}</div>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-xs">
+                        <label className="font-label-md text-on-surface" htmlFor="reg-name">Nama Lengkap</label>
+                        <input className="academic-input w-full px-sm py-sm rounded-DEFAULT border border-outline-variant bg-surface-container-lowest text-body-md text-on-surface placeholder:text-outline-variant transition-colors" id="reg-name" placeholder="Masukkan nama lengkap" type="text" />
+                      </div>
+                      <div className="flex flex-col gap-xs">
+                        <label className="font-label-md text-on-surface" htmlFor="reg-username">Username / NISN</label>
+                        <input className="academic-input w-full px-sm py-sm rounded-DEFAULT border border-outline-variant bg-surface-container-lowest text-body-md text-on-surface placeholder:text-outline-variant transition-colors" id="reg-username" placeholder="Masukkan Username atau NISN unik" type="text" />
+                      </div>
+                      <div className="flex flex-col gap-xs mb-xs">
+                        <label className="font-label-md text-on-surface" htmlFor="reg-password">Password</label>
+                        <input className="academic-input w-full px-sm py-sm rounded-DEFAULT border border-outline-variant bg-surface-container-lowest text-body-md text-on-surface placeholder:text-outline-variant transition-colors" id="reg-password" placeholder="Buat password yang kuat" type="password" />
+                      </div>
+                      <div className="mt-auto pt-sm">
+                        <button className="w-full bg-primary text-on-primary font-label-md py-sm rounded-DEFAULT hover:bg-primary-container transition-colors shadow-sm active:scale-[0.99] flex justify-center items-center gap-xs" type="submit">
+                          Daftar Sekarang 
+                          <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                        </button>
+                        <p className="text-center font-body-md text-on-surface-variant mt-sm text-[12px]">
+                          Dengan mendaftar, Anda menyetujui <a className="text-primary hover:underline" href="#">Syarat & Ketentuan</a> kami.
+                        </p>
+                      </div>
+                    </form>
+                    <p className="text-center font-body-md text-on-surface-variant mt-md">
+                      Sudah punya akun? <button onClick={() => setIsRegistering(false)} className="text-primary hover:underline font-medium" type="button">Masuk</button>
+                    </p>
+                  </div>
                 </div>
-
-                <form onSubmit={handleLogin} className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">Username</label>
-                    <input
-                      type="text"
-                      required
-                      className="w-full p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none font-medium text-slate-800"
-                      placeholder="Contoh: ahmadw"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">Kata Sandi</label>
-                    <input
-                      type="password"
-                      required
-                      className="w-full p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none font-medium text-slate-800"
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full mt-8 py-4 bg-slate-900 text-white rounded-2xl font-extrabold text-lg hover:bg-black transition-all shadow-xl shadow-slate-900/20 disabled:opacity-70 flex justify-center items-center active:scale-95"
-                  >
-                    {loading ? <div className="w-6 h-6 border-4 border-slate-600 border-t-white rounded-full animate-spin"></div> : 'MASUK SEKARANG'}
-                  </button>
-                </form>
               </div>
             </div>
           );
