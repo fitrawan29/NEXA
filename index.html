@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CBT AKM Terpadu</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Font Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- React & ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  
+  <!-- Babel for in-browser JSX compilation -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
+    
+    .animate-fade-in-up { animation: fadeInUp 0.4s ease-out forwards; }
+    @keyframes fadeInUp { 
+      from { opacity: 0; transform: translateY(15px); } 
+      to { opacity: 1; transform: translateY(0); } 
+    }
+  </style>
+</head>
+<body>
+  <!-- Root DOM Node for React -->
+  <div id="root"></div>
+
+  <!-- React Code Block -->
+  <script type="text/babel">
+    const { useState, useEffect, useCallback, useRef } = React;
+
+    // ==============================================================================
+    // KONFIGURASI UTAMA
+    // PENTING: GANTI URL INI DENGAN URL WEB APP DARI GOOGLE APPS SCRIPT KAMU!
+    // ==============================================================================
+    const API_URL = 'https://script.google.com/macros/s/AKfycbz_XXXXXXX_CONTOH/exec'; 
+
+    // Utility: Penghitung Waktu Mundur
+    const calculateTimeLeft = (endTime) => {
+      const difference = new Date(endTime) - new Date();
+      if (difference <= 0) return { total: 0, hours: 0, minutes: 0, seconds: 0 };
+      return {
+        total: difference,
+        hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
+        minutes: Math.floor((difference / 1000 / 60) % 60),
+        seconds: Math.floor((difference / 1000) % 60)
+      };
+    };
+
+    // Fungsi helper untuk fetching API ke GAS
+    const fetchAPI = async (action, payload = {}) => {
+      try {
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action, payload })
+        });
+        return await response.json();
+      } catch (error) {
+        console.error("API Error:", error);
+        return { status: 'error', message: 'Koneksi ke server gagal. Pastikan URL API (Google Apps Script) sudah benar dan di-deploy dengan benar.' };
+      }
+    };
+
+    // Komponen Modal Premium (Pengganti Alert dan Confirm bawaan browser)
+    const Modal = ({ isOpen, title, message, onClose, type = 'info', children, onConfirm, confirmText = "Lanjutkan" }) => {
+      if (!isOpen) return null;
+      const bgColors = { info: 'bg-blue-600', warning: 'bg-yellow-500', error: 'bg-red-600', success: 'bg-green-600' };
+      
+      return (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4 transition-opacity">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-up transform transition-all">
+            <div className={`${bgColors[type]} p-5 text-white font-bold text-lg flex items-center justify-between`}>
+              {title}
+            </div>
+            <div className="p-6 text-gray-700 font-medium leading-relaxed">
+              {message}
+              {children}
+            </div>
+            <div className="p-4 bg-gray-50 flex justify-end gap-3 border-t border-gray-100">
+              {onConfirm && (
+                 <button onClick={onClose} className="px-5 py-2 bg-white text-slate-700 border border-slate-300 rounded-xl hover:bg-slate-100 transition-colors font-bold shadow-sm">
+                   Batal
+                 </button>
+              )}
+              <button onClick={onConfirm ? onConfirm : onClose} className={`px-6 py-2 text-white rounded-xl transition-colors font-bold shadow-md ${onConfirm ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-800 hover:bg-slate-700'}`}>
+                {onConfirm ? confirmText : "Mengerti"}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const Loader = ({ text = "Memuat data..." }) => (
+      <div className="flex flex-col justify-center items-center p-12 space-y-4 w-full">
+        <div className="animate-spin rounded-full h-14 w-14 border-4 border-slate-200 border-t-blue-600 shadow-sm"></div>
+        <p className="text-slate-500 font-medium animate-pulse">{text}</p>
+      </div>
+    );
+
+    // ==========================================
+    // VIEW: ADMIN
+    // ==========================================
+    const AdminView = ({ user, onLogout }) => (
+      <div className="min-h-screen bg-slate-50 p-4 md:p-12">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex flex-col md:flex-row justify-between items-center mb-8 bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100">
+            <div>
+              <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Super Administrator</h1>
+              <p className="text-slate-500 mt-1">Selamat datang, {user.nama_lengkap}</p>
+            </div>
+            <button onClick={onLogout} className="mt-4 md:mt-0 px-6 py-3 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-colors">Keluar Aplikasi</button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              { title: 'Database Master', desc: 'Kelola data Guru, Siswa, dan Kelas melalui Spreadsheet.', color: 'text-blue-600' },
+              { title: 'Jadwal & Mapel', desc: 'Atur jadwal ujian, batas waktu, dan relasi pengampu.', color: 'text-indigo-600' },
+              { title: 'Laporan Global', desc: 'Tarik laporan hasil ujian (skor auto & uraian) seluruh siswa.', color: 'text-emerald-600' }
+            ].map((item, idx) => (
+              <div key={idx} className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 hover:shadow-lg transition-all group">
+                <h2 className={`text-2xl font-bold ${item.color} mb-3`}>{item.title}</h2>
+                <p className="text-slate-600 mb-6 leading-relaxed">{item.desc}</p>
+                <div className="text-sm bg-amber-50 text-amber-700 p-4 rounded-xl border border-amber-200 font-medium">
+                  Akses modul ini langsung melalui Google Sheets yang telah di-setup sebagai database utama sistem.
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+
+    // ==========================================
+    // VIEW: GURU / PENGAWAS
+    // ==========================================
+    const GuruView = ({ user, onLogout, showMessage }) => {
+      const [jadwalAktif, setJadwalAktif] = useState([]);
+      const [selectedJadwal, setSelectedJadwal] = useState(null);
+      const [monitoringData, setMonitoringData] = useState([]);
+      const [token, setToken] = useState('------');
+      const [isLoading, setIsLoading] = useState(false);
+      
+      const [gradingModal, setGradingModal] = useState({ isOpen: false, siswa: null, nilaiInput: '' });
+
+      useEffect(() => { loadJadwal(); }, []);
+
+      // Auto-refresh token tiap 5 menit saat berada di ruang monitoring
+      useEffect(() => {
+        let tokenInterval;
+        if (selectedJadwal) {
+          tokenInterval = setInterval(() => fetchToken(selectedJadwal), 300000); 
+        }
+        return () => clearInterval(tokenInterval);
+      }, [selectedJadwal]);
+
+      const loadJadwal = async () => {
+        setIsLoading(true);
+        const res = await fetchAPI('get_jadwal_pengawas');
+        if (res.status === 'success') setJadwalAktif(res.data);
+        setIsLoading(false);
+      };
+
+      const fetchToken = async (id_jadwal) => {
+        const res = await fetchAPI('get_token', { id_jadwal });
+        if (res.status === 'success') setToken(res.token);
+      };
+
+      const loadMonitoring = async (id_jadwal) => {
+        setIsLoading(true);
+        setSelectedJadwal(id_jadwal);
+        await fetchToken(id_jadwal);
+        const res = await fetchAPI('monitoring_ujian', { id_jadwal });
+        if (res.status === 'success') setMonitoringData(res.data);
+        setIsLoading(false);
+      };
+
+      const unblockAkun = async (id_log) => {
+        const res = await fetchAPI('buka_blokir', { id_log });
+        if (res.status === 'success') {
+          showMessage('Sukses', 'Blokir berhasil dibuka. Siswa dapat melanjutkan ujian.', 'success');
+          loadMonitoring(selectedJadwal);
+        } else {
+          showMessage('Gagal', res.message, 'error');
+        }
+      };
+
+      const submitNilaiUraian = async () => {
+        if(!gradingModal.nilaiInput || isNaN(gradingModal.nilaiInput)) {
+          showMessage('Error', 'Masukkan angka yang valid.', 'error');
+          return;
+        }
+        const res = await fetchAPI('submit_nilai_uraian', { id_log: gradingModal.siswa.id_log, nilai: gradingModal.nilaiInput });
+        if (res.status === 'success') {
+          setGradingModal({ isOpen: false, siswa: null, nilaiInput: '' });
+          showMessage('Tersimpan', 'Nilai uraian berhasil diupdate.', 'success');
+          loadMonitoring(selectedJadwal);
+        }
+      };
+
+      return (
+        <div className="min-h-screen bg-slate-50 p-4 md:p-8">
+          <div className="max-w-7xl mx-auto">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row justify-between items-center mb-8 bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+              <div>
+                <h1 className="text-2xl font-extrabold text-slate-800">Ruang Pengawas & Guru</h1>
+                <p className="text-slate-500 font-medium">{user.nama_lengkap} — {user.instansi}</p>
+              </div>
+              <div className="mt-4 md:mt-0 flex gap-3">
+                <button onClick={loadJadwal} className="px-5 py-2.5 bg-blue-50 text-blue-700 rounded-xl font-bold hover:bg-blue-100 transition-colors">Refresh Jadwal</button>
+                <button onClick={onLogout} className="px-5 py-2.5 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-colors">Keluar</button>
+              </div>
+            </div>
+
+            {/* Pemilihan Jadwal */}
+            {!selectedJadwal ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {jadwalAktif.map(j => (
+                  <div key={j.id_jadwal} className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+                    <h3 className="text-xl font-bold text-slate-800 mb-1">{j.nama_mapel}</h3>
+                    <p className="text-sm text-slate-500 mb-4 font-mono">{j.id_jadwal}</p>
+                    <div className="text-sm text-slate-600 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                      <div className="flex justify-between mb-1"><span>Mulai:</span> <span className="font-semibold">{new Date(j.waktu_mulai).toLocaleString()}</span></div>
+                      <div className="flex justify-between"><span>Selesai:</span> <span className="font-semibold">{new Date(j.waktu_selesai).toLocaleString()}</span></div>
+                    </div>
+                    <button onClick={() => loadMonitoring(j.id_jadwal)} className="w-full py-3 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-900 transition-colors shadow-md">
+                      Masuk & Monitor Kelas
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              /* Area Monitoring Real-time */
+              <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden animate-fade-in-up">
+                <div className="p-6 md:p-8 bg-slate-900 text-white flex flex-col md:flex-row justify-between items-center gap-6">
+                  <div>
+                    <h2 className="text-2xl font-bold flex items-center gap-3">
+                      <span className="relative flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                      </span>
+                      Live Monitoring Siswa
+                    </h2>
+                    <p className="text-slate-400 text-sm mt-1">Sesi: {selectedJadwal}</p>
+                  </div>
+                  <div className="bg-white/10 p-4 rounded-2xl border border-white/20 text-center min-w-[200px]">
+                    <p className="text-sm text-slate-300 mb-1 font-medium">TOKEN AKTIF (Auto-Refresh)</p>
+                    <div className="text-4xl font-mono font-bold tracking-[0.25em] text-yellow-400 drop-shadow-md">{token}</div>
+                  </div>
+                </div>
+                
+                <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                   <button onClick={() => setSelectedJadwal(null)} className="text-slate-600 hover:text-slate-900 font-bold px-5 py-2.5 bg-white border border-slate-300 rounded-xl shadow-sm transition-colors">
+                     ← Kembali ke Jadwal
+                   </button>
+                   <button onClick={() => loadMonitoring(selectedJadwal)} className="text-blue-700 hover:text-blue-900 font-bold px-5 py-2.5 bg-blue-100 rounded-xl transition-colors">
+                     ↻ Refresh Tabel
+                   </button>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100/50 text-slate-600 text-sm uppercase tracking-wider">
+                        <th className="p-5 font-bold">Peserta</th>
+                        <th className="p-5 font-bold">Status</th>
+                        <th className="p-5 text-center font-bold">Pelanggaran</th>
+                        <th className="p-5 text-center font-bold">Skor Auto</th>
+                        <th className="p-5 text-center font-bold">Skor Uraian</th>
+                        <th className="p-5 text-right font-bold">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {isLoading ? <tr><td colSpan="6"><Loader text="Menarik data kelas..." /></td></tr> : 
+                       monitoringData.map((siswa) => (
+                        <tr key={siswa.id_siswa} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                          <td className="p-5">
+                            <div className="font-bold text-slate-900">{siswa.nama_lengkap}</div>
+                            <div className="text-xs text-slate-500 font-mono mt-1">{siswa.id_siswa}</div>
+                          </td>
+                          <td className="p-5">
+                            <span className={`px-4 py-1.5 rounded-full text-xs font-bold shadow-sm ${
+                              siswa.is_blocked ? 'bg-red-100 text-red-700 border border-red-200' :
+                              siswa.status_ujian === 'SELESAI' ? 'bg-green-100 text-green-700 border border-green-200' :
+                              siswa.status_ujian === 'SEDANG KERJA' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
+                              'bg-slate-200 text-slate-700 border border-slate-300'
+                            }`}>
+                              {siswa.is_blocked ? 'TERBLOKIR' : siswa.status_ujian}
+                            </span>
+                          </td>
+                          <td className="p-5 text-center">
+                            <span className={`font-extrabold text-lg ${siswa.pelanggaran > 0 ? 'text-red-500' : 'text-slate-300'}`}>
+                              {siswa.pelanggaran} / 3
+                            </span>
+                          </td>
+                          <td className="p-5 text-center font-bold text-slate-800 text-lg">{siswa.nilai_auto || '-'}</td>
+                          <td className="p-5 text-center font-bold text-slate-800 text-lg">{siswa.nilai_uraian || '-'}</td>
+                          <td className="p-5 text-right space-x-2">
+                            {siswa.is_blocked && siswa.id_log && (
+                              <button onClick={() => unblockAkun(siswa.id_log)} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-bold shadow-md transition-transform active:scale-95">Buka Blokir</button>
+                            )}
+                            {siswa.status_ujian === 'SELESAI' && (
+                              <button onClick={() => setGradingModal({ isOpen: true, siswa, nilaiInput: siswa.nilai_uraian || '' })} className="px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 text-sm font-bold border border-indigo-200 transition-colors">Nilai Uraian</button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Modal Penilaian Uraian */}
+          <Modal isOpen={gradingModal.isOpen} title={`Penilaian Uraian - ${gradingModal.siswa?.nama_lengkap}`} type="info" onClose={() => setGradingModal({ isOpen: false, siswa: null })}>
+            <div className="mt-4">
+              <label className="block text-sm font-bold text-slate-700 mb-2">Input Total Nilai Uraian (Angka):</label>
+              <input 
+                type="number" 
+                className="w-full p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-lg font-bold"
+                value={gradingModal.nilaiInput}
+                onChange={(e) => setGradingModal({...gradingModal, nilaiInput: e.target.value})}
+                placeholder="Contoh: 85"
+              />
+              <button onClick={submitNilaiUraian} className="mt-6 w-full py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg hover:bg-blue-700 transition-colors">
+                Simpan Nilai
+              </button>
+            </div>
+          </Modal>
+        </div>
+      );
+    };
+
+    // ==========================================
+    // VIEW: RUANG UJIAN (EKSEKUSI SOAL & ANTI-CHEAT)
+    // ==========================================
+    const ExamRoom = ({ user, jadwal, idLog, showMessage, onFinish }) => {
+      const [soal, setSoal] = useState([]);
+      const [jawabanSiswa, setJawabanSiswa] = useState({});
+      const [currentIndex, setCurrentIndex] = useState(0);
+      const [isLoading, setIsLoading] = useState(true);
+      const [violationCount, setViolationCount] = useState(0);
+      const [isBlocked, setIsBlocked] = useState(false);
+      
+      const [timeLeft, setTimeLeft] = useState({ total: 1, hours: 0, minutes: 0, seconds: 0 });
+      const [isSubmitting, setIsSubmitting] = useState(false);
+      const [confirmModal, setConfirmModal] = useState({ isOpen: false });
+
+      const examContainerRef = useRef(null);
+
+      useEffect(() => {
+        fetchSoal();
+        setupAntiCheat();
+        
+        const timerInterval = setInterval(() => {
+          const remaining = calculateTimeLeft(jadwal.waktu_selesai);
+          setTimeLeft(remaining);
+          
+          if (remaining.total <= 0 && !isSubmitting && !isBlocked) {
+            clearInterval(timerInterval);
+            showMessage('Waktu Habis!', 'Waktu ujian telah berakhir. Sistem mengumpulkan jawaban otomatis.', 'warning');
+            executeSubmitExam(true); 
+          }
+        }, 1000);
+
+        return () => {
+          clearInterval(timerInterval);
+          document.removeEventListener('visibilitychange', handleVisibilityChange);
+          document.removeEventListener('fullscreenchange', handleFullscreenChange);
+        };
+      }, []);
+
+      const fetchSoal = async () => {
+        const res = await fetchAPI('get_soal_ujian', { id_jadwal: jadwal.id_jadwal });
+        if (res.status === 'success') {
+          const parsedSoal = res.data.map(s => {
+            let parsedOpsi = [];
+            try { parsedOpsi = s.opsi ? JSON.parse(s.opsi) : []; } catch(e) { parsedOpsi = [s.opsi]; }
+            return { ...s, opsi: parsedOpsi };
+          });
+          setSoal(parsedSoal);
+        }
+        setIsLoading(false);
+      };
+
+      const reportViolation = async () => {
+        if (isBlocked || isSubmitting) return; 
+        
+        const res = await fetchAPI('catat_pelanggaran', { id_log: idLog });
+        if (res.status === 'success') {
+          setViolationCount(res.pelanggaran_saat_ini);
+          if (res.terblokir) {
+            setIsBlocked(true);
+            if (document.fullscreenElement) document.exitFullscreen().catch(()=>{});
+            showMessage('TERBLOKIR!', 'Akun Anda diblokir karena meninggalkan halaman ujian lebih dari 3 kali. Hubungi pengawas.', 'error');
+            setTimeout(onFinish, 5000); 
+          } else {
+            showMessage('Peringatan Keamanan!', `Sistem mendeteksi Anda keluar dari halaman ujian! Ini pelanggaran ke-${res.pelanggaran_saat_ini} dari maksimal 3.`, 'warning');
+          }
+        }
+      };
+
+      const handleVisibilityChange = () => { if (document.hidden) reportViolation(); };
+      const handleFullscreenChange = () => { if (!document.fullscreenElement && !isSubmitting && !isBlocked) reportViolation(); };
+
+      const setupAntiCheat = () => {
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+      };
+
+      const enforceFullscreen = () => {
+        if (!isBlocked && document.documentElement.requestFullscreen && !document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        }
+      };
+
+      const handleAnswerChange = (soalId, value, tipe) => {
+        setJawabanSiswa(prev => {
+          if (tipe === 'PGK') {
+            let arr = Array.isArray(prev[soalId]) ? [...prev[soalId]] : [];
+            if (arr.includes(value)) arr = arr.filter(item => item !== value);
+            else arr.push(value);
+            return { ...prev, [soalId]: arr };
+          }
+          return { ...prev, [soalId]: value };
+        });
+      };
+
+      const requestSubmit = () => {
+        setConfirmModal({ isOpen: true });
+      };
+
+      const executeSubmitExam = async (isAuto = false) => {
+        setConfirmModal({ isOpen: false });
+        if(isSubmitting) return;
+        
+        setIsSubmitting(true);
+        setIsLoading(true);
+        
+        const formattedJawaban = Object.keys(jawabanSiswa).map(key => ({
+          id_soal: key,
+          jawaban: jawabanSiswa[key]
+        }));
+        
+        const res = await fetchAPI('submit_ujian', {
+          id_log: idLog,
+          id_jadwal: jadwal.id_jadwal,
+          id_siswa: user.id_user,
+          jawaban: formattedJawaban
+        });
+
+        if (document.fullscreenElement) document.exitFullscreen().catch(()=>{});
+
+        if (res.status === 'success') {
+          showMessage('Ujian Selesai', `Terima kasih! Skor pilihan ganda/objektif Anda: ${res.nilai_objektif}. Soal uraian dinilai terpisah oleh guru.`, 'success');
+          setTimeout(onFinish, 4000);
+        } else {
+          showMessage('Gagal Mengumpulkan', res.message, 'error');
+          setIsLoading(false);
+          setIsSubmitting(false);
+        }
+      };
+
+      const renderQuestionInput = (s) => {
+        const currentAns = jawabanSiswa[s.id_soal] || '';
+        
+        switch (s.tipe_soal) {
+          case 'PG':
+          case 'BS':
+            return s.opsi.map((op, idx) => (
+              <label key={idx} className={`block p-5 border-2 rounded-2xl mb-3 cursor-pointer transition-all ${currentAns === op ? 'bg-blue-50 border-blue-500 shadow-md transform scale-[1.01]' : 'bg-white border-slate-200 hover:border-blue-300 hover:bg-slate-50'}`}>
+                <div className="flex items-center">
+                  <input type="radio" name={s.id_soal} value={op} checked={currentAns === op} onChange={() => handleAnswerChange(s.id_soal, op, s.tipe_soal)} className="w-6 h-6 text-blue-600 border-slate-300" />
+                  <span className="ml-4 text-slate-700 text-lg font-medium">{op}</span>
+                </div>
+              </label>
+            ));
+          
+          case 'PGK':
+            return s.opsi.map((op, idx) => (
+              <label key={idx} className={`block p-5 border-2 rounded-2xl mb-3 cursor-pointer transition-all ${(currentAns.includes && currentAns.includes(op)) ? 'bg-indigo-50 border-indigo-500 shadow-md transform scale-[1.01]' : 'bg-white border-slate-200 hover:border-indigo-300'}`}>
+                <div className="flex items-center">
+                  <input type="checkbox" value={op} checked={currentAns.includes && currentAns.includes(op)} onChange={() => handleAnswerChange(s.id_soal, op, s.tipe_soal)} className="w-6 h-6 text-indigo-600 rounded border-slate-300" />
+                  <span className="ml-4 text-slate-700 text-lg font-medium">{op}</span>
+                </div>
+              </label>
+            ));
+
+          case 'JODOH':
+            return (
+              <div className="bg-orange-50 p-6 rounded-2xl border border-orange-200">
+                <p className="text-orange-800 font-semibold mb-4">🔗 Ketikkan pasangan yang tepat sesuai urutan instruksi di soal.</p>
+                <textarea rows="3" placeholder="Contoh: 1-A, 2-C, 3-B" value={currentAns} onChange={(e) => handleAnswerChange(s.id_soal, e.target.value, s.tipe_soal)} className="w-full p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none text-lg"></textarea>
+              </div>
+            );
+
+          case 'ISIAN':
+          case 'URAIAN':
+            return (
+              <textarea rows={s.tipe_soal === 'URAIAN' ? 8 : 2} placeholder="Ketik jawaban Anda di sini..." value={currentAns} onChange={(e) => handleAnswerChange(s.id_soal, e.target.value, s.tipe_soal)} className="w-full p-5 border-2 border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-lg"></textarea>
+            );
+            
+          default: return <p className="text-red-500 font-bold p-4 bg-red-50 rounded">⚠️ Tipe soal tidak didukung.</p>;
+        }
+      };
+
+      if (isLoading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center"><Loader text="Menyiapkan Soal dan Enkripsi Sesi..." /></div>;
+      if (isBlocked) return <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center space-y-4"><div className="text-6xl">⛔</div><h1 className="text-red-500 font-extrabold text-3xl">AKUN DIBLOKIR</h1><p className="text-slate-400">Hubungi pengawas untuk membuka akses.</p></div>;
+
+      const currentS = soal[currentIndex];
+
+      return (
+        <div className="min-h-screen bg-slate-100 flex flex-col select-none overflow-hidden" ref={examContainerRef} onClick={enforceFullscreen}>
+          {/* Header Bar */}
+          <div className="bg-slate-900 text-white p-4 shadow-xl flex justify-between items-center z-10">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center font-bold text-xl shadow-lg border border-blue-400">AKM</div>
+              <div>
+                <h2 className="text-xl font-bold tracking-wide">{jadwal.nama_mapel}</h2>
+                <p className="text-sm text-slate-400 font-medium">{user.nama_lengkap} ({user.id_user})</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-6">
+              <div className="flex flex-col items-end">
+                <span className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Sisa Waktu</span>
+                <div className={`text-2xl font-mono font-bold ${timeLeft.total < 300000 ? 'text-red-400 animate-pulse' : 'text-emerald-400'}`}>
+                  {String(timeLeft.hours).padStart(2, '0')}:{String(timeLeft.minutes).padStart(2, '0')}:{String(timeLeft.seconds).padStart(2, '0')}
+                </div>
+              </div>
+              <div className="h-10 w-px bg-slate-700 mx-2"></div>
+              <div className="bg-slate-800 text-slate-300 px-4 py-2 rounded-xl font-bold border border-slate-700 flex flex-col items-center">
+                <span className="text-[10px] uppercase tracking-widest text-slate-500 mb-0.5">Pelanggaran</span>
+                <span className={violationCount > 0 ? 'text-red-400' : 'text-white'}>{violationCount} / 3</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex-1 flex flex-col md:flex-row h-[calc(100vh-80px)]">
+            {/* Main Workspace */}
+            <div className="flex-1 p-6 md:p-10 overflow-y-auto bg-slate-50">
+              {currentS ? (
+                <div className="max-w-4xl mx-auto bg-white p-8 md:p-12 rounded-[2rem] shadow-sm border border-slate-200">
+                  <div className="flex justify-between items-center mb-8 pb-6 border-b border-slate-100">
+                    <span className="bg-blue-50 text-blue-700 text-sm font-extrabold px-4 py-1.5 rounded-full border border-blue-200 tracking-wide">
+                      Tipe: {currentS.tipe_soal}
+                    </span>
+                    <span className="bg-amber-50 text-amber-700 text-sm font-extrabold px-4 py-1.5 rounded-full border border-amber-200 tracking-wide">
+                      Bobot: {currentS.bobot} Poin
+                    </span>
+                  </div>
+                  <div className="text-2xl text-slate-800 mb-10 leading-relaxed font-semibold">
+                    {currentS.pertanyaan}
+                  </div>
+                  <div className="space-y-3">
+                    {renderQuestionInput(currentS)}
+                  </div>
+                </div>
+              ) : (
+                 <div className="text-center text-slate-500 py-20 font-bold text-xl">Tidak ada soal yang tersedia.</div>
+              )}
+            </div>
+
+            {/* Sidebar Navigasi */}
+            <div className="w-full md:w-80 bg-white border-l border-slate-200 p-6 shadow-xl flex flex-col z-10">
+              <h3 className="font-extrabold text-slate-800 mb-6 uppercase tracking-wider text-sm flex items-center justify-between">
+                <span>Navigasi Soal</span>
+                <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded-md text-xs">{soal.length} Total</span>
+              </h3>
+              
+              <div className="grid grid-cols-5 gap-2.5 overflow-y-auto flex-1 content-start pr-2 custom-scrollbar">
+                {soal.map((s, idx) => {
+                  const hasAnswered = !!jawabanSiswa[s.id_soal] && (Array.isArray(jawabanSiswa[s.id_soal]) ? jawabanSiswa[s.id_soal].length > 0 : String(jawabanSiswa[s.id_soal]).trim() !== '');
+                  return (
+                    <button
+                      key={s.id_soal}
+                      onClick={() => setCurrentIndex(idx)}
+                      className={`aspect-square rounded-xl font-bold flex items-center justify-center transition-all transform hover:scale-105 shadow-sm border-2 ${
+                        currentIndex === idx ? 'bg-blue-600 text-white border-blue-700 ring-4 ring-blue-100' :
+                        hasAnswered ? 'bg-emerald-50 text-emerald-600 border-emerald-300' :
+                        'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      {idx + 1}
+                    </button>
+                  );
+                })}
+              </div>
+              
+              <div className="mt-6 pt-6 border-t border-slate-100">
+                <button onClick={requestSubmit} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-extrabold text-lg hover:bg-black transition-colors shadow-xl shadow-slate-900/20 active:scale-95">
+                  SELESAI & KUMPULKAN
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <Modal 
+            isOpen={confirmModal.isOpen} 
+            title="Konfirmasi Pengumpulan" 
+            message="Yakin ingin mengumpulkan ujian sekarang? Waktu Anda masih tersisa. Anda tidak bisa kembali setelah menekan tombol Kumpulkan." 
+            type="warning" 
+            onClose={() => setConfirmModal({isOpen: false})}
+            onConfirm={() => executeSubmitExam(false)}
+            confirmText="Ya, Kumpulkan"
+          />
+        </div>
+      );
+    };
+
+    // ==========================================
+    // VIEW: SISWA (DASHBOARD)
+    // ==========================================
+    const SiswaView = ({ user, onLogout, showMessage }) => {
+      const [jadwal, setJadwal] = useState([]);
+      const [isLoading, setIsLoading] = useState(false);
+      const [activeExamData, setActiveExamData] = useState(null); 
+      const [inputToken, setInputToken] = useState('');
+      const [selectedJadwalUntukToken, setSelectedJadwalUntukToken] = useState(null);
+
+      useEffect(() => { loadJadwal(); }, []);
+
+      const loadJadwal = async () => {
+        setIsLoading(true);
+        const res = await fetchAPI('get_jadwal', { id_siswa: user.id_user });
+        if (res.status === 'success') setJadwal(res.data);
+        setIsLoading(false);
+      };
+
+      const handleMulaiUjian = async (j) => {
+        if (!inputToken) {
+          showMessage('Perhatian', 'Harap masukkan 6 digit token dari pengawas.', 'warning');
+          return;
+        }
+        
+        setIsLoading(true);
+        const res = await fetchAPI('mulai_ujian', {
+          id_jadwal: j.id_jadwal,
+          id_siswa: user.id_user,
+          token: inputToken.toUpperCase()
+        });
+        setIsLoading(false);
+
+        if (res.status === 'success') {
+          setActiveExamData({ jadwal: j, idLog: res.id_log });
+        } else {
+          showMessage('Akses Ditolak', res.message, 'error');
+        }
+      };
+
+      if (activeExamData) {
+        return (
+          <ExamRoom 
+            user={user} 
+            jadwal={activeExamData.jadwal} 
+            idLog={activeExamData.idLog} 
+            showMessage={showMessage}
+            onFinish={() => {
+              setActiveExamData(null);
+              setSelectedJadwalUntukToken(null);
+              setInputToken('');
+              loadJadwal();
+            }}
+          />
+        );
+      }
+
+      return (
+        <div className="min-h-screen bg-slate-50 p-6 md:p-12">
+          <div className="max-w-6xl mx-auto">
+            <div className="flex flex-col md:flex-row justify-between items-center mb-10 bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-2 h-full bg-blue-600"></div>
+              <div>
+                <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Portal Peserta Didik</h1>
+                <p className="text-slate-500 mt-2 font-medium">Selamat datang kembali, <span className="text-blue-600 font-bold">{user.nama_lengkap}</span></p>
+              </div>
+              <button onClick={onLogout} className="mt-6 md:mt-0 px-6 py-3 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-colors shadow-sm">Keluar Akun</button>
+            </div>
+
+            <h2 className="text-2xl font-extrabold text-slate-800 mb-6 flex items-center gap-3">
+              📚 Daftar Ujian Tersedia
+            </h2>
+            
+            {isLoading ? <Loader text="Menyinkronkan jadwal..." /> : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {jadwal.map(j => (
+                  <div key={j.id_jadwal} className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-200 relative overflow-hidden flex flex-col transition-transform hover:-translate-y-1 hover:shadow-lg">
+                    <div className={`absolute top-0 left-0 w-full h-2 ${j.status_siswa === 'SELESAI' ? 'bg-emerald-500' : j.status_siswa === 'SEDANG KERJA' ? 'bg-amber-500' : 'bg-blue-600'}`}></div>
+                    
+                    <h3 className="text-2xl font-extrabold text-slate-800 mb-3">{j.nama_mapel}</h3>
+                    <div className="flex items-center gap-2 mb-6">
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                        j.status_siswa === 'SELESAI' ? 'bg-emerald-100 text-emerald-700' : 
+                        j.status_siswa === 'SEDANG KERJA' ? 'bg-amber-100 text-amber-700' : 
+                        'bg-slate-100 text-slate-600'
+                      }`}>
+                        Status: {j.status_siswa}
+                      </span>
+                    </div>
+                    
+                    <div className="text-sm text-slate-600 mb-8 space-y-2 bg-slate-50 p-5 rounded-2xl border border-slate-100 flex-1">
+                      <div className="flex justify-between items-center border-b border-slate-200 pb-2">
+                        <span className="font-medium">Jadwal Buka</span>
+                        <span className="font-bold text-slate-800">{new Date(j.waktu_mulai).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                      </div>
+                      <div className="flex justify-between items-center pt-1">
+                        <span className="font-medium">Batas Tutup</span>
+                        <span className="font-bold text-red-600">{new Date(j.waktu_selesai).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                      </div>
+                    </div>
+
+                    {j.status_siswa !== 'SELESAI' ? (
+                      selectedJadwalUntukToken === j.id_jadwal ? (
+                        <div className="animate-fade-in-up bg-blue-50 p-4 rounded-2xl border border-blue-100">
+                          <input 
+                            type="text" 
+                            placeholder="Ketik 6 Digit Token" 
+                            className="w-full text-center tracking-[0.3em] font-mono font-bold text-2xl p-4 border border-blue-300 rounded-xl mb-3 focus:ring-4 focus:ring-blue-500/20 outline-none uppercase bg-white shadow-inner"
+                            value={inputToken}
+                            onChange={(e) => setInputToken(e.target.value)}
+                            maxLength={6}
+                          />
+                          <div className="flex gap-3">
+                            <button onClick={() => setSelectedJadwalUntukToken(null)} className="flex-1 py-3 bg-white text-slate-600 rounded-xl font-bold hover:bg-slate-100 border border-slate-200 transition-colors">Batal</button>
+                            <button onClick={() => handleMulaiUjian(j)} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg transition-transform active:scale-95">MASUK</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button 
+                          onClick={() => setSelectedJadwalUntukToken(j.id_jadwal)} 
+                          className={`w-full py-4 rounded-2xl font-extrabold transition-all shadow-md active:scale-95 border ${
+                            j.status_siswa === 'SEDANG KERJA' ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200' : 'bg-slate-900 text-white hover:bg-black border-transparent'
+                          }`}
+                        >
+                          {j.status_siswa === 'SEDANG KERJA' ? 'LANJUTKAN UJIAN' : 'MULAI KERJAKAN'}
+                        </button>
+                      )
+                    ) : (
+                      <button disabled className="w-full py-4 bg-slate-100 text-slate-400 rounded-2xl font-bold cursor-not-allowed border border-slate-200 flex flex-col items-center">
+                        <span>SUDAH DISELESAIKAN</span>
+                        <span className="text-xs font-normal mt-1">Nilai Objektif: {j.nilai_auto || 0}</span>
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    // ==========================================
+    // ROOT APP & LOGIN
+    // ==========================================
+    const App = () => {
+      const [user, setUser] = useState(null);
+      const [loading, setLoading] = useState(false);
+      
+      const [username, setUsername] = useState('');
+      const [password, setPassword] = useState('');
+
+      const [modal, setModal] = useState({ isOpen: false, title: '', message: '', type: 'info' });
+
+      const showMessage = (title, message, type) => {
+        setModal({ isOpen: true, title, message, type });
+      };
+
+      const handleLogin = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        const res = await fetchAPI('login', { username, password });
+        setLoading(false);
+
+        if (res.status === 'success') {
+          setUser(res.data);
+        } else {
+          showMessage('Akses Ditolak', res.message || 'Username atau password yang Anda masukkan salah.', 'error');
+        }
+      };
+
+      const handleLogout = () => {
+        setUser(null);
+        setUsername('');
+        setPassword('');
+      };
+
+      const renderView = () => {
+        if (!user) {
+          return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4 relative overflow-hidden">
+              <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-600 rounded-full mix-blend-multiply filter blur-[100px] opacity-30 animate-pulse"></div>
+              <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-purple-600 rounded-full mix-blend-multiply filter blur-[100px] opacity-30 animate-pulse delay-1000"></div>
+              
+              <div className="bg-white/95 backdrop-blur-xl p-8 md:p-12 rounded-[2.5rem] shadow-2xl w-full max-w-md relative z-10 border border-white/20">
+                <div className="text-center mb-10">
+                  <div className="w-20 h-20 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-blue-500/30 transform rotate-3 hover:rotate-0 transition-transform">
+                    <span className="text-white text-3xl font-extrabold tracking-tighter">CBT</span>
+                  </div>
+                  <h1 className="text-3xl font-extrabold text-slate-800 mb-2 tracking-tight">AKM Terpadu</h1>
+                  <p className="text-slate-500 font-medium">Masuk untuk memulai sesi Anda</p>
+                </div>
+                
+                <form onSubmit={handleLogin} className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Username</label>
+                    <input 
+                      type="text" 
+                      required 
+                      className="w-full p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none font-medium text-slate-800" 
+                      placeholder="Contoh: ahmadw"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Kata Sandi</label>
+                    <input 
+                      type="password" 
+                      required 
+                      className="w-full p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none font-medium text-slate-800" 
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
+                  </div>
+                  <button 
+                    type="submit" 
+                    disabled={loading}
+                    className="w-full mt-8 py-4 bg-slate-900 text-white rounded-2xl font-extrabold text-lg hover:bg-black transition-all shadow-xl shadow-slate-900/20 disabled:opacity-70 flex justify-center items-center active:scale-95"
+                  >
+                    {loading ? <div className="w-6 h-6 border-4 border-slate-600 border-t-white rounded-full animate-spin"></div> : 'MASUK SEKARANG'}
+                  </button>
+                </form>
+              </div>
+            </div>
+          );
+        }
+
+        switch (user.role) {
+          case 'admin': return <AdminView user={user} onLogout={handleLogout} />;
+          case 'guru': return <GuruView user={user} onLogout={handleLogout} showMessage={showMessage} />;
+          case 'siswa': return <SiswaView user={user} onLogout={handleLogout} showMessage={showMessage} />;
+          default: return <div className="p-8 text-center text-red-600 font-bold bg-white h-screen">Role tidak valid!</div>;
+        }
+      };
+
+      return (
+        <React.Fragment>
+          {renderView()}
+          <Modal 
+            isOpen={modal.isOpen} 
+            title={modal.title} 
+            message={modal.message} 
+            type={modal.type}
+            onClose={() => setModal({ ...modal, isOpen: false })} 
+          />
+        </React.Fragment>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
