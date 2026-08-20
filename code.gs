@@ -31,6 +31,11 @@ function doPost(e) {
         result = handleLogin(payload.username, payload.password);
         break;
         
+      // Endpoint Admin
+      case 'get_admin_dashboard_data':
+        result = getAdminDashboardData();
+        break;
+        
       // Endpoint Siswa
       case 'get_jadwal_siswa':
         result = getJadwalSiswa(payload.id_siswa);
@@ -103,6 +108,40 @@ function handleLogin(username, password) {
     }
   }
   return { status: 'error', message: 'Username atau password salah!' };
+}
+
+function getAdminDashboardData() {
+  const users = mapDataToObjects(getSheetData('Users'));
+  const jadwal = mapDataToObjects(getSheetData('Jadwal'));
+  const logs = mapDataToObjects(getSheetData('Log_Ujian'));
+  
+  const totalSiswa = users.filter(u => u.role === 'siswa').length;
+  const totalGuru = users.filter(u => u.role === 'guru').length;
+  const totalJadwal = jadwal.length;
+  const totalSesiAktif = logs.filter(l => l.status_ujian === 'SEDANG KERJA').length;
+  
+  // Format jadwal aktif untuk ditampilkan
+  const jadwalAktif = jadwal.map(j => {
+    const guru = users.find(u => u.id_user === j.id_guru);
+    return {
+      id_jadwal: j.id_jadwal,
+      nama_mapel: j.nama_mapel,
+      guru: guru ? guru.nama_lengkap : 'Unknown',
+      waktu_mulai: j.waktu_mulai,
+      waktu_selesai: j.waktu_selesai
+    };
+  }).slice(0, 5); // Ambil 5 jadwal teratas
+  
+  return {
+    status: 'success',
+    data: {
+      totalSiswa,
+      totalGuru,
+      totalJadwal,
+      totalSesiAktif,
+      jadwalAktif
+    }
+  };
 }
 
 function manageDynamicToken(id_jadwal) {

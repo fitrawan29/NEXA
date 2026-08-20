@@ -138,34 +138,102 @@
     // ==========================================
     // VIEW: ADMIN
     // ==========================================
-    const AdminView = ({ user, onLogout }) => (
-      <div className="min-h-screen bg-slate-50 p-4 md:p-12">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-center mb-8 bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100">
-            <div>
-              <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Super Administrator</h1>
-              <p className="text-slate-500 mt-1">Selamat datang, {user.nama_lengkap}</p>
-            </div>
-            <button onClick={onLogout} className="mt-4 md:mt-0 px-6 py-3 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-colors">Keluar Aplikasi</button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              { title: 'Database Master', desc: 'Kelola data Guru, Siswa, dan Kelas melalui Spreadsheet.', color: 'text-blue-600' },
-              { title: 'Jadwal & Mapel', desc: 'Atur jadwal ujian, batas waktu, dan relasi pengampu.', color: 'text-indigo-600' },
-              { title: 'Laporan Global', desc: 'Tarik laporan hasil ujian (skor auto & uraian) seluruh siswa.', color: 'text-emerald-600' }
-            ].map((item, idx) => (
-              <div key={idx} className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 hover:shadow-lg transition-all group">
-                <h2 className={`text-2xl font-bold ${item.color} mb-3`}>{item.title}</h2>
-                <p className="text-slate-600 mb-6 leading-relaxed">{item.desc}</p>
-                <div className="text-sm bg-amber-50 text-amber-700 p-4 rounded-xl border border-amber-200 font-medium">
-                  Akses modul ini langsung melalui Google Sheets yang telah di-setup sebagai database utama sistem.
-                </div>
+    const AdminView = ({ user, onLogout }) => {
+      const [dashboardData, setDashboardData] = useState(null);
+      const [isLoading, setIsLoading] = useState(true);
+
+      useEffect(() => {
+        const fetchDashboardData = async () => {
+          setIsLoading(true);
+          const res = await fetchAPI('get_admin_dashboard_data', {});
+          if (res.status === 'success') {
+            setDashboardData(res.data);
+          }
+          setIsLoading(false);
+        };
+        fetchDashboardData();
+      }, []);
+
+      return (
+        <div className="min-h-screen bg-slate-50 p-4 md:p-12">
+          <div className="max-w-6xl mx-auto">
+            <div className="flex flex-col md:flex-row justify-between items-center mb-8 bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-100">
+              <div>
+                <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Super Administrator</h1>
+                <p className="text-slate-500 mt-1">Selamat datang, {user.nama_lengkap}</p>
               </div>
-            ))}
+              <div className="flex gap-4 mt-4 md:mt-0">
+                 <a href="https://docs.google.com/spreadsheets/" target="_blank" rel="noreferrer" className="px-6 py-3 bg-emerald-50 text-emerald-700 rounded-xl font-bold hover:bg-emerald-100 transition-colors border border-emerald-200">
+                   Buka Database (Sheets)
+                 </a>
+                 <button onClick={onLogout} className="px-6 py-3 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-colors border border-red-200">Keluar Aplikasi</button>
+              </div>
+            </div>
+
+            {isLoading ? <Loader text="Menarik data dashboard..." /> : (
+              <>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                  <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center transform transition-transform hover:scale-105">
+                    <div className="text-4xl mb-2">🎓</div>
+                    <div className="text-3xl font-black text-slate-800">{dashboardData?.totalSiswa || 0}</div>
+                    <div className="text-xs font-bold text-slate-500 mt-1 uppercase tracking-wider">Total Siswa</div>
+                  </div>
+                  <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center transform transition-transform hover:scale-105">
+                    <div className="text-4xl mb-2">👨‍🏫</div>
+                    <div className="text-3xl font-black text-slate-800">{dashboardData?.totalGuru || 0}</div>
+                    <div className="text-xs font-bold text-slate-500 mt-1 uppercase tracking-wider">Total Guru</div>
+                  </div>
+                  <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center transform transition-transform hover:scale-105">
+                    <div className="text-4xl mb-2">📚</div>
+                    <div className="text-3xl font-black text-slate-800">{dashboardData?.totalJadwal || 0}</div>
+                    <div className="text-xs font-bold text-slate-500 mt-1 uppercase tracking-wider">Total Ujian</div>
+                  </div>
+                  <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center transform transition-transform hover:scale-105">
+                    <div className="text-4xl mb-2">⚡</div>
+                    <div className="text-3xl font-black text-blue-600">{dashboardData?.totalSesiAktif || 0}</div>
+                    <div className="text-xs font-bold text-slate-500 mt-1 uppercase tracking-wider">Sesi Ujian Aktif</div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden mb-8">
+                  <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+                    <h2 className="text-xl font-bold text-slate-800">Daftar Ujian Aktif (Jadwal)</h2>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
+                          <th className="p-4 font-bold border-b border-slate-200">ID Jadwal</th>
+                          <th className="p-4 font-bold border-b border-slate-200">Mata Pelajaran</th>
+                          <th className="p-4 font-bold border-b border-slate-200">Guru Pengampu</th>
+                          <th className="p-4 font-bold border-b border-slate-200">Waktu Mulai</th>
+                          <th className="p-4 font-bold border-b border-slate-200">Waktu Selesai</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {dashboardData?.jadwalAktif?.length > 0 ? dashboardData.jadwalAktif.map((j) => (
+                          <tr key={j.id_jadwal} className="hover:bg-blue-50/50 transition-colors border-b border-slate-100 last:border-0">
+                            <td className="p-4 font-mono text-sm text-slate-600">{j.id_jadwal}</td>
+                            <td className="p-4 font-bold text-slate-800">{j.nama_mapel}</td>
+                            <td className="p-4 text-slate-600 font-medium">{j.guru}</td>
+                            <td className="p-4 text-sm text-slate-500">{new Date(j.waktu_mulai).toLocaleString('id-ID')}</td>
+                            <td className="p-4 text-sm text-red-500 font-medium">{new Date(j.waktu_selesai).toLocaleString('id-ID')}</td>
+                          </tr>
+                        )) : (
+                          <tr>
+                            <td colSpan="5" className="p-8 text-center text-slate-500 font-medium">Tidak ada jadwal ujian aktif.</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
-      </div>
-    );
+      );
+    };
 
     // ==========================================
     // VIEW: GURU / PENGAWAS
