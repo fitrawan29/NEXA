@@ -12,6 +12,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Courier+Prime&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
 
+  <!-- Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 
@@ -185,9 +188,10 @@
 
     // ==============================================================================
     // KONFIGURASI UTAMA
-    // PENTING: GANTI URL INI DENGAN URL WEB APP DARI GOOGLE APPS SCRIPT KAMU!
     // ==============================================================================
-    const API_URL = 'https://script.google.com/macros/s/AKfycbwT8XXxRAti-nlIj5dRP5zYcjXvSxYVJlETYtn3a_m0jx_xaacvtNUTrB26ocj8O573tw/exec';
+    const SUPABASE_URL = 'https://cdcbarlyxjywltgrjgnr.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkY2Jhcmx5eGp5d2x0Z3JqZ25yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyOTkwNTQsImV4cCI6MjEwMjg3NTA1NH0.Lze94l74sblAVNN4-IUtyQ_idr-aQCECxgPWTVAI5-c';
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     // Utility: Penghitung Waktu Mundur
     const calculateTimeLeft = (endTime) => {
@@ -201,18 +205,241 @@
       };
     };
 
-    // Fungsi helper untuk fetching API ke GAS
+    // Fungsi fetchAPI sebagai Router Supabase
     const fetchAPI = async (action, payload = {}) => {
       try {
-        const response = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ action, payload })
-        });
-        return await response.json();
+        let data, error;
+        switch (action) {
+          // ================= AUTH =================
+          case 'login':
+            ({ data, error } = await supabaseClient
+              .from('users')
+              .select('*')
+              .eq('username', payload.username)
+              .eq('password', payload.password)
+              .eq('role', payload.role)
+              .single());
+            if (error || !data) return { status: 'error', message: 'Username, password, atau role salah.' };
+            return { status: 'success', user: data };
+
+          case 'register':
+            ({ data, error } = await supabaseClient
+              .from('users')
+              .insert([{
+                id_user: payload.id_user,
+                nama_lengkap: payload.nama_lengkap,
+                username: payload.username,
+                password: payload.password,
+                role: payload.role
+              }]);
+            if (error) {
+              if (error.code === '23505') return { status: 'error', message: 'ID User atau Username sudah terdaftar.' };
+              return { status: 'error', message: error.message };
+            }
+            return { status: 'success', message: 'Registrasi berhasil. Silakan login.' };
+
+          // ================= ADMIN =================
+          case 'get_admin_dashboard_data':
+            const [siswaRes, guruRes, jadwalRes, aktifRes] = await Promise.all([
+              supabaseClient.from('users').select('id_user', { count: 'exact' }).eq('role', 'siswa'),
+              supabaseClient.from('users').select('id_user', { count: 'exact' }).eq('role', 'guru'),
+              supabaseClient.from('jadwal').select('id_jadwal', { count: 'exact' }),
+              supabaseClient.from('log_ujian').select('id_log', { count: 'exact' }).eq('status_ujian', 'SEDANG KERJA')
+            ]);
+            
+            const { data: jadwalAktifData } = await supabaseClient
+              .from('jadwal')
+              .select('id_jadwal, nama_mapel, waktu_mulai, waktu_selesai, users(nama_lengkap)')
+              .limit(5);
+
+            return {
+              status: 'success',
+              data: {
+                totalSiswa: siswaRes.count || 0,
+                totalGuru: guruRes.count || 0,
+                totalJadwal: jadwalRes.count || 0,
+                totalSesiAktif: aktifRes.count || 0,
+                jadwalAktif: (jadwalAktifData || []).map(j => ({
+                  id_jadwal: j.id_jadwal,
+                  nama_mapel: j.nama_mapel,
+                  guru: j.users ? j.users.nama_lengkap : 'Unknown',
+                  waktu_mulai: j.waktu_mulai,
+                  waktu_selesai: j.waktu_selesai
+                }))
+              }
+            };
+
+          case 'get_users_by_role':
+            let userQuery = supabaseClient.from('users').select('*');
+            if (payload.role) userQuery = userQuery.eq('role', payload.role);
+            ({ data, error } = await userQuery);
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', data };
+
+          case 'get_all_jadwal':
+            ({ data, error } = await supabaseClient.from('jadwal').select('*, users(nama_lengkap)'));
+            if (error) return { status: 'error', message: error.message };
+            return { 
+              status: 'success', 
+              data: data.map(j => ({ ...j, guru: j.users ? j.users.nama_lengkap : 'Unknown' }))
+            };
+
+          case 'delete_jadwal':
+            ({ error } = await supabaseClient.from('jadwal').delete().eq('id_jadwal', payload.id_jadwal));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Data berhasil dihapus.' };
+
+          case 'delete_user':
+            ({ error } = await supabaseClient.from('users').delete().eq('id_user', payload.id_user));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Data berhasil dihapus.' };
+
+          // ================= GURU / PENGAWAS =================
+          case 'get_jadwal_pengawas':
+            ({ data, error } = await supabaseClient.from('jadwal').select('*');
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', data };
+
+          case 'get_token':
+            ({ data, error } = await supabaseClient.from('jadwal').select('token_aktif, last_update_token').eq('id_jadwal', payload.id_jadwal).single());
+            if (error) return { status: 'error', message: error.message };
+            
+            let token = data.token_aktif;
+            let lastUpdate = data.last_update_token ? new Date(data.last_update_token).getTime() : 0;
+            let now = new Date().getTime();
+            
+            if (now - lastUpdate > 300000 || !token) {
+              token = Math.random().toString(36).substring(2, 8).toUpperCase();
+              await supabaseClient.from('jadwal').update({
+                token_aktif: token,
+                last_update_token: new Date().toISOString()
+              }).eq('id_jadwal', payload.id_jadwal);
+            }
+            return { status: 'success', token };
+
+          case 'monitoring_ujian':
+            ({ data, error } = await supabaseClient.from('log_ujian').select('*, users(nama_lengkap)').eq('id_jadwal', payload.id_jadwal));
+            if (error) return { status: 'error', message: error.message };
+            return { 
+              status: 'success', 
+              data: data.map(l => ({ ...l, nama_lengkap: l.users ? l.users.nama_lengkap : 'Unknown' })) 
+            };
+
+          case 'buka_blokir':
+            ({ error } = await supabaseClient.from('log_ujian').update({ is_blocked: false }).eq('id_log', payload.id_log));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Blokir berhasil dibuka.' };
+
+          case 'submit_nilai_uraian':
+            ({ error } = await supabaseClient.from('log_ujian').update({ nilai_uraian: payload.nilai }).eq('id_log', payload.id_log));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Nilai uraian berhasil diupdate.' };
+
+          // ================= SISWA =================
+          case 'get_jadwal':
+            ({ data, error } = await supabaseClient.from('jadwal').select('*, users(nama_lengkap)'));
+            if (error) return { status: 'error', message: error.message };
+            return { 
+              status: 'success', 
+              data: data.map(j => ({ ...j, nama_guru: j.users ? j.users.nama_lengkap : 'Unknown' }))
+            };
+
+          case 'mulai_ujian':
+            ({ data, error } = await supabaseClient.from('jadwal').select('token_aktif, waktu_selesai').eq('id_jadwal', payload.id_jadwal).single());
+            if (error || !data) return { status: 'error', message: 'Jadwal tidak ditemukan.' };
+            if (new Date(data.waktu_selesai) < new Date()) return { status: 'error', message: 'Ujian sudah berakhir.' };
+            if (data.token_aktif !== payload.token) return { status: 'error', message: 'Token tidak valid atau sudah expired.' };
+
+            const { data: logData } = await supabaseClient.from('log_ujian').select('*').eq('id_siswa', payload.id_siswa).eq('id_jadwal', payload.id_jadwal).single();
+            let idLog = logData ? logData.id_log : null;
+            
+            if (logData) {
+              if (logData.is_blocked) return { status: 'error', message: 'Akun Anda diblokir dari ujian ini.' };
+              if (logData.status_ujian === 'SELESAI') return { status: 'error', message: 'Anda sudah menyelesaikan ujian ini.' };
+            } else {
+              idLog = 'LOG-' + Math.random().toString(36).substr(2, 9);
+              await supabaseClient.from('log_ujian').insert([{
+                id_log: idLog,
+                id_jadwal: payload.id_jadwal,
+                id_siswa: payload.id_siswa,
+                status_ujian: 'SEDANG KERJA'
+              }]);
+            }
+            return { status: 'success', id_log: idLog };
+
+          case 'get_soal_ujian':
+            ({ data, error } = await supabaseClient.from('soal_ujian').select('*').eq('id_jadwal', payload.id_jadwal));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', data };
+
+          case 'catat_pelanggaran':
+            const { data: currLog } = await supabaseClient.from('log_ujian').select('pelanggaran').eq('id_log', payload.id_log).single();
+            if (!currLog) return { status: 'error', message: 'Log tidak ditemukan' };
+            const newPelanggaran = (currLog.pelanggaran || 0) + 1;
+            const isBlocked = newPelanggaran >= 3;
+            await supabaseClient.from('log_ujian').update({ pelanggaran: newPelanggaran, is_blocked: isBlocked }).eq('id_log', payload.id_log);
+            return { status: 'success' };
+
+          case 'submit_ujian':
+            const logId = payload.id_log;
+            const jawaban = payload.jawaban; 
+            const idSiswa = payload.id_siswa;
+
+            const { data: soalData } = await supabaseClient.from('soal_ujian').select('*').eq('id_jadwal', payload.id_jadwal);
+            let totalSkorPG = 0;
+            let totalPG = 0;
+            let insertJawaban = [];
+            
+            if (soalData) {
+              for (const soal of soalData) {
+                const jwb = jawaban[soal.id_soal] || '';
+                let isCorrect = false;
+                let skorDiperoleh = 0;
+
+                if (soal.jenis_soal === 'PG') {
+                  totalPG++;
+                  if (jwb === soal.kunci_jawaban) {
+                    isCorrect = true;
+                    skorDiperoleh = Number(soal.skor) || 1;
+                    totalSkorPG += skorDiperoleh;
+                  }
+                }
+
+                insertJawaban.push({
+                  id_jawaban: 'JWB-' + Math.random().toString(36).substr(2, 9),
+                  id_log: logId,
+                  id_soal: soal.id_soal,
+                  jawaban_user: jwb,
+                  is_correct: isCorrect,
+                  skor_diperoleh: skorDiperoleh
+                });
+              }
+            }
+            
+            await supabaseClient.from('jawaban_siswa').delete().eq('id_log', logId);
+            if (insertJawaban.length > 0) {
+              await supabaseClient.from('jawaban_siswa').insert(insertJawaban);
+            }
+
+            let nilaiAuto = 0;
+            if (totalPG > 0) {
+               nilaiAuto = (totalSkorPG / totalPG) * 100;
+               nilaiAuto = Math.round(nilaiAuto * 100) / 100;
+            }
+
+            await supabaseClient.from('log_ujian').update({
+              status_ujian: 'SELESAI',
+              nilai_auto: nilaiAuto
+            }).eq('id_log', logId);
+
+            return { status: 'success', message: 'Ujian berhasil diselesaikan.', nilai_auto: nilaiAuto };
+
+          default:
+            return { status: 'error', message: 'Action tidak dikenali oleh router Supabase.' };
+        }
       } catch (error) {
-        console.error("API Error:", error);
-        return { status: 'error', message: 'Koneksi ke server gagal. Pastikan URL API (Google Apps Script) sudah benar dan di-deploy dengan benar.' };
+        console.error("Supabase Error:", error);
+        return { status: 'error', message: error.message };
       }
     };
 
