@@ -830,9 +830,7 @@
                   <div className="mb-lg">
                     <div className="flex justify-between items-center mb-lg">
                     <h2 className="font-headline-md text-headline-md text-on-surface dark:text-white">Data Siswa</h2>
-                    <button onClick={() => setModalSiswa({isOpen: true, data: null})} className="px-md py-sm bg-primary dark:bg-primary-fixed text-on-primary dark:text-on-primary-fixed rounded-lg font-label-md transition-colors hover:bg-primary/90">Tambah Siswa</button>
-                  </div>
-                  </div>
+                                        <button onClick={() => setModalSiswa({isOpen: true, data: null})} className="px-md py-sm bg-primary dark:bg-primary-fixed text-on-primary dark:text-on-primary-fixed rounded-lg font-label-md transition-colors hover:bg-primary/90">Tambah Siswa</button>
                   </div>
                   </div>
                   {isLoading ? <Loader text="Menarik data..." /> : (
@@ -895,6 +893,8 @@
                               <td className="py-sm px-md text-right space-x-xs">
                                 <button onClick={() => setModalGuru({isOpen: true, data: g})} className="text-secondary dark:text-slate-400 hover:text-primary transition-colors"><span className="material-symbols-outlined text-[20px]">edit</span></button>
                                 <button onClick={() => handleDeleteUser(g.id_user, 'guru')} className="text-secondary dark:text-slate-400 hover:text-error transition-colors"><span className="material-symbols-outlined text-[20px]">delete</span></button>
+                              </td>
+                            </tr>
                           ))}
                         </tbody>
                       </table>
