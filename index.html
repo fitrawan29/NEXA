@@ -1290,6 +1290,16 @@
             showMessage('Pendaftaran Ditutup', 'Silakan hubungi administrator sekolah untuk membuat akun baru.', 'warning');
           };
 
+          const handleLupaPassword = (e) => {
+            e.preventDefault();
+            showMessage('Lupa Password?', 'Untuk mereset password, silakan hubungi Administrator Sekolah atau Wali Kelas Anda.', 'info');
+          };
+
+          const handleSyaratKetentuan = (e) => {
+            e.preventDefault();
+            showMessage('Syarat & Ketentuan', 'Dengan mendaftar dan menggunakan sistem NEXA CBT, Anda setuju untuk mematuhi tata tertib ujian, tidak melakukan kecurangan, dan menjaga kerahasiaan akun.', 'info');
+          };
+
           return (
             <div className="min-h-screen flex items-center justify-center p-lg sm:p-xl md:p-gutter relative overflow-hidden bg-surface">
               {/* Decorative Background Elements */}
@@ -1385,7 +1395,7 @@
                             </div>
                             <span className="font-body-md text-sm text-on-surface-variant group-hover:text-on-surface transition-colors">Ingat Saya</span>
                           </label>
-                          <a className="font-body-md text-sm text-primary font-medium hover:text-primary-container transition-colors" href="#">Lupa Password?</a>
+                          <button type="button" onClick={handleLupaPassword} className="font-body-md text-sm text-primary font-medium hover:text-primary-container transition-colors">Lupa Password?</button>
                         </div>
 
                         <button disabled={loading || loginSuccess} className={`w-full font-label-md py-sm rounded-lg transition-all duration-300 shadow-sm flex justify-center items-center gap-xs mt-2 ${loginSuccess ? 'bg-[#10B981] text-white' : 'bg-primary text-on-primary hover:bg-primary-container hover:shadow-lg hover:-translate-y-1'} disabled:opacity-80 disabled:cursor-not-allowed`} type="submit">
@@ -1422,7 +1432,7 @@
                       <form onSubmit={onRegisterSubmit} className="flex flex-col gap-sm flex-1">
                         {/* Segmented Control */}
                         <div className="flex bg-surface-container p-1 rounded-lg relative isolation-auto z-0 mb-xs shadow-inner">
-                          {['siswa', 'guru', 'admin'].map((r) => (
+                          {['siswa', 'guru'].map((r) => (
                             <label key={r} className="flex-1 cursor-pointer relative">
                               <input defaultChecked={r === 'siswa'} className="peer sr-only" name="reg-role" type="radio" value={r} />
                               <div className="w-full text-center py-2 rounded-md text-on-surface-variant font-label-md transition-all duration-300 peer-checked:text-primary z-10 relative capitalize">
@@ -1457,7 +1467,7 @@
                             <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                           </button>
                           <p className="text-center font-body-md text-on-surface-variant mt-sm text-[12px]">
-                            Dengan mendaftar, Anda menyetujui <a className="text-primary hover:underline" href="#">Syarat & Ketentuan</a> kami.
+                            Dengan mendaftar, Anda menyetujui <button type="button" onClick={handleSyaratKetentuan} className="text-primary hover:underline">Syarat & Ketentuan</button> kami.
                           </p>
                         </div>
                       </form>
