@@ -1,0 +1,324 @@
+<!DOCTYPE html><html lang="id" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title class="">Masuk - NEXA</title>
+<!-- Fonts & Icons -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Courier+Prime&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Config -->
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-background": "#191b23",
+                      "primary-fixed-dim": "#b5c4ff",
+                      "tertiary-fixed": "#e1e3e4",
+                      "on-tertiary-fixed-variant": "#454748",
+                      "on-error-container": "#93000a",
+                      "primary-container": "#1a56db",
+                      "inverse-primary": "#b5c4ff",
+                      "inverse-on-surface": "#f0f0fb",
+                      "surface-variant": "#e2e1ed",
+                      "inverse-surface": "#2e3039",
+                      "on-primary": "#ffffff",
+                      "secondary-fixed": "#dce2f7",
+                      "primary-fixed": "#dbe1ff",
+                      "on-primary-fixed": "#00174d",
+                      "outline": "#737686",
+                      "on-primary-container": "#d4dcff",
+                      "outline-variant": "#c3c5d7",
+                      "background": "#faf8ff",
+                      "on-secondary-fixed-variant": "#404758",
+                      "surface-container-highest": "#e2e1ed",
+                      "surface": "#faf8ff",
+                      "secondary": "#575e70",
+                      "surface-container": "#ededf8",
+                      "on-tertiary": "#ffffff",
+                      "on-error": "#ffffff",
+                      "surface-container-low": "#f3f3fe",
+                      "surface-bright": "#faf8ff",
+                      "surface-container-lowest": "#ffffff",
+                      "on-tertiary-fixed": "#191c1d",
+                      "on-primary-fixed-variant": "#003dab",
+                      "secondary-container": "#d9dff5",
+                      "secondary-fixed-dim": "#c0c6db",
+                      "on-secondary": "#ffffff",
+                      "on-secondary-container": "#5c6274",
+                      "primary": "#003fb1",
+                      "tertiary-fixed-dim": "#c5c7c8",
+                      "on-surface-variant": "#434654",
+                      "on-tertiary-container": "#dcdedf",
+                      "surface-tint": "#1353d8",
+                      "tertiary-container": "#5f6263",
+                      "on-surface": "#191b23",
+                      "error": "#ba1a1a",
+                      "surface-container-high": "#e7e7f3",
+                      "tertiary": "#484a4b",
+                      "on-secondary-fixed": "#141b2b",
+                      "error-container": "#ffdad6",
+                      "surface-dim": "#d9d9e4"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "container-max": "1280px",
+                      "base": "8px",
+                      "gutter": "24px",
+                      "lg": "24px",
+                      "md": "16px",
+                      "xl": "32px",
+                      "xs": "4px",
+                      "sm": "12px"
+              },
+              "fontFamily": {
+                      "headline-lg": [
+                              "Inter"
+                      ],
+                      "headline-lg-mobile": [
+                              "Inter"
+                      ],
+                      "mono-label": [
+                              "Courier Prime"
+                      ],
+                      "headline-sm": [
+                              "Inter"
+                      ],
+                      "label-md": [
+                              "Inter"
+                      ],
+                      "question-text": [
+                              "Inter"
+                      ],
+                      "headline-md": [
+                              "Inter"
+                      ],
+                      "body-md": [
+                              "Inter"
+                      ],
+                      "body-lg": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "mono-label": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-sm": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "label-md": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "question-text": [
+                              "18px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "body-lg": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        .academic-input:focus {
+            outline: none;
+            border-color: #1a56db;
+            box-shadow: 0 0 0 4px rgba(26, 86, 219, 0.1);
+        }
+        .form-slider {
+            display: flex;
+            width: 200%;
+            transition: transform 0.4s ease-in-out;
+        }
+        .show-register {
+            transform: translateX(-50%);
+        }
+        .form-pane {
+            width: 50%;
+            flex-shrink: 0;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface antialiased selection:bg-primary-fixed selection:text-on-primary-fixed font-body-md min-h-screen flex items-center justify-center p-lg sm:p-xl md:p-gutter">
+<div class="w-full max-w-[500px] border border-outline-variant rounded-lg bg-surface-container-lowest shadow-xl overflow-hidden relative">
+<div class="form-slider" id="formSlider">
+<!-- MASUK FORM PANE -->
+<div class="form-pane p-lg flex flex-col">
+<div class="mb-lg">
+<h2 class="font-headline-md text-on-surface flex items-center gap-xs">
+<img alt="NEXA Logo" class="w-8 h-8 object-contain rounded" src="https://lh3.googleusercontent.com/aida/AEtjO1VVZfSUCXhHzY1X0SeCMcnnfH7eVLHQqeKZRoS92h6LX1juBz1mnHDbVWx1-Ba6QJacojgIbeoyE3UGy8T6Tb1_zTR54w2rmJiBCsvoFvsirZvz0_Sze5GuvCCAGNsKINOED0RXdkwpJDJinvxgu4KYdM823w67kkw4wzY5RntMk58ZhF_-cEiEvWXFYy34ycs42ktHbpwy_GH_ydOPW5eO4S5k_plk9debDcu5KRZwhT3Qv_0W8MX-">
+                    NEXA
+                </h2>
+<p class="font-body-md text-on-surface-variant mt-xs">Silakan masuk ke akun Anda.</p>
+</div>
+<form class="flex flex-col gap-md">
+<div class="flex flex-col gap-xs mb-xs">
+<span class="font-label-md text-on-surface">Masuk Sebagai</span>
+<div class="flex gap-sm">
+<label class="flex-1 cursor-pointer">
+<input checked="" class="peer sr-only" name="login-role" type="radio" value="siswa">
+<div class="w-full text-center py-xs px-sm rounded-DEFAULT border border-outline-variant text-on-surface-variant font-label-md peer-checked:border-primary peer-checked:bg-primary-fixed peer-checked:text-on-primary-fixed-variant transition-all">Siswa</div>
+</label>
+<label class="flex-1 cursor-pointer">
+<input class="peer sr-only" name="login-role" type="radio" value="guru">
+<div class="w-full text-center py-xs px-sm rounded-DEFAULT border border-outline-variant text-on-surface-variant font-label-md peer-checked:border-primary peer-checked:bg-primary-fixed peer-checked:text-on-primary-fixed-variant transition-all">Guru</div>
+</label>
+<label class="flex-1 cursor-pointer">
+<input class="peer sr-only" name="login-role" type="radio" value="admin">
+<div class="w-full text-center py-xs px-sm rounded-DEFAULT border border-outline-variant text-on-surface-variant font-label-md peer-checked:border-primary peer-checked:bg-primary-fixed peer-checked:text-on-primary-fixed-variant transition-all">Admin</div>
+</label>
+</div>
+</div>
+<div class="flex flex-col gap-xs">
+<label class="font-label-md text-on-surface" for="login-username">Username / NISN</label>
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-sm text-outline">person</span>
+<input class="academic-input w-full pl-[40px] pr-sm py-sm rounded-DEFAULT border border-outline-variant bg-surface-container-lowest text-body-md text-on-surface placeholder:text-outline-variant transition-colors" id="login-username" placeholder="Masukkan Username atau NISN" type="text">
+</div>
+</div>
+<div class="flex flex-col gap-xs">
+<label class="font-label-md text-on-surface" for="login-password">Password</label>
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-sm text-outline">lock</span>
+<input class="academic-input w-full pl-[40px] pr-sm py-sm rounded-DEFAULT border border-outline-variant bg-surface-container-lowest text-body-md text-on-surface placeholder:text-outline-variant transition-colors" id="login-password" placeholder="••••••••" type="password">
+</div>
+</div>
+<div class="flex justify-end mb-sm">
+<a class="font-body-md text-primary font-medium hover:text-primary-container transition-colors" href="#">Lupa Password?</a>
+</div>
+<button class="w-full bg-primary text-on-primary font-label-md py-sm rounded-DEFAULT hover:bg-primary-container transition-colors shadow-sm active:scale-[0.99] flex justify-center items-center gap-xs mt-auto" type="button">
+                    Masuk Sekarang
+                    <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+</form>
+<p class="text-center font-body-md text-on-surface-variant mt-md">
+                Belum punya akun? <button class="text-primary hover:underline font-medium" id="btn-go-register" type="button">Daftar</button>
+</p>
+</div>
+<!-- DAFTAR FORM PANE -->
+<div class="form-pane p-lg flex flex-col">
+<div class="mb-lg">
+<h2 class="font-headline-md text-on-surface flex items-center gap-xs">
+<img alt="NEXA Logo" class="w-8 h-8 object-contain rounded" src="https://lh3.googleusercontent.com/aida/AEtjO1VVZfSUCXhHzY1X0SeCMcnnfH7eVLHQqeKZRoS92h6LX1juBz1mnHDbVWx1-Ba6QJacojgIbeoyE3UGy8T6Tb1_zTR54w2rmJiBCsvoFvsirZvz0_Sze5GuvCCAGNsKINOED0RXdkwpJDJinvxgu4KYdM823w67kkw4wzY5RntMk58ZhF_-cEiEvWXFYy34ycs42ktHbpwy_GH_ydOPW5eO4S5k_plk9debDcu5KRZwhT3Qv_0W8MX-">
+                    NEXA
+                </h2>
+<p class="font-body-md text-on-surface-variant mt-xs">Buat akun baru Anda.</p>
+</div>
+<form class="flex flex-col gap-md flex-1">
+<div class="flex flex-col gap-xs mb-xs">
+<span class="font-label-md text-on-surface">Daftar Sebagai</span>
+<div class="flex gap-sm">
+<label class="flex-1 cursor-pointer">
+<input checked="" class="peer sr-only" name="reg-role" type="radio" value="siswa">
+<div class="w-full text-center py-xs px-sm rounded-DEFAULT border border-outline-variant text-on-surface-variant font-label-md peer-checked:border-primary peer-checked:bg-primary-fixed peer-checked:text-on-primary-fixed-variant transition-all">Siswa</div>
+</label>
+<label class="flex-1 cursor-pointer">
+<input class="peer sr-only" name="reg-role" type="radio" value="guru">
+<div class="w-full text-center py-xs px-sm rounded-DEFAULT border border-outline-variant text-on-surface-variant font-label-md peer-checked:border-primary peer-checked:bg-primary-fixed peer-checked:text-on-primary-fixed-variant transition-all">Guru</div>
+</label>
+<label class="flex-1 cursor-pointer">
+<input class="peer sr-only" name="reg-role" type="radio" value="admin">
+<div class="w-full text-center py-xs px-sm rounded-DEFAULT border border-outline-variant text-on-surface-variant font-label-md peer-checked:border-primary peer-checked:bg-primary-fixed peer-checked:text-on-primary-fixed-variant transition-all">Admin</div>
+</label>
+</div>
+</div>
+<div class="flex flex-col gap-xs">
+<label class="font-label-md text-on-surface" for="reg-name">Nama Lengkap</label>
+<input class="academic-input w-full px-sm py-sm rounded-DEFAULT border border-outline-variant bg-surface-container-lowest text-body-md text-on-surface placeholder:text-outline-variant transition-colors" id="reg-name" placeholder="Masukkan nama lengkap sesuai KTP/KK" type="text">
+</div>
+<div class="flex flex-col gap-xs">
+<label class="font-label-md text-on-surface" for="reg-username">Username / NISN</label>
+<input class="academic-input w-full px-sm py-sm rounded-DEFAULT border border-outline-variant bg-surface-container-lowest text-body-md text-on-surface placeholder:text-outline-variant transition-colors" id="reg-username" placeholder="Masukkan Username atau NISN unik" type="text">
+</div>
+<div class="flex flex-col gap-xs mb-xs">
+<label class="font-label-md text-on-surface" for="reg-password">Password</label>
+<input class="academic-input w-full px-sm py-sm rounded-DEFAULT border border-outline-variant bg-surface-container-lowest text-body-md text-on-surface placeholder:text-outline-variant transition-colors" id="reg-password" placeholder="Buat password yang kuat" type="password">
+</div>
+<div class="mt-auto pt-sm">
+<button class="w-full bg-primary text-on-primary font-label-md py-sm rounded-DEFAULT hover:bg-primary-container transition-colors shadow-sm active:scale-[0.99] flex justify-center items-center gap-xs" type="button">
+                        Daftar Sekarang 
+                        <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+<p class="text-center font-body-md text-on-surface-variant mt-sm text-[12px]">
+                        Dengan mendaftar, Anda menyetujui <a class="text-primary hover:underline" href="#">Syarat &amp; Ketentuan</a> kami.
+                    </p>
+</div>
+</form>
+<p class="text-center font-body-md text-on-surface-variant mt-md">
+                Sudah punya akun? <button class="text-primary hover:underline font-medium" id="btn-go-login" type="button">Masuk</button>
+</p>
+</div>
+</div>
+</div>
+<script>
+    document.getElementById('btn-go-register').addEventListener('click', function() {
+        document.getElementById('formSlider').classList.add('show-register');
+    });
+    
+    document.getElementById('btn-go-login').addEventListener('click', function() {
+        document.getElementById('formSlider').classList.remove('show-register');
+    });
+</script>
+
+
+</body></html>

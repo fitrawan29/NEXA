@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+
+<html lang="id" style=""><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Ujian Digital Siswa</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Courier+Prime&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "background": "#faf8ff",
+                        "surface-container": "#ededf8",
+                        "primary-fixed-dim": "#b5c4ff",
+                        "primary": "#003fb1",
+                        "tertiary-fixed": "#e1e3e4",
+                        "error-container": "#ffdad6",
+                        "on-primary-fixed-variant": "#003dab",
+                        "inverse-on-surface": "#f0f0fb",
+                        "on-secondary": "#ffffff",
+                        "outline": "#737686",
+                        "secondary": "#575e70",
+                        "on-primary": "#ffffff",
+                        "on-tertiary": "#ffffff",
+                        "on-primary-fixed": "#00174d",
+                        "surface-variant": "#e2e1ed",
+                        "primary-fixed": "#dbe1ff",
+                        "surface-bright": "#faf8ff",
+                        "outline-variant": "#c3c5d7",
+                        "on-secondary-fixed": "#141b2b",
+                        "secondary-container": "#d9dff5",
+                        "secondary-fixed-dim": "#c0c6db",
+                        "on-secondary-container": "#5c6274",
+                        "secondary-fixed": "#dce2f7",
+                        "primary-container": "#1a56db",
+                        "on-background": "#191b23",
+                        "on-tertiary-container": "#dcdedf",
+                        "surface-container-high": "#e7e7f3",
+                        "surface-container-low": "#f3f3fe",
+                        "surface-dim": "#d9d9e4",
+                        "surface-tint": "#1353d8",
+                        "on-error": "#ffffff",
+                        "tertiary": "#484a4b",
+                        "surface": "#faf8ff",
+                        "on-surface": "#191b23",
+                        "on-secondary-fixed-variant": "#404758",
+                        "surface-container-highest": "#e2e1ed",
+                        "on-tertiary-fixed-variant": "#454748",
+                        "inverse-primary": "#b5c4ff",
+                        "inverse-surface": "#2e3039",
+                        "tertiary-container": "#5f6263",
+                        "on-error-container": "#93000a",
+                        "tertiary-fixed-dim": "#c5c7c8",
+                        "on-primary-container": "#d4dcff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-surface-variant": "#434654",
+                        "error": "#ba1a1a",
+                        "on-tertiary-fixed": "#191c1d",
+                        "answered": "#10B981", // Emerald 500 for answered
+                        "flagged": "#D97706"  // Amber 600 for flagged
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "24px",
+                        "base": "8px",
+                        "lg": "24px",
+                        "sm": "12px",
+                        "md": "16px",
+                        "xl": "32px",
+                        "xs": "4px",
+                        "container-max": "1280px"
+                    },
+                    "fontFamily": {
+                        "label-md": ["Inter"],
+                        "question-text": ["Inter"],
+                        "body-md": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "mono-label": ["Courier Prime"],
+                        "headline-lg": ["Inter"],
+                        "headline-sm": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-lg-mobile": ["Inter"]
+                    },
+                    "fontSize": {
+                        "label-md": ["12px", { "lineHeight": "16px", "fontWeight": "600" }],
+                        "question-text": ["18px", { "lineHeight": "28px", "fontWeight": "500" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "mono-label": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #faf8ff;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+        /* Custom scrollbar for sidebar */
+        .sidebar-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .sidebar-scroll::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        .sidebar-scroll::-webkit-scrollbar-thumb {
+            background: #c3c5d7; 
+            border-radius: 10px;
+        }
+        .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+            background: #737686; 
+        }
+    </style>
+</head>
+<body class="font-body-md text-body-md text-on-background bg-background h-screen flex flex-col overflow-hidden">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-xl h-20 bg-primary shadow-md">
+<div class="flex items-center gap-md">
+<img alt="NEXA Logo" class="h-10 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AP1WRLu_2LNtGnGtS3lAx1DObF0B35WSpIPY4YZ3BjB35w3Z1WUyi3SbbEzOY44vMM6Z7770nG1SIIV1ebc87a1L7W_SjoGXMuKZPHKBlIv0VUc_JT5ETFwBqbDStOh9wiXTgoZ7HCTH1U2tPfJj_mu9DLwWzY1uDPKjmKSozGxGL8oM38mJivJtn_uhFykYIvKebLN3htC1zqgkjDv2S-bnuTjC7JWDiU7rc4k23dT76UBb0QhGq-RZFMsw"/>
+</div>
+<div class="flex items-center gap-xl text-on-primary">
+<div class="flex flex-col items-end">
+<span class="font-label-md text-label-md text-primary-fixed-dim">Budi Santoso</span>
+<span class="font-label-md text-label-md text-primary-fixed-dim">NISN: 12345678</span>
+</div>
+<div class="h-8 w-px bg-primary-fixed-dim opacity-50"></div>
+<div class="font-body-lg text-body-lg text-on-primary">Matematika SMA</div>
+<div class="h-8 w-px bg-primary-fixed-dim opacity-50"></div>
+<div class="font-headline-md text-headline-md text-error-container font-bold flex items-center gap-xs">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">timer</span>
+                01:25:30
+            </div>
+<button class="font-headline-sm text-headline-sm text-on-primary font-bold hover:opacity-90 active:scale-95 transition-transform ml-md bg-error text-on-error px-md py-sm rounded">Selesai</button>
+</div>
+</header>
+<div class="flex flex-1 pt-20 h-full">
+<!-- SideNavBar -->
+<aside class="fixed left-0 mt-20 w-80 h-[calc(100vh-80px)] border-r border-outline-variant bg-surface flex flex-col p-md overflow-y-auto sidebar-scroll z-40">
+<div class="mb-md">
+<h2 class="font-label-md text-label-md text-on-surface font-bold">Navigasi Soal</h2>
+<p class="font-label-md text-label-md text-on-surface-variant font-normal">Klik nomor untuk pindah soal</p>
+</div>
+<div class="grid grid-cols-6 gap-sm mb-lg">
+<!-- Answered (1-5) -->
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center bg-answered text-white cursor-pointer transition-all">1</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center bg-answered text-white cursor-pointer transition-all">2</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center bg-answered text-white cursor-pointer transition-all">3</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center bg-answered text-white cursor-pointer transition-all">4</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center bg-answered text-white cursor-pointer transition-all">5</button>
+<!-- Current (6) -->
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center bg-primary text-on-primary ring-2 ring-primary ring-offset-2 cursor-pointer transition-all">6</button>
+<!-- Flagged (7) -->
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center bg-flagged text-white cursor-pointer transition-all">7</button>
+<!-- Unanswered (8-50) -->
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">8</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">9</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">10</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">11</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">12</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">13</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">14</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">15</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">16</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">17</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">18</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">19</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">20</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">21</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">22</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">23</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">24</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">25</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">26</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">27</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">28</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">29</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">30</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">31</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">32</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">33</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">34</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">35</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">36</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">37</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">38</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">39</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">40</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">41</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">42</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">43</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">44</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">45</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">46</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">47</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">48</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">49</button>
+<button class="w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center border border-outline-variant text-on-surface hover:border-primary hover:text-primary cursor-pointer transition-all">50</button>
+</div>
+<div class="mt-auto pt-md border-t border-outline-variant">
+<div class="flex items-center gap-sm mb-xs">
+<div class="w-4 h-4 bg-answered rounded-sm"></div>
+<span class="font-label-md text-label-md text-on-surface-variant">Terjawab (5)</span>
+</div>
+<div class="flex items-center gap-sm mb-xs">
+<div class="w-4 h-4 bg-flagged rounded-sm"></div>
+<span class="font-label-md text-label-md text-on-surface-variant">Ragu-ragu (1)</span>
+</div>
+<div class="flex items-center gap-sm mb-xs">
+<div class="w-4 h-4 border border-outline-variant rounded-sm bg-white"></div>
+<span class="font-label-md text-label-md text-on-surface-variant">Belum Dijawab (43)</span>
+</div>
+<div class="flex items-center gap-sm">
+<div class="w-4 h-4 bg-primary rounded-sm ring-1 ring-primary ring-offset-1"></div>
+<span class="font-label-md text-label-md text-on-surface-variant">Posisi Saat Ini</span>
+</div>
+</div>
+</aside>
+<!-- Main Content (Canvas) -->
+<main class="flex-1 ml-80 flex flex-col bg-background relative overflow-y-auto pb-24">
+<div class="max-w-[1200px] mx-auto w-full p-xl mt-lg">
+<!-- Question Card -->
+<div class="bg-surface-container-lowest border-2 border-primary rounded-lg p-xl shadow-sm mb-xl">
+<div class="flex justify-between items-center mb-md pb-md border-b border-outline-variant">
+<span class="font-headline-md text-headline-md text-on-surface">Soal No. 6</span>
+<div class="flex items-center gap-sm bg-surface-container py-xs px-sm rounded-full">
+<span class="material-symbols-outlined text-secondary" style="font-size: 16px;">category</span>
+<span class="font-label-md text-label-md text-secondary">Aljabar</span>
+</div>
+</div>
+<div class="font-question-text text-question-text text-on-surface mb-xl">
+                        Jika x + 5 = 12, berapakah nilai x?
+                    </div>
+<!-- Options -->
+<div class="space-y-sm">
+<!-- Option A -->
+<label class="flex items-center p-md border border-outline-variant rounded-lg cursor-pointer hover:bg-surface-container-low transition-colors bg-surface-container-lowest">
+<input class="form-radio h-5 w-5 text-primary border-outline-variant focus:ring-primary focus:ring-offset-0" name="answer" type="radio" value="A"/>
+<span class="ml-md font-body-lg text-body-lg text-on-surface flex-1">
+<span class="font-bold mr-sm">A.</span> 5
+                            </span>
+</label>
+<!-- Option B (Selected) -->
+<label class="flex items-center p-md border-2 border-primary rounded-lg cursor-pointer bg-primary-fixed shadow-[0_4px_8px_rgba(0,0,0,0.05)] transition-all">
+<input checked="" class="form-radio h-5 w-5 text-primary border-primary focus:ring-primary focus:ring-offset-0" name="answer" type="radio" value="B"/>
+<span class="ml-md font-body-lg text-body-lg text-on-surface flex-1">
+<span class="font-bold mr-sm">B.</span> 7
+                            </span>
+</label>
+<!-- Option C -->
+<label class="flex items-center p-md border border-outline-variant rounded-lg cursor-pointer hover:bg-surface-container-low transition-colors bg-surface-container-lowest">
+<input class="form-radio h-5 w-5 text-primary border-outline-variant focus:ring-primary focus:ring-offset-0" name="answer" type="radio" value="C"/>
+<span class="ml-md font-body-lg text-body-lg text-on-surface flex-1">
+<span class="font-bold mr-sm">C.</span> 10
+                            </span>
+</label>
+<!-- Option D -->
+<label class="flex items-center p-md border border-outline-variant rounded-lg cursor-pointer hover:bg-surface-container-low transition-colors bg-surface-container-lowest">
+<input class="form-radio h-5 w-5 text-primary border-outline-variant focus:ring-primary focus:ring-offset-0" name="answer" type="radio" value="D"/>
+<span class="ml-md font-body-lg text-body-lg text-on-surface flex-1">
+<span class="font-bold mr-sm">D.</span> 12
+                            </span>
+</label>
+<!-- Option E -->
+<label class="flex items-center p-md border border-outline-variant rounded-lg cursor-pointer hover:bg-surface-container-low transition-colors bg-surface-container-lowest">
+<input class="form-radio h-5 w-5 text-primary border-outline-variant focus:ring-primary focus:ring-offset-0" name="answer" type="radio" value="E"/>
+<span class="ml-md font-body-lg text-body-lg text-on-surface flex-1">
+<span class="font-bold mr-sm">E.</span> 17
+                            </span>
+</label>
+</div>
+</div>
+</div>
+<!-- Bottom Action Bar -->
+<div class="fixed bottom-0 left-80 right-0 h-20 bg-surface-container-lowest border-t border-outline-variant px-xl flex items-center justify-between shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-40">
+<button class="flex items-center gap-xs px-lg py-sm border-2 border-primary text-primary font-body-md text-body-md font-semibold rounded hover:bg-primary-fixed transition-colors">
+<span class="material-symbols-outlined">arrow_back</span>
+                    Sebelumnya
+                </button>
+<div class="flex items-center gap-lg">
+<label class="flex items-center cursor-pointer gap-sm group">
+<div class="relative flex items-center justify-center w-6 h-6 border-2 border-outline-variant rounded group-hover:border-flagged transition-colors">
+<input class="absolute opacity-0 w-full h-full cursor-pointer peer" type="checkbox"/>
+<span class="material-symbols-outlined text-flagged opacity-0 peer-checked:opacity-100 transition-opacity" style="font-size: 20px; font-variation-settings: 'FILL' 1;">check</span>
+</div>
+<span class="font-body-md text-body-md text-on-surface group-hover:text-flagged transition-colors">Tandai Ragu-ragu</span>
+</label>
+<button class="flex items-center gap-xs px-lg py-sm bg-primary text-on-primary font-body-md text-body-md font-semibold rounded hover:bg-on-primary-fixed-variant transition-colors shadow-sm">
+                        Selanjutnya
+                        <span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</div>
+</main>
+</div>
+</body></html>

@@ -1242,6 +1242,10 @@
 
       const [username, setUsername] = useState('');
       const [password, setPassword] = useState('');
+      const [showPassword, setShowPassword] = useState(false);
+      const [rememberMe, setRememberMe] = useState(false);
+      const [loginError, setLoginError] = useState('');
+      const [loginSuccess, setLoginSuccess] = useState(false);
 
       const [modal, setModal] = useState({ isOpen: false, title: '', message: '', type: 'info' });
 
@@ -1252,13 +1256,18 @@
       const handleLogin = async (e) => {
         e.preventDefault();
         setLoading(true);
+        setLoginError('');
         const res = await fetchAPI('login', { username, password });
         setLoading(false);
 
         if (res.status === 'success') {
-          setUser(res.data);
+          setLoginSuccess(true);
+          setTimeout(() => {
+            setUser(res.data);
+            setLoginSuccess(false);
+          }, 1000);
         } else {
-          showMessage('Akses Ditolak', res.message || 'Username atau password yang Anda masukkan salah.', 'error');
+          setLoginError(res.message || 'Username atau password yang Anda masukkan salah.');
         }
       };
 
@@ -1266,6 +1275,7 @@
         setUser(null);
         setUsername('');
         setPassword('');
+        setRememberMe(false);
       };
 
       const renderView = () => {
@@ -1281,104 +1291,181 @@
           };
 
           return (
-            <div className="min-h-screen flex items-center justify-center bg-surface p-lg sm:p-xl md:p-gutter">
-              <div className="w-full max-w-[500px] border border-outline-variant rounded-lg bg-surface-container-lowest shadow-xl overflow-hidden relative">
-                <div className={`form-slider ${isRegistering ? 'show-register' : ''}`}>
-                  {/* MASUK FORM PANE */}
-                  <div className="form-pane p-lg flex flex-col">
-                    <div className="mb-lg">
-                      <h2 className="font-headline-md text-on-surface flex items-center gap-xs">
-                        <img alt="NEXA Logo" className="w-8 h-8 object-contain rounded" src="https://lh3.googleusercontent.com/aida/AEtjO1VVZfSUCXhHzY1X0SeCMcnnfH7eVLHQqeKZRoS92h6LX1juBz1mnHDbVWx1-Ba6QJacojgIbeoyE3UGy8T6Tb1_zTR54w2rmJiBCsvoFvsirZvz0_Sze5GuvCCAGNsKINOED0RXdkwpJDJinvxgu4KYdM823w67kkw4wzY5RntMk58ZhF_-cEiEvWXFYy34ycs42ktHbpwy_GH_ydOPW5eO4S5k_plk9debDcu5KRZwhT3Qv_0W8MX-" />
-                        NEXA
-                      </h2>
-                      <p className="font-body-md text-on-surface-variant mt-xs">Silakan masuk ke akun Anda.</p>
-                    </div>
-                    <form onSubmit={onLoginSubmit} className="flex flex-col gap-md">
-                      <div className="flex flex-col gap-xs mb-xs">
-                        <span className="font-label-md text-on-surface">Masuk Sebagai</span>
-                        <div className="flex gap-sm">
-                          {['siswa', 'guru', 'admin'].map(r => (
-                            <label key={r} className="flex-1 cursor-pointer">
-                              <input defaultChecked={r === 'siswa'} className="peer sr-only" name="login-role" type="radio" value={r} />
-                              <div className="w-full text-center py-xs px-sm rounded-DEFAULT border border-outline-variant text-on-surface-variant font-label-md peer-checked:border-primary peer-checked:bg-primary-fixed peer-checked:text-on-primary-fixed-variant transition-all capitalize">{r}</div>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-xs">
-                        <label className="font-label-md text-on-surface" htmlFor="login-username">Username / NISN</label>
-                        <div className="relative flex items-center">
-                          <span className="material-symbols-outlined absolute left-sm text-outline">person</span>
-                          <input required value={username} onChange={e => setUsername(e.target.value)} className="academic-input w-full pl-[40px] pr-sm py-sm rounded-DEFAULT border border-outline-variant bg-surface-container-lowest text-body-md text-on-surface placeholder:text-outline-variant transition-colors" id="login-username" placeholder="Masukkan Username atau NISN" type="text" />
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-xs">
-                        <label className="font-label-md text-on-surface" htmlFor="login-password">Password</label>
-                        <div className="relative flex items-center">
-                          <span className="material-symbols-outlined absolute left-sm text-outline">lock</span>
-                          <input required value={password} onChange={e => setPassword(e.target.value)} className="academic-input w-full pl-[40px] pr-sm py-sm rounded-DEFAULT border border-outline-variant bg-surface-container-lowest text-body-md text-on-surface placeholder:text-outline-variant transition-colors" id="login-password" placeholder="••••••••" type="password" />
-                        </div>
-                      </div>
-                      <div className="flex justify-end mb-sm">
-                        <a className="font-body-md text-primary font-medium hover:text-primary-container transition-colors" href="#">Lupa Password?</a>
-                      </div>
-                      <button disabled={loading} className="w-full bg-primary text-on-primary font-label-md py-sm rounded-DEFAULT hover:bg-primary-container transition-colors shadow-sm active:scale-[0.99] flex justify-center items-center gap-xs mt-auto disabled:opacity-70" type="submit">
-                        {loading ? <div className="w-5 h-5 border-2 border-primary-fixed border-t-white rounded-full animate-spin"></div> : (
-                          <>Masuk Sekarang <span className="material-symbols-outlined text-[18px]">arrow_forward</span></>
-                        )}
-                      </button>
-                    </form>
-                    <p className="text-center font-body-md text-on-surface-variant mt-md">
-                      Belum punya akun? <button onClick={() => setIsRegistering(true)} className="text-primary hover:underline font-medium" type="button">Daftar</button>
-                    </p>
+            <div className="min-h-screen flex items-center justify-center p-lg sm:p-xl md:p-gutter relative overflow-hidden bg-surface">
+              {/* Decorative Background Elements */}
+              <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary-fixed rounded-full blur-[100px] opacity-60 pointer-events-none"></div>
+              <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-secondary-fixed rounded-full blur-[100px] opacity-60 pointer-events-none"></div>
+              
+              <div className="w-full max-w-[900px] bg-white/70 backdrop-blur-xl border border-white/50 rounded-2xl shadow-2xl overflow-hidden relative z-10 flex flex-col md:flex-row animate-fade-in-up">
+                
+                {/* Left Side: Illustration / Branding (Hidden on small screens) */}
+                <div className="hidden md:flex md:w-1/2 bg-primary text-white p-xl flex-col justify-between relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-br from-primary to-blue-900 opacity-90"></div>
+                  <div className="absolute top-[-20%] right-[-20%] w-64 h-64 bg-white opacity-10 rounded-full blur-3xl"></div>
+                  
+                  <div className="relative z-10">
+                    <h2 className="font-headline-lg text-white font-bold flex items-center gap-2 mb-4">
+                      <img alt="NEXA Logo" className="w-10 h-10 object-contain rounded bg-white p-1" src="https://lh3.googleusercontent.com/aida/AEtjO1VVZfSUCXhHzY1X0SeCMcnnfH7eVLHQqeKZRoS92h6LX1juBz1mnHDbVWx1-Ba6QJacojgIbeoyE3UGy8T6Tb1_zTR54w2rmJiBCsvoFvsirZvz0_Sze5GuvCCAGNsKINOED0RXdkwpJDJinvxgu4KYdM823w67kkw4wzY5RntMk58ZhF_-cEiEvWXFYy34ycs42ktHbpwy_GH_ydOPW5eO4S5k_plk9debDcu5KRZwhT3Qv_0W8MX-" />
+                      NEXA
+                    </h2>
+                    <p className="font-body-lg text-primary-fixed-dim">Platform Ujian Berbasis Komputer Modern untuk Sekolah.</p>
                   </div>
-
-                  {/* DAFTAR FORM PANE */}
-                  <div className="form-pane p-lg flex flex-col">
-                    <div className="mb-lg">
-                      <h2 className="font-headline-md text-on-surface flex items-center gap-xs">
-                        <img alt="NEXA Logo" className="w-8 h-8 object-contain rounded" src="https://lh3.googleusercontent.com/aida/AEtjO1VVZfSUCXhHzY1X0SeCMcnnfH7eVLHQqeKZRoS92h6LX1juBz1mnHDbVWx1-Ba6QJacojgIbeoyE3UGy8T6Tb1_zTR54w2rmJiBCsvoFvsirZvz0_Sze5GuvCCAGNsKINOED0RXdkwpJDJinvxgu4KYdM823w67kkw4wzY5RntMk58ZhF_-cEiEvWXFYy34ycs42ktHbpwy_GH_ydOPW5eO4S5k_plk9debDcu5KRZwhT3Qv_0W8MX-" />
-                        NEXA
-                      </h2>
-                      <p className="font-body-md text-on-surface-variant mt-xs">Buat akun baru Anda.</p>
+                  
+                  <div className="relative z-10">
+                    <div className="bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/20 hover:bg-white/20 transition-colors">
+                      <p className="font-body-md text-white">"Pendidikan adalah senjata paling mematikan di dunia, karena dengan pendidikan, Anda dapat mengubah dunia."</p>
+                      <p className="font-label-md text-primary-fixed-dim mt-2">- Nelson Mandela</p>
                     </div>
-                    <form onSubmit={onRegisterSubmit} className="flex flex-col gap-md flex-1">
-                      <div className="flex flex-col gap-xs mb-xs">
-                        <span className="font-label-md text-on-surface">Daftar Sebagai</span>
-                        <div className="flex gap-sm">
-                          {['siswa', 'guru', 'admin'].map(r => (
-                            <label key={r} className="flex-1 cursor-pointer">
-                              <input defaultChecked={r === 'siswa'} className="peer sr-only" name="reg-role" type="radio" value={r} />
-                              <div className="w-full text-center py-xs px-sm rounded-DEFAULT border border-outline-variant text-on-surface-variant font-label-md peer-checked:border-primary peer-checked:bg-primary-fixed peer-checked:text-on-primary-fixed-variant transition-all capitalize">{r}</div>
+                  </div>
+                </div>
+
+                {/* Right Side: Forms */}
+                <div className="w-full md:w-1/2 overflow-hidden relative bg-white/50">
+                  <div className={`form-slider ${isRegistering ? 'show-register' : ''}`}>
+                    {/* MASUK FORM PANE */}
+                    <div className="form-pane p-lg sm:p-xl flex flex-col justify-center min-h-full">
+                      <div className="mb-lg md:hidden">
+                        <h2 className="font-headline-md text-on-surface flex items-center gap-xs">
+                          <img alt="NEXA Logo" className="w-8 h-8 object-contain rounded" src="https://lh3.googleusercontent.com/aida/AEtjO1VVZfSUCXhHzY1X0SeCMcnnfH7eVLHQqeKZRoS92h6LX1juBz1mnHDbVWx1-Ba6QJacojgIbeoyE3UGy8T6Tb1_zTR54w2rmJiBCsvoFvsirZvz0_Sze5GuvCCAGNsKINOED0RXdkwpJDJinvxgu4KYdM823w67kkw4wzY5RntMk58ZhF_-cEiEvWXFYy34ycs42ktHbpwy_GH_ydOPW5eO4S5k_plk9debDcu5KRZwhT3Qv_0W8MX-" />
+                          NEXA
+                        </h2>
+                        <p className="font-body-md text-on-surface-variant mt-xs">Silakan masuk ke akun Anda.</p>
+                      </div>
+                      
+                      <div className="hidden md:block mb-lg">
+                        <h2 className="font-headline-md text-on-surface font-bold">Selamat Datang</h2>
+                        <p className="font-body-md text-on-surface-variant mt-1">Masukkan kredensial Anda untuk mengakses sistem.</p>
+                      </div>
+
+                      <form onSubmit={onLoginSubmit} className="flex flex-col gap-md">
+                        {/* Segmented Control */}
+                        <div className="flex bg-surface-container p-1 rounded-lg relative isolation-auto z-0 mb-xs shadow-inner">
+                          {['siswa', 'guru', 'admin'].map((r) => (
+                            <label key={r} className="flex-1 cursor-pointer relative">
+                              <input defaultChecked={r === 'siswa'} className="peer sr-only" name="login-role" type="radio" value={r} />
+                              <div className="w-full text-center py-2 rounded-md text-on-surface-variant font-label-md transition-all duration-300 peer-checked:text-primary z-10 relative capitalize">
+                                {r}
+                              </div>
+                              <div className="absolute inset-0 bg-white rounded-md shadow-sm transform scale-90 opacity-0 peer-checked:opacity-100 peer-checked:scale-100 transition-all duration-300 -z-10"></div>
                             </label>
                           ))}
                         </div>
-                      </div>
-                      <div className="flex flex-col gap-xs">
-                        <label className="font-label-md text-on-surface" htmlFor="reg-name">Nama Lengkap</label>
-                        <input className="academic-input w-full px-sm py-sm rounded-DEFAULT border border-outline-variant bg-surface-container-lowest text-body-md text-on-surface placeholder:text-outline-variant transition-colors" id="reg-name" placeholder="Masukkan nama lengkap" type="text" />
-                      </div>
-                      <div className="flex flex-col gap-xs">
-                        <label className="font-label-md text-on-surface" htmlFor="reg-username">Username / NISN</label>
-                        <input className="academic-input w-full px-sm py-sm rounded-DEFAULT border border-outline-variant bg-surface-container-lowest text-body-md text-on-surface placeholder:text-outline-variant transition-colors" id="reg-username" placeholder="Masukkan Username atau NISN unik" type="text" />
-                      </div>
-                      <div className="flex flex-col gap-xs mb-xs">
-                        <label className="font-label-md text-on-surface" htmlFor="reg-password">Password</label>
-                        <input className="academic-input w-full px-sm py-sm rounded-DEFAULT border border-outline-variant bg-surface-container-lowest text-body-md text-on-surface placeholder:text-outline-variant transition-colors" id="reg-password" placeholder="Buat password yang kuat" type="password" />
-                      </div>
-                      <div className="mt-auto pt-sm">
-                        <button className="w-full bg-primary text-on-primary font-label-md py-sm rounded-DEFAULT hover:bg-primary-container transition-colors shadow-sm active:scale-[0.99] flex justify-center items-center gap-xs" type="submit">
-                          Daftar Sekarang 
-                          <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                        
+                        {loginError && (
+                          <div className="bg-error-container text-error px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2 animate-fade-in-up border border-error/20">
+                            <span className="material-symbols-outlined text-[18px]">error</span>
+                            {loginError}
+                          </div>
+                        )}
+
+                        <div className="flex flex-col gap-xs group">
+                          <label className="font-label-md text-on-surface group-focus-within:text-primary transition-colors" htmlFor="login-username">Username / NISN</label>
+                          <div className="relative flex items-center">
+                            <span className="material-symbols-outlined absolute left-sm text-outline group-focus-within:text-primary transition-colors">person</span>
+                            <input required value={username} onChange={e => setUsername(e.target.value)} className="academic-input w-full pl-[40px] pr-sm py-sm rounded-lg border border-outline-variant bg-white/80 text-body-md text-on-surface placeholder:text-outline-variant transition-all hover:border-outline focus:border-primary focus:ring-4 focus:ring-primary/10 focus:bg-white" id="login-username" placeholder="Masukkan Username atau NISN" type="text" />
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col gap-xs group">
+                          <label className="font-label-md text-on-surface group-focus-within:text-primary transition-colors" htmlFor="login-password">Password</label>
+                          <div className="relative flex items-center">
+                            <span className="material-symbols-outlined absolute left-sm text-outline group-focus-within:text-primary transition-colors">lock</span>
+                            <input required value={password} onChange={e => setPassword(e.target.value)} className="academic-input w-full pl-[40px] pr-[40px] py-sm rounded-lg border border-outline-variant bg-white/80 text-body-md text-on-surface placeholder:text-outline-variant transition-all hover:border-outline focus:border-primary focus:ring-4 focus:ring-primary/10 focus:bg-white" id="login-password" placeholder="••••••••" type={showPassword ? "text" : "password"} />
+                            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-sm text-outline hover:text-on-surface-variant transition-colors flex items-center justify-center h-full">
+                                <span className="material-symbols-outlined text-[20px]">{showPassword ? 'visibility_off' : 'visibility'}</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="flex justify-between items-center mb-xs mt-[-4px]">
+                          <label className="flex items-center gap-2 cursor-pointer group">
+                            <div className="relative flex items-center justify-center w-4 h-4 border border-outline-variant rounded group-hover:border-primary transition-colors">
+                              <input type="checkbox" checked={rememberMe} onChange={() => setRememberMe(!rememberMe)} className="absolute opacity-0 w-full h-full cursor-pointer peer" />
+                              <span className="material-symbols-outlined text-primary opacity-0 peer-checked:opacity-100 transition-opacity" style={{fontSize: "14px", fontVariationSettings: "'FILL' 1"}}>check</span>
+                            </div>
+                            <span className="font-body-md text-sm text-on-surface-variant group-hover:text-on-surface transition-colors">Ingat Saya</span>
+                          </label>
+                          <a className="font-body-md text-sm text-primary font-medium hover:text-primary-container transition-colors" href="#">Lupa Password?</a>
+                        </div>
+
+                        <button disabled={loading || loginSuccess} className={`w-full font-label-md py-sm rounded-lg transition-all duration-300 shadow-sm flex justify-center items-center gap-xs mt-2 ${loginSuccess ? 'bg-[#10B981] text-white' : 'bg-primary text-on-primary hover:bg-primary-container hover:shadow-lg hover:-translate-y-1'} disabled:opacity-80 disabled:cursor-not-allowed`} type="submit">
+                          {loading ? (
+                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                          ) : loginSuccess ? (
+                            <><span className="material-symbols-outlined text-[20px] animate-fade-in-up">check_circle</span> Berhasil Masuk</>
+                          ) : (
+                            <>Masuk Sekarang <span className="material-symbols-outlined text-[18px]">arrow_forward</span></>
+                          )}
                         </button>
-                        <p className="text-center font-body-md text-on-surface-variant mt-sm text-[12px]">
-                          Dengan mendaftar, Anda menyetujui <a className="text-primary hover:underline" href="#">Syarat & Ketentuan</a> kami.
-                        </p>
+                      </form>
+                      
+                      <p className="text-center font-body-md text-sm text-on-surface-variant mt-lg">
+                        Belum punya akun? <button onClick={() => { setIsRegistering(true); setLoginError(''); }} className="text-primary hover:underline font-semibold" type="button">Daftar</button>
+                      </p>
+                    </div>
+
+                    {/* DAFTAR FORM PANE */}
+                    <div className="form-pane p-lg sm:p-xl flex flex-col justify-center min-h-full">
+                      <div className="mb-lg md:hidden">
+                        <h2 className="font-headline-md text-on-surface flex items-center gap-xs">
+                          <img alt="NEXA Logo" className="w-8 h-8 object-contain rounded" src="https://lh3.googleusercontent.com/aida/AEtjO1VVZfSUCXhHzY1X0SeCMcnnfH7eVLHQqeKZRoS92h6LX1juBz1mnHDbVWx1-Ba6QJacojgIbeoyE3UGy8T6Tb1_zTR54w2rmJiBCsvoFvsirZvz0_Sze5GuvCCAGNsKINOED0RXdkwpJDJinvxgu4KYdM823w67kkw4wzY5RntMk58ZhF_-cEiEvWXFYy34ycs42ktHbpwy_GH_ydOPW5eO4S5k_plk9debDcu5KRZwhT3Qv_0W8MX-" />
+                          NEXA
+                        </h2>
+                        <p className="font-body-md text-on-surface-variant mt-xs">Buat akun baru Anda.</p>
                       </div>
-                    </form>
-                    <p className="text-center font-body-md text-on-surface-variant mt-md">
-                      Sudah punya akun? <button onClick={() => setIsRegistering(false)} className="text-primary hover:underline font-medium" type="button">Masuk</button>
-                    </p>
+                      
+                      <div className="hidden md:block mb-lg">
+                        <h2 className="font-headline-md text-on-surface font-bold">Buat Akun Baru</h2>
+                        <p className="font-body-md text-on-surface-variant mt-1">Lengkapi data berikut untuk bergabung.</p>
+                      </div>
+
+                      <form onSubmit={onRegisterSubmit} className="flex flex-col gap-sm flex-1">
+                        {/* Segmented Control */}
+                        <div className="flex bg-surface-container p-1 rounded-lg relative isolation-auto z-0 mb-xs shadow-inner">
+                          {['siswa', 'guru', 'admin'].map((r) => (
+                            <label key={r} className="flex-1 cursor-pointer relative">
+                              <input defaultChecked={r === 'siswa'} className="peer sr-only" name="reg-role" type="radio" value={r} />
+                              <div className="w-full text-center py-2 rounded-md text-on-surface-variant font-label-md transition-all duration-300 peer-checked:text-primary z-10 relative capitalize">
+                                {r}
+                              </div>
+                              <div className="absolute inset-0 bg-white rounded-md shadow-sm transform scale-90 opacity-0 peer-checked:opacity-100 peer-checked:scale-100 transition-all duration-300 -z-10"></div>
+                            </label>
+                          ))}
+                        </div>
+
+                        <div className="flex flex-col gap-xs group">
+                          <label className="font-label-md text-on-surface text-sm group-focus-within:text-primary transition-colors" htmlFor="reg-name">Nama Lengkap</label>
+                          <input className="academic-input w-full px-sm py-2 rounded-lg border border-outline-variant bg-white/80 text-body-md text-on-surface placeholder:text-outline-variant transition-all hover:border-outline focus:border-primary focus:ring-4 focus:ring-primary/10 focus:bg-white" id="reg-name" placeholder="Masukkan nama lengkap" type="text" />
+                        </div>
+                        <div className="flex flex-col gap-xs group">
+                          <label className="font-label-md text-on-surface text-sm group-focus-within:text-primary transition-colors" htmlFor="reg-username">Username / NISN</label>
+                          <input className="academic-input w-full px-sm py-2 rounded-lg border border-outline-variant bg-white/80 text-body-md text-on-surface placeholder:text-outline-variant transition-all hover:border-outline focus:border-primary focus:ring-4 focus:ring-primary/10 focus:bg-white" id="reg-username" placeholder="Masukkan Username atau NISN unik" type="text" />
+                        </div>
+                        <div className="flex flex-col gap-xs group mb-1">
+                          <label className="font-label-md text-on-surface text-sm group-focus-within:text-primary transition-colors" htmlFor="reg-password">Password</label>
+                          <div className="relative flex items-center">
+                            <input className="academic-input w-full px-sm pr-[40px] py-2 rounded-lg border border-outline-variant bg-white/80 text-body-md text-on-surface placeholder:text-outline-variant transition-all hover:border-outline focus:border-primary focus:ring-4 focus:ring-primary/10 focus:bg-white" id="reg-password" placeholder="Buat password yang kuat" type={showPassword ? "text" : "password"} />
+                            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-sm text-outline hover:text-on-surface-variant transition-colors flex items-center justify-center h-full">
+                                <span className="material-symbols-outlined text-[20px]">{showPassword ? 'visibility_off' : 'visibility'}</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="mt-auto pt-2">
+                          <button className="w-full bg-primary text-on-primary font-label-md py-sm rounded-lg hover:bg-primary-container hover:shadow-lg hover:-translate-y-1 transition-all duration-300 shadow-sm flex justify-center items-center gap-xs" type="submit">
+                            Daftar Sekarang 
+                            <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                          </button>
+                          <p className="text-center font-body-md text-on-surface-variant mt-sm text-[12px]">
+                            Dengan mendaftar, Anda menyetujui <a className="text-primary hover:underline" href="#">Syarat & Ketentuan</a> kami.
+                          </p>
+                        </div>
+                      </form>
+                      
+                      <p className="text-center font-body-md text-sm text-on-surface-variant mt-md">
+                        Sudah punya akun? <button onClick={() => { setIsRegistering(false); setLoginError(''); }} className="text-primary hover:underline font-semibold" type="button">Masuk</button>
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
