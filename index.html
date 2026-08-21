@@ -1381,7 +1381,7 @@
               <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary-fixed dark:bg-primary/20 rounded-full blur-[100px] opacity-60 pointer-events-none transition-colors duration-500"></div>
               <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-secondary-fixed dark:bg-secondary/20 rounded-full blur-[100px] opacity-60 pointer-events-none transition-colors duration-500"></div>
               
-              <div className="w-full max-w-[900px] bg-white/70 dark:bg-slate-800/80 backdrop-blur-xl border border-white/50 dark:border-slate-700 rounded-2xl shadow-2xl overflow-hidden relative z-10 flex flex-col md:flex-row animate-fade-in-up mt-8">
+              <div className="w-full max-w-[900px] max-h-[95vh] sm:max-h-[90vh] my-4 bg-white/70 dark:bg-slate-800/80 backdrop-blur-xl border border-white/50 dark:border-slate-700 rounded-2xl shadow-2xl overflow-hidden relative z-10 flex flex-col md:flex-row animate-fade-in-up">
                 
                 {/* Left Side: Illustration / Branding (Hidden on small screens) */}
                 <div className="hidden md:flex md:w-1/2 bg-primary text-white p-xl flex-col justify-between relative overflow-hidden">
@@ -1405,10 +1405,10 @@
                 </div>
 
                 {/* Right Side: Forms */}
-                <div className="w-full md:w-1/2 overflow-hidden relative bg-white/50 dark:bg-slate-900/50">
-                  <div className={`form-slider ${isRegistering ? 'show-register' : ''}`}>
+                <div className="w-full md:w-1/2 h-full overflow-hidden relative bg-white/50 dark:bg-slate-900/50">
+                  <div className={`form-slider h-full ${isRegistering ? 'show-register' : ''}`}>
                     {/* MASUK FORM PANE */}
-                    <div className="form-pane p-lg sm:p-xl flex flex-col justify-center min-h-full">
+                    <div className="form-pane p-lg sm:p-xl flex flex-col justify-center h-full overflow-y-auto">
                       <div className="mb-lg md:hidden">
                         <h2 className="font-headline-md text-on-surface flex items-center gap-xs">
                           <img alt="NEXA Logo" className="w-8 h-8 object-contain rounded" src="https://lh3.googleusercontent.com/aida/AEtjO1VVZfSUCXhHzY1X0SeCMcnnfH7eVLHQqeKZRoS92h6LX1juBz1mnHDbVWx1-Ba6QJacojgIbeoyE3UGy8T6Tb1_zTR54w2rmJiBCsvoFvsirZvz0_Sze5GuvCCAGNsKINOED0RXdkwpJDJinvxgu4KYdM823w67kkw4wzY5RntMk58ZhF_-cEiEvWXFYy34ycs42ktHbpwy_GH_ydOPW5eO4S5k_plk9debDcu5KRZwhT3Qv_0W8MX-" />
@@ -1495,62 +1495,62 @@
                     </div>
 
                     {/* DAFTAR FORM PANE */}
-                    <div className="form-pane p-lg sm:p-xl flex flex-col justify-center min-h-full">
-                      <div className="mb-lg md:hidden">
-                        <h2 className="font-headline-md text-on-surface flex items-center gap-xs">
+                    <div className="form-pane p-lg sm:p-xl flex flex-col justify-center h-full overflow-y-auto">
+                      <div className="mb-lg md:hidden flex-shrink-0">
+                        <h2 className="font-headline-md text-on-surface dark:text-white flex items-center gap-xs">
                           <img alt="NEXA Logo" className="w-8 h-8 object-contain rounded" src="https://lh3.googleusercontent.com/aida/AEtjO1VVZfSUCXhHzY1X0SeCMcnnfH7eVLHQqeKZRoS92h6LX1juBz1mnHDbVWx1-Ba6QJacojgIbeoyE3UGy8T6Tb1_zTR54w2rmJiBCsvoFvsirZvz0_Sze5GuvCCAGNsKINOED0RXdkwpJDJinvxgu4KYdM823w67kkw4wzY5RntMk58ZhF_-cEiEvWXFYy34ycs42ktHbpwy_GH_ydOPW5eO4S5k_plk9debDcu5KRZwhT3Qv_0W8MX-" />
                           NEXA
                         </h2>
-                        <p className="font-body-md text-on-surface-variant mt-xs">Buat akun baru Anda.</p>
+                        <p className="font-body-md text-on-surface-variant dark:text-slate-300 mt-xs">Buat akun baru Anda.</p>
                       </div>
                       
-                      <div className="hidden md:block mb-lg">
-                        <h2 className="font-headline-md text-on-surface font-bold">Buat Akun Baru</h2>
-                        <p className="font-body-md text-on-surface-variant mt-1">Lengkapi data berikut untuk bergabung.</p>
+                      <div className="hidden md:block mb-lg flex-shrink-0">
+                        <h2 className="font-headline-md text-on-surface dark:text-white font-bold">Buat Akun Baru</h2>
+                        <p className="font-body-md text-on-surface-variant dark:text-slate-300 mt-1">Lengkapi data berikut untuk bergabung.</p>
                       </div>
 
                       <form onSubmit={onRegisterSubmit} className="flex flex-col gap-sm flex-1">
                         {/* Segmented Control */}
-                        <div className="flex bg-surface-container p-1 rounded-lg relative isolation-auto z-0 mb-xs shadow-inner">
+                        <div className="flex bg-surface-container dark:bg-slate-800 p-1 rounded-lg relative isolation-auto z-0 mb-xs shadow-inner transition-colors duration-300 flex-shrink-0">
                           {['siswa', 'guru'].map((r) => (
                             <label key={r} className="flex-1 cursor-pointer relative">
                               <input checked={registerRole === r} onChange={() => setRegisterRole(r)} className="peer sr-only" name="reg-role" type="radio" value={r} />
-                              <div className="w-full text-center py-2 rounded-md text-on-surface-variant font-label-md transition-all duration-300 peer-checked:text-primary z-10 relative capitalize">
+                              <div className="w-full text-center py-2 rounded-md text-on-surface-variant dark:text-slate-300 font-label-md transition-all duration-300 peer-checked:text-primary dark:peer-checked:text-primary-fixed z-10 relative capitalize">
                                 {r}
                               </div>
-                              <div className="absolute inset-0 bg-white rounded-md shadow-sm transform scale-90 opacity-0 peer-checked:opacity-100 peer-checked:scale-100 transition-all duration-300 -z-10"></div>
+                              <div className="absolute inset-0 bg-white dark:bg-slate-700 rounded-md shadow-sm transform scale-90 opacity-0 peer-checked:opacity-100 peer-checked:scale-100 transition-all duration-300 -z-10"></div>
                             </label>
                           ))}
                         </div>
 
-                        <div className="flex flex-col gap-xs group">
-                          <label className="font-label-md text-on-surface text-sm group-focus-within:text-primary transition-colors" htmlFor="reg-name">Nama Lengkap</label>
-                          <input required value={regName} onChange={e => setRegName(e.target.value)} className="academic-input w-full px-sm py-2 rounded-lg border border-outline-variant bg-white/80 text-body-md text-on-surface placeholder:text-outline-variant transition-all hover:border-outline focus:border-primary focus:ring-4 focus:ring-primary/10 focus:bg-white" id="reg-name" placeholder="Masukkan nama lengkap" type="text" />
+                        <div className="flex flex-col gap-xs group flex-shrink-0">
+                          <label className="font-label-md text-on-surface dark:text-slate-200 text-sm group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="reg-name">Nama Lengkap</label>
+                          <input required value={regName} onChange={e => setRegName(e.target.value)} className="academic-input w-full px-sm py-2 rounded-lg border border-outline-variant dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-body-md text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-400 transition-all hover:border-outline focus:border-primary dark:focus:border-primary-fixed focus:ring-4 focus:ring-primary/10 dark:focus:ring-primary-fixed/20 focus:bg-white dark:focus:bg-slate-800" id="reg-name" placeholder="Masukkan nama lengkap" type="text" />
                         </div>
-                        <div className="flex flex-col gap-xs group">
-                          <label className="font-label-md text-on-surface text-sm group-focus-within:text-primary transition-colors" htmlFor="reg-username">Username</label>
-                          <input required value={regUsername} onChange={e => setRegUsername(e.target.value)} className="academic-input w-full px-sm py-2 rounded-lg border border-outline-variant bg-white/80 text-body-md text-on-surface placeholder:text-outline-variant transition-all hover:border-outline focus:border-primary focus:ring-4 focus:ring-primary/10 focus:bg-white" id="reg-username" placeholder="Masukkan Username unik" type="text" />
+                        <div className="flex flex-col gap-xs group flex-shrink-0">
+                          <label className="font-label-md text-on-surface dark:text-slate-200 text-sm group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="reg-username">Username</label>
+                          <input required value={regUsername} onChange={e => setRegUsername(e.target.value)} className="academic-input w-full px-sm py-2 rounded-lg border border-outline-variant dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-body-md text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-400 transition-all hover:border-outline focus:border-primary dark:focus:border-primary-fixed focus:ring-4 focus:ring-primary/10 dark:focus:ring-primary-fixed/20 focus:bg-white dark:focus:bg-slate-800" id="reg-username" placeholder="Masukkan Username unik" type="text" />
                         </div>
                         
                         {registerRole === 'siswa' && (
-                          <div className="flex flex-col gap-xs group animate-fade-in-up">
-                            <label className="font-label-md text-on-surface text-sm group-focus-within:text-primary transition-colors" htmlFor="reg-nisn">NISN</label>
-                            <input required value={regNisn} onChange={e => setRegNisn(e.target.value)} className="academic-input w-full px-sm py-2 rounded-lg border border-outline-variant bg-white/80 text-body-md text-on-surface placeholder:text-outline-variant transition-all hover:border-outline focus:border-primary focus:ring-4 focus:ring-primary/10 focus:bg-white" id="reg-nisn" placeholder="Masukkan NISN valid" type="text" />
+                          <div className="flex flex-col gap-xs group animate-fade-in-up flex-shrink-0">
+                            <label className="font-label-md text-on-surface dark:text-slate-200 text-sm group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="reg-nisn">NISN</label>
+                            <input required value={regNisn} onChange={e => setRegNisn(e.target.value)} className="academic-input w-full px-sm py-2 rounded-lg border border-outline-variant dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-body-md text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-400 transition-all hover:border-outline focus:border-primary dark:focus:border-primary-fixed focus:ring-4 focus:ring-primary/10 dark:focus:ring-primary-fixed/20 focus:bg-white dark:focus:bg-slate-800" id="reg-nisn" placeholder="Masukkan NISN valid" type="text" />
                           </div>
                         )}
 
                         {registerRole === 'guru' && (
-                          <div className="flex flex-col gap-xs group animate-fade-in-up">
-                            <label className="font-label-md text-on-surface text-sm group-focus-within:text-primary transition-colors" htmlFor="reg-nip">NIP (Opsional)</label>
-                            <input value={regNip} onChange={e => setRegNip(e.target.value)} className="academic-input w-full px-sm py-2 rounded-lg border border-outline-variant bg-white/80 text-body-md text-on-surface placeholder:text-outline-variant transition-all hover:border-outline focus:border-primary focus:ring-4 focus:ring-primary/10 focus:bg-white" id="reg-nip" placeholder="Ketik '-' jika belum memiliki" type="text" />
+                          <div className="flex flex-col gap-xs group animate-fade-in-up flex-shrink-0">
+                            <label className="font-label-md text-on-surface dark:text-slate-200 text-sm group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="reg-nip">NIP (Opsional)</label>
+                            <input value={regNip} onChange={e => setRegNip(e.target.value)} className="academic-input w-full px-sm py-2 rounded-lg border border-outline-variant dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-body-md text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-400 transition-all hover:border-outline focus:border-primary dark:focus:border-primary-fixed focus:ring-4 focus:ring-primary/10 dark:focus:ring-primary-fixed/20 focus:bg-white dark:focus:bg-slate-800" id="reg-nip" placeholder="Ketik '-' jika belum memiliki" type="text" />
                           </div>
                         )}
 
-                        <div className="flex flex-col gap-xs group mb-1">
-                          <label className="font-label-md text-on-surface text-sm group-focus-within:text-primary transition-colors" htmlFor="reg-password">Password</label>
+                        <div className="flex flex-col gap-xs group mb-1 flex-shrink-0">
+                          <label className="font-label-md text-on-surface dark:text-slate-200 text-sm group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="reg-password">Password</label>
                           <div className="relative flex items-center">
-                            <input required value={regPassword} onChange={e => setRegPassword(e.target.value)} className="academic-input w-full px-sm pr-[40px] py-2 rounded-lg border border-outline-variant bg-white/80 text-body-md text-on-surface placeholder:text-outline-variant transition-all hover:border-outline focus:border-primary focus:ring-4 focus:ring-primary/10 focus:bg-white" id="reg-password" placeholder="Dapat berupa huruf, angka & simbol" type={showPassword ? "text" : "password"} />
-                            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-sm text-outline hover:text-on-surface-variant transition-colors flex items-center justify-center h-full">
+                            <input required value={regPassword} onChange={e => setRegPassword(e.target.value)} className="academic-input w-full px-sm pr-[40px] py-2 rounded-lg border border-outline-variant dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-body-md text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-400 transition-all hover:border-outline focus:border-primary dark:focus:border-primary-fixed focus:ring-4 focus:ring-primary/10 dark:focus:ring-primary-fixed/20 focus:bg-white dark:focus:bg-slate-800" id="reg-password" placeholder="Dapat berupa huruf, angka & simbol" type={showPassword ? "text" : "password"} />
+                            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-sm text-outline hover:text-on-surface-variant dark:hover:text-white transition-colors flex items-center justify-center h-full">
                                 <span className="material-symbols-outlined text-[20px]">{showPassword ? 'visibility_off' : 'visibility'}</span>
                             </button>
                           </div>
