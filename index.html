@@ -829,6 +829,8 @@
                     <button onClick={() => setModalSiswa({isOpen: true, data: null})} className="px-md py-sm bg-primary dark:bg-primary-fixed text-on-primary dark:text-on-primary-fixed rounded-lg font-label-md transition-colors hover:bg-primary/90">Tambah Siswa</button>
                   </div>
                   </div>
+                  </div>
+                  </div>
                   {isLoading ? <Loader text="Menarik data..." /> : (
                     <div className="bg-white dark:bg-slate-800 border border-outline-variant dark:border-slate-700 rounded-xl overflow-hidden shadow-sm">
                       <table className="w-full text-left border-collapse">
@@ -836,6 +838,8 @@
                           <tr className="bg-surface-container-low dark:bg-slate-900/50 font-label-md text-label-md text-on-surface-variant dark:text-slate-400 border-b border-outline-variant dark:border-slate-700">
                             <th className="py-sm px-md font-medium">ID Siswa</th>
                             <th className="py-sm px-md font-medium">Nama</th>
+                            <th className="py-sm px-md font-medium">Angkatan</th>
+                            <th className="py-sm px-md font-medium">Kelas</th>
                             <th className="py-sm px-md font-medium text-right">Aksi</th>
                           </tr>
                         </thead>
@@ -844,6 +848,8 @@
                             <tr key={s.id_user} className="border-b border-outline-variant dark:border-slate-700/50 hover:bg-surface-container-low dark:hover:bg-slate-700/50 transition-colors">
                               <td className="py-sm px-md font-mono text-[13px]">{s.id_user}</td>
                               <td className="py-sm px-md font-medium">{s.nama_lengkap}</td>
+                              <td className="py-sm px-md">{s.angkatan || '-'}</td>
+                              <td className="py-sm px-md">{s.kelas_paralel || '-'}</td>
                               <td className="py-sm px-md text-right space-x-xs">
                                 <button onClick={() => setModalSiswa({isOpen: true, data: s})} className="text-secondary dark:text-slate-400 hover:text-primary transition-colors"><span className="material-symbols-outlined text-[20px]">edit</span></button>
                                 <button onClick={() => handleDeleteUser(s.id_user, 'siswa')} className="text-secondary dark:text-slate-400 hover:text-error transition-colors"><span className="material-symbols-outlined text-[20px]">delete</span></button>
@@ -872,6 +878,7 @@
                           <tr className="bg-surface-container-low dark:bg-slate-900/50 font-label-md text-label-md text-on-surface-variant dark:text-slate-400 border-b border-outline-variant dark:border-slate-700">
                             <th className="py-sm px-md font-medium">ID Guru</th>
                             <th className="py-sm px-md font-medium">Nama</th>
+                            <th className="py-sm px-md font-medium">Mapel</th>
                             <th className="py-sm px-md font-medium text-right">Aksi</th>
                           </tr>
                         </thead>
@@ -880,11 +887,10 @@
                             <tr key={g.id_user} className="border-b border-outline-variant dark:border-slate-700/50 hover:bg-surface-container-low dark:hover:bg-slate-700/50 transition-colors">
                               <td className="py-sm px-md font-mono text-[13px]">{g.id_user}</td>
                               <td className="py-sm px-md font-medium">{g.nama_lengkap}</td>
+                              <td className="py-sm px-md">{g.mapel_diampu || '-'}</td>
                               <td className="py-sm px-md text-right space-x-xs">
                                 <button onClick={() => setModalGuru({isOpen: true, data: g})} className="text-secondary dark:text-slate-400 hover:text-primary transition-colors"><span className="material-symbols-outlined text-[20px]">edit</span></button>
                                 <button onClick={() => handleDeleteUser(g.id_user, 'guru')} className="text-secondary dark:text-slate-400 hover:text-error transition-colors"><span className="material-symbols-outlined text-[20px]">delete</span></button>
-                              </td>
-                            </tr>
                           ))}
                         </tbody>
                       </table>
@@ -927,7 +933,96 @@
                   )}
                 </>
               )}
+
+              {activeTab === 'mapel' && (
+                <>
+                  <div className="flex justify-between items-center mb-lg">
+                    <h2 className="font-headline-md text-headline-md text-on-surface dark:text-white">Data Mata Pelajaran</h2>
+                    <button onClick={() => setModalMapel({isOpen: true, data: null})} className="px-md py-sm bg-primary dark:bg-primary-fixed text-on-primary dark:text-on-primary-fixed rounded-lg font-label-md transition-colors hover:bg-primary/90">Tambah Mapel</button>
+                  </div>
+                  {isLoading ? <Loader text="Menarik data..." /> : (
+                    <div className="bg-white dark:bg-slate-800 border border-outline-variant dark:border-slate-700 rounded-xl overflow-hidden shadow-sm">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-surface-container-low dark:bg-slate-900/50 font-label-md text-label-md text-on-surface-variant dark:text-slate-400 border-b border-outline-variant dark:border-slate-700">
+                            <th className="py-sm px-md font-medium">ID Mapel</th>
+                            <th className="py-sm px-md font-medium">Nama Mata Pelajaran</th>
+                            <th className="py-sm px-md font-medium text-right">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody className="font-body-md text-body-md text-on-surface dark:text-slate-200">
+                          {dataMapel.map(m => (
+                            <tr key={m.id_mapel} className="border-b border-outline-variant dark:border-slate-700/50 hover:bg-surface-container-low dark:hover:bg-slate-700/50 transition-colors">
+                              <td className="py-sm px-md font-mono text-[13px]">{m.id_mapel}</td>
+                              <td className="py-sm px-md font-medium">{m.nama_mapel}</td>
+                              <td className="py-sm px-md text-right space-x-xs">
+                                <button onClick={() => setModalMapel({isOpen: true, data: m})} className="text-secondary dark:text-slate-400 hover:text-primary transition-colors"><span className="material-symbols-outlined text-[20px]">edit</span></button>
+                                <button onClick={() => {if(confirm('Hapus mapel ini?')) fetchAPI('delete_mapel', {id_mapel: m.id_mapel}).then(() => fetchData('mapel'))}} className="text-secondary dark:text-slate-400 hover:text-error transition-colors"><span className="material-symbols-outlined text-[20px]">delete</span></button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
+
+            {/* Modal Siswa */}
+            <Modal isOpen={modalSiswa.isOpen} title={modalSiswa.data ? "Edit Siswa" : "Tambah Siswa"} onClose={() => setModalSiswa({isOpen: false, data: null})}>
+              <form id="formSiswa" onSubmit={handleSaveSiswa} className="flex flex-col gap-3">
+                <input name="id_user" readOnly={!!modalSiswa.data} defaultValue={modalSiswa.data?.id_user || 'SISWA-' + Math.floor(Math.random()*10000)} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" placeholder="ID Siswa" />
+                <input name="nama_lengkap" required defaultValue={modalSiswa.data?.nama_lengkap} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" placeholder="Nama Lengkap" />
+                <input name="username" required defaultValue={modalSiswa.data?.username} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" placeholder="Username (NISN)" />
+                <input name="password" required={!modalSiswa.data} defaultValue={modalSiswa.data?.password} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" placeholder="Password" type="password" />
+                <input name="angkatan" defaultValue={modalSiswa.data?.angkatan} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" placeholder="Angkatan (Opsional)" />
+                <input name="kelas_paralel" defaultValue={modalSiswa.data?.kelas_paralel} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" placeholder="Kelas Paralel (Contoh: X IPA 1)" />
+                <button type="submit" className="mt-4 py-2 bg-primary text-white rounded font-bold">Simpan</button>
+              </form>
+            </Modal>
+
+            {/* Modal Guru */}
+            <Modal isOpen={modalGuru.isOpen} title={modalGuru.data ? "Edit Guru" : "Tambah Guru"} onClose={() => setModalGuru({isOpen: false, data: null})}>
+              <form id="formGuru" onSubmit={handleSaveGuru} className="flex flex-col gap-3">
+                <input name="id_user" readOnly={!!modalGuru.data} defaultValue={modalGuru.data?.id_user || 'GURU-' + Math.floor(Math.random()*10000)} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" placeholder="ID Guru" />
+                <input name="nama_lengkap" required defaultValue={modalGuru.data?.nama_lengkap} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" placeholder="Nama Lengkap" />
+                <input name="username" required defaultValue={modalGuru.data?.username} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" placeholder="Username (NIP)" />
+                <input name="password" required={!modalGuru.data} defaultValue={modalGuru.data?.password} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" placeholder="Password" type="password" />
+                <select name="mapel_diampu" defaultValue={modalGuru.data?.mapel_diampu || ""} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm">
+                  <option value="">- Pilih Mapel Diampu -</option>
+                  {dataMapel.map(m => <option key={m.id_mapel} value={m.id_mapel}>{m.nama_mapel}</option>)}
+                </select>
+                <button type="submit" className="mt-4 py-2 bg-primary text-white rounded font-bold">Simpan</button>
+              </form>
+            </Modal>
+
+            {/* Modal Mapel */}
+            <Modal isOpen={modalMapel.isOpen} title={modalMapel.data ? "Edit Mapel" : "Tambah Mapel"} onClose={() => setModalMapel({isOpen: false, data: null})}>
+              <form id="formMapel" onSubmit={handleSaveMapel} className="flex flex-col gap-3">
+                <input name="id_mapel" required readOnly={!!modalMapel.data} defaultValue={modalMapel.data?.id_mapel || 'MPL-' + Math.floor(Math.random()*10000)} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" placeholder="ID Mapel (misal: MTK)" />
+                <input name="nama_mapel" required defaultValue={modalMapel.data?.nama_mapel} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" placeholder="Nama Mata Pelajaran" />
+                <button type="submit" className="mt-4 py-2 bg-primary text-white rounded font-bold">Simpan</button>
+              </form>
+            </Modal>
+
+            {/* Modal Jadwal */}
+            <Modal isOpen={modalJadwal.isOpen} title={modalJadwal.data ? "Edit Jadwal" : "Tambah Jadwal"} onClose={() => setModalJadwal({isOpen: false, data: null})}>
+              <form id="formJadwal" onSubmit={handleSaveJadwal} className="flex flex-col gap-3">
+                <input name="id_jadwal" required readOnly={!!modalJadwal.data} defaultValue={modalJadwal.data?.id_jadwal || 'JDW-' + Math.floor(Math.random()*10000)} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" placeholder="ID Jadwal" />
+                <select name="nama_mapel" required defaultValue={modalJadwal.data?.nama_mapel || ""} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm">
+                  <option value="">- Pilih Mapel Ujian -</option>
+                  {dataMapel.map(m => <option key={m.id_mapel} value={m.nama_mapel}>{m.nama_mapel}</option>)}
+                </select>
+                <select name="id_guru" required defaultValue={modalJadwal.data?.id_guru || ""} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm">
+                  <option value="">- Pilih Guru Pengawas -</option>
+                  {dataGuru.map(g => <option key={g.id_user} value={g.id_user}>{g.nama_lengkap}</option>)}
+                </select>
+                <input name="waktu_mulai" required type="datetime-local" defaultValue={modalJadwal.data?.waktu_mulai ? new Date(modalJadwal.data.waktu_mulai).toISOString().slice(0, 16) : ""} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" />
+                <input name="waktu_selesai" required type="datetime-local" defaultValue={modalJadwal.data?.waktu_selesai ? new Date(modalJadwal.data.waktu_selesai).toISOString().slice(0, 16) : ""} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" />
+                <button type="submit" className="mt-4 py-2 bg-primary text-white rounded font-bold">Simpan</button>
+              </form>
+            </Modal>
           </main>
         </div>
       );
