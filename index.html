@@ -256,7 +256,7 @@
     // ==========================================
     // VIEW: ADMIN
     // ==========================================
-    const AdminView = ({ user, onLogout }) => {
+    const AdminView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
       const [dashboardData, setDashboardData] = useState(null);
       const [isLoading, setIsLoading] = useState(true);
 
@@ -273,31 +273,27 @@
       }, []);
 
       return (
-        <div className="bg-background text-on-background antialiased flex min-h-screen">
+        <div className="bg-background dark:bg-slate-900 text-on-background dark:text-slate-100 antialiased flex min-h-screen transition-colors duration-500">
           {/* SideNavBar */}
-          <nav className="bg-surface-container-low text-primary docked left-0 h-full w-64 border-r border-outline-variant flat no shadows fixed top-0 flex flex-col p-md z-40 hidden md:flex">
+          <nav className="bg-surface-container-low dark:bg-slate-900 text-primary docked left-0 h-full w-64 border-r border-outline-variant dark:border-slate-800 flat no shadows fixed top-0 flex flex-col p-md z-40 hidden md:flex transition-colors duration-500">
             {/* Header */}
             <div className="flex items-center space-x-sm mb-lg px-sm">
-              <img alt="NEXA Logo" className="w-10 h-10 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida/AEtjO1VVZfSUCXhHzY1X0SeCMcnnfH7eVLHQqeKZRoS92h6LX1juBz1mnHDbVWx1-Ba6QJacojgIbeoyE3UGy8T6Tb1_zTR54w2rmJiBCsvoFvsirZvz0_Sze5GuvCCAGNsKINOED0RXdkwpJDJinvxgu4KYdM823w67kkw4wzY5RntMk58ZhF_-cEiEvWXFYy34ycs42ktHbpwy_GH_ydOPW5eO4S5k_plk9debDcu5KRZwhT3Qv_0W8MX-"/>
+              <img alt="NEXA Logo" className="w-10 h-10 rounded-full object-cover shadow-sm" src="https://lh3.googleusercontent.com/aida/AEtjO1VVZfSUCXhHzY1X0SeCMcnnfH7eVLHQqeKZRoS92h6LX1juBz1mnHDbVWx1-Ba6QJacojgIbeoyE3UGy8T6Tb1_zTR54w2rmJiBCsvoFvsirZvz0_Sze5GuvCCAGNsKINOED0RXdkwpJDJinvxgu4KYdM823w67kkw4wzY5RntMk58ZhF_-cEiEvWXFYy34ycs42ktHbpwy_GH_ydOPW5eO4S5k_plk9debDcu5KRZwhT3Qv_0W8MX-"/>
               <div>
-                <h1 className="font-headline-sm text-headline-sm font-bold text-on-surface">NEXA</h1>
-                <p className="font-label-md text-label-md text-on-surface-variant">Panel Kontrol</p>
+                <h1 className="font-headline-sm text-headline-sm font-bold text-on-surface dark:text-white">NEXA</h1>
+                <p className="font-label-md text-label-md text-on-surface-variant dark:text-slate-400">Panel Kontrol</p>
               </div>
             </div>
             {/* Navigation Links */}
             <div className="flex-1 space-y-base mt-md">
-              <a className="flex items-center space-x-sm px-md py-sm bg-primary-container text-on-primary-container rounded-lg font-label-md text-label-md duration-200 ease-in-out" href="#">
+              <a className="flex items-center space-x-sm px-md py-sm bg-primary-container dark:bg-primary/20 text-on-primary-container dark:text-primary-fixed rounded-lg font-label-md text-label-md duration-200 ease-in-out shadow-sm" href="#">
                 <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>dashboard</span>
                 <span>Beranda</span>
               </a>
-              <a href="https://docs.google.com/spreadsheets/" target="_blank" rel="noreferrer" className="flex items-center space-x-sm px-md py-sm text-on-surface-variant hover:bg-surface-container-highest transition-colors rounded-lg font-label-md text-label-md duration-200 ease-in-out">
-                <span className="material-symbols-outlined">database</span>
-                <span>Database (Sheets)</span>
-              </a>
             </div>
             {/* Footer Links */}
-            <div className="mt-auto pt-md border-t border-outline-variant">
-              <button onClick={onLogout} className="w-full flex items-center space-x-sm px-md py-sm text-on-surface-variant hover:bg-surface-container-highest transition-colors rounded-lg font-label-md text-label-md duration-200 ease-in-out">
+            <div className="mt-auto pt-md border-t border-outline-variant dark:border-slate-800">
+              <button onClick={onLogout} className="w-full flex items-center space-x-sm px-md py-sm text-on-surface-variant dark:text-slate-400 hover:bg-surface-container-highest dark:hover:bg-slate-800 hover:text-error dark:hover:text-error transition-colors rounded-lg font-label-md text-label-md duration-200 ease-in-out">
                 <span className="material-symbols-outlined">logout</span>
                 <span>Keluar</span>
               </button>
@@ -305,18 +301,21 @@
           </nav>
 
           {/* Main Content Canvas */}
-          <main className="flex-1 ml-0 md:ml-64 flex flex-col bg-background">
+          <main className="flex-1 ml-0 md:ml-64 flex flex-col bg-background dark:bg-slate-900 transition-colors duration-500">
             {/* TopNavBar */}
-            <header className="bg-surface text-primary font-body-md text-body-md docked full-width top-0 border-b border-outline-variant flat no shadows sticky top-0 z-30 flex justify-between items-center px-lg h-16 transition-all">
+            <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md text-primary font-body-md text-body-md docked full-width top-0 border-b border-outline-variant dark:border-slate-800 flat no shadows sticky top-0 z-30 flex justify-between items-center px-lg h-16 transition-colors duration-500">
               <div className="md:hidden flex items-center">
-                <span className="font-headline-sm text-headline-sm font-bold text-primary">NEXA Admin</span>
+                <span className="font-headline-sm text-headline-sm font-bold text-primary dark:text-primary-fixed">NEXA Admin</span>
               </div>
               <div className="hidden md:flex flex-1"></div>
               <div className="flex items-center space-x-lg">
+                <button onClick={() => setIsDarkMode(!isDarkMode)} className="w-9 h-9 rounded-full bg-surface-container-highest dark:bg-slate-800 border border-outline-variant dark:border-slate-700 flex items-center justify-center text-on-surface dark:text-white hover:bg-white dark:hover:bg-slate-700 transition-colors shadow-sm">
+                  <span className="material-symbols-outlined text-[20px]">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
+                </button>
                 <div className="flex items-center space-x-sm">
-                  <div className="ml-sm flex items-center gap-sm cursor-pointer">
-                    <span className="text-sm font-bold text-slate-700 hidden sm:block">{user.nama_lengkap}</span>
-                    <div className="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-bold border border-outline-variant">
+                  <div className="ml-sm flex items-center gap-sm cursor-pointer border-l pl-sm border-outline-variant dark:border-slate-700">
+                    <span className="text-sm font-bold text-slate-700 dark:text-slate-200 hidden sm:block">{user.nama_lengkap}</span>
+                    <div className="w-9 h-9 rounded-full bg-primary-container dark:bg-primary/30 flex items-center justify-center text-on-primary-container dark:text-primary-fixed font-bold border border-primary/20 shadow-sm">
                       {user.nama_lengkap.charAt(0).toUpperCase()}
                     </div>
                   </div>
@@ -325,10 +324,11 @@
             </header>
 
             {/* Page Content */}
-            <div className="p-md md:p-lg xl:p-xl overflow-y-auto w-full max-w-6xl mx-auto">
+            {/* Page Content */}
+            <div className="p-md md:p-lg xl:p-xl overflow-y-auto w-full max-w-6xl mx-auto custom-scrollbar">
               <div className="mb-lg">
-                <h2 className="font-headline-md text-headline-md text-on-surface">Dashboard Ringkasan</h2>
-                <p className="font-body-md text-body-md text-on-surface-variant mt-xs">Tinjauan sistem operasional sekolah saat ini.</p>
+                <h2 className="font-headline-md text-headline-md text-on-surface dark:text-white">Dashboard Ringkasan</h2>
+                <p className="font-body-md text-body-md text-on-surface-variant dark:text-slate-400 mt-xs">Tinjauan sistem operasional sekolah saat ini.</p>
               </div>
               
               {isLoading ? <Loader text="Menarik data dashboard..." /> : (
@@ -336,60 +336,64 @@
                   {/* Bento Grid - Summary Cards */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-md mb-lg">
                     {/* Card 1 */}
-                    <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex flex-col justify-between h-32 hover:shadow-[0_4px_8px_rgba(0,0,0,0.05)] transition-shadow">
-                      <div className="flex justify-between items-start">
-                        <p className="font-label-md text-label-md text-on-surface-variant">Total Siswa</p>
-                        <span className="material-symbols-outlined text-primary-container bg-primary-fixed p-1 rounded-lg">group</span>
+                    <div className="group bg-white dark:bg-slate-800 border border-outline-variant dark:border-slate-700 rounded-xl p-md flex flex-col justify-between h-32 hover:shadow-lg hover:-translate-y-1 hover:border-primary/30 transition-all duration-300 relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 dark:bg-primary-fixed/5 rounded-full -translate-y-8 translate-x-8 group-hover:scale-110 transition-transform duration-500"></div>
+                      <div className="flex justify-between items-start relative z-10">
+                        <p className="font-label-md text-label-md text-on-surface-variant dark:text-slate-400">Total Siswa</p>
+                        <span className="material-symbols-outlined text-primary-container bg-primary-fixed dark:bg-primary/20 dark:text-primary-fixed p-1.5 rounded-lg shadow-sm">group</span>
                       </div>
-                      <div>
-                        <p className="font-headline-lg text-headline-lg text-on-surface">{dashboardData?.totalSiswa || 0}</p>
-                        <p className="font-label-md text-label-md text-secondary mt-1">Siswa terdaftar</p>
+                      <div className="relative z-10">
+                        <p className="font-headline-lg text-headline-lg text-on-surface dark:text-white">{dashboardData?.totalSiswa || 0}</p>
+                        <p className="font-label-md text-label-md text-secondary dark:text-slate-500 mt-1">Siswa terdaftar</p>
                       </div>
                     </div>
                     {/* Card 2 */}
-                    <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex flex-col justify-between h-32 hover:shadow-[0_4px_8px_rgba(0,0,0,0.05)] transition-shadow">
-                      <div className="flex justify-between items-start">
-                        <p className="font-label-md text-label-md text-on-surface-variant">Total Guru</p>
-                        <span className="material-symbols-outlined text-primary-container bg-primary-fixed p-1 rounded-lg">school</span>
+                    <div className="group bg-white dark:bg-slate-800 border border-outline-variant dark:border-slate-700 rounded-xl p-md flex flex-col justify-between h-32 hover:shadow-lg hover:-translate-y-1 hover:border-primary/30 transition-all duration-300 relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-[#10B981]/5 rounded-full -translate-y-8 translate-x-8 group-hover:scale-110 transition-transform duration-500"></div>
+                      <div className="flex justify-between items-start relative z-10">
+                        <p className="font-label-md text-label-md text-on-surface-variant dark:text-slate-400">Total Guru</p>
+                        <span className="material-symbols-outlined text-[#10B981] bg-[#d1fae5] dark:bg-[#10B981]/20 p-1.5 rounded-lg shadow-sm">school</span>
                       </div>
-                      <div>
-                        <p className="font-headline-lg text-headline-lg text-on-surface">{dashboardData?.totalGuru || 0}</p>
-                        <p className="font-label-md text-label-md text-secondary mt-1">Aktif mengajar</p>
+                      <div className="relative z-10">
+                        <p className="font-headline-lg text-headline-lg text-on-surface dark:text-white">{dashboardData?.totalGuru || 0}</p>
+                        <p className="font-label-md text-label-md text-secondary dark:text-slate-500 mt-1">Aktif mengajar</p>
                       </div>
                     </div>
                     {/* Card 3 */}
-                    <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex flex-col justify-between h-32 hover:shadow-[0_4px_8px_rgba(0,0,0,0.05)] transition-shadow">
-                      <div className="flex justify-between items-start">
-                        <p className="font-label-md text-label-md text-on-surface-variant">Total Ujian</p>
-                        <span className="material-symbols-outlined text-primary-container bg-primary-fixed p-1 rounded-lg">assignment</span>
+                    <div className="group bg-white dark:bg-slate-800 border border-outline-variant dark:border-slate-700 rounded-xl p-md flex flex-col justify-between h-32 hover:shadow-lg hover:-translate-y-1 hover:border-primary/30 transition-all duration-300 relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-[#F59E0B]/5 rounded-full -translate-y-8 translate-x-8 group-hover:scale-110 transition-transform duration-500"></div>
+                      <div className="flex justify-between items-start relative z-10">
+                        <p className="font-label-md text-label-md text-on-surface-variant dark:text-slate-400">Total Ujian</p>
+                        <span className="material-symbols-outlined text-[#F59E0B] bg-[#FEF3C7] dark:bg-[#F59E0B]/20 p-1.5 rounded-lg shadow-sm">assignment</span>
                       </div>
-                      <div>
-                        <p className="font-headline-lg text-headline-lg text-on-surface">{dashboardData?.totalJadwal || 0}</p>
-                        <p className="font-label-md text-label-md text-secondary mt-1">Jadwal yang dibuat</p>
+                      <div className="relative z-10">
+                        <p className="font-headline-lg text-headline-lg text-on-surface dark:text-white">{dashboardData?.totalJadwal || 0}</p>
+                        <p className="font-label-md text-label-md text-secondary dark:text-slate-500 mt-1">Jadwal yang dibuat</p>
                       </div>
                     </div>
                     {/* Card 4 */}
-                    <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex flex-col justify-between h-32 hover:shadow-[0_4px_8px_rgba(0,0,0,0.05)] transition-shadow">
-                      <div className="flex justify-between items-start">
-                        <p className="font-label-md text-label-md text-on-surface-variant">Sesi Ujian Aktif</p>
-                        <span className="material-symbols-outlined text-[#059669] bg-[#d1fae5] p-1 rounded-lg">speed</span>
+                    <div className="group bg-white dark:bg-slate-800 border border-outline-variant dark:border-slate-700 rounded-xl p-md flex flex-col justify-between h-32 hover:shadow-lg hover:-translate-y-1 hover:border-primary/30 transition-all duration-300 relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-[#EF4444]/5 rounded-full -translate-y-8 translate-x-8 group-hover:scale-110 transition-transform duration-500"></div>
+                      <div className="flex justify-between items-start relative z-10">
+                        <p className="font-label-md text-label-md text-on-surface-variant dark:text-slate-400">Sesi Ujian Aktif</p>
+                        <span className="material-symbols-outlined text-[#EF4444] bg-[#FEE2E2] dark:bg-[#EF4444]/20 p-1.5 rounded-lg shadow-sm">speed</span>
                       </div>
-                      <div>
-                        <p className="font-headline-lg text-headline-lg text-on-surface">{dashboardData?.totalSesiAktif || 0}</p>
-                        <p className="font-label-md text-label-md text-secondary mt-1">Sedang mengerjakan</p>
+                      <div className="relative z-10">
+                        <p className="font-headline-lg text-headline-lg text-on-surface dark:text-white">{dashboardData?.totalSesiAktif || 0}</p>
+                        <p className="font-label-md text-label-md text-secondary dark:text-slate-500 mt-1">Sedang mengerjakan</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Data Table Section */}
-                  <div className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden">
-                    <div className="p-md border-b border-outline-variant flex justify-between items-center bg-background">
-                      <h3 className="font-headline-sm text-headline-sm text-on-surface">Jadwal Ujian Aktif</h3>
+                  <div className="bg-white dark:bg-slate-800 border border-outline-variant dark:border-slate-700 rounded-xl overflow-hidden shadow-sm">
+                    <div className="p-md border-b border-outline-variant dark:border-slate-700 flex justify-between items-center bg-surface-container-lowest dark:bg-slate-800">
+                      <h3 className="font-headline-sm text-headline-sm text-on-surface dark:text-white">Jadwal Ujian Aktif</h3>
                     </div>
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse">
                         <thead>
-                          <tr className="bg-background font-label-md text-label-md text-on-surface-variant border-b border-outline-variant">
+                          <tr className="bg-surface-container-low dark:bg-slate-900/50 font-label-md text-label-md text-on-surface-variant dark:text-slate-400 border-b border-outline-variant dark:border-slate-700">
                             <th className="py-sm px-md font-medium">ID Jadwal</th>
                             <th className="py-sm px-md font-medium">Mata Pelajaran</th>
                             <th className="py-sm px-md font-medium">Guru</th>
@@ -397,18 +401,22 @@
                             <th className="py-sm px-md font-medium">Waktu Selesai</th>
                           </tr>
                         </thead>
-                        <tbody className="font-body-md text-body-md text-on-surface">
+                        <tbody className="font-body-md text-body-md text-on-surface dark:text-slate-200">
                           {dashboardData?.jadwalAktif?.length > 0 ? dashboardData.jadwalAktif.map((j) => (
-                            <tr key={j.id_jadwal} className="border-b border-outline-variant hover:bg-surface-container-low transition-colors">
-                              <td className="py-sm px-md font-mono text-outline">{j.id_jadwal}</td>
-                              <td className="py-sm px-md font-medium">{j.nama_mapel}</td>
+                            <tr key={j.id_jadwal} className="border-b border-outline-variant dark:border-slate-700/50 hover:bg-surface-container-low dark:hover:bg-slate-700/50 transition-colors">
+                              <td className="py-sm px-md font-mono text-outline dark:text-slate-400 text-[13px]">{j.id_jadwal}</td>
+                              <td className="py-sm px-md font-medium dark:text-white">{j.nama_mapel}</td>
                               <td className="py-sm px-md">{j.guru}</td>
-                              <td className="py-sm px-md">{new Date(j.waktu_mulai).toLocaleString('id-ID')}</td>
-                              <td className="py-sm px-md text-error">{new Date(j.waktu_selesai).toLocaleString('id-ID')}</td>
+                              <td className="py-sm px-md text-[13px]">{new Date(j.waktu_mulai).toLocaleString('id-ID')}</td>
+                              <td className="py-sm px-md">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[12px] font-medium bg-error-container/50 text-error dark:bg-error/20 dark:text-error-container border border-error/20">
+                                  {new Date(j.waktu_selesai).toLocaleString('id-ID')}
+                                </span>
+                              </td>
                             </tr>
                           )) : (
                             <tr>
-                              <td colSpan="5" className="py-md text-center text-on-surface-variant">Tidak ada jadwal aktif</td>
+                              <td colSpan="5" className="py-lg text-center text-on-surface-variant dark:text-slate-500 italic">Tidak ada jadwal ujian aktif saat ini.</td>
                             </tr>
                           )}
                         </tbody>
@@ -1613,7 +1621,7 @@
         }
 
         switch (user.role) {
-          case 'admin': return <AdminView user={user} onLogout={handleLogout} />;
+          case 'admin': return <AdminView user={user} onLogout={handleLogout} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} />;
           case 'guru': return <GuruView user={user} onLogout={handleLogout} showMessage={showMessage} />;
           case 'siswa': return <SiswaView user={user} onLogout={handleLogout} showMessage={showMessage} />;
           default: return <div className="p-8 text-center text-red-600 font-bold bg-white h-screen">Role tidak valid!</div>;
