@@ -220,7 +220,7 @@
               .eq('role', payload.role)
               .single());
             if (error || !data) return { status: 'error', message: 'Username, password, atau role salah.' };
-            return { status: 'success', user: data };
+            return { status: 'success', data };
           }
 
           case 'register': {
