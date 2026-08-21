@@ -1318,7 +1318,7 @@
         e.preventDefault();
         setLoading(true);
         setLoginError('');
-        const res = await fetchAPI('login', { username, password });
+        const res = await fetchAPI('login', { username, password, role: loginRole });
         setLoading(false);
 
         if (res.status === 'success') {
@@ -1346,9 +1346,30 @@
             handleLogin(e);
           };
 
-          const onRegisterSubmit = (e) => {
+          const onRegisterSubmit = async (e) => {
             e.preventDefault();
-            showMessage('Pendaftaran Ditutup', 'Silakan hubungi administrator sekolah untuk membuat akun baru.', 'warning');
+            setLoading(true);
+            const payload = {
+              role: registerRole,
+              nama: regName,
+              username: regUsername,
+              identitas: registerRole === 'siswa' ? regNisn : regNip,
+              password: regPassword
+            };
+            const res = await fetchAPI('register', payload);
+            setLoading(false);
+
+            if (res.status === 'success') {
+              showMessage('Pendaftaran Berhasil', res.message, 'success');
+              setRegName('');
+              setRegUsername('');
+              setRegNisn('');
+              setRegNip('');
+              setRegPassword('');
+              setIsRegistering(false);
+            } else {
+              showMessage('Pendaftaran Gagal', res.message || 'Terjadi kesalahan saat mendaftar.', 'error');
+            }
           };
 
           const handleLupaPassword = (e) => {
@@ -1557,9 +1578,15 @@
                         </div>
 
                         <div className="mt-auto pt-2">
-                          <button className="w-full bg-primary text-on-primary font-label-md py-sm rounded-lg hover:bg-primary-container hover:shadow-lg hover:-translate-y-1 transition-all duration-300 shadow-sm flex justify-center items-center gap-xs" type="submit">
-                            Daftar Sekarang 
-                            <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                          <button disabled={loading} className="w-full bg-primary text-on-primary font-label-md py-sm rounded-lg hover:bg-primary-container hover:shadow-lg hover:-translate-y-1 transition-all duration-300 shadow-sm flex justify-center items-center gap-xs disabled:opacity-80 disabled:cursor-not-allowed" type="submit">
+                            {loading ? (
+                              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                            ) : (
+                              <>
+                                Daftar Sekarang 
+                                <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                              </>
+                            )}
                           </button>
                           <p className="text-center font-body-md text-on-surface-variant mt-sm text-[12px]">
                             Dengan mendaftar, Anda menyetujui <button type="button" onClick={handleSyaratKetentuan} className="text-primary hover:underline">Syarat & Ketentuan</button> kami.

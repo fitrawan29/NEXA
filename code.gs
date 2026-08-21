@@ -28,7 +28,10 @@ function doPost(e) {
     switch (action) {
       // Endpoint Global
       case 'login':
-        result = handleLogin(payload.username, payload.password);
+        result = handleLogin(payload.username, payload.password, payload.role);
+        break;
+      case 'register':
+        result = handleRegister(payload);
         break;
         
       // Endpoint Admin
@@ -92,22 +95,51 @@ function doGet(e) {
 // 2. KUMPULAN CONTROLLER UTAMA
 // ==========================================
 
-function handleLogin(username, password) {
+function handleLogin(loginId, password, role) {
   const data = getSheetData('Users');
   for (let i = 1; i < data.length; i++) {
-    if (data[i][1] === username && data[i][2] === password) {
+    // data[i][1]: username, data[i][2]: password, data[i][3]: role, data[i][5]: identitas (NISN/NIP)
+    if ((data[i][1] === loginId || data[i][5] === loginId) && data[i][2] === password && data[i][3] === role) {
       return {
         status: 'success',
         data: {
           id_user: data[i][0],
           role: data[i][3],
           nama_lengkap: data[i][4],
-          instansi: data[i][5]
+          identitas: data[i][5]
         }
       };
     }
   }
-  return { status: 'error', message: 'Username atau password salah!' };
+  return { status: 'error', message: 'Username/Identitas atau password salah, atau role tidak sesuai!' };
+}
+
+function handleRegister(payload) {
+  const { role, nama, username, identitas, password } = payload;
+  
+  if (!username || !password || !nama) {
+    return { status: 'error', message: 'Data pendaftaran tidak lengkap!' };
+  }
+  
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('Users');
+  const data = sheet.getDataRange().getValues();
+  
+  // Cek duplikasi
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][1] === username) {
+      return { status: 'error', message: 'Username sudah digunakan, silakan pilih yang lain!' };
+    }
+    if (identitas && identitas !== "-" && data[i][5] === identitas) {
+      return { status: 'error', message: (role === 'siswa' ? 'NISN' : 'NIP') + ' sudah terdaftar!' };
+    }
+  }
+  
+  const newIdUser = "U-" + Math.floor(Math.random() * 1000000);
+  
+  // appendRow urutannya harus sesuai dengan header: id_user, username, password, role, nama_lengkap, identitas
+  sheet.appendRow([newIdUser, username, password, role, nama, identitas || "-"]);
+  
+  return { status: 'success', message: 'Pendaftaran berhasil dibuat!' };
 }
 
 function getAdminDashboardData() {
@@ -426,11 +458,11 @@ function setupDatabaseOtomatis() {
   // Skema Database Standard Aplikasi CBT AKM
   const dbStructure = {
     'Users': [
-      ['id_user', 'username', 'password', 'role', 'nama_lengkap', 'instansi'],
-      ['U-001', 'admin', 'admin123', 'admin', 'Super Administrator', 'Sistem Pusat CBT'],
-      ['U-002', 'guru01', 'guru123', 'guru', 'Bpk. Budi Santoso (Guru Matik)', 'SMA Negeri 1'],
-      ['U-003', 'siswa01', 'siswa123', 'siswa', 'Ahmad Widodo', 'SMA Negeri 1'],
-      ['U-004', 'siswa02', 'siswa123', 'siswa', 'Putri Ayu', 'SMA Negeri 1']
+      ['id_user', 'username', 'password', 'role', 'nama_lengkap', 'identitas'],
+      ['U-001', 'admin', 'admin123', 'admin', 'Super Administrator', '-'],
+      ['U-002', 'guru01', 'guru123', 'guru', 'Bpk. Budi Santoso (Guru Matik)', '198001012010011001'],
+      ['U-003', 'siswa01', 'siswa123', 'siswa', 'Ahmad Widodo', '1002003001'],
+      ['U-004', 'siswa02', 'siswa123', 'siswa', 'Putri Ayu', '1002003002']
     ],
     'Jadwal': [
       ['id_jadwal', 'nama_mapel', 'id_guru', 'waktu_mulai', 'waktu_selesai', 'token_aktif', 'last_token_update'],
