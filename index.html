@@ -290,6 +290,26 @@
                 <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>dashboard</span>
                 <span>Beranda</span>
               </a>
+              <a className="flex items-center space-x-sm px-md py-sm text-on-surface-variant dark:text-slate-400 hover:bg-surface-container-highest dark:hover:bg-slate-800 transition-colors rounded-lg font-label-md text-label-md duration-200 ease-in-out" href="#">
+                <span className="material-symbols-outlined">group</span>
+                <span>Data Siswa</span>
+              </a>
+              <a className="flex items-center space-x-sm px-md py-sm text-on-surface-variant dark:text-slate-400 hover:bg-surface-container-highest dark:hover:bg-slate-800 transition-colors rounded-lg font-label-md text-label-md duration-200 ease-in-out" href="#">
+                <span className="material-symbols-outlined">school</span>
+                <span>Data Guru</span>
+              </a>
+              <a className="flex items-center space-x-sm px-md py-sm text-on-surface-variant dark:text-slate-400 hover:bg-surface-container-highest dark:hover:bg-slate-800 transition-colors rounded-lg font-label-md text-label-md duration-200 ease-in-out" href="#">
+                <span className="material-symbols-outlined">assignment</span>
+                <span>Manajemen Ujian</span>
+              </a>
+              <a className="flex items-center space-x-sm px-md py-sm text-on-surface-variant dark:text-slate-400 hover:bg-surface-container-highest dark:hover:bg-slate-800 transition-colors rounded-lg font-label-md text-label-md duration-200 ease-in-out" href="#">
+                <span className="material-symbols-outlined">database</span>
+                <span>Bank Soal</span>
+              </a>
+              <a className="flex items-center space-x-sm px-md py-sm text-on-surface-variant dark:text-slate-400 hover:bg-surface-container-highest dark:hover:bg-slate-800 transition-colors rounded-lg font-label-md text-label-md duration-200 ease-in-out" href="#">
+                <span className="material-symbols-outlined">settings</span>
+                <span>Pengaturan</span>
+              </a>
             </div>
             {/* Footer Links */}
             <div className="mt-auto pt-md border-t border-outline-variant dark:border-slate-800">
@@ -307,11 +327,26 @@
               <div className="md:hidden flex items-center">
                 <span className="font-headline-sm text-headline-sm font-bold text-primary dark:text-primary-fixed">NEXA Admin</span>
               </div>
-              <div className="hidden md:flex flex-1"></div>
-              <div className="flex items-center space-x-lg">
-                <button onClick={() => setIsDarkMode(!isDarkMode)} className="w-9 h-9 rounded-full bg-surface-container-highest dark:bg-slate-800 border border-outline-variant dark:border-slate-700 flex items-center justify-center text-on-surface dark:text-white hover:bg-white dark:hover:bg-slate-700 transition-colors shadow-sm">
-                  <span className="material-symbols-outlined text-[20px]">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
-                </button>
+              <div className="hidden md:flex flex-1">
+                {/* Search Bar */}
+                <div className="relative ml-xl">
+                  <span className="material-symbols-outlined absolute left-sm top-1/2 -translate-y-1/2 text-on-surface-variant dark:text-slate-400">search</span>
+                  <input className="pl-xl pr-md py-sm bg-surface-container-low dark:bg-slate-800 border border-outline-variant dark:border-slate-700 rounded-full text-body-md text-on-surface dark:text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all w-64 placeholder-on-surface-variant dark:placeholder-slate-400" placeholder="Cari data..." type="text" />
+                </div>
+              </div>
+              <div className="flex items-center space-x-sm md:space-x-lg">
+                <div className="flex items-center space-x-sm">
+                  <button className="p-sm text-secondary dark:text-slate-400 hover:text-primary transition-colors rounded-full hover:bg-surface-container-highest dark:hover:bg-slate-800 relative hidden sm:block">
+                    <span className="material-symbols-outlined">notifications</span>
+                    <span className="absolute top-1 right-1 w-2 h-2 bg-error rounded-full"></span>
+                  </button>
+                  <button className="p-sm text-secondary dark:text-slate-400 hover:text-primary transition-colors rounded-full hover:bg-surface-container-highest dark:hover:bg-slate-800 hidden sm:block">
+                    <span className="material-symbols-outlined">help</span>
+                  </button>
+                  <button onClick={() => setIsDarkMode(!isDarkMode)} className="w-9 h-9 rounded-full bg-surface-container-highest dark:bg-slate-800 border border-outline-variant dark:border-slate-700 flex items-center justify-center text-on-surface dark:text-white hover:bg-white dark:hover:bg-slate-700 transition-colors shadow-sm ml-sm">
+                    <span className="material-symbols-outlined text-[20px]">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
+                  </button>
+                </div>
                 <div className="flex items-center space-x-sm">
                   <div className="ml-sm flex items-center gap-sm cursor-pointer border-l pl-sm border-outline-variant dark:border-slate-700">
                     <span className="text-sm font-bold text-slate-700 dark:text-slate-200 hidden sm:block">{user.nama_lengkap}</span>
@@ -389,6 +424,7 @@
                   <div className="bg-white dark:bg-slate-800 border border-outline-variant dark:border-slate-700 rounded-xl overflow-hidden shadow-sm">
                     <div className="p-md border-b border-outline-variant dark:border-slate-700 flex justify-between items-center bg-surface-container-lowest dark:bg-slate-800">
                       <h3 className="font-headline-sm text-headline-sm text-on-surface dark:text-white">Jadwal Ujian Aktif</h3>
+                      <button className="font-label-md text-label-md text-primary hover:bg-surface-container-high dark:hover:bg-slate-700 px-sm py-xs rounded-md transition-colors">Lihat Semua</button>
                     </div>
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse">
@@ -399,6 +435,7 @@
                             <th className="py-sm px-md font-medium">Guru</th>
                             <th className="py-sm px-md font-medium">Waktu Mulai</th>
                             <th className="py-sm px-md font-medium">Waktu Selesai</th>
+                            <th className="py-sm px-md font-medium text-right">Aksi</th>
                           </tr>
                         </thead>
                         <tbody className="font-body-md text-body-md text-on-surface dark:text-slate-200">
@@ -413,10 +450,14 @@
                                   {new Date(j.waktu_selesai).toLocaleString('id-ID')}
                                 </span>
                               </td>
+                              <td className="py-sm px-md text-right space-x-xs whitespace-nowrap">
+                                <button className="text-secondary dark:text-slate-400 hover:text-primary dark:hover:text-primary-fixed transition-colors"><span className="material-symbols-outlined text-[20px]">edit</span></button>
+                                <button className="text-secondary dark:text-slate-400 hover:text-error transition-colors"><span className="material-symbols-outlined text-[20px]">delete</span></button>
+                              </td>
                             </tr>
                           )) : (
                             <tr>
-                              <td colSpan="5" className="py-lg text-center text-on-surface-variant dark:text-slate-500 italic">Tidak ada jadwal ujian aktif saat ini.</td>
+                              <td colSpan="6" className="py-lg text-center text-on-surface-variant dark:text-slate-500 italic">Tidak ada jadwal ujian aktif saat ini.</td>
                             </tr>
                           )}
                         </tbody>
@@ -510,6 +551,10 @@
               </div>
             </div>
             <div className="flex items-center gap-md">
+              <button className="w-10 h-10 flex items-center justify-center rounded-full text-secondary dark:text-slate-400 hover:bg-surface-container-highest dark:hover:bg-slate-800 transition-colors relative hidden sm:flex">
+                <span className="material-symbols-outlined">notifications</span>
+                <span className="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+              </button>
               <button onClick={() => setIsDarkMode(!isDarkMode)} className="w-9 h-9 rounded-full bg-surface-container-highest dark:bg-slate-800 border border-outline-variant dark:border-slate-700 flex items-center justify-center text-on-surface dark:text-white hover:bg-white dark:hover:bg-slate-700 transition-colors shadow-sm">
                 <span className="material-symbols-outlined text-[20px]">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
               </button>
@@ -572,6 +617,9 @@
                     <p className="font-body-md text-body-md text-on-surface-variant dark:text-slate-400 mt-1">Sesi: <span className="font-mono">{selectedJadwal}</span></p>
                   </div>
                   <div className="flex gap-sm">
+                    <button className="bg-surface-container-lowest dark:bg-slate-800 border border-outline-variant dark:border-slate-700 text-on-surface dark:text-slate-200 py-sm px-md rounded-lg font-label-md text-label-md hover:bg-surface-container-low dark:hover:bg-slate-700 transition-colors flex items-center gap-2 hidden sm:flex">
+                      <span className="material-symbols-outlined text-[18px]">filter_list</span> Filter
+                    </button>
                     <button onClick={() => setSelectedJadwal(null)} className="bg-white dark:bg-slate-800 border border-outline-variant dark:border-slate-700 text-on-surface dark:text-slate-200 py-sm px-md rounded-lg font-label-md text-label-md hover:bg-surface-container-low dark:hover:bg-slate-700 transition-colors flex items-center gap-2 shadow-sm">
                       <span className="material-symbols-outlined text-[18px]">arrow_back</span> Kembali
                     </button>
@@ -591,8 +639,11 @@
                     </div>
                   </div>
                   <div className="w-full md:w-1/3 flex flex-col gap-sm z-10 bg-primary-fixed-dim/20 p-md rounded-lg backdrop-blur-sm border border-primary-fixed-dim/30">
-                    <div className="flex justify-between mt-1">
+                    <div className="flex justify-between mt-1 items-center">
                       <p className="text-on-primary text-[12px] opacity-80">Token ini di-refresh secara otomatis.</p>
+                      <button onClick={() => fetchToken(selectedJadwal)} className="text-on-primary text-[12px] hover:underline flex items-center gap-1 opacity-80 hover:opacity-100 transition-opacity">
+                        <span className="material-symbols-outlined text-[14px]">refresh</span> Perbarui
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -604,6 +655,10 @@
                       <h3 className="font-headline-sm text-headline-sm text-on-surface dark:text-white flex items-center gap-2">
                         <span className="material-symbols-outlined text-secondary dark:text-slate-400">group</span> Status Peserta
                       </h3>
+                      <div className="relative w-48 hidden sm:block">
+                        <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant dark:text-slate-400 text-[18px]">search</span>
+                        <input className="w-full pl-9 pr-3 py-2 bg-surface-container-lowest dark:bg-slate-800 border border-outline-variant dark:border-slate-700 rounded-lg font-body-md text-body-md text-on-surface dark:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all placeholder-on-surface-variant dark:placeholder-slate-400" placeholder="Cari siswa..." type="text" />
+                      </div>
                     </div>
                     <div className="overflow-x-auto">
                       <table className="w-full text-left font-body-md text-body-md">
@@ -1148,6 +1203,9 @@
               </div>
             </div>
             <div className="flex items-center gap-md">
+              <button className="w-10 h-10 flex items-center justify-center rounded-full text-secondary dark:text-slate-400 hover:bg-surface-container-highest dark:hover:bg-slate-800 transition-colors relative hidden sm:flex">
+                <span className="material-symbols-outlined">notifications</span>
+              </button>
               <button onClick={() => setIsDarkMode(!isDarkMode)} className="w-9 h-9 rounded-full bg-surface-container-highest dark:bg-slate-800 border border-outline-variant dark:border-slate-700 flex items-center justify-center text-on-surface dark:text-white hover:bg-white dark:hover:bg-slate-700 transition-colors shadow-sm">
                 <span className="material-symbols-outlined text-[20px]">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
               </button>
