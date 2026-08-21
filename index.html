@@ -191,6 +191,9 @@
     // ==============================================================================
     const SUPABASE_URL = 'https://cdcbarlyxjywltgrjgnr.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkY2Jhcmx5eGp5d2x0Z3JqZ25yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyOTkwNTQsImV4cCI6MjEwMjg3NTA1NH0.Lze94l74sblAVNN4-IUtyQ_idr-aQCECxgPWTVAI5-c';
+    const STATUS = { SUCCESS: "success", ERROR: "error" };
+    const ROLES = { ADMIN: "admin", GURU: "guru", SISWA: "siswa" };
+
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     // Utility: Penghitung Waktu Mundur
@@ -569,7 +572,7 @@
     // ==========================================
     // VIEW: ADMIN
     // ==========================================
-    const AdminView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
+    const AdminView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) => {
       const [activeTab, setActiveTab] = useState('dashboard');
       const [dashboardData, setDashboardData] = useState(null);
       const [dataSiswa, setDataSiswa] = useState([]);
@@ -581,6 +584,7 @@
       const [modalGuru, setModalGuru] = useState({ isOpen: false, data: null });
       const [modalJadwal, setModalJadwal] = useState({ isOpen: false, data: null });
       const [modalMapel, setModalMapel] = useState({ isOpen: false, data: null });
+      const [isSubmitting, setIsSubmitting] = useState(false);
 
       const fetchData = async (tab) => {
         setIsLoading(true);
@@ -972,44 +976,44 @@
             {/* Modal Siswa */}
             <Modal isOpen={modalSiswa.isOpen} title={modalSiswa.data ? "Edit Siswa" : "Tambah Siswa"} onClose={() => setModalSiswa({isOpen: false, data: null})}>
               <form id="formSiswa" onSubmit={handleSaveSiswa} className="flex flex-col gap-3">
-                <input name="id_user" readOnly={!!modalSiswa.data} defaultValue={modalSiswa.data?.id_user || 'SISWA-' + Math.floor(Math.random()*10000)} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" placeholder="ID Siswa" />
+                <input name="id_user" readOnly={!!modalSiswa.data} defaultValue={modalSiswa.data?.id_user || crypto.randomUUID()} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" placeholder="ID Siswa" />
                 <input name="nama_lengkap" required defaultValue={modalSiswa.data?.nama_lengkap} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" placeholder="Nama Lengkap" />
                 <input name="username" required defaultValue={modalSiswa.data?.username} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" placeholder="Username (NISN)" />
-                <input name="password" required={!modalSiswa.data} defaultValue={modalSiswa.data?.password} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" placeholder="Password" type="password" />
+                <input name="password" required={!modalSiswa.data} defaultValue={modalSiswa.data ? '' : ''} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" placeholder="Password" type="password" />
                 <input name="angkatan" defaultValue={modalSiswa.data?.angkatan} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" placeholder="Angkatan (Opsional)" />
                 <input name="kelas_paralel" defaultValue={modalSiswa.data?.kelas_paralel} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" placeholder="Kelas Paralel (Contoh: X IPA 1)" />
-                <button type="submit" className="mt-4 py-2 bg-primary text-white rounded font-bold">Simpan</button>
+                <button type="submit" disabled={isSubmitting} className="mt-4 py-2 bg-primary text-white rounded font-bold disabled:opacity-50">{isSubmitting ? 'Menyimpan...' : 'Simpan'}</button>
               </form>
             </Modal>
 
             {/* Modal Guru */}
             <Modal isOpen={modalGuru.isOpen} title={modalGuru.data ? "Edit Guru" : "Tambah Guru"} onClose={() => setModalGuru({isOpen: false, data: null})}>
               <form id="formGuru" onSubmit={handleSaveGuru} className="flex flex-col gap-3">
-                <input name="id_user" readOnly={!!modalGuru.data} defaultValue={modalGuru.data?.id_user || 'GURU-' + Math.floor(Math.random()*10000)} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" placeholder="ID Guru" />
+                <input name="id_user" readOnly={!!modalGuru.data} defaultValue={modalGuru.data?.id_user || crypto.randomUUID()} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" placeholder="ID Guru" />
                 <input name="nama_lengkap" required defaultValue={modalGuru.data?.nama_lengkap} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" placeholder="Nama Lengkap" />
                 <input name="username" required defaultValue={modalGuru.data?.username} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" placeholder="Username (NIP)" />
-                <input name="password" required={!modalGuru.data} defaultValue={modalGuru.data?.password} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" placeholder="Password" type="password" />
+                <input name="password" required={!modalGuru.data} defaultValue={modalGuru.data ? '' : ''} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" placeholder="Password" type="password" />
                 <select name="mapel_diampu" defaultValue={modalGuru.data?.mapel_diampu || ""} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm">
                   <option value="">- Pilih Mapel Diampu -</option>
                   {dataMapel.map(m => <option key={m.id_mapel} value={m.id_mapel}>{m.nama_mapel}</option>)}
                 </select>
-                <button type="submit" className="mt-4 py-2 bg-primary text-white rounded font-bold">Simpan</button>
+                <button type="submit" disabled={isSubmitting} className="mt-4 py-2 bg-primary text-white rounded font-bold disabled:opacity-50">{isSubmitting ? 'Menyimpan...' : 'Simpan'}</button>
               </form>
             </Modal>
 
             {/* Modal Mapel */}
             <Modal isOpen={modalMapel.isOpen} title={modalMapel.data ? "Edit Mapel" : "Tambah Mapel"} onClose={() => setModalMapel({isOpen: false, data: null})}>
               <form id="formMapel" onSubmit={handleSaveMapel} className="flex flex-col gap-3">
-                <input name="id_mapel" required readOnly={!!modalMapel.data} defaultValue={modalMapel.data?.id_mapel || 'MPL-' + Math.floor(Math.random()*10000)} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" placeholder="ID Mapel (misal: MTK)" />
+                <input name="id_mapel" required readOnly={!!modalMapel.data} defaultValue={modalMapel.data?.id_mapel || crypto.randomUUID()} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" placeholder="ID Mapel (misal: MTK)" />
                 <input name="nama_mapel" required defaultValue={modalMapel.data?.nama_mapel} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" placeholder="Nama Mata Pelajaran" />
-                <button type="submit" className="mt-4 py-2 bg-primary text-white rounded font-bold">Simpan</button>
+                <button type="submit" disabled={isSubmitting} className="mt-4 py-2 bg-primary text-white rounded font-bold disabled:opacity-50">{isSubmitting ? 'Menyimpan...' : 'Simpan'}</button>
               </form>
             </Modal>
 
             {/* Modal Jadwal */}
             <Modal isOpen={modalJadwal.isOpen} title={modalJadwal.data ? "Edit Jadwal" : "Tambah Jadwal"} onClose={() => setModalJadwal({isOpen: false, data: null})}>
               <form id="formJadwal" onSubmit={handleSaveJadwal} className="flex flex-col gap-3">
-                <input name="id_jadwal" required readOnly={!!modalJadwal.data} defaultValue={modalJadwal.data?.id_jadwal || 'JDW-' + Math.floor(Math.random()*10000)} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" placeholder="ID Jadwal" />
+                <input name="id_jadwal" required readOnly={!!modalJadwal.data} defaultValue={modalJadwal.data?.id_jadwal || crypto.randomUUID()} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" placeholder="ID Jadwal" />
                 <select name="nama_mapel" required defaultValue={modalJadwal.data?.nama_mapel || ""} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm">
                   <option value="">- Pilih Mapel Ujian -</option>
                   {dataMapel.map(m => <option key={m.id_mapel} value={m.nama_mapel}>{m.nama_mapel}</option>)}
@@ -1020,7 +1024,7 @@
                 </select>
                 <input name="waktu_mulai" required type="datetime-local" defaultValue={modalJadwal.data?.waktu_mulai ? new Date(modalJadwal.data.waktu_mulai).toISOString().slice(0, 16) : ""} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" />
                 <input name="waktu_selesai" required type="datetime-local" defaultValue={modalJadwal.data?.waktu_selesai ? new Date(modalJadwal.data.waktu_selesai).toISOString().slice(0, 16) : ""} className="academic-input p-2 rounded border dark:bg-slate-800 dark:border-slate-600 text-sm" />
-                <button type="submit" className="mt-4 py-2 bg-primary text-white rounded font-bold">Simpan</button>
+                <button type="submit" disabled={isSubmitting} className="mt-4 py-2 bg-primary text-white rounded font-bold disabled:opacity-50">{isSubmitting ? 'Menyimpan...' : 'Simpan'}</button>
               </form>
             </Modal>
           </main>
@@ -2251,7 +2255,7 @@
         }
 
         switch (user.role) {
-          case 'admin': return <AdminView user={user} onLogout={handleLogout} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} />;
+          case 'admin': return <AdminView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} />;
           case 'guru': return <GuruView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} />;
           case 'siswa': return <SiswaView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} />;
           default: return <div className="p-8 text-center text-red-600 font-bold bg-white h-screen">Role tidak valid!</div>;
