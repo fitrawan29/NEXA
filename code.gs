@@ -38,6 +38,18 @@ function doPost(e) {
       case 'get_admin_dashboard_data':
         result = getAdminDashboardData();
         break;
+      case 'get_users_by_role':
+        result = getUsersByRole(payload.role);
+        break;
+      case 'get_all_jadwal':
+        result = getAllJadwal();
+        break;
+      case 'delete_jadwal':
+        result = deleteRowByPrimaryKey('Jadwal', payload.id_jadwal);
+        break;
+      case 'delete_user':
+        result = deleteRowByPrimaryKey('Users', payload.id_user);
+        break;
         
       // Endpoint Siswa
       case 'get_jadwal':
@@ -175,6 +187,44 @@ function getAdminDashboardData() {
     }
   };
 }
+
+function getUsersByRole(role) {
+  const users = getSheetData('Users');
+  let result = users;
+  if (role) {
+    result = users.filter(u => u.role === role);
+  }
+  return { status: 'success', data: result };
+}
+
+function getAllJadwal() {
+  const jadwal = getSheetData('Jadwal');
+  const users = getSheetData('Users');
+  
+  // Format jadwal aktif untuk ditampilkan
+  const formattedJadwal = jadwal.map(j => {
+    const guru = users.find(u => u.id_user === j.id_guru);
+    return {
+      ...j,
+      guru: guru ? guru.nama_lengkap : 'Unknown'
+    };
+  });
+  
+  return { status: 'success', data: formattedJadwal };
+}
+
+function deleteRowByPrimaryKey(sheetName, primaryKey) {
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(sheetName);
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === primaryKey) {
+      sheet.deleteRow(i + 1);
+      return { status: 'success', message: 'Data berhasil dihapus.' };
+    }
+  }
+  return { status: 'error', message: 'Data tidak ditemukan.' };
+}
+
 
 function manageDynamicToken(id_jadwal) {
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('Jadwal');
