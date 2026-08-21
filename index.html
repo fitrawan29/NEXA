@@ -232,7 +232,7 @@
                 username: payload.username,
                 password: payload.password,
                 role: payload.role
-              }]);
+              }]));
             if (error) {
               if (error.code === '23505') return { status: 'error', message: 'ID User atau Username sudah terdaftar.' };
               return { status: 'error', message: error.message };
@@ -303,7 +303,7 @@
 
           // ================= GURU / PENGAWAS =================
           case 'get_jadwal_pengawas': {
-            ({ data, error } = await supabaseClient.from('jadwal').select('*');
+            ({ data, error } = await supabaseClient.from('jadwal').select('*'));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', data };
           }
