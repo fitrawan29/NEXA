@@ -231,7 +231,10 @@
                 nama_lengkap: payload.nama_lengkap,
                 username: payload.username,
                 password: payload.password,
-                role: payload.role
+                role: payload.role,
+                angkatan: payload.angkatan || null,
+                kelas_paralel: payload.kelas_paralel || null,
+                mapel_diampu: payload.mapel_diampu || null
               }]));
             if (error) {
               if (error.code === '23505') return { status: 'error', message: 'ID User atau Username sudah terdaftar.' };
@@ -299,6 +302,72 @@
             ({ error } = await supabaseClient.from('users').delete().eq('id_user', payload.id_user));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Data berhasil dihapus.' };
+          }
+
+          case 'update_user': {
+            ({ error } = await supabaseClient.from('users').update({
+                nama_lengkap: payload.nama_lengkap,
+                username: payload.username,
+                password: payload.password,
+                role: payload.role,
+                angkatan: payload.angkatan || null,
+                kelas_paralel: payload.kelas_paralel || null,
+                mapel_diampu: payload.mapel_diampu || null
+            }).eq('id_user', payload.id_user));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Data berhasil diupdate.' };
+          }
+
+          case 'get_all_mapel': {
+            ({ data, error } = await supabaseClient.from('mata_pelajaran').select('*'));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', data };
+          }
+          
+          case 'insert_mapel': {
+            ({ error } = await supabaseClient.from('mata_pelajaran').insert([{
+               id_mapel: payload.id_mapel,
+               nama_mapel: payload.nama_mapel
+            }]));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success' };
+          }
+          
+          case 'update_mapel': {
+            ({ error } = await supabaseClient.from('mata_pelajaran').update({
+               nama_mapel: payload.nama_mapel
+            }).eq('id_mapel', payload.id_mapel));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success' };
+          }
+          
+          case 'delete_mapel': {
+            ({ error } = await supabaseClient.from('mata_pelajaran').delete().eq('id_mapel', payload.id_mapel));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success' };
+          }
+
+          case 'insert_jadwal': {
+             ({ error } = await supabaseClient.from('jadwal').insert([{
+                 id_jadwal: payload.id_jadwal,
+                 nama_mapel: payload.nama_mapel,
+                 id_guru: payload.id_guru,
+                 waktu_mulai: payload.waktu_mulai,
+                 waktu_selesai: payload.waktu_selesai
+             }]));
+             if (error) return { status: 'error', message: error.message };
+             return { status: 'success' };
+          }
+
+          case 'update_jadwal': {
+             ({ error } = await supabaseClient.from('jadwal').update({
+                 nama_mapel: payload.nama_mapel,
+                 id_guru: payload.id_guru,
+                 waktu_mulai: payload.waktu_mulai,
+                 waktu_selesai: payload.waktu_selesai
+             }).eq('id_jadwal', payload.id_jadwal));
+             if (error) return { status: 'error', message: error.message };
+             return { status: 'success' };
           }
 
           // ================= GURU / PENGAWAS =================
@@ -506,7 +575,12 @@
       const [dataSiswa, setDataSiswa] = useState([]);
       const [dataGuru, setDataGuru] = useState([]);
       const [dataJadwal, setDataJadwal] = useState([]);
+      const [dataMapel, setDataMapel] = useState([]);
       const [isLoading, setIsLoading] = useState(true);
+      const [modalSiswa, setModalSiswa] = useState({ isOpen: false, data: null });
+      const [modalGuru, setModalGuru] = useState({ isOpen: false, data: null });
+      const [modalJadwal, setModalJadwal] = useState({ isOpen: false, data: null });
+      const [modalMapel, setModalMapel] = useState({ isOpen: false, data: null });
 
       const fetchData = async (tab) => {
         setIsLoading(true);
@@ -522,6 +596,9 @@
         } else if (tab === 'jadwal') {
           const res = await fetchAPI('get_all_jadwal', {});
           if (res.status === 'success') setDataJadwal(res.data);
+        } else if (tab === 'mapel') {
+          const res = await fetchAPI('get_all_mapel', {});
+          if (res.status === 'success') setDataMapel(res.data);
         }
         setIsLoading(false);
       };
@@ -571,6 +648,10 @@
               <a onClick={(e) => {e.preventDefault(); setActiveTab('jadwal')}} className={`flex items-center space-x-sm px-md py-sm rounded-lg font-label-md text-label-md duration-200 ease-in-out ${activeTab === 'jadwal' ? 'bg-primary-container dark:bg-primary/20 text-on-primary-container dark:text-primary-fixed shadow-sm' : 'text-on-surface-variant dark:text-slate-400 hover:bg-surface-container-highest dark:hover:bg-slate-800 transition-colors'}`} href="#">
                 <span className="material-symbols-outlined">assignment</span>
                 <span>Manajemen Ujian</span>
+              </a>
+              <a onClick={(e) => {e.preventDefault(); setActiveTab('mapel')}} className={`flex items-center space-x-sm px-md py-sm rounded-lg font-label-md text-label-md duration-200 ease-in-out ${activeTab === 'mapel' ? 'bg-primary-container dark:bg-primary/20 text-on-primary-container dark:text-primary-fixed shadow-sm' : 'text-on-surface-variant dark:text-slate-400 hover:bg-surface-container-highest dark:hover:bg-slate-800 transition-colors'}`} href="#">
+                <span className="material-symbols-outlined">book</span>
+                <span>Data Mapel</span>
               </a>
               <a className="flex items-center space-x-sm px-md py-sm text-on-surface-variant dark:text-slate-400 hover:bg-surface-container-highest dark:hover:bg-slate-800 transition-colors rounded-lg font-label-md text-label-md duration-200 ease-in-out" href="#">
                 <span className="material-symbols-outlined">database</span>
@@ -743,7 +824,10 @@
               {activeTab === 'siswa' && (
                 <>
                   <div className="mb-lg">
+                    <div className="flex justify-between items-center mb-lg">
                     <h2 className="font-headline-md text-headline-md text-on-surface dark:text-white">Data Siswa</h2>
+                    <button onClick={() => setModalSiswa({isOpen: true, data: null})} className="px-md py-sm bg-primary dark:bg-primary-fixed text-on-primary dark:text-on-primary-fixed rounded-lg font-label-md transition-colors hover:bg-primary/90">Tambah Siswa</button>
+                  </div>
                   </div>
                   {isLoading ? <Loader text="Menarik data..." /> : (
                     <div className="bg-white dark:bg-slate-800 border border-outline-variant dark:border-slate-700 rounded-xl overflow-hidden shadow-sm">
@@ -761,7 +845,7 @@
                               <td className="py-sm px-md font-mono text-[13px]">{s.id_user}</td>
                               <td className="py-sm px-md font-medium">{s.nama_lengkap}</td>
                               <td className="py-sm px-md text-right space-x-xs">
-                                <button className="text-secondary dark:text-slate-400 hover:text-primary transition-colors"><span className="material-symbols-outlined text-[20px]">edit</span></button>
+                                <button onClick={() => setModalSiswa({isOpen: true, data: s})} className="text-secondary dark:text-slate-400 hover:text-primary transition-colors"><span className="material-symbols-outlined text-[20px]">edit</span></button>
                                 <button onClick={() => handleDeleteUser(s.id_user, 'siswa')} className="text-secondary dark:text-slate-400 hover:text-error transition-colors"><span className="material-symbols-outlined text-[20px]">delete</span></button>
                               </td>
                             </tr>
@@ -776,7 +860,10 @@
               {activeTab === 'guru' && (
                 <>
                   <div className="mb-lg">
+                    <div className="flex justify-between items-center mb-lg">
                     <h2 className="font-headline-md text-headline-md text-on-surface dark:text-white">Data Guru</h2>
+                    <button onClick={() => setModalGuru({isOpen: true, data: null})} className="px-md py-sm bg-primary dark:bg-primary-fixed text-on-primary dark:text-on-primary-fixed rounded-lg font-label-md transition-colors hover:bg-primary/90">Tambah Guru</button>
+                  </div>
                   </div>
                   {isLoading ? <Loader text="Menarik data..." /> : (
                     <div className="bg-white dark:bg-slate-800 border border-outline-variant dark:border-slate-700 rounded-xl overflow-hidden shadow-sm">
@@ -794,7 +881,7 @@
                               <td className="py-sm px-md font-mono text-[13px]">{g.id_user}</td>
                               <td className="py-sm px-md font-medium">{g.nama_lengkap}</td>
                               <td className="py-sm px-md text-right space-x-xs">
-                                <button className="text-secondary dark:text-slate-400 hover:text-primary transition-colors"><span className="material-symbols-outlined text-[20px]">edit</span></button>
+                                <button onClick={() => setModalGuru({isOpen: true, data: g})} className="text-secondary dark:text-slate-400 hover:text-primary transition-colors"><span className="material-symbols-outlined text-[20px]">edit</span></button>
                                 <button onClick={() => handleDeleteUser(g.id_user, 'guru')} className="text-secondary dark:text-slate-400 hover:text-error transition-colors"><span className="material-symbols-outlined text-[20px]">delete</span></button>
                               </td>
                             </tr>
@@ -829,7 +916,7 @@
                               <td className="py-sm px-md font-medium">{j.nama_mapel}</td>
                               <td className="py-sm px-md">{j.guru}</td>
                               <td className="py-sm px-md text-right space-x-xs">
-                                <button className="text-secondary dark:text-slate-400 hover:text-primary transition-colors"><span className="material-symbols-outlined text-[20px]">edit</span></button>
+                                <button onClick={() => setModalJadwal({isOpen: true, data: j})} className="text-secondary dark:text-slate-400 hover:text-primary transition-colors"><span className="material-symbols-outlined text-[20px]">edit</span></button>
                                 <button onClick={() => handleDeleteJadwal(j.id_jadwal)} className="text-secondary dark:text-slate-400 hover:text-error transition-colors"><span className="material-symbols-outlined text-[20px]">delete</span></button>
                               </td>
                             </tr>
