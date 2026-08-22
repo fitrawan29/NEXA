@@ -798,6 +798,26 @@
         reader.readAsBinaryString(file);
       };
 
+      const downloadTemplate = (type) => {
+        let sampleData = [];
+        let fileName = `Template_Data_${type}.xlsx`;
+        
+        if (type === 'siswa') {
+          sampleData = [{ id_siswa: 'S-001', nama_lengkap: 'Nama Contoh', username: 'siswa01', password: 'password123', angkatan: 'X', kelas_paralel: 'A' }];
+        } else if (type === 'guru') {
+          sampleData = [{ id_guru: 'G-001', nama_lengkap: 'Guru Contoh', username: 'guru01', password: 'password123' }];
+        } else if (type === 'mapel') {
+          sampleData = [{ id_mapel: 'M-001', nama_mapel: 'Matematika' }];
+        } else if (type === 'jadwal') {
+          sampleData = [{ id_jadwal: 'J-001', id_mapel: 'M-001', id_guru: 'G-001', waktu_mulai: '2026-08-25T07:00:00', waktu_selesai: '2026-08-25T09:00:00' }];
+        }
+
+        const ws = XLSX.utils.json_to_sheet(sampleData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Template");
+        XLSX.writeFile(wb, fileName);
+      };
+
       const exportToExcel = () => {
         if (!dataLog || dataLog.length === 0) return alert('Tidak ada data untuk di-export');
         const exportData = dataLog.map((l, i) => ({
@@ -987,6 +1007,10 @@
 
               {['siswa', 'guru', 'mapel', 'jadwal'].includes(activeTab) && (
                 <div className="flex flex-col sm:flex-row gap-2 mt-4 sm:mt-0">
+                  <button onClick={() => downloadTemplate(activeTab)} className="bg-surface-container-highest dark:bg-slate-700 text-on-surface-variant dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 px-md py-sm rounded-full font-label-md shadow-sm transition-all flex items-center justify-center gap-sm hover:-translate-y-0.5 whitespace-nowrap">
+                    <span className="material-symbols-outlined text-[20px]">download</span>
+                    Template
+                  </button>
                   <button onClick={() => document.getElementById('file-upload').click()} className="bg-[#10B981] text-white hover:bg-[#059669] px-md py-sm rounded-full font-label-md shadow-sm transition-all flex items-center justify-center gap-sm hover:-translate-y-0.5 whitespace-nowrap">
                     <span className="material-symbols-outlined text-[20px]">upload_file</span>
                     Upload Excel
@@ -1022,6 +1046,34 @@
                       </div>
                     </div>
                   ))}
+                </div>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-md mt-lg">
+                  <div className="bg-surface dark:bg-slate-800 p-lg rounded-2xl border border-outline-variant dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
+                    <h3 className="font-headline-sm text-on-surface dark:text-white mb-4 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-primary">info</span> Informasi Aplikasi
+                    </h3>
+                    <p className="text-body-md text-on-surface-variant dark:text-slate-300 mb-4 leading-relaxed">
+                      NEXA adalah platform Computer Based Test (CBT) modern yang dirancang untuk memudahkan pelaksanaan asesmen dan ujian di lingkungan sekolah. Dilengkapi dengan antarmuka dinamis, sistem pengawasan real-time, dan auto-grading.
+                    </p>
+                    <ul className="space-y-2 text-sm text-on-surface-variant dark:text-slate-400">
+                      <li className="flex items-center gap-2"><span className="material-symbols-outlined text-green-500 text-[18px]">check_circle</span> Manajemen Data Massal (Siswa, Guru, Mapel, Jadwal)</li>
+                      <li className="flex items-center gap-2"><span className="material-symbols-outlined text-green-500 text-[18px]">check_circle</span> Pembuatan Token Ujian Dinamis</li>
+                      <li className="flex items-center gap-2"><span className="material-symbols-outlined text-green-500 text-[18px]">check_circle</span> Auto-grading (Pilihan Ganda)</li>
+                    </ul>
+                  </div>
+
+                  <div className="bg-surface dark:bg-slate-800 p-lg rounded-2xl border border-outline-variant dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
+                    <h3 className="font-headline-sm text-on-surface dark:text-white mb-4 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-primary">quick_reference_all</span> Panduan Cepat
+                    </h3>
+                    <ol className="space-y-3 text-sm text-on-surface-variant dark:text-slate-300 list-decimal list-inside">
+                      <li><strong>Persiapan Data:</strong> Unduh template, isi, lalu unggah data Siswa, Guru, dan Mapel secara massal.</li>
+                      <li><strong>Penjadwalan:</strong> Buat jadwal ujian di menu 'Kelola Jadwal' sesuai mapel dan pengawas.</li>
+                      <li><strong>Pengawasan:</strong> Guru pengawas meng-generate token ujian pada menu 'Pantau Ujian' saat hari H.</li>
+                      <li><strong>Hasil Evaluasi:</strong> Lihat rekapitulasi nilai pada menu 'Hasil Ujian' setelah ujian selesai.</li>
+                    </ol>
+                  </div>
                 </div>
               </div>
             )}
