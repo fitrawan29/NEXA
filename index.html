@@ -295,6 +295,11 @@
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Siswa berhasil ditambahkan' };
           }
+          case 'create_siswa_bulk': {
+            ({ error } = await supabaseClient.from('siswa').insert(payload));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Siswa berhasil ditambahkan secara massal' };
+          }
           case 'update_siswa': {
             const { id_siswa, ...updates } = payload;
             ({ error } = await supabaseClient.from('siswa').update(updates).eq('id_siswa', id_siswa));
@@ -332,6 +337,11 @@
             }
             return { status: 'success', message: 'Guru berhasil ditambahkan' };
           }
+          case 'create_guru_bulk': {
+            ({ error } = await supabaseClient.from('guru').insert(payload));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Guru berhasil ditambahkan secara massal' };
+          }
           case 'update_guru': {
             const { id_guru, mapels, ...updates } = payload;
             const res = await supabaseClient.from('guru').update(updates).eq('id_guru', id_guru);
@@ -362,6 +372,11 @@
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Mata pelajaran berhasil ditambahkan' };
           }
+          case 'create_mapel_bulk': {
+            ({ error } = await supabaseClient.from('mata_pelajaran').insert(payload));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Mata pelajaran berhasil ditambahkan secara massal' };
+          }
           case 'update_mapel': {
             const { id_mapel, ...updates } = payload;
             ({ error } = await supabaseClient.from('mata_pelajaran').update(updates).eq('id_mapel', id_mapel));
@@ -391,6 +406,11 @@
             ({ error } = await supabaseClient.from('jadwal').insert([payload]));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Jadwal berhasil ditambahkan' };
+          }
+          case 'create_jadwal_bulk': {
+            ({ error } = await supabaseClient.from('jadwal').insert(payload));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Jadwal berhasil ditambahkan secara massal' };
           }
 
           case 'delete_jadwal': {
@@ -739,6 +759,45 @@
         fetchData(activeTab);
       };
 
+      const handleFileUpload = (e, type) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+          try {
+            const bstr = evt.target.result;
+            const wb = XLSX.read(bstr, { type: 'binary' });
+            const wsname = wb.SheetNames[0];
+            const ws = wb.Sheets[wsname];
+            const data = XLSX.utils.sheet_to_json(ws);
+            
+            if (data.length === 0) return alert('File kosong atau format salah.');
+            
+            let endpoint = `create_${type}_bulk`;
+            
+            // Format check
+            if (type === 'siswa' && !data[0].id_siswa) return alert('Format salah. Pastikan ada kolom id_siswa.');
+            if (type === 'guru' && !data[0].id_guru) return alert('Format salah. Pastikan ada kolom id_guru.');
+            if (type === 'mapel' && !data[0].id_mapel) return alert('Format salah. Pastikan ada kolom id_mapel.');
+            if (type === 'jadwal' && !data[0].id_jadwal) return alert('Format salah. Pastikan ada kolom id_jadwal.');
+
+            const res = await fetchAPI(endpoint, data);
+            if (res.status === 'success') {
+              alert(`Berhasil menambahkan ${data.length} data ${type}.`);
+              fetchData(activeTab);
+            } else {
+              alert(`Gagal: ${res.message}`);
+            }
+          } catch (error) {
+            console.error(error);
+            alert('Gagal memproses file. Pastikan format file sesuai (.xlsx/.csv).');
+          }
+          e.target.value = null; // Reset input
+        };
+        reader.readAsBinaryString(file);
+      };
+
       const exportToExcel = () => {
         if (!dataLog || dataLog.length === 0) return alert('Tidak ada data untuk di-export');
         const exportData = dataLog.map((l, i) => ({
@@ -873,7 +932,7 @@
           <nav className={`bg-surface-container-low dark:bg-slate-900 text-primary docked left-0 h-full w-64 border-r border-outline-variant dark:border-slate-800 flat fixed top-0 flex flex-col p-md z-40 transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
             {/* Header */}
             <div className="flex items-center space-x-sm mb-lg px-sm">
-              <img alt="NEXA Logo" className="w-10 h-10 rounded-full object-cover shadow-sm" src="https://lh3.googleusercontent.com/aida/AEtjO1VVZfSUCXhHzY1X0SeCMcnnfH7eVLHQqeKZRoS92h6LX1juBz1mnHDbVWx1-Ba6QJacojgIbeoyE3UGy8T6Tb1_zTR54w2rmJiBCsvoFvsirZvz0_Sze5GuvCCAGNsKINOED0RXdkwpJDJinvxgu4KYdM823w67kkw4wzY5RntMk58ZhF_-cEiEvWXFYy34ycs42ktHbpwy_GH_ydOPW5eO4S5k_plk9debDcu5KRZwhT3Qv_0W8MX-" />
+              <img alt="NEXA Logo" className="w-10 h-10 rounded-full object-cover shadow-sm" src="stitch_assets/screen_3_logo.png" />
               <div>
                 <h1 className="font-headline-sm text-headline-sm font-bold text-on-surface dark:text-white">NEXA</h1>
                 <p className="font-label-md text-label-md text-on-surface-variant dark:text-slate-400">Admin Panel</p>
@@ -927,10 +986,17 @@
               </div>
 
               {['siswa', 'guru', 'mapel', 'jadwal'].includes(activeTab) && (
-                <button onClick={() => openCreateModal(activeTab)} className="bg-primary text-on-primary hover:bg-primary/90 px-md py-sm rounded-full font-label-md shadow-sm transition-all flex items-center gap-sm hover:-translate-y-0.5 whitespace-nowrap">
-                  <span className="material-symbols-outlined text-[20px]">add</span>
-                  Tambah {activeTab === 'mapel' ? 'Mapel' : activeTab}
-                </button>
+                <div className="flex flex-col sm:flex-row gap-2 mt-4 sm:mt-0">
+                  <button onClick={() => document.getElementById('file-upload').click()} className="bg-[#10B981] text-white hover:bg-[#059669] px-md py-sm rounded-full font-label-md shadow-sm transition-all flex items-center justify-center gap-sm hover:-translate-y-0.5 whitespace-nowrap">
+                    <span className="material-symbols-outlined text-[20px]">upload_file</span>
+                    Upload Excel
+                  </button>
+                  <input type="file" id="file-upload" accept=".xlsx, .xls, .csv" className="hidden" onChange={(e) => handleFileUpload(e, activeTab)} />
+                  <button onClick={() => openCreateModal(activeTab)} className="bg-primary text-on-primary hover:bg-primary/90 px-md py-sm rounded-full font-label-md shadow-sm transition-all flex items-center justify-center gap-sm hover:-translate-y-0.5 whitespace-nowrap">
+                    <span className="material-symbols-outlined text-[20px]">add</span>
+                    Tambah {activeTab === 'mapel' ? 'Mapel' : activeTab}
+                  </button>
+                </div>
               )}
             </header>
 
@@ -1322,7 +1388,7 @@
           <nav className="bg-surface/90 dark:bg-slate-900/90 backdrop-blur-md fixed top-0 w-full z-50 flex justify-between items-center px-lg h-16 border-b border-outline-variant dark:border-slate-800 transition-colors duration-500">
             <div className="flex items-center gap-xl">
               <div className="flex items-center h-8">
-                <img src="https://lh3.googleusercontent.com/aida/AEtjO1VVZfSUCXhHzY1X0SeCMcnnfH7eVLHQqeKZRoS92h6LX1juBz1mnHDbVWx1-Ba6QJacojgIbeoyE3UGy8T6Tb1_zTR54w2rmJiBCsvoFvsirZvz0_Sze5GuvCCAGNsKINOED0RXdkwpJDJinvxgu4KYdM823w67kkw4wzY5RntMk58ZhF_-cEiEvWXFYy34ycs42ktHbpwy_GH_ydOPW5eO4S5k_plk9debDcu5KRZwhT3Qv_0W8MX-" alt="NEXA Logo" className="h-full w-auto object-contain" />
+                <img src="stitch_assets/screen_3_logo.png" alt="NEXA Logo" className="h-full w-auto object-contain" />
               </div>
               <div className="hidden md:flex items-center h-full gap-lg">
                 <a className="h-16 flex items-center text-primary dark:text-primary-fixed font-bold border-b-2 border-primary dark:border-primary-fixed font-label-md text-label-md" href="#">Portal Ujian Siswa</a>
@@ -1613,7 +1679,7 @@
 
                   <div className="relative z-10">
                     <h2 className="font-headline-lg text-white font-bold flex items-center gap-2 mb-4">
-                      <img alt="NEXA Logo" className="w-10 h-10 object-contain rounded bg-white p-1" src="https://lh3.googleusercontent.com/aida/AEtjO1VVZfSUCXhHzY1X0SeCMcnnfH7eVLHQqeKZRoS92h6LX1juBz1mnHDbVWx1-Ba6QJacojgIbeoyE3UGy8T6Tb1_zTR54w2rmJiBCsvoFvsirZvz0_Sze5GuvCCAGNsKINOED0RXdkwpJDJinvxgu4KYdM823w67kkw4wzY5RntMk58ZhF_-cEiEvWXFYy34ycs42ktHbpwy_GH_ydOPW5eO4S5k_plk9debDcu5KRZwhT3Qv_0W8MX-" />
+                      <img alt="NEXA Logo" className="w-10 h-10 object-contain rounded bg-white p-1" src="stitch_assets/screen_3_logo.png" />
                       NEXA
                     </h2>
                     <p className="font-body-lg text-primary-fixed-dim">Platform Ujian Berbasis Komputer Modern untuk Sekolah.</p>
@@ -1634,7 +1700,7 @@
                     <div className="form-pane p-lg sm:p-xl flex flex-col justify-center h-full overflow-y-auto">
                       <div className="mb-lg md:hidden">
                         <h2 className="font-headline-md text-on-surface dark:text-white flex items-center gap-xs">
-                          <img alt="NEXA Logo" className="w-8 h-8 object-contain rounded" src="https://lh3.googleusercontent.com/aida/AEtjO1VVZfSUCXhHzY1X0SeCMcnnfH7eVLHQqeKZRoS92h6LX1juBz1mnHDbVWx1-Ba6QJacojgIbeoyE3UGy8T6Tb1_zTR54w2rmJiBCsvoFvsirZvz0_Sze5GuvCCAGNsKINOED0RXdkwpJDJinvxgu4KYdM823w67kkw4wzY5RntMk58ZhF_-cEiEvWXFYy34ycs42ktHbpwy_GH_ydOPW5eO4S5k_plk9debDcu5KRZwhT3Qv_0W8MX-" />
+                          <img alt="NEXA Logo" className="w-8 h-8 object-contain rounded" src="stitch_assets/screen_3_logo.png" />
                           NEXA
                         </h2>
                         <p className="font-body-md text-on-surface-variant dark:text-slate-400 mt-xs">Silakan masuk ke akun Anda.</p>
@@ -1721,7 +1787,7 @@
                     <div className="form-pane p-lg sm:p-xl flex flex-col justify-center h-full overflow-y-auto">
                       <div className="mb-lg md:hidden flex-shrink-0">
                         <h2 className="font-headline-md text-on-surface dark:text-white flex items-center gap-xs">
-                          <img alt="NEXA Logo" className="w-8 h-8 object-contain rounded" src="https://lh3.googleusercontent.com/aida/AEtjO1VVZfSUCXhHzY1X0SeCMcnnfH7eVLHQqeKZRoS92h6LX1juBz1mnHDbVWx1-Ba6QJacojgIbeoyE3UGy8T6Tb1_zTR54w2rmJiBCsvoFvsirZvz0_Sze5GuvCCAGNsKINOED0RXdkwpJDJinvxgu4KYdM823w67kkw4wzY5RntMk58ZhF_-cEiEvWXFYy34ycs42ktHbpwy_GH_ydOPW5eO4S5k_plk9debDcu5KRZwhT3Qv_0W8MX-" />
+                          <img alt="NEXA Logo" className="w-8 h-8 object-contain rounded" src="stitch_assets/screen_3_logo.png" />
                           NEXA
                         </h2>
                         <p className="font-body-md text-on-surface-variant dark:text-slate-300 mt-xs">Buat akun baru Anda.</p>
