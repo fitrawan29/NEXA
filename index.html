@@ -1309,9 +1309,6 @@
               </div>
             )}
 
-            {/* Render Form Modals */}
-            <FormSoalModal isOpen={formSoal.isOpen} data={formSoal.data} onClose={() => setFormSoal({ isOpen: false, data: null })} onSave={saveSoal} />
-            <ModalPeriksaUraian isOpen={modalUraian.isOpen} logUjian={modalUraian.logUjian} jawabanUraian={modalUraian.jawabanUraian} onClose={() => setModalUraian({ isOpen: false, logUjian: null, jawabanUraian: [] })} onSave={saveNilaiUraian} />
           </main>
         </div>
       );
@@ -1771,6 +1768,10 @@
                 </div>
               </div>
             )}
+
+            {/* Render Form Modals */}
+            <FormSoalModal isOpen={formSoal.isOpen} data={formSoal.data} onClose={() => setFormSoal({ isOpen: false, data: null })} onSave={saveSoal} />
+            <ModalPeriksaUraian isOpen={modalUraian.isOpen} logUjian={modalUraian.logUjian} jawabanUraian={modalUraian.jawabanUraian} onClose={() => setModalUraian({ isOpen: false, logUjian: null, jawabanUraian: [] })} onSave={saveNilaiUraian} />
           </main>
         </div>
       );
