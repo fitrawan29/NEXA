@@ -1,4 +1,8 @@
     const AdminView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
+      const api = (action, p = {}) => {
+        if (Array.isArray(p)) return fetchAPI(action, p.map(item => ({ ...item, npsn: user.npsn })));
+        return fetchAPI(action, { ...p, npsn: user.npsn });
+      };
       const [activeTab, setActiveTab] = useState('dashboard');
       const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Toggle Sidebar
 
@@ -19,24 +23,24 @@
       const fetchData = async (tab) => {
         setIsLoading(true);
         if (tab === 'dashboard') {
-          const res = await fetchAPI('get_admin_dashboard_data', {});
+          const res = await api('get_admin_dashboard_data', {});
           if (res.status === 'success') setDashboardData(res.data);
         } else if (tab === 'siswa' || tab === 'kelas') {
-          const res = await fetchAPI('get_siswa', {});
+          const res = await api('get_siswa', {});
           if (res.status === 'success') setDataSiswa(res.data);
         } else if (tab === 'guru') {
-          const res = await fetchAPI('get_guru', {});
+          const res = await api('get_guru', {});
           if (res.status === 'success') setDataGuru(res.data);
         } else if (tab === 'mapel') {
-          const res = await fetchAPI('get_all_mapel', {});
+          const res = await api('get_all_mapel', {});
           if (res.status === 'success') setDataMapel(res.data);
         } else if (tab === 'jadwal' || tab === 'monitoring' || tab === 'hasil') {
-          const res = await fetchAPI('get_all_jadwal', {});
+          const res = await api('get_all_jadwal', {});
           if (res.status === 'success') setDataJadwal(res.data);
 
           if (selectedJadwal) {
             const endpoint = tab === 'hasil' ? 'get_hasil_ujian' : 'monitoring_ujian';
-            const logRes = await fetchAPI(endpoint, { id_jadwal: selectedJadwal });
+            const logRes = await api(endpoint, { id_jadwal: selectedJadwal });
             if (logRes.status === 'success') setDataLog(logRes.data);
           } else {
             setDataLog([]);
@@ -55,7 +59,7 @@
         let payload = {};
         payload[`id_${type}`] = id;
 
-        const res = await fetchAPI(endpoint, payload);
+        const res = await api(endpoint, payload);
         if (res.status === 'success') fetchData(activeTab);
         else alert(res.message);
       };
@@ -78,7 +82,7 @@
           payload.mapels = formData.getAll('mapels');
         }
 
-        const res = await fetchAPI(endpoint, payload);
+        const res = await api(endpoint, payload);
         if (res.status === 'success') {
           setFormModal({ isOpen: false, type: '', data: null });
           fetchData(activeTab);
@@ -89,10 +93,10 @@
 
       const openCreateModal = async (type) => {
         if (type === 'guru' || type === 'jadwal') {
-          const res = await fetchAPI('get_all_mapel', {});
+          const res = await api('get_all_mapel', {});
           if (res.status === 'success') setDataMapel(res.data);
           if (type === 'jadwal') {
-            const resG = await fetchAPI('get_guru', {});
+            const resG = await api('get_guru', {});
             if (resG.status === 'success') setDataGuru(resG.data);
           }
         }
@@ -101,10 +105,10 @@
 
       const openEditModal = async (type, item) => {
         if (type === 'guru' || type === 'jadwal') {
-          const res = await fetchAPI('get_all_mapel', {});
+          const res = await api('get_all_mapel', {});
           if (res.status === 'success') setDataMapel(res.data);
           if (type === 'jadwal') {
-            const resG = await fetchAPI('get_guru', {});
+            const resG = await api('get_guru', {});
             if (resG.status === 'success') setDataGuru(resG.data);
           }
         }
@@ -113,13 +117,13 @@
 
       const handleBlock = async (idLog) => {
         if (!confirm('Blokir siswa ini?')) return;
-        await fetchAPI('catat_pelanggaran', { id_log: idLog });
+        await api('catat_pelanggaran', { id_log: idLog });
         fetchData(activeTab);
       };
 
       const handleUnblock = async (idLog) => {
         if (!confirm('Buka blokir siswa ini?')) return;
-        await fetchAPI('buka_blokir', { id_log: idLog });
+        await api('buka_blokir', { id_log: idLog });
         fetchData(activeTab);
       };
 
@@ -146,7 +150,7 @@
             if (type === 'mapel' && !data[0].id_mapel) return alert('Format salah. Pastikan ada kolom id_mapel.');
             if (type === 'jadwal' && !data[0].id_jadwal) return alert('Format salah. Pastikan ada kolom id_jadwal.');
 
-            const res = await fetchAPI(endpoint, data);
+            const res = await api(endpoint, data);
             if (res.status === 'success') {
               alert(`Berhasil menambahkan ${data.length} data ${type}.`);
               fetchData(activeTab);

@@ -3,6 +3,7 @@
       const [isRegistering, setIsRegistering] = useState(false);
       const [loading, setLoading] = useState(false);
 
+      const [npsn, setNpsn] = useState('');
       const [username, setUsername] = useState('');
       const [password, setPassword] = useState('');
       const [showPassword, setShowPassword] = useState(false);
@@ -81,7 +82,7 @@
         e.preventDefault();
         setLoading(true);
         setLoginError('');
-        const res = await fetchAPI('login', { username, password, role: loginRole });
+        const res = await fetchAPI('login', { username, password, npsn, role: loginRole });
         setLoading(false);
 
         if (res.status === 'success') {
@@ -117,7 +118,8 @@
               nama: regName,
               username: regUsername,
               identitas: registerRole === 'siswa' ? regNisn : regNip,
-              password: regPassword
+              password: regPassword,
+              npsn: npsn
             };
             const res = await fetchAPI('register', payload);
             setLoading(false);
@@ -209,11 +211,11 @@
                       <form onSubmit={onLoginSubmit} className="flex flex-col gap-md">
                         {/* Segmented Control */}
                         <div className="flex bg-surface-container dark:bg-slate-800 p-1 rounded-lg relative isolation-auto z-0 mb-xs shadow-inner transition-colors duration-300">
-                          {['siswa', 'guru', 'admin'].map((r) => (
-                            <label key={r} className="flex-1 cursor-pointer relative">
-                              <input checked={loginRole === r} onChange={() => setLoginRole(r)} className="peer sr-only" name="login-role" type="radio" value={r} />
+                          {[{val: 'siswa', label: 'Siswa'}, {val: 'guru', label: 'Guru'}, {val: 'admin', label: 'Admin'}, {val: 'super_admin', label: 'Super Admin'}].map((r) => (
+                            <label key={r.val} className="flex-1 cursor-pointer relative">
+                              <input checked={loginRole === r.val} onChange={() => setLoginRole(r.val)} className="peer sr-only" name="login-role" type="radio" value={r.val} />
                               <div className="w-full text-center py-2 rounded-md text-on-surface-variant dark:text-slate-300 font-label-md transition-all duration-300 peer-checked:text-primary dark:peer-checked:text-primary-fixed z-10 relative capitalize">
-                                {r}
+                                {r.label}
                               </div>
                               <div className="absolute inset-0 bg-white dark:bg-slate-700 rounded-md shadow-sm transform scale-90 opacity-0 peer-checked:opacity-100 peer-checked:scale-100 transition-all duration-300 -z-10"></div>
                             </label>
@@ -224,6 +226,18 @@
                           <div className="bg-error-container text-error px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2 animate-fade-in-up border border-error/20">
                             <span className="material-symbols-outlined text-[18px]">error</span>
                             {loginError}
+                          </div>
+                        )}
+
+                        {loginRole !== 'super_admin' && (
+                          <div className="flex flex-col gap-xs group">
+                            <label className="font-label-md text-on-surface dark:text-slate-200 group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="login-npsn">
+                              NPSN Sekolah
+                            </label>
+                            <div className="relative flex items-center">
+                              <span className="material-symbols-outlined absolute left-sm text-outline group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors z-10">account_balance</span>
+                              <input required value={npsn} onChange={e => setNpsn(e.target.value)} className="academic-input w-full pl-[40px] pr-sm py-sm rounded-lg border border-outline-variant dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-body-md text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-400 transition-all hover:border-outline focus:border-primary dark:focus:border-primary-fixed focus:ring-4 focus:ring-primary/10 dark:focus:ring-primary-fixed/20 focus:bg-white dark:focus:bg-slate-800" id="login-npsn" placeholder="Masukkan NPSN Sekolah Anda" type="text" />
+                            </div>
                           </div>
                         )}
 
@@ -330,6 +344,11 @@
                           </div>
                         )}
 
+                        <div className="flex flex-col gap-xs group flex-shrink-0">
+                          <label className="font-label-md text-on-surface dark:text-slate-200 text-sm group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="reg-npsn">NPSN Sekolah</label>
+                          <input required value={npsn} onChange={e => setNpsn(e.target.value)} className="academic-input w-full px-sm py-2 rounded-lg border border-outline-variant dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-body-md text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-400 transition-all hover:border-outline focus:border-primary dark:focus:border-primary-fixed focus:ring-4 focus:ring-primary/10 dark:focus:ring-primary-fixed/20 focus:bg-white dark:focus:bg-slate-800" id="reg-npsn" placeholder="Masukkan NPSN Sekolah Anda" type="text" />
+                        </div>
+
                         <div className="flex flex-col gap-xs group mb-1 flex-shrink-0">
                           <label className="font-label-md text-on-surface dark:text-slate-200 text-sm group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="reg-password">Password</label>
                           <div className="relative flex items-center">
@@ -376,6 +395,7 @@
         }
 
         switch (user.role) {
+          case 'super_admin': return <SuperAdminView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} />;
           case 'admin': return <AdminView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} />;
           case 'guru': return <GuruView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} />;
           case 'siswa': return <SiswaView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} />;

@@ -6,14 +6,27 @@
         switch (action) {
           // ================= AUTH =================
           case 'login': {
+            if (payload.role === 'super_admin') {
+              ({ data, error } = await supabaseClient
+                .from('super_admin')
+                .select('*')
+                .eq('username', payload.username)
+                .eq('password', payload.password)
+                .single());
+              if (error || !data) return { status: 'error', message: 'Username atau password Super Admin salah.' };
+              data.role = 'super_admin';
+              return { status: 'success', data };
+            }
+
             const table = payload.role === 'admin' ? 'admin' : (payload.role === 'guru' ? 'guru' : 'siswa');
             ({ data, error } = await supabaseClient
               .from(table)
               .select('*')
               .eq('username', payload.username)
               .eq('password', payload.password)
+              .eq('npsn', payload.npsn)
               .single());
-            if (error || !data) return { status: 'error', message: 'Username, password, atau role salah.' };
+            if (error || !data) return { status: 'error', message: 'Username, password, atau NPSN salah.' };
             data.role = payload.role;
             return { status: 'success', data };
           }
@@ -24,7 +37,8 @@
                 id_siswa: payload.id_user,
                 nama_lengkap: payload.nama_lengkap,
                 username: payload.username,
-                password: payload.password
+                password: payload.password,
+                npsn: payload.npsn
               }]));
             if (error) {
               if (error.code === '23505') return { status: 'error', message: 'Username sudah terdaftar.' };
@@ -33,18 +47,56 @@
             return { status: 'success', message: 'Registrasi berhasil. Silakan login.' };
           }
 
+          // ================= SUPER ADMIN =================
+          case 'get_sekolah': {
+            ({ data, error } = await supabaseClient.from('sekolah').select('*').order('created_at', { ascending: false }));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', data };
+          }
+          case 'create_sekolah': {
+            ({ error } = await supabaseClient.from('sekolah').insert([{ npsn: payload.npsn, nama_sekolah: payload.nama_sekolah }]));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Sekolah berhasil didaftarkan.' };
+          }
+          case 'delete_sekolah': {
+            ({ error } = await supabaseClient.from('sekolah').delete().eq('npsn', payload.npsn));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Sekolah berhasil dihapus.' };
+          }
+          case 'get_admin_all': {
+            ({ data, error } = await supabaseClient.from('admin').select('*, sekolah(nama_sekolah)').order('created_at', { ascending: false }));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', data };
+          }
+          case 'create_admin_sekolah': {
+            ({ error } = await supabaseClient.from('admin').insert([{
+              nama_lengkap: payload.nama_lengkap,
+              username: payload.username,
+              password: payload.password,
+              npsn: payload.npsn
+            }]));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Admin Sekolah berhasil dibuat.' };
+          }
+          case 'delete_admin_sekolah': {
+            ({ error } = await supabaseClient.from('admin').delete().eq('id_admin', payload.id_admin));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Admin Sekolah berhasil dihapus.' };
+          }
+
           // ================= ADMIN DASHBOARD =================
           case 'get_admin_dashboard_data': {
             const [siswaRes, guruRes, jadwalRes, aktifRes] = await Promise.all([
-              supabaseClient.from('siswa').select('id_siswa', { count: 'exact' }),
-              supabaseClient.from('guru').select('id_guru', { count: 'exact' }),
-              supabaseClient.from('jadwal').select('id_jadwal', { count: 'exact' }),
-              supabaseClient.from('log_ujian').select('id_log', { count: 'exact' }).eq('status_ujian', 'SEDANG KERJA')
+              supabaseClient.from('siswa').select('id_siswa', { count: 'exact' }).eq('npsn', payload.npsn),
+              supabaseClient.from('guru').select('id_guru', { count: 'exact' }).eq('npsn', payload.npsn),
+              supabaseClient.from('jadwal').select('id_jadwal', { count: 'exact' }).eq('npsn', payload.npsn),
+              supabaseClient.from('log_ujian').select('id_log, jadwal!inner(npsn)', { count: 'exact' }).eq('status_ujian', 'SEDANG KERJA').eq('jadwal.npsn', payload.npsn)
             ]);
 
             const { data: jadwalAktifData } = await supabaseClient
               .from('jadwal')
               .select('id_jadwal, waktu_mulai, waktu_selesai, guru(nama_lengkap), mata_pelajaran(nama_mapel)')
+              .eq('npsn', payload.npsn)
               .limit(5);
 
             return {
@@ -67,7 +119,7 @@
 
           // ================= CRUD ADMIN =================
           case 'get_siswa': {
-            ({ data, error } = await supabaseClient.from('siswa').select('*').order('created_at', { ascending: false }));
+            ({ data, error } = await supabaseClient.from('siswa').select('*').eq('npsn', payload.npsn).order('created_at', { ascending: false }));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', data };
           }
@@ -82,20 +134,20 @@
             return { status: 'success', message: 'Siswa berhasil ditambahkan secara massal' };
           }
           case 'update_siswa': {
-            const { id_siswa, ...updates } = payload;
-            ({ error } = await supabaseClient.from('siswa').update(updates).eq('id_siswa', id_siswa));
+            const { id_siswa, npsn, ...updates } = payload; // Extract npsn so it's not updated unintentionally
+            ({ error } = await supabaseClient.from('siswa').update(updates).eq('id_siswa', id_siswa).eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Siswa berhasil diperbarui' };
           }
           case 'delete_siswa': {
-            ({ error } = await supabaseClient.from('siswa').delete().eq('id_siswa', payload.id_siswa));
+            ({ error } = await supabaseClient.from('siswa').delete().eq('id_siswa', payload.id_siswa).eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Siswa berhasil dihapus' };
           }
 
           // GURU
           case 'get_guru': {
-            ({ data, error } = await supabaseClient.from('guru').select('*, guru_mapel(id_mapel, mata_pelajaran(nama_mapel))').order('created_at', { ascending: false }));
+            ({ data, error } = await supabaseClient.from('guru').select('*, guru_mapel(id_mapel, mata_pelajaran(nama_mapel))').eq('npsn', payload.npsn).order('created_at', { ascending: false }));
             if (error) return { status: 'error', message: error.message };
             const processedData = data.map(g => {
               const mapels = g.guru_mapel ? g.guru_mapel.map(gm => gm.mata_pelajaran?.nama_mapel).filter(Boolean) : [];
@@ -124,8 +176,8 @@
             return { status: 'success', message: 'Guru berhasil ditambahkan secara massal' };
           }
           case 'update_guru': {
-            const { id_guru, mapels, ...updates } = payload;
-            const res = await supabaseClient.from('guru').update(updates).eq('id_guru', id_guru);
+            const { id_guru, mapels, npsn, ...updates } = payload;
+            const res = await supabaseClient.from('guru').update(updates).eq('id_guru', id_guru).eq('npsn', payload.npsn);
             if (res.error) return { status: 'error', message: res.error.message };
             // delete old guru_mapel
             await supabaseClient.from('guru_mapel').delete().eq('id_guru', id_guru);
@@ -137,14 +189,14 @@
             return { status: 'success', message: 'Guru berhasil diperbarui' };
           }
           case 'delete_guru': {
-            ({ error } = await supabaseClient.from('guru').delete().eq('id_guru', payload.id_guru));
+            ({ error } = await supabaseClient.from('guru').delete().eq('id_guru', payload.id_guru).eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Guru berhasil dihapus' };
           }
 
           // MATA PELAJARAN
           case 'get_all_mapel': {
-            ({ data, error } = await supabaseClient.from('mata_pelajaran').select('*'));
+            ({ data, error } = await supabaseClient.from('mata_pelajaran').select('*').eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', data };
           }
@@ -159,19 +211,19 @@
             return { status: 'success', message: 'Mata pelajaran berhasil ditambahkan secara massal' };
           }
           case 'update_mapel': {
-            const { id_mapel, ...updates } = payload;
-            ({ error } = await supabaseClient.from('mata_pelajaran').update(updates).eq('id_mapel', id_mapel));
+            const { id_mapel, npsn, ...updates } = payload;
+            ({ error } = await supabaseClient.from('mata_pelajaran').update(updates).eq('id_mapel', id_mapel).eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Mata pelajaran berhasil diperbarui' };
           }
           case 'delete_mapel': {
-            ({ error } = await supabaseClient.from('mata_pelajaran').delete().eq('id_mapel', payload.id_mapel));
+            ({ error } = await supabaseClient.from('mata_pelajaran').delete().eq('id_mapel', payload.id_mapel).eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Mata pelajaran berhasil dihapus' };
           }
 
           case 'get_all_jadwal': {
-            ({ data, error } = await supabaseClient.from('jadwal').select('*, guru(nama_lengkap), mata_pelajaran(nama_mapel)'));
+            ({ data, error } = await supabaseClient.from('jadwal').select('*, guru(nama_lengkap), mata_pelajaran(nama_mapel)').eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
             return {
               status: 'success',
@@ -195,14 +247,14 @@
           }
 
           case 'delete_jadwal': {
-            ({ error } = await supabaseClient.from('jadwal').delete().eq('id_jadwal', payload.id_jadwal));
+            ({ error } = await supabaseClient.from('jadwal').delete().eq('id_jadwal', payload.id_jadwal).eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Jadwal berhasil dihapus.' };
           }
 
           // ================= GURU / PENGAWAS =================
           case 'get_jadwal_pengawas': {
-            let q = supabaseClient.from('jadwal').select('*, mata_pelajaran(nama_mapel)');
+            let q = supabaseClient.from('jadwal').select('*, mata_pelajaran(nama_mapel)').eq('npsn', payload.npsn);
             if (payload.id_guru) q = q.eq('id_guru', payload.id_guru);
             ({ data, error } = await q);
             if (error) return { status: 'error', message: error.message };
@@ -213,6 +265,7 @@
           }
 
           case 'get_mapel_guru': {
+            // guru_mapel is intrinsically tied to guru, but we can trust id_guru
             ({ data, error } = await supabaseClient.from('guru_mapel').select('*, mata_pelajaran(nama_mapel)').eq('id_guru', payload.id_guru));
             if (error) return { status: 'error', message: error.message };
             return {
@@ -222,7 +275,7 @@
           }
 
           case 'get_soal_by_mapel': {
-            ({ data, error } = await supabaseClient.from('soal_ujian').select('*').eq('id_mapel', payload.id_mapel));
+            ({ data, error } = await supabaseClient.from('soal_ujian').select('*').eq('id_mapel', payload.id_mapel).eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', data };
           }
@@ -234,14 +287,14 @@
           }
 
           case 'update_soal_mapel': {
-            const { id_soal, ...updates } = payload;
-            ({ error } = await supabaseClient.from('soal_ujian').update(updates).eq('id_soal', id_soal));
+            const { id_soal, npsn, ...updates } = payload;
+            ({ error } = await supabaseClient.from('soal_ujian').update(updates).eq('id_soal', id_soal).eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Soal berhasil diperbarui.' };
           }
 
           case 'delete_soal_mapel': {
-            ({ error } = await supabaseClient.from('soal_ujian').delete().eq('id_soal', payload.id_soal));
+            ({ error } = await supabaseClient.from('soal_ujian').delete().eq('id_soal', payload.id_soal).eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Soal berhasil dihapus.' };
           }
@@ -257,14 +310,13 @@
 
           case 'update_nilai_uraian': {
             const { id_log, nilai_uraian_total } = payload;
-            // update log_ujian with new total uraian
             ({ error } = await supabaseClient.from('log_ujian').update({ nilai_uraian: nilai_uraian_total }).eq('id_log', id_log));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Nilai uraian berhasil disimpan.' };
           }
 
           case 'get_token': {
-            ({ data, error } = await supabaseClient.from('jadwal').select('token_aktif, last_update_token').eq('id_jadwal', payload.id_jadwal).single());
+            ({ data, error } = await supabaseClient.from('jadwal').select('token_aktif, last_update_token').eq('id_jadwal', payload.id_jadwal).single();
             if (error) return { status: 'error', message: error.message };
 
             let token = data.token_aktif;
@@ -282,7 +334,7 @@
           }
 
           case 'monitoring_ujian': {
-            ({ data, error } = await supabaseClient.from('log_ujian').select('*, siswa(nama_lengkap)').eq('id_jadwal', payload.id_jadwal));
+            ({ data, error } = await supabaseClient.from('log_ujian').select('*, siswa!inner(nama_lengkap, npsn)').eq('id_jadwal', payload.id_jadwal).eq('siswa.npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
             return {
               status: 'success',
@@ -291,7 +343,7 @@
           }
 
           case 'get_hasil_ujian': {
-            ({ data, error } = await supabaseClient.from('log_ujian').select('*, siswa(nama_lengkap, angkatan, kelas_paralel)').eq('id_jadwal', payload.id_jadwal).eq('status_ujian', 'SELESAI'));
+            ({ data, error } = await supabaseClient.from('log_ujian').select('*, siswa!inner(nama_lengkap, angkatan, kelas_paralel, npsn)').eq('id_jadwal', payload.id_jadwal).eq('status_ujian', 'SELESAI').eq('siswa.npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
             return {
               status: 'success',
@@ -319,7 +371,7 @@
 
           // ================= SISWA =================
           case 'get_jadwal': {
-            ({ data, error } = await supabaseClient.from('jadwal').select('*, guru(nama_lengkap), mata_pelajaran(nama_mapel)'));
+            ({ data, error } = await supabaseClient.from('jadwal').select('*, guru(nama_lengkap), mata_pelajaran(nama_mapel)').eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
             return {
               status: 'success',
@@ -332,7 +384,7 @@
           }
 
           case 'mulai_ujian': {
-            ({ data, error } = await supabaseClient.from('jadwal').select('token_aktif, waktu_selesai').eq('id_jadwal', payload.id_jadwal).single());
+            ({ data, error } = await supabaseClient.from('jadwal').select('token_aktif, waktu_selesai').eq('id_jadwal', payload.id_jadwal).eq('npsn', payload.npsn).single());
             if (error || !data) return { status: 'error', message: 'Jadwal tidak ditemukan.' };
             if (new Date(data.waktu_selesai) < new Date()) return { status: 'error', message: 'Ujian sudah berakhir.' };
             if (data.token_aktif !== payload.token) return { status: 'error', message: 'Token tidak valid atau sudah expired.' };
@@ -358,7 +410,7 @@
           case 'get_soal_ujian': {
             const { data: jadwal } = await supabaseClient.from('jadwal').select('id_mapel').eq('id_jadwal', payload.id_jadwal).single();
             if (!jadwal) return { status: 'error', message: 'Jadwal tidak ditemukan' };
-            ({ data, error } = await supabaseClient.from('soal_ujian').select('*').eq('id_mapel', jadwal.id_mapel));
+            ({ data, error } = await supabaseClient.from('soal_ujian').select('*').eq('id_mapel', jadwal.id_mapel).eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', data };
           }
@@ -374,11 +426,11 @@
 
           case 'submit_ujian': {
             const logId = payload.id_log;
-            const jawaban = payload.jawaban; // object: { id_soal: jawaban_user }
+            const jawaban = payload.jawaban; 
             const idSiswa = payload.id_siswa;
 
             const { data: jadwal } = await supabaseClient.from('jadwal').select('id_mapel').eq('id_jadwal', payload.id_jadwal).single();
-            const { data: soalData } = await supabaseClient.from('soal_ujian').select('*').eq('id_mapel', jadwal?.id_mapel);
+            const { data: soalData } = await supabaseClient.from('soal_ujian').select('*').eq('id_mapel', jadwal?.id_mapel).eq('npsn', payload.npsn);
             
             let totalSkorMaxAuto = 0;
             let totalSkorDiperolehAuto = 0;

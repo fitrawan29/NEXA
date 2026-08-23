@@ -1,4 +1,8 @@
     const ExamRoom = ({ user, jadwal, idLog, showMessage, onFinish, isDarkMode, setIsDarkMode }) => {
+      const api = (action, p = {}) => {
+        if (Array.isArray(p)) return fetchAPI(action, p.map(item => ({ ...item, npsn: user.npsn })));
+        return fetchAPI(action, { ...p, npsn: user.npsn });
+      };
       const [soal, setSoal] = useState([]);
       const [jawabanSiswa, setJawabanSiswa] = useState({});
       const [raguRagu, setRaguRagu] = useState({});
@@ -47,7 +51,7 @@
       }, []);
 
       const fetchSoal = async () => {
-        const res = await fetchAPI('get_soal_by_mapel', { id_mapel: jadwal.id_mapel });
+        const res = await api('get_soal_by_mapel', { id_mapel: jadwal.id_mapel });
         if (res.status === 'success') {
           const parsedSoal = res.data.map(s => {
             let parsedOpsi = null;
@@ -64,7 +68,7 @@
       const reportViolation = async () => {
         if (isBlocked || isSubmitting) return;
 
-        const res = await fetchAPI('catat_pelanggaran', { id_log: idLog });
+        const res = await api('catat_pelanggaran', { id_log: idLog });
         if (res.status === 'success') {
           setViolationCount(res.pelanggaran_saat_ini);
           if (res.terblokir) {
@@ -129,7 +133,7 @@
           jawaban: jawabanSiswa[key]
         }));
 
-        const res = await fetchAPI('submit_ujian', {
+        const res = await api('submit_ujian', {
           id_log: idLog,
           id_jadwal: jadwal.id_jadwal,
           id_siswa: user.id_user,

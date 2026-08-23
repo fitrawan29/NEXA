@@ -1,4 +1,8 @@
     const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) => {
+      const api = (action, p = {}) => {
+        if (Array.isArray(p)) return fetchAPI(action, p.map(item => ({ ...item, npsn: user.npsn })));
+        return fetchAPI(action, { ...p, npsn: user.npsn });
+      };
       const [jadwal, setJadwal] = useState([]);
       const [isLoading, setIsLoading] = useState(false);
       const [activeExamData, setActiveExamData] = useState(null);
@@ -9,7 +13,7 @@
 
       const loadJadwal = async () => {
         setIsLoading(true);
-        const res = await fetchAPI('get_jadwal', { id_siswa: user.id_user });
+        const res = await api('get_jadwal', { id_siswa: user.id_user });
         if (res.status === 'success') setJadwal(res.data);
         setIsLoading(false);
       };
@@ -21,7 +25,7 @@
         }
 
         setIsLoading(true);
-        const res = await fetchAPI('mulai_ujian', {
+        const res = await api('mulai_ujian', {
           id_jadwal: j.id_jadwal,
           id_siswa: user.id_user,
           token: inputToken.toUpperCase()

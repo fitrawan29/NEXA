@@ -1,4 +1,8 @@
     const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
+      const api = (action, p = {}) => {
+        if (Array.isArray(p)) return fetchAPI(action, p.map(item => ({ ...item, npsn: user.npsn })));
+        return fetchAPI(action, { ...p, npsn: user.npsn });
+      };
       const [activeTab, setActiveTab] = useState('jadwal');
       const [dataJadwal, setDataJadwal] = useState([]);
       const [selectedJadwal, setSelectedJadwal] = useState(null);
@@ -15,21 +19,21 @@
       const fetchData = async () => {
         setIsLoading(true);
         if (activeTab === 'jadwal') {
-          const res = await fetchAPI('get_jadwal_pengawas', { id_guru: user.id_user });
+          const res = await api('get_jadwal_pengawas', { id_guru: user.id_user });
           if (res.status === 'success') setDataJadwal(res.data);
         } else if (activeTab === 'monitoring') {
-          const res = await fetchAPI('get_jadwal_pengawas', { id_guru: user.id_user });
+          const res = await api('get_jadwal_pengawas', { id_guru: user.id_user });
           if (res.status === 'success') setDataJadwal(res.data);
           if (selectedJadwal) {
-            const logRes = await fetchAPI('monitoring_ujian', { id_jadwal: selectedJadwal });
+            const logRes = await api('monitoring_ujian', { id_jadwal: selectedJadwal });
             if (logRes.status === 'success') setDataLog(logRes.data);
           }
         } else if (activeTab === 'bank_soal') {
-          const res = await fetchAPI('get_mapel_guru', { id_guru: user.id_user });
+          const res = await api('get_mapel_guru', { id_guru: user.id_user });
           if (res.status === 'success') setDataMapel(res.data);
           
           if (selectedMapel) {
-            const soalRes = await fetchAPI('get_soal_by_mapel', { id_mapel: selectedMapel });
+            const soalRes = await api('get_soal_by_mapel', { id_mapel: selectedMapel });
             if (soalRes.status === 'success') setDataSoal(soalRes.data);
           }
         }
@@ -47,7 +51,7 @@
       }, [activeTab, selectedJadwal, selectedMapel]);
 
       const handleGenerateToken = async (id) => {
-        const res = await fetchAPI('get_token', { id_jadwal: id });
+        const res = await api('get_token', { id_jadwal: id });
         if (res.status === 'success') {
           alert('Token Ujian: ' + res.token);
           fetchData();
@@ -56,13 +60,13 @@
 
       const handleBlock = async (idLog) => {
         if (!confirm('Blokir siswa ini?')) return;
-        await fetchAPI('catat_pelanggaran', { id_log: idLog });
+        await api('catat_pelanggaran', { id_log: idLog });
         fetchData();
       };
 
       const handleUnblock = async (idLog) => {
         if (!confirm('Buka blokir siswa ini?')) return;
-        await fetchAPI('buka_blokir', { id_log: idLog });
+        await api('buka_blokir', { id_log: idLog });
         fetchData();
       };
 
@@ -72,7 +76,7 @@
           payload.id_soal = 'S-' + Math.random().toString(36).substr(2, 6).toUpperCase();
         }
         payload.id_mapel = selectedMapel;
-        const res = await fetchAPI(endpoint, payload);
+        const res = await api(endpoint, payload);
         if (res.status === 'success') {
           setFormSoal({ isOpen: false, data: null });
           fetchData();
@@ -81,13 +85,13 @@
 
       const deleteSoal = async (id) => {
         if (!confirm('Hapus soal ini?')) return;
-        const res = await fetchAPI('delete_soal_mapel', { id_soal: id });
+        const res = await api('delete_soal_mapel', { id_soal: id });
         if (res.status === 'success') fetchData();
         else alert(res.message);
       };
 
       const openPeriksaUraian = async (logData) => {
-        const res = await fetchAPI('get_jawaban_uraian', { id_log: logData.id_log });
+        const res = await api('get_jawaban_uraian', { id_log: logData.id_log });
         if (res.status === 'success') {
           setModalUraian({ isOpen: true, logUjian: logData, jawabanUraian: res.data });
         } else {
@@ -96,7 +100,7 @@
       };
 
       const saveNilaiUraian = async (totalNilai) => {
-        const res = await fetchAPI('update_nilai_uraian', { id_log: modalUraian.logUjian.id_log, nilai_uraian_total: totalNilai });
+        const res = await api('update_nilai_uraian', { id_log: modalUraian.logUjian.id_log, nilai_uraian_total: totalNilai });
         if (res.status === 'success') {
           setModalUraian({ isOpen: false, logUjian: null, jawabanUraian: [] });
           fetchData();
