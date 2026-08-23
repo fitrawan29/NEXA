@@ -44,7 +44,7 @@
               if (error.code === '23505') return { status: 'error', message: 'Username sudah terdaftar.' };
               return { status: 'error', message: error.message };
             }
-            return { status: 'success', message: 'Registrasi berhasil. Silakan login.' };
+            return { status: 'success', message: 'Pendaftaran berhasil. Silakan login.' };
           }
 
           // ================= SUPER ADMIN =================
@@ -56,7 +56,7 @@
           case 'create_sekolah': {
             ({ error } = await supabaseClient.from('sekolah').insert([{ npsn: payload.npsn, nama_sekolah: payload.nama_sekolah }]));
             if (error) return { status: 'error', message: error.message };
-            return { status: 'success', message: 'Sekolah berhasil didaftarkan.' };
+            return { status: 'success', message: 'Sekolah berhasil ditambahkan.' };
           }
           case 'delete_sekolah': {
             ({ error } = await supabaseClient.from('sekolah').delete().eq('npsn', payload.npsn));
