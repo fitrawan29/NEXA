@@ -826,9 +826,13 @@
       };
 
       const openEditModal = async (type, item) => {
-        if (type === 'guru') {
+        if (type === 'guru' || type === 'jadwal') {
           const res = await fetchAPI('get_all_mapel', {});
           if (res.status === 'success') setDataMapel(res.data);
+          if (type === 'jadwal') {
+            const resG = await fetchAPI('get_guru', {});
+            if (resG.status === 'success') setDataGuru(resG.data);
+          }
         }
         setFormModal({ isOpen: true, type, data: item });
       };
@@ -1104,7 +1108,7 @@
                   <input type="file" id="file-upload" accept=".xlsx, .xls, .csv" className="hidden" onChange={(e) => handleFileUpload(e, activeTab)} />
                   <button onClick={() => openCreateModal(activeTab)} className="bg-primary text-on-primary hover:bg-primary/90 px-md py-sm rounded-full font-label-md shadow-sm transition-all flex items-center justify-center gap-sm hover:-translate-y-0.5 whitespace-nowrap">
                     <span className="material-symbols-outlined text-[20px]">add</span>
-                    Tambah {activeTab === 'mapel' ? 'Mapel' : activeTab}
+                    Tambah {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
                   </button>
                 </div>
               )}
