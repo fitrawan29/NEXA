@@ -1,0 +1,56 @@
+body {
+      font-family: 'Inter', sans-serif;
+      background-color: #faf8ff;
+      /* surface */
+    }
+
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background-color: #cbd5e1;
+      border-radius: 20px;
+    }
+
+    .animate-fade-in-up {
+      animation: fadeInUp 0.4s ease-out forwards;
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(15px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Stitch Custom Styles */
+    .academic-input:focus {
+      outline: none;
+      border-color: #1a56db;
+      box-shadow: 0 0 0 4px rgba(26, 86, 219, 0.1);
+    }
+
+    .form-slider {
+      display: flex;
+      width: 200%;
+      transition: transform 0.4s ease-in-out;
+    }
+
+    .show-register {
+      transform: translateX(-50%);
+    }
+
+    .form-pane {
+      width: 50%;
+      flex-shrink: 0;
+    }
