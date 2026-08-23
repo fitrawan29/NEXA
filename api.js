@@ -316,7 +316,7 @@
           }
 
           case 'get_token': {
-            ({ data, error } = await supabaseClient.from('jadwal').select('token_aktif, last_update_token').eq('id_jadwal', payload.id_jadwal).single();
+            ({ data, error } = await supabaseClient.from('jadwal').select('token_aktif, last_update_token').eq('id_jadwal', payload.id_jadwal).single());
             if (error) return { status: 'error', message: error.message };
 
             let token = data.token_aktif;
