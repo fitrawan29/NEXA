@@ -148,7 +148,7 @@
           };
 
           return (
-            <div className="min-h-screen flex flex-col items-center justify-center p-lg sm:p-xl md:p-gutter relative overflow-hidden bg-slate-50 transition-colors duration-500 dark:bg-slate-900">
+            <div className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-x-hidden overflow-y-auto bg-surface transition-colors duration-500 dark:bg-slate-900">
               {/* Top Right Controls (Online Status & Dark Mode) */}
               <div className="absolute top-4 right-4 flex items-center gap-3 z-50">
                 <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[12px] font-bold shadow-sm transition-colors ${isOnline ? 'bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/30' : 'bg-error-container text-error border border-error/30'}`}>
@@ -163,27 +163,35 @@
                 </button>
               </div>
 
-              {/* Decorative Background Elements - Removed for cleaner look */}
-              
-              <div className="w-full max-w-[900px] max-h-[95vh] sm:max-h-[90vh] my-4 bg-white dark:bg-slate-800 rounded-2xl shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] overflow-hidden relative z-10 flex flex-col md:flex-row animate-fade-in-up border border-slate-100 dark:border-slate-700">
+              {/* Decorative Background Elements */}
+              <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary-fixed dark:bg-primary/20 rounded-full blur-[100px] opacity-60 pointer-events-none transition-colors duration-500"></div>
+              <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-secondary-fixed dark:bg-secondary/20 rounded-full blur-[100px] opacity-60 pointer-events-none transition-colors duration-500"></div>
+
+              <div className="w-full max-w-[900px] my-auto bg-white/70 dark:bg-slate-800/80 backdrop-blur-xl border border-white/50 dark:border-slate-700 rounded-2xl shadow-2xl overflow-hidden relative z-10 flex flex-col md:flex-row animate-fade-in-up">
 
                 {/* Left Side: Illustration / Branding (Hidden on small screens) */}
-                <div className="hidden md:flex md:w-1/2 bg-slate-50 dark:bg-slate-800/50 p-xl flex-col justify-between relative overflow-hidden items-center text-center border-r border-slate-100 dark:border-slate-700">
-                  <div className="relative z-10 w-full max-w-sm flex flex-col items-center justify-center h-full">
-                    <img alt="NEXA Logo" className="w-20 h-20 object-contain rounded-2xl bg-white shadow-sm p-3 mb-6" src="stitch_assets/screen_3_logo.png" />
-                    <h2 className="font-headline-lg text-slate-800 dark:text-white font-black mb-2 tracking-tight">NEXA CBT</h2>
-                    <p className="font-body-md text-slate-500 dark:text-slate-400 mb-8 leading-relaxed">Platform Ujian Berbasis Komputer Modern untuk Sekolah. Cepat, Aman, dan Andal.</p>
-                    
-                    <div className="bg-white/80 dark:bg-slate-800 p-6 rounded-2xl border border-slate-200/60 dark:border-slate-700 shadow-sm w-full text-left relative">
-                      <span className="material-symbols-outlined absolute top-4 right-4 text-slate-200 dark:text-slate-600 text-4xl">format_quote</span>
-                      <p key={quoteIndex} className="font-body-md text-slate-700 dark:text-slate-300 transition-opacity duration-500 animate-fade-in-up italic relative z-10">"{quotes[quoteIndex].text}"</p>
-                      <p key={`author-${quoteIndex}`} className="font-label-sm text-slate-500 dark:text-slate-400 mt-4 transition-opacity duration-500 animate-fade-in-up font-bold uppercase tracking-wider">- {quotes[quoteIndex].author}</p>
+                <div className="hidden md:flex md:w-1/2 bg-primary text-white p-xl flex-col justify-between relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-br from-primary to-blue-900 opacity-90"></div>
+                  <div className="absolute top-[-20%] right-[-20%] w-64 h-64 bg-white opacity-10 rounded-full blur-3xl"></div>
+
+                  <div className="relative z-10">
+                    <h2 className="font-headline-lg text-white font-bold flex items-center gap-2 mb-4">
+                      <img alt="NEXA Logo" className="w-10 h-10 object-contain rounded bg-white p-1" src="stitch_assets/screen_3_logo.png" />
+                      NEXA
+                    </h2>
+                    <p className="font-body-lg text-primary-fixed-dim">Platform Ujian Berbasis Komputer Modern untuk Sekolah.</p>
+                  </div>
+
+                  <div className="relative z-10">
+                    <div className="bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/20 hover:bg-white/20 transition-colors min-h-[140px] flex flex-col justify-center">
+                      <p key={quoteIndex} className="font-body-md text-white transition-opacity duration-500 animate-fade-in-up">"{quotes[quoteIndex].text}"</p>
+                      <p key={`author-${quoteIndex}`} className="font-label-md text-primary-fixed-dim mt-2 transition-opacity duration-500 animate-fade-in-up">- {quotes[quoteIndex].author}</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Right Side: Forms */}
-                <div className="w-full md:w-1/2 h-full overflow-hidden relative bg-white dark:bg-slate-800">
+                <div className="w-full md:w-1/2 h-full overflow-hidden relative bg-white/50 dark:bg-slate-900/50">
                   <div className={`form-slider h-full ${isRegistering ? 'show-register' : ''}`}>
                     {/* MASUK FORM PANE */}
                     <div className="form-pane p-lg sm:p-xl flex flex-col justify-center h-full overflow-y-auto">
@@ -202,7 +210,7 @@
 
                       <form onSubmit={onLoginSubmit} className="flex flex-col gap-md">
                         {/* Segmented Control */}
-                        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg relative isolation-auto z-0 mb-xs shadow-inner transition-colors duration-300">
+                        <div className="flex bg-surface-container dark:bg-slate-800 p-1 rounded-lg relative isolation-auto z-0 mb-xs shadow-inner transition-colors duration-300">
                           {[{val: 'siswa', label: 'Siswa'}, {val: 'guru', label: 'Guru'}, {val: 'admin', label: 'Admin'}, {val: 'super_admin', label: 'Super Admin'}].map((r) => (
                             <label key={r.val} className="flex-1 cursor-pointer relative">
                               <input checked={loginRole === r.val} onChange={() => setLoginRole(r.val)} className="peer sr-only" name="login-role" type="radio" value={r.val} />
@@ -268,7 +276,7 @@
                           <button type="button" onClick={handleLupaPassword} className="font-body-md text-sm text-primary font-medium hover:text-primary-container transition-colors">Lupa Password?</button>
                         </div>
 
-                        <button disabled={loading || loginSuccess} className={`w-full font-label-md py-sm rounded-lg transition-all duration-300 shadow-sm flex justify-center items-center gap-xs mt-2 ${loginSuccess ? 'bg-[#10B981] text-white' : 'bg-primary text-on-primary hover:brightness-90 hover:shadow-md transition-all'} disabled:opacity-80 disabled:cursor-not-allowed`} type="submit">
+                        <button disabled={loading || loginSuccess} className={`w-full font-label-md py-sm rounded-lg transition-all duration-300 shadow-sm flex justify-center items-center gap-xs mt-2 ${loginSuccess ? 'bg-[#10B981] text-white' : 'bg-primary text-on-primary hover:bg-primary-container hover:shadow-lg hover:-translate-y-1'} disabled:opacity-80 disabled:cursor-not-allowed`} type="submit">
                           {loading ? (
                             <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                           ) : loginSuccess ? (
@@ -301,7 +309,7 @@
 
                       <form onSubmit={onRegisterSubmit} className="flex flex-col gap-sm flex-1">
                         {/* Segmented Control */}
-                        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg relative isolation-auto z-0 mb-xs shadow-inner transition-colors duration-300 flex-shrink-0">
+                        <div className="flex bg-surface-container dark:bg-slate-800 p-1 rounded-lg relative isolation-auto z-0 mb-xs shadow-inner transition-colors duration-300 flex-shrink-0">
                           {['siswa', 'guru'].map((r) => (
                             <label key={r} className="flex-1 cursor-pointer relative">
                               <input checked={registerRole === r} onChange={() => setRegisterRole(r)} className="peer sr-only" name="reg-role" type="radio" value={r} />
@@ -352,7 +360,7 @@
                         </div>
 
                         <div className="mt-auto pt-2">
-                          <button disabled={loading} className="w-full bg-primary text-on-primary font-label-md py-sm rounded-lg hover:brightness-90 hover:shadow-md transition-all transition-all duration-300 shadow-sm flex justify-center items-center gap-xs disabled:opacity-80 disabled:cursor-not-allowed" type="submit">
+                          <button disabled={loading} className="w-full bg-primary text-on-primary font-label-md py-sm rounded-lg hover:bg-primary-container hover:shadow-lg hover:-translate-y-1 transition-all duration-300 shadow-sm flex justify-center items-center gap-xs disabled:opacity-80 disabled:cursor-not-allowed" type="submit">
                             {loading ? (
                               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                             ) : (
@@ -377,7 +385,7 @@
               </div>
 
               {/* Footer */}
-              <div className="absolute bottom-4 left-0 w-full text-center z-50">
+              <div className="w-full text-center z-50 mt-8 mb-4">
                 <p className="font-body-md text-sm text-on-surface-variant dark:text-slate-400">
                   NEXA CBT v1.0.0 &copy; 2026. <button type="button" onClick={handleSyaratKetentuan} className="hover:text-primary dark:hover:text-primary-fixed transition-colors underline underline-offset-2">Panduan & Tata Tertib Ujian</button>
                 </p>
