@@ -34,8 +34,8 @@
             ({ data, error } = await supabaseClient
               .from('siswa')
               .insert([{
-                id_siswa: payload.id_user,
-                nama_lengkap: payload.nama_lengkap,
+                id_siswa: payload.identitas || crypto.randomUUID(),
+                nama_lengkap: payload.nama,
                 username: payload.username,
                 password: payload.password,
                 npsn: payload.npsn
@@ -69,8 +69,9 @@
             return { status: 'success', data };
           }
           case 'create_admin_sekolah': {
-            ({ error } = await supabaseClient.from('admin').insert([{
-              nama_lengkap: payload.nama_lengkap,
+            ({ error } = await supabaseClient.from('admin').insert([{ 
+              id_admin: crypto.randomUUID(),
+              nama_lengkap: payload.nama_lengkap, 
               username: payload.username,
               password: payload.password,
               npsn: payload.npsn
