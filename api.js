@@ -320,6 +320,12 @@
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Jadwal berhasil ditambahkan' };
           }
+          case 'update_jadwal': {
+            const { id_jadwal, npsn, ...updates } = payload;
+            ({ error } = await supabaseClient.from('jadwal').update(updates).eq('id_jadwal', id_jadwal).eq('npsn', npsn));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Jadwal berhasil diperbarui' };
+          }
           case 'create_jadwal_bulk': {
             const bulkData = payload.map(item => ({ ...item, id_jadwal: item.id_jadwal || generateId('U') }));
             ({ error } = await supabaseClient.from('jadwal').insert(bulkData));
@@ -688,6 +694,73 @@
             }).eq('id_log', logId);
 
             return { status: 'success', message: 'Ujian berhasil diselesaikan.', nilai_auto: nilaiAuto };
+          }
+
+          // ================= ADMIN NEW FEATURES =================
+          case 'get_analisis_soal': {
+            const { data: soalData, error: soalErr } = await supabaseClient.from('soal_ujian')
+              .select('id_soal, pertanyaan, tipe_soal').eq('id_mapel', payload.id_mapel).eq('npsn', payload.npsn);
+            if (soalErr) return { status: 'error', message: soalErr.message };
+
+            const { data: logData, error: logErr } = await supabaseClient.from('log_ujian')
+              .select('id_log').eq('id_jadwal', payload.id_jadwal).eq('status_ujian', 'SELESAI');
+            if (logErr) return { status: 'error', message: logErr.message };
+
+            if (!logData || logData.length === 0) return { status: 'success', data: [] };
+            
+            const logIds = logData.map(l => l.id_log);
+            const { data: jwbData, error: jwbErr } = await supabaseClient.from('jawaban_siswa')
+              .select('id_soal, is_correct').in('id_log', logIds);
+            if (jwbErr) return { status: 'error', message: jwbErr.message };
+
+            const analysis = soalData.map(soal => {
+              const answers = jwbData.filter(j => j.id_soal === soal.id_soal);
+              const total = answers.length;
+              const correct = answers.filter(a => a.is_correct).length;
+              const wrong = total - correct;
+              const difficulty = total > 0 ? (correct / total) * 100 : 0;
+              return { ...soal, total, correct, wrong, difficulty: difficulty.toFixed(2) };
+            });
+            return { status: 'success', data: analysis };
+          }
+          
+          case 'get_audit_log': {
+            ({ data, error } = await supabaseClient.from('audit_log').select('*').eq('npsn', payload.npsn).order('created_at', { ascending: false }).limit(100));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', data };
+          }
+          
+          case 'create_audit_log': {
+            const auditPayload = {
+              id_audit: generateId('LOG'),
+              ...payload
+            };
+            ({ error } = await supabaseClient.from('audit_log').insert([auditPayload]));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success' };
+          }
+          
+          case 'get_pengumuman': {
+            let q = supabaseClient.from('pengumuman').select('*').eq('npsn', payload.npsn).order('created_at', { ascending: false });
+            if (payload.role && payload.role !== 'admin') {
+               q = q.in('target_role', ['all', payload.role]);
+            }
+            ({ data, error } = await q);
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', data };
+          }
+          
+          case 'create_pengumuman': {
+            payload.id_pengumuman = generateId('ANN');
+            ({ error } = await supabaseClient.from('pengumuman').insert([payload]));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Pengumuman berhasil dibuat.' };
+          }
+          
+          case 'delete_pengumuman': {
+            ({ error } = await supabaseClient.from('pengumuman').delete().eq('id_pengumuman', payload.id_pengumuman).eq('npsn', payload.npsn));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Pengumuman dihapus.' };
           }
 
           default:

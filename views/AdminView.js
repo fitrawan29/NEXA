@@ -13,6 +13,10 @@
       const [dataMapel, setDataMapel] = useState([]);
       const [dataKelas, setDataKelas] = useState([]);
       const [dataLog, setDataLog] = useState([]); // monitoring / hasil
+      const [dataAudit, setDataAudit] = useState([]);
+      const [dataPengumuman, setDataPengumuman] = useState([]);
+      const [dataAnalisis, setDataAnalisis] = useState([]);
+      const [isAnalisisModalOpen, setIsAnalisisModalOpen] = useState(false);
       const [isLoading, setIsLoading] = useState(true);
       const [hasNotification, setHasNotification] = useState(false);
 
@@ -39,6 +43,12 @@
         } else if (tab === 'mapel') {
           const res = await api('get_all_mapel', {});
           if (res.status === 'success') setDataMapel(res.data);
+        } else if (tab === 'logs') {
+          const res = await api('get_audit_log', {});
+          if (res.status === 'success') setDataAudit(res.data);
+        } else if (tab === 'pengumuman') {
+          const res = await api('get_pengumuman', { role: 'admin' });
+          if (res.status === 'success') setDataPengumuman(res.data);
         } else if (tab === 'jadwal' || tab === 'monitoring' || tab === 'hasil') {
           const res = await api('get_all_jadwal', {});
           if (res.status === 'success') setDataJadwal(res.data);
@@ -65,8 +75,10 @@
         payload[`id_${type}`] = id;
 
         const res = await api(endpoint, payload);
-        if (res.status === 'success') fetchData(activeTab);
-        else alert(res.message);
+        if (res.status === 'success') {
+          await api('create_audit_log', { username: user.username, role: 'admin', action: 'DELETE', target: `${type} (${id})` });
+          fetchData(activeTab);
+        } else alert(res.message);
       };
 
       const handleSaveForm = async (e) => {
@@ -95,8 +107,16 @@
           delete payload.kelas_gabungan;
         }
 
+        // Handle Checkboxes for Jadwal
+        if (formModal.type === 'jadwal') {
+          payload.browser_lockdown = formData.get('browser_lockdown') === 'on';
+          payload.acak_soal = formData.get('acak_soal') === 'on';
+          payload.acak_opsi = formData.get('acak_opsi') === 'on';
+        }
+
         const res = await api(endpoint, payload);
         if (res.status === 'success') {
+          await api('create_audit_log', { username: user.username, role: 'admin', action: isEdit ? 'UPDATE' : 'CREATE', target: `${formModal.type} (${payload[`id_${formModal.type}`] || 'Baru'})` });
           setFormModal({ isOpen: false, type: '', data: null });
           fetchData(activeTab);
         } else {
@@ -131,12 +151,14 @@
       const handleBlock = async (idLog) => {
         if (!confirm('Blokir siswa ini?')) return;
         await api('catat_pelanggaran', { id_log: idLog });
+        await api('create_audit_log', { username: user.username, role: 'admin', action: 'BLOCK', target: `Siswa Log (${idLog})` });
         fetchData(activeTab);
       };
 
       const handleUnblock = async (idLog) => {
         if (!confirm('Buka blokir siswa ini?')) return;
         await api('buka_blokir', { id_log: idLog });
+        await api('create_audit_log', { username: user.username, role: 'admin', action: 'UNBLOCK', target: `Siswa Log (${idLog})` });
         fetchData(activeTab);
       };
 
@@ -198,6 +220,60 @@
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Template");
         XLSX.writeFile(wb, fileName);
+      };
+
+      const openAnalisisSoal = async () => {
+        if (!selectedJadwal) return alert('Pilih jadwal ujian terlebih dahulu.');
+        const jadwalObj = dataJadwal.find(j => j.id_jadwal === selectedJadwal);
+        if (!jadwalObj) return;
+        setIsLoading(true);
+        const res = await api('get_analisis_soal', { id_jadwal: selectedJadwal, id_mapel: jadwalObj.id_mapel });
+        setIsLoading(false);
+        if (res.status === 'success') {
+          setDataAnalisis(res.data);
+          setIsAnalisisModalOpen(true);
+        } else {
+          alert('Gagal memuat analisis soal: ' + res.message);
+        }
+      };
+
+      const renderAnalisisModal = () => {
+        if (!isAnalisisModalOpen) return null;
+        return (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
+            <div className="bg-surface dark:bg-slate-800 rounded-2xl w-full max-w-4xl shadow-2xl p-6 relative border border-outline-variant/30 dark:border-slate-700 max-h-[90vh] overflow-y-auto flex flex-col">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-on-surface dark:text-white flex items-center gap-2"><span className="material-symbols-outlined text-primary">analytics</span> Analisis Butir Soal</h2>
+                <button onClick={() => setIsAnalisisModalOpen(false)} className="text-on-surface-variant hover:bg-surface-variant rounded-full p-1"><span className="material-symbols-outlined">close</span></button>
+              </div>
+              <div className="flex-1 overflow-auto rounded-xl border border-outline-variant dark:border-slate-700">
+                <table className="w-full text-left border-collapse">
+                  <thead className="bg-surface-variant/50 dark:bg-slate-900 sticky top-0 z-10">
+                    <tr><th className="p-3 border-b border-outline-variant dark:border-slate-700">ID Soal</th><th className="p-3 border-b border-outline-variant dark:border-slate-700 w-1/2">Pertanyaan</th><th className="p-3 border-b border-outline-variant dark:border-slate-700 text-center">Tipe</th><th className="p-3 border-b border-outline-variant dark:border-slate-700 text-center">Benar</th><th className="p-3 border-b border-outline-variant dark:border-slate-700 text-center">Salah</th><th className="p-3 border-b border-outline-variant dark:border-slate-700 text-right">Tingkat Kesukaran</th></tr>
+                  </thead>
+                  <tbody>
+                    {dataAnalisis.length > 0 ? dataAnalisis.map((soal, idx) => (
+                      <tr key={idx} className="border-b border-outline-variant/50 dark:border-slate-700/50 hover:bg-surface-variant/20 dark:hover:bg-slate-800">
+                        <td className="p-3 text-sm">{soal.id_soal}</td>
+                        <td className="p-3 text-sm truncate max-w-[200px]" dangerouslySetInnerHTML={{ __html: soal.pertanyaan }}></td>
+                        <td className="p-3 text-center text-xs"><span className="bg-primary/10 text-primary px-2 py-1 rounded">{soal.tipe_soal}</span></td>
+                        <td className="p-3 text-center text-green-600 font-bold">{soal.correct}</td>
+                        <td className="p-3 text-center text-error font-bold">{soal.wrong}</td>
+                        <td className="p-3 text-right">
+                          <span className={`px-2 py-1 rounded-full text-xs font-bold ${parseFloat(soal.difficulty) > 70 ? 'bg-green-100 text-green-700' : parseFloat(soal.difficulty) < 30 ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                            {soal.difficulty}%
+                          </span>
+                        </td>
+                      </tr>
+                    )) : (
+                      <tr><td colSpan="6" className="p-6 text-center text-slate-500">Belum ada data pengerjaan untuk dianalisis.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        );
       };
 
       const exportToExcel = () => {
@@ -367,6 +443,21 @@
                       <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Waktu Mulai</label><input type="datetime-local" name="waktu_mulai" defaultValue={data?.waktu_mulai ? new Date(data.waktu_mulai).toISOString().slice(0, 16) : ''} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
                       <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Waktu Selesai</label><input type="datetime-local" name="waktu_selesai" defaultValue={data?.waktu_selesai ? new Date(data.waktu_selesai).toISOString().slice(0, 16) : ''} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
                     </div>
+                    <div className="mt-4 border-t border-outline-variant dark:border-slate-700 pt-4">
+                      <label className="block text-sm font-bold mb-2 dark:text-slate-300 text-primary">Pengaturan Keamanan Ujian</label>
+                      <label className="flex items-center space-x-2 text-sm text-on-surface dark:text-slate-300 mb-2 cursor-pointer">
+                        <input type="checkbox" name="browser_lockdown" defaultChecked={data?.browser_lockdown} className="rounded text-primary focus:ring-primary w-4 h-4" />
+                        <span>Gunakan <strong>Browser Lockdown</strong> (Cegah ganti tab/aplikasi)</span>
+                      </label>
+                      <label className="flex items-center space-x-2 text-sm text-on-surface dark:text-slate-300 mb-2 cursor-pointer">
+                        <input type="checkbox" name="acak_soal" defaultChecked={data?.acak_soal} className="rounded text-primary focus:ring-primary w-4 h-4" />
+                        <span>Acak Urutan Soal</span>
+                      </label>
+                      <label className="flex items-center space-x-2 text-sm text-on-surface dark:text-slate-300 cursor-pointer">
+                        <input type="checkbox" name="acak_opsi" defaultChecked={data?.acak_opsi} className="rounded text-primary focus:ring-primary w-4 h-4" />
+                        <span>Acak Opsi Jawaban (A, B, C, D)</span>
+                      </label>
+                    </div>
                   </>
                 )}
 
@@ -456,6 +547,9 @@
               <SidebarLink id="jadwal" icon="calendar_today" label="Kelola Jadwal" />
               <SidebarLink id="monitoring" icon="monitor" label="Pantau Ujian" />
               <SidebarLink id="hasil" icon="assignment_turned_in" label="Hasil Ujian" />
+              <div className="pt-2 pb-1"><div className="border-t border-outline-variant dark:border-slate-700"></div></div>
+              <SidebarLink id="pengumuman" icon="campaign" label="Pengumuman" />
+              <SidebarLink id="logs" icon="manage_history" label="Log Sistem" />
             </div>
           </nav>
 
@@ -682,6 +776,82 @@
               </div>
             )}
 
+            {/* TAB CONTENT: PENGUMUMAN & LOGS */}
+            {activeTab === 'pengumuman' && (
+              <div className="animate-fade-in-up">
+                <div className="bg-surface dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-outline-variant dark:border-slate-700 mb-6">
+                  <h3 className="font-bold text-lg mb-4 dark:text-white">Buat Pengumuman Baru</h3>
+                  <form onSubmit={async (e) => {
+                    e.preventDefault();
+                    const formData = new FormData(e.target);
+                    const payload = Object.fromEntries(formData.entries());
+                    const res = await api('create_pengumuman', payload);
+                    if (res.status === 'success') {
+                      alert('Pengumuman terkirim!');
+                      e.target.reset();
+                      fetchData('pengumuman');
+                      await api('create_audit_log', { username: user.username, role: 'admin', action: 'CREATE', target: `Pengumuman (${payload.judul})` });
+                    } else alert(res.message);
+                  }} className="space-y-4">
+                    <div>
+                      <input type="text" name="judul" required placeholder="Judul Pengumuman" className="w-full p-3 rounded-lg border dark:bg-slate-700 dark:border-slate-600 dark:text-white" />
+                    </div>
+                    <div>
+                      <textarea name="isi" required placeholder="Isi pesan pengumuman..." rows="3" className="w-full p-3 rounded-lg border dark:bg-slate-700 dark:border-slate-600 dark:text-white"></textarea>
+                    </div>
+                    <div className="flex gap-4 items-center justify-between">
+                      <select name="target_role" className="p-2 rounded border dark:bg-slate-700 dark:border-slate-600 dark:text-white" required>
+                        <option value="all">Semua (Guru & Siswa)</option>
+                        <option value="guru">Hanya Guru</option>
+                        <option value="siswa">Hanya Siswa</option>
+                      </select>
+                      <button type="submit" className="bg-primary text-white px-6 py-2 rounded-lg font-bold hover:bg-primary/90 flex gap-2 items-center"><span className="material-symbols-outlined">send</span> Kirim Broadcast</button>
+                    </div>
+                  </form>
+                </div>
+                
+                <h3 className="font-bold text-lg mb-4 dark:text-white">Riwayat Pengumuman</h3>
+                <div className="space-y-4">
+                  {dataPengumuman.map(p => (
+                    <div key={p.id_pengumuman} className="bg-surface dark:bg-slate-800 p-4 rounded-xl border border-outline-variant dark:border-slate-700 shadow-sm relative pr-12">
+                      <button onClick={() => handleDelete(p.id_pengumuman, 'pengumuman')} className="absolute top-4 right-4 text-error hover:bg-error/10 p-1.5 rounded"><span className="material-symbols-outlined">delete</span></button>
+                      <h4 className="font-bold text-on-surface dark:text-white">{p.judul}</h4>
+                      <p className="text-sm text-slate-500 mb-2">{new Date(p.created_at).toLocaleString('id-ID')} • Target: <span className="uppercase text-primary font-bold">{p.target_role}</span></p>
+                      <p className="text-on-surface-variant dark:text-slate-300">{p.isi}</p>
+                    </div>
+                  ))}
+                  {dataPengumuman.length === 0 && <p className="text-slate-500">Belum ada pengumuman.</p>}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'logs' && (
+              <div className="animate-fade-in-up">
+                <div className="bg-surface dark:bg-slate-800 rounded-2xl border border-outline-variant dark:border-slate-700 overflow-hidden shadow-sm">
+                  <table className="w-full text-left">
+                    <thead className="bg-surface-variant/30 dark:bg-slate-800/80">
+                      <tr><th className="p-4">Waktu</th><th className="p-4">User</th><th className="p-4">Role</th><th className="p-4 text-center">Action</th><th className="p-4">Target</th></tr>
+                    </thead>
+                    <tbody>
+                      {dataAudit.length > 0 ? dataAudit.map(log => (
+                        <tr key={log.id_audit} className="border-t border-outline-variant/30 dark:border-slate-700 hover:bg-surface-variant/10 dark:hover:bg-slate-800">
+                          <td className="p-4 text-sm text-slate-500">{new Date(log.created_at).toLocaleString('id-ID')}</td>
+                          <td className="p-4 font-bold">{log.username}</td>
+                          <td className="p-4 text-xs uppercase">{log.role}</td>
+                          <td className="p-4 text-center">
+                            <span className={`px-2 py-1 rounded text-xs font-bold ${log.action === 'CREATE' ? 'bg-green-100 text-green-700' : log.action === 'UPDATE' ? 'bg-blue-100 text-blue-700' : log.action === 'DELETE' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700'}`}>
+                              {log.action}
+                            </span>
+                          </td>
+                          <td className="p-4 text-sm">{log.target}</td>
+                        </tr>
+                      )) : <tr><td colSpan="5" className="p-6 text-center text-slate-500">Log sistem kosong.</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             {/* TAB CONTENT: MONITORING & HASIL */}
             {['monitoring', 'hasil'].includes(activeTab) && (
               <div className="animate-fade-in-up">
@@ -691,9 +861,14 @@
                     {dataJadwal.map(j => <option key={j.id_jadwal} value={j.id_jadwal}>{j.id_jadwal} - {j.nama_mapel} ({j.guru})</option>)}
                   </select>
                   {activeTab === 'hasil' && selectedJadwal && (
-                    <button onClick={exportToExcel} className="bg-[#10B981] hover:bg-[#059669] text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm">
-                      <span className="material-symbols-outlined">download</span> Export XLSX
-                    </button>
+                    <div className="flex gap-2">
+                      <button onClick={exportToExcel} className="bg-[#10B981] hover:bg-[#059669] text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm">
+                        <span className="material-symbols-outlined">download</span> Export XLSX
+                      </button>
+                      <button onClick={openAnalisisSoal} className="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm">
+                        <span className="material-symbols-outlined">analytics</span> Analisis Soal
+                      </button>
+                    </div>
                   )}
                 </div>
 
@@ -757,6 +932,7 @@
             </div>
             {renderFormModal()}
             {renderProfileModal()}
+            {renderAnalisisModal()}
           </main>
         </div>
       );
