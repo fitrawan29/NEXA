@@ -195,29 +195,37 @@
                   <div className={`form-slider h-full ${isRegistering ? 'show-register' : ''}`}>
                     {/* MASUK FORM PANE */}
                     <div className="form-pane p-lg sm:p-xl flex flex-col justify-center h-full overflow-y-auto">
-                      <div className="mb-lg md:hidden">
-                        <h2 className="font-headline-md text-on-surface dark:text-white flex items-center gap-xs">
-                          <img alt="NEXA Logo" className="w-8 h-8 object-contain rounded" src="stitch_assets/screen_3_logo.png" />
-                          NEXA
+                      <div className="mb-8 md:hidden flex flex-col items-center text-center">
+                        <div className="w-16 h-16 bg-white/90 shadow-md rounded-2xl flex items-center justify-center p-2 mb-4 border border-outline-variant/30">
+                          <img alt="NEXA Logo" className="w-full h-full object-contain" src="stitch_assets/screen_3_logo.png" />
+                        </div>
+                        <h2 className="text-2xl font-bold text-on-surface dark:text-white tracking-tight">
+                          NEXA CBT
                         </h2>
-                        <p className="font-body-md text-on-surface-variant dark:text-slate-400 mt-xs">Silakan masuk ke akun Anda.</p>
+                        <p className="font-body-md text-on-surface-variant dark:text-slate-400 mt-1.5">Platform Ujian Berbasis Komputer</p>
                       </div>
 
-                      <div className="hidden md:block mb-lg">
-                        <h2 className="font-headline-md text-on-surface dark:text-white font-bold">Selamat Datang</h2>
-                        <p className="font-body-md text-on-surface-variant dark:text-slate-300 mt-1">Masukkan kredensial Anda untuk mengakses sistem.</p>
+                      <div className="hidden md:block mb-8">
+                        <h2 className="text-3xl font-bold text-on-surface dark:text-white tracking-tight">Selamat Datang 👋</h2>
+                        <p className="font-body-md text-on-surface-variant dark:text-slate-400 mt-2">Silakan masuk dengan akun Anda untuk melanjutkan.</p>
                       </div>
 
                       <form onSubmit={onLoginSubmit} className="flex flex-col gap-md">
                         {/* Segmented Control */}
-                        <div className="flex bg-surface-container dark:bg-slate-800 p-1 rounded-lg relative isolation-auto z-0 mb-xs shadow-inner transition-colors duration-300">
-                          {[{val: 'siswa', label: 'Siswa'}, {val: 'guru', label: 'Guru'}, {val: 'admin', label: 'Admin'}, {val: 'super_admin', label: 'Super Admin'}].map((r) => (
-                            <label key={r.val} className="flex-1 cursor-pointer relative">
+                        <div className="grid grid-cols-2 sm:flex bg-surface-container/50 dark:bg-slate-800/50 p-1.5 rounded-xl relative isolation-auto z-0 mb-6 shadow-inner border border-outline-variant/20 backdrop-blur-sm transition-colors duration-300 gap-1 sm:gap-0">
+                          {[
+                            {val: 'siswa', label: 'Siswa', icon: 'school'},
+                            {val: 'guru', label: 'Guru', icon: 'local_library'},
+                            {val: 'admin', label: 'Admin', icon: 'admin_panel_settings'},
+                            {val: 'super_admin', label: 'Super Admin', icon: 'shield_person'}
+                          ].map((r) => (
+                            <label key={r.val} className="flex-1 cursor-pointer relative group">
                               <input checked={loginRole === r.val} onChange={() => setLoginRole(r.val)} className="peer sr-only" name="login-role" type="radio" value={r.val} />
-                              <div className="w-full text-center py-2 rounded-md text-on-surface-variant dark:text-slate-300 font-label-md transition-all duration-300 peer-checked:text-primary dark:peer-checked:text-primary-fixed z-10 relative capitalize">
-                                {r.label}
+                              <div className="w-full flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 py-2 sm:py-2.5 rounded-lg text-on-surface-variant dark:text-slate-400 font-label-md transition-all duration-300 peer-checked:text-primary dark:peer-checked:text-white z-10 relative capitalize group-hover:text-on-surface dark:group-hover:text-slate-200">
+                                <span className="material-symbols-outlined text-[20px] sm:text-[18px] transition-transform duration-300 peer-checked:scale-110">{r.icon}</span>
+                                <span className="text-[12px] sm:text-[13px] font-semibold tracking-wide whitespace-nowrap">{r.label}</span>
                               </div>
-                              <div className="absolute inset-0 bg-white dark:bg-slate-700 rounded-md shadow-sm transform scale-90 opacity-0 peer-checked:opacity-100 peer-checked:scale-100 transition-all duration-300 -z-10"></div>
+                              <div className="absolute inset-0 bg-white dark:bg-primary rounded-lg shadow-sm border border-black/5 dark:border-white/10 transform scale-95 opacity-0 peer-checked:opacity-100 peer-checked:scale-100 transition-all duration-300 -z-10"></div>
                             </label>
                           ))}
                         </div>
@@ -294,29 +302,35 @@
 
                     {/* DAFTAR FORM PANE */}
                     <div className="form-pane p-lg sm:p-xl flex flex-col justify-center h-full overflow-y-auto">
-                      <div className="mb-lg md:hidden flex-shrink-0">
-                        <h2 className="font-headline-md text-on-surface dark:text-white flex items-center gap-xs">
-                          <img alt="NEXA Logo" className="w-8 h-8 object-contain rounded" src="stitch_assets/screen_3_logo.png" />
-                          NEXA
+                      <div className="mb-8 md:hidden flex-shrink-0 flex flex-col items-center text-center">
+                        <div className="w-16 h-16 bg-white/90 shadow-md rounded-2xl flex items-center justify-center p-2 mb-4 border border-outline-variant/30">
+                          <img alt="NEXA Logo" className="w-full h-full object-contain" src="stitch_assets/screen_3_logo.png" />
+                        </div>
+                        <h2 className="text-2xl font-bold text-on-surface dark:text-white tracking-tight">
+                          Daftar Akun Baru
                         </h2>
-                        <p className="font-body-md text-on-surface-variant dark:text-slate-300 mt-xs">Buat akun baru Anda.</p>
+                        <p className="font-body-md text-on-surface-variant dark:text-slate-400 mt-1.5">Bergabung dengan platform NEXA CBT.</p>
                       </div>
 
-                      <div className="hidden md:block mb-lg flex-shrink-0">
-                        <h2 className="font-headline-md text-on-surface dark:text-white font-bold">Buat Akun Baru</h2>
-                        <p className="font-body-md text-on-surface-variant dark:text-slate-300 mt-1">Lengkapi data berikut untuk bergabung.</p>
+                      <div className="hidden md:block mb-8 flex-shrink-0">
+                        <h2 className="text-3xl font-bold text-on-surface dark:text-white tracking-tight">Buat Akun Baru ✨</h2>
+                        <p className="font-body-md text-on-surface-variant dark:text-slate-400 mt-2">Lengkapi form di bawah ini untuk bergabung.</p>
                       </div>
 
                       <form onSubmit={onRegisterSubmit} className="flex flex-col gap-sm flex-1">
                         {/* Segmented Control */}
-                        <div className="flex bg-surface-container dark:bg-slate-800 p-1 rounded-lg relative isolation-auto z-0 mb-xs shadow-inner transition-colors duration-300 flex-shrink-0">
-                          {['siswa', 'guru'].map((r) => (
-                            <label key={r} className="flex-1 cursor-pointer relative">
-                              <input checked={registerRole === r} onChange={() => setRegisterRole(r)} className="peer sr-only" name="reg-role" type="radio" value={r} />
-                              <div className="w-full text-center py-2 rounded-md text-on-surface-variant dark:text-slate-300 font-label-md transition-all duration-300 peer-checked:text-primary dark:peer-checked:text-primary-fixed z-10 relative capitalize">
-                                {r}
+                        <div className="flex bg-surface-container/50 dark:bg-slate-800/50 p-1.5 rounded-xl relative isolation-auto z-0 mb-6 shadow-inner border border-outline-variant/20 backdrop-blur-sm transition-colors duration-300 flex-shrink-0">
+                          {[
+                            {val: 'siswa', label: 'Siswa', icon: 'school'},
+                            {val: 'guru', label: 'Guru', icon: 'local_library'}
+                          ].map((r) => (
+                            <label key={r.val} className="flex-1 cursor-pointer relative group">
+                              <input checked={registerRole === r.val} onChange={() => setRegisterRole(r.val)} className="peer sr-only" name="reg-role" type="radio" value={r.val} />
+                              <div className="w-full flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 py-2 sm:py-2.5 rounded-lg text-on-surface-variant dark:text-slate-400 font-label-md transition-all duration-300 peer-checked:text-primary dark:peer-checked:text-white z-10 relative capitalize group-hover:text-on-surface dark:group-hover:text-slate-200">
+                                <span className="material-symbols-outlined text-[20px] sm:text-[18px] transition-transform duration-300 peer-checked:scale-110">{r.icon}</span>
+                                <span className="text-[12px] sm:text-[14px] font-semibold tracking-wide whitespace-nowrap">{r.label}</span>
                               </div>
-                              <div className="absolute inset-0 bg-white dark:bg-slate-700 rounded-md shadow-sm transform scale-90 opacity-0 peer-checked:opacity-100 peer-checked:scale-100 transition-all duration-300 -z-10"></div>
+                              <div className="absolute inset-0 bg-white dark:bg-primary rounded-lg shadow-sm border border-black/5 dark:border-white/10 transform scale-95 opacity-0 peer-checked:opacity-100 peer-checked:scale-100 transition-all duration-300 -z-10"></div>
                             </label>
                           ))}
                         </div>
