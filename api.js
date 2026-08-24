@@ -334,6 +334,17 @@
           }
 
           // ================= GURU / PENGAWAS =================
+          case 'update_profil_guru': {
+            const { id_guru, password, foto } = payload;
+            const updateData = {};
+            if (password) updateData.password = password;
+            if (foto) updateData.foto = foto;
+            if (Object.keys(updateData).length === 0) return { status: 'error', message: 'Tidak ada data yang diubah.' };
+            ({ error } = await supabaseClient.from('guru').update(updateData).eq('id_guru', id_guru).eq('npsn', payload.npsn));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Profil berhasil diperbarui.' };
+          }
+
           case 'get_jadwal_pengawas': {
             let q = supabaseClient.from('jadwal').select('*, mata_pelajaran(nama_mapel)').eq('npsn', payload.npsn);
             if (payload.id_guru) q = q.eq('id_guru', payload.id_guru);

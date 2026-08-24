@@ -11,17 +11,22 @@
       
       const [dataMapel, setDataMapel] = useState([]);
       const [selectedMapel, setSelectedMapel] = useState(null);
-      const [dataSoal, setDataSoal] = useState([]); // This will contain SOAL, NARASI, and SKEMA
+      const [dataSoal, setDataSoal] = useState([]);
       const [formSoal, setFormSoal] = useState({ isOpen: false, data: null });
       const [formNarasi, setFormNarasi] = useState({ isOpen: false, data: null });
-      const [soalSubTab, setSoalSubTab] = useState('soal'); // soal, narasi, skema
+      const [soalSubTab, setSoalSubTab] = useState('soal');
       
       const [modalUraian, setModalUraian] = useState({ isOpen: false, logUjian: null, jawabanUraian: [] });
 
+      // === Profil State ===
+      const [showProfileModal, setShowProfileModal] = useState(false);
+      const [profileForm, setProfileForm] = useState({ password: '', foto: user.foto || '' });
+      const [profileLoading, setProfileLoading] = useState(false);
+
+      const guruId = user.id_guru || user.id_user;
+
       const fetchData = async () => {
         setIsLoading(true);
-        // Guru uses id_guru as their primary key, not id_user
-        const guruId = user.id_guru || user.id_user;
         if (activeTab === 'jadwal') {
           const res = await api('get_jadwal_pengawas', { id_guru: guruId });
           if (res.status === 'success') setDataJadwal(res.data);
@@ -46,7 +51,6 @@
 
       useEffect(() => {
         fetchData();
-        // Polling for monitoring
         let interval;
         if (activeTab === 'monitoring' && selectedJadwal) {
           interval = setInterval(fetchData, 5000);
@@ -89,7 +93,6 @@
       };
 
       const saveSkema = async (payload) => {
-        // Skema is saved as a special Soal record
         let skemaRecord = dataSoal.find(s => s.tipe_soal === 'SKEMA_PENILAIAN');
         payload.id_soal = skemaRecord ? skemaRecord.id_soal : 'SKEMA-' + selectedMapel;
         payload.tipe_soal = 'SKEMA_PENILAIAN';
@@ -128,6 +131,45 @@
         } else alert(res.message);
       };
 
+      // === Profil Handlers ===
+      const handleFotoChange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.size > 2 * 1024 * 1024) { alert('Ukuran file maksimal 2MB'); return; }
+        const reader = new FileReader();
+        reader.onload = (ev) => setProfileForm(prev => ({ ...prev, foto: ev.target.result }));
+        reader.readAsDataURL(file);
+      };
+
+      const saveProfile = async () => {
+        setProfileLoading(true);
+        const updatePayload = { id_guru: guruId };
+        if (profileForm.password.trim()) updatePayload.password = profileForm.password.trim();
+        if (profileForm.foto) updatePayload.foto = profileForm.foto;
+        
+        const res = await api('update_profil_guru', updatePayload);
+        setProfileLoading(false);
+        if (res.status === 'success') {
+          alert('Profil berhasil diperbarui!');
+          setShowProfileModal(false);
+          if (profileForm.foto) user.foto = profileForm.foto;
+        } else {
+          alert('Gagal memperbarui profil: ' + res.message);
+        }
+      };
+
+      // === Color scheme for mapel cards by tingkatan ===
+      const mapelCardColors = [
+        { bg: 'from-blue-500 to-blue-600', light: 'bg-blue-50 dark:bg-blue-900/30', text: 'text-blue-600 dark:text-blue-400', icon: 'bg-blue-500/10 text-blue-500', border: 'border-blue-200 dark:border-blue-800' },
+        { bg: 'from-emerald-500 to-emerald-600', light: 'bg-emerald-50 dark:bg-emerald-900/30', text: 'text-emerald-600 dark:text-emerald-400', icon: 'bg-emerald-500/10 text-emerald-500', border: 'border-emerald-200 dark:border-emerald-800' },
+        { bg: 'from-violet-500 to-violet-600', light: 'bg-violet-50 dark:bg-violet-900/30', text: 'text-violet-600 dark:text-violet-400', icon: 'bg-violet-500/10 text-violet-500', border: 'border-violet-200 dark:border-violet-800' },
+        { bg: 'from-amber-500 to-amber-600', light: 'bg-amber-50 dark:bg-amber-900/30', text: 'text-amber-600 dark:text-amber-400', icon: 'bg-amber-500/10 text-amber-500', border: 'border-amber-200 dark:border-amber-800' },
+        { bg: 'from-rose-500 to-rose-600', light: 'bg-rose-50 dark:bg-rose-900/30', text: 'text-rose-600 dark:text-rose-400', icon: 'bg-rose-500/10 text-rose-500', border: 'border-rose-200 dark:border-rose-800' },
+        { bg: 'from-cyan-500 to-cyan-600', light: 'bg-cyan-50 dark:bg-cyan-900/30', text: 'text-cyan-600 dark:text-cyan-400', icon: 'bg-cyan-500/10 text-cyan-500', border: 'border-cyan-200 dark:border-cyan-800' },
+      ];
+
+      const getMapelColor = (index) => mapelCardColors[index % mapelCardColors.length];
+
       return (
         <div className="bg-background dark:bg-slate-900 text-on-background dark:text-slate-100 antialiased flex min-h-screen transition-colors duration-500">
           {/* SIDEBAR */}
@@ -146,33 +188,34 @@
                 <span className="material-symbols-outlined">library_books</span><span>Bank Soal</span>
               </a>
               <a onClick={(e) => { e.preventDefault(); setActiveTab('monitoring'); setSelectedMapel(null); }} className={`flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium cursor-pointer transition-all ${activeTab === 'monitoring' ? 'bg-primary-container text-on-primary-container' : 'text-on-surface-variant hover:bg-surface-variant dark:hover:bg-slate-700'}`}>
-                <span className="material-symbols-outlined">monitor</span><span>Monitoring</span>
+                <span className="material-symbols-outlined">monitor</span><span>Pantau Ujian</span>
               </a>
             </div>
           </nav>
 
           {/* MAIN CONTENT */}
           <div className="flex-1 flex flex-col min-h-screen md:ml-64">
-            {/* TOPBAR */}
+            {/* TOPBAR - tanpa nama guru di bawah judul */}
             <header className="sticky top-0 z-30 bg-surface/80 dark:bg-slate-800/80 backdrop-blur-md border-b border-outline-variant dark:border-slate-700 px-6 py-3 flex items-center justify-between shadow-sm">
-              <div>
-                <h2 className="font-semibold text-lg text-on-surface dark:text-white">
-                  {activeTab === 'jadwal' ? 'Jadwal Mengawas' : activeTab === 'bank_soal' ? 'Bank Soal' : 'Monitoring Ujian'}
-                </h2>
-                <p className="text-sm text-on-surface-variant dark:text-slate-400">{user.nama_lengkap}</p>
-              </div>
+              <h2 className="font-semibold text-lg text-on-surface dark:text-white">
+                {activeTab === 'jadwal' ? 'Jadwal Mengawas' : activeTab === 'bank_soal' ? 'Bank Soal' : 'Pantau Ujian'}
+              </h2>
               <div className="flex items-center gap-2">
                 {/* Dark/Light Mode */}
                 <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full hover:bg-surface-variant dark:hover:bg-slate-700 transition-all" title={isDarkMode ? 'Mode Terang' : 'Mode Gelap'}>
                   <span className="material-symbols-outlined text-on-surface-variant dark:text-slate-400">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
                 </button>
-                {/* Profile */}
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-variant dark:bg-slate-700">
-                  <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-on-primary font-bold text-sm">
-                    {user.nama_lengkap ? user.nama_lengkap.charAt(0).toUpperCase() : 'G'}
-                  </div>
+                {/* Profile - clickable to open profile modal */}
+                <button onClick={() => { setProfileForm({ password: '', foto: user.foto || '' }); setShowProfileModal(true); }} className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-variant dark:bg-slate-700 hover:bg-surface-variant/80 dark:hover:bg-slate-600 transition-all cursor-pointer">
+                  {user.foto ? (
+                    <img src={user.foto} className="w-7 h-7 rounded-full object-cover" alt="profil" />
+                  ) : (
+                    <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-on-primary font-bold text-sm">
+                      {user.nama_lengkap ? user.nama_lengkap.charAt(0).toUpperCase() : 'G'}
+                    </div>
+                  )}
                   <span className="text-sm font-medium hidden sm:block">{user.nama_lengkap || 'Guru'}</span>
-                </div>
+                </button>
                 {/* Logout */}
                 <button onClick={onLogout} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-error/10 text-error hover:bg-error/20 transition-all text-sm font-medium" title="Keluar">
                   <span className="material-symbols-outlined text-[18px]">logout</span>
@@ -183,6 +226,7 @@
 
             <main className="flex-1 p-6 lg:p-8">
 
+            {/* ============ JADWAL TAB ============ */}
             {activeTab === 'jadwal' && (
               <div className="bg-surface dark:bg-slate-800 rounded-2xl border border-outline-variant shadow-sm overflow-x-auto">
                 <table className="w-full text-left">
@@ -207,6 +251,7 @@
               </div>
             )}
 
+            {/* ============ MONITORING TAB ============ */}
             {activeTab === 'monitoring' && (
               <div>
                 <select onChange={(e) => setSelectedJadwal(e.target.value)} value={selectedJadwal || ''} className="p-2 border rounded-lg bg-surface dark:bg-slate-800 mb-6 w-full max-w-md">
@@ -218,47 +263,77 @@
                   <div className="bg-surface dark:bg-slate-800 rounded-2xl border shadow-sm overflow-x-auto">
                     <table className="w-full text-left">
                       <thead className="bg-surface-variant/30">
-                        <tr><th className="p-4">Siswa</th><th className="p-4">Status</th><th className="p-4 text-center">Pelanggaran</th><th className="p-4 text-right">Aksi</th></tr>
+                        <tr>
+                          <th className="p-4">Nama Lengkap</th>
+                          <th className="p-4">Status Ujian</th>
+                          <th className="p-4 text-center">Pelanggaran</th>
+                          <th className="p-4 text-right">Aksi</th>
+                        </tr>
                       </thead>
                       <tbody>
                         {dataLog.map(l => (
                           <tr key={l.id_log} className="border-t border-outline-variant/30">
-                            <td className="p-4 font-bold">{l.nama_lengkap} <br /><span className="text-xs text-slate-500 font-normal">{l.id_siswa}</span></td>
-                            <td className="p-4"><span className={`px-2 py-1 rounded text-xs font-bold ${l.is_blocked ? 'bg-red-100 text-red-700' : l.status_ujian === 'SELESAI' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{l.is_blocked ? 'DIBLOKIR' : l.status_ujian}</span></td>
-                            <td className="p-4 text-center font-bold text-error">{l.pelanggaran || 0}</td>
-                            <td className="p-4 text-right">
+                            <td className="p-4 font-semibold">{l.nama_lengkap}</td>
+                            <td className="p-4">
+                              <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                                l.is_blocked ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400' : 
+                                l.status_ujian === 'SELESAI' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' : 
+                                'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400'
+                              }`}>{l.is_blocked ? 'DIBLOKIR' : l.status_ujian}</span>
+                            </td>
+                            <td className="p-4 text-center">
+                              <span className={`font-bold ${(l.pelanggaran || 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-400'}`}>{l.pelanggaran || 0}</span>
+                            </td>
+                            <td className="p-4 text-right space-x-2">
                               {!l.is_blocked ? (
-                                <button onClick={() => handleBlock(l.id_log)} className="bg-red-100 text-red-700 px-3 py-1 rounded text-xs font-bold">Blokir</button>
+                                <button onClick={() => handleBlock(l.id_log)} className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors inline-flex items-center gap-1">
+                                  <span className="material-symbols-outlined text-[16px]">block</span>Blokir
+                                </button>
                               ) : (
-                                <button onClick={() => handleUnblock(l.id_log)} className="bg-green-100 text-green-700 px-3 py-1 rounded text-xs font-bold">Buka Blokir</button>
+                                <button onClick={() => handleUnblock(l.id_log)} className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors inline-flex items-center gap-1">
+                                  <span className="material-symbols-outlined text-[16px]">lock_open</span>Buka Blokir
+                                </button>
                               )}
                               {l.status_ujian === 'SELESAI' && (
-                                <button onClick={() => openPeriksaUraian(l)} className="bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1 rounded text-xs font-bold ml-2">Periksa Uraian</button>
+                                <button onClick={() => openPeriksaUraian(l)} className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-1">
+                                  <span className="material-symbols-outlined text-[16px]">grading</span>Periksa Uraian
+                                </button>
                               )}
                             </td>
                           </tr>
                         ))}
-                        {dataLog.length === 0 && <tr><td colSpan="4" className="p-8 text-center text-slate-500">Belum ada siswa yang login.</td></tr>}
+                        {dataLog.length === 0 && <tr><td colSpan="4" className="p-8 text-center text-slate-500">Belum ada siswa yang mengerjakan ujian ini.</td></tr>}
                       </tbody>
                     </table>
                   </div>
-                ) : <div className="p-8 text-center bg-surface-variant/30 rounded-xl">Pilih jadwal ujian.</div>}
+                ) : <div className="p-8 text-center bg-surface-variant/30 rounded-xl text-slate-500">Pilih jadwal ujian untuk melihat siswa yang sedang mengerjakan.</div>}
               </div>
             )}
 
+            {/* ============ BANK SOAL - MAPEL LIST ============ */}
             {activeTab === 'bank_soal' && !selectedMapel && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-md">
-                {dataMapel.map(m => (
-                  <div key={m.id_mapel} onClick={() => setSelectedMapel(m.id_mapel)} className="bg-surface dark:bg-slate-800 p-lg rounded-2xl border border-outline-variant shadow-sm cursor-pointer hover:-translate-y-1 transition-all">
-                    <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-4"><span className="material-symbols-outlined">library_books</span></div>
-                    <h3 className="text-xl font-bold mb-1">{m.nama_mapel}</h3>
-                    <p className="text-sm text-slate-500">ID: {m.id_mapel}</p>
-                  </div>
-                ))}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {dataMapel.map((m, idx) => {
+                  const color = getMapelColor(idx);
+                  return (
+                    <div key={m.id_mapel} onClick={() => setSelectedMapel(m.id_mapel)} className={`relative overflow-hidden rounded-2xl border ${color.border} shadow-sm cursor-pointer hover:-translate-y-1 hover:shadow-lg transition-all duration-300 group`}>
+                      {/* Color accent bar at top */}
+                      <div className={`h-1.5 w-full bg-gradient-to-r ${color.bg}`}></div>
+                      <div className={`p-6 ${color.light}`}>
+                        <div className={`w-12 h-12 rounded-xl ${color.icon} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+                          <span className="material-symbols-outlined text-2xl">library_books</span>
+                        </div>
+                        <h3 className="text-lg font-bold mb-1 text-on-surface dark:text-white">{m.nama_mapel}</h3>
+                        <p className={`text-sm font-medium ${color.text}`}>Mata Pelajaran</p>
+                      </div>
+                    </div>
+                  );
+                })}
                 {dataMapel.length === 0 && <div className="col-span-full p-8 text-center text-slate-500">Belum ada mata pelajaran yang ditugaskan.</div>}
               </div>
             )}
 
+            {/* ============ BANK SOAL - DETAIL ============ */}
             {activeTab === 'bank_soal' && selectedMapel && (
               <div className="animate-fade-in-up">
                 <div className="flex justify-between items-center mb-4">
@@ -325,6 +400,64 @@
                 {soalSubTab === 'skema' && (
                   <SkemaPenilaianPanel dataSoal={dataSoal} onSave={saveSkema} />
                 )}
+              </div>
+            )}
+
+            {/* ============ PROFIL MODAL ============ */}
+            {showProfileModal && (
+              <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+                <div className="bg-surface dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-outline-variant dark:border-slate-700 animate-fade-in-up">
+                  <div className="p-6 border-b border-outline-variant dark:border-slate-700">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-xl font-bold text-on-surface dark:text-white">Edit Profil</h3>
+                      <button onClick={() => setShowProfileModal(false)} className="p-1 rounded-full hover:bg-surface-variant dark:hover:bg-slate-700">
+                        <span className="material-symbols-outlined">close</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div className="p-6 space-y-6">
+                    {/* Foto Profil */}
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="relative group">
+                        {profileForm.foto ? (
+                          <img src={profileForm.foto} className="w-24 h-24 rounded-full object-cover border-4 border-primary/20" alt="profil" />
+                        ) : (
+                          <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center text-primary text-3xl font-bold border-4 border-primary/20">
+                            {user.nama_lengkap ? user.nama_lengkap.charAt(0).toUpperCase() : 'G'}
+                          </div>
+                        )}
+                        <label className="absolute bottom-0 right-0 w-8 h-8 bg-primary text-on-primary rounded-full flex items-center justify-center cursor-pointer shadow-md hover:bg-primary/90 transition-all">
+                          <span className="material-symbols-outlined text-[16px]">photo_camera</span>
+                          <input type="file" accept="image/*" onChange={handleFotoChange} className="hidden" />
+                        </label>
+                      </div>
+                      <p className="text-sm text-on-surface-variant dark:text-slate-400">Klik ikon kamera untuk ganti foto</p>
+                    </div>
+
+                    {/* Info (read-only) */}
+                    <div>
+                      <label className="block text-sm font-medium text-on-surface-variant dark:text-slate-400 mb-1">Nama Lengkap</label>
+                      <input type="text" value={user.nama_lengkap || ''} readOnly className="w-full px-4 py-2.5 rounded-lg border border-outline-variant dark:border-slate-600 bg-surface-variant/30 dark:bg-slate-700/50 text-on-surface dark:text-white cursor-not-allowed" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-on-surface-variant dark:text-slate-400 mb-1">Username</label>
+                      <input type="text" value={user.username || ''} readOnly className="w-full px-4 py-2.5 rounded-lg border border-outline-variant dark:border-slate-600 bg-surface-variant/30 dark:bg-slate-700/50 text-on-surface dark:text-white cursor-not-allowed" />
+                    </div>
+
+                    {/* Password (editable) */}
+                    <div>
+                      <label className="block text-sm font-medium text-on-surface-variant dark:text-slate-400 mb-1">Password Baru <span className="text-slate-400">(kosongkan jika tidak ingin mengubah)</span></label>
+                      <input type="password" value={profileForm.password} onChange={(e) => setProfileForm(prev => ({ ...prev, password: e.target.value }))} placeholder="Masukkan password baru..." className="w-full px-4 py-2.5 rounded-lg border border-outline-variant dark:border-slate-600 bg-white dark:bg-slate-900 text-on-surface dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent" />
+                    </div>
+                  </div>
+                  <div className="p-6 border-t border-outline-variant dark:border-slate-700 flex justify-end gap-3">
+                    <button onClick={() => setShowProfileModal(false)} className="px-4 py-2 rounded-lg border border-outline-variant text-on-surface-variant hover:bg-surface-variant/50 transition-all font-medium">Batal</button>
+                    <button onClick={saveProfile} disabled={profileLoading} className="px-6 py-2 bg-primary text-on-primary rounded-lg font-bold hover:bg-primary/90 disabled:opacity-50 transition-all flex items-center gap-2">
+                      {profileLoading && <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>}
+                      Simpan
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 
