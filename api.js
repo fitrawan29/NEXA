@@ -356,18 +356,49 @@
           case 'get_soal_by_mapel': {
             ({ data, error } = await supabaseClient.from('soal_ujian').select('*').eq('id_mapel', payload.id_mapel).eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
-            return { status: 'success', data };
+            // Unpack bobot/gambar/id_narasi and restore original opsi from packed field
+            const unpackSoal = (s) => {
+              let meta = null;
+              if (s.opsi) { try { meta = JSON.parse(s.opsi); } catch(e) {} }
+              const bobot = meta?._bobot ?? 1;
+              const gambar = meta?._gambar ?? null;
+              const id_narasi = meta?._id_narasi ?? null;
+              // Restore original opsi (the answer options array/string)
+              const originalOpsi = meta?._raw ?? s.opsi;
+              return { ...s, opsi: originalOpsi, bobot, gambar, id_narasi };
+            };
+            return { status: 'success', data: (data || []).map(unpackSoal) };
           }
 
           case 'create_soal_mapel': {
-            ({ error } = await supabaseClient.from('soal_ujian').insert([payload]));
+            // Pack extra metadata (bobot, gambar, id_narasi) alongside raw opsi
+            // soal_ujian table only has: id_soal, id_mapel, npsn, tipe_soal, pertanyaan, opsi, kunci_jawaban
+            const buildOpsiField = (p) => {
+              // opsiMeta wraps everything; _raw holds the original options array/string
+              const meta = {};
+              if (p.bobot !== undefined) meta._bobot = p.bobot;
+              if (p.gambar !== undefined) meta._gambar = p.gambar;
+              if (p.id_narasi !== undefined && p.id_narasi !== '') meta._id_narasi = p.id_narasi;
+              if (p.opsi !== undefined && p.opsi !== null) meta._raw = p.opsi; // keep original opsi as _raw
+              return JSON.stringify(meta);
+            };
+            const { bobot: _b1, gambar: _g1, id_narasi: _n1, ...soalFields1 } = payload;
+            soalFields1.opsi = buildOpsiField(payload);
+            ({ error } = await supabaseClient.from('soal_ujian').insert([soalFields1]));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Soal berhasil ditambahkan.' };
           }
 
           case 'update_soal_mapel': {
-            const { id_soal, npsn, ...updates } = payload;
-            ({ error } = await supabaseClient.from('soal_ujian').update(updates).eq('id_soal', id_soal).eq('npsn', payload.npsn));
+            const { id_soal: upId, npsn: upNpsn, bobot: _b2, gambar: _g2, id_narasi: _n2, ...upFields } = payload;
+            // Pack extra metadata into opsi
+            const meta2 = {};
+            if (payload.bobot !== undefined) meta2._bobot = payload.bobot;
+            if (payload.gambar !== undefined) meta2._gambar = payload.gambar;
+            if (payload.id_narasi !== undefined && payload.id_narasi !== '') meta2._id_narasi = payload.id_narasi;
+            if (upFields.opsi !== undefined && upFields.opsi !== null) meta2._raw = upFields.opsi;
+            upFields.opsi = JSON.stringify(meta2);
+            ({ error } = await supabaseClient.from('soal_ujian').update(upFields).eq('id_soal', upId).eq('npsn', upNpsn));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Soal berhasil diperbarui.' };
           }
@@ -507,15 +538,31 @@
             const narasiMap = {};
             (data || []).filter(s => s.tipe_soal === 'NARASI').forEach(n => { narasiMap[n.id_soal] = n; });
 
+            // Helper to extract clean options array from packed opsi field
+            const getCleanOpsi = (soal) => {
+              if (!soal.opsi) return null;
+              try {
+                const parsed = JSON.parse(soal.opsi);
+                // If it's an array, it's the raw options
+                if (Array.isArray(parsed)) return parsed;
+                // If it's an object, strip metadata keys and check for actual options
+                const { _bobot, _gambar, _id_narasi, _raw } = parsed;
+                if (_raw) { try { return JSON.parse(_raw); } catch(e) { return _raw; } }
+                return null;
+              } catch(e) { return null; }
+            };
+
             // Shuffle soal order
             const soalAcak = shuffleArray(soalAktif).map(soal => {
-              // Shuffle opsi for PG and PGK
+              // Shuffle opsi for PG and PGK — only the actual options array
               if ((soal.tipe_soal === 'PG' || soal.tipe_soal === 'PGK') && soal.opsi) {
                 try {
-                  const opsiArr = JSON.parse(soal.opsi);
-                  const opsiAcak = shuffleArray(opsiArr);
-                  return { ...soal, opsi: JSON.stringify(opsiAcak) };
-                } catch(e) { return soal; }
+                  const cleanOpsi = getCleanOpsi(soal);
+                  if (Array.isArray(cleanOpsi)) {
+                    const opsiAcak = shuffleArray(cleanOpsi);
+                    return { ...soal, opsi: JSON.stringify(opsiAcak) };
+                  }
+                } catch(e) {}
               }
               return soal;
             });
