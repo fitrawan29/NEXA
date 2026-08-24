@@ -6,6 +6,17 @@
 
     const fetchAPI = async (action, payload = {}) => {
       try {
+        // ================= APPLICATION-LEVEL RLS =================
+        // Menolak kueri jika npsn tidak disertakan untuk rute non-global
+        const globalRoutes = ['login', 'register', 'get_sekolah', 'update_admin_sekolah', 'tambah_admin_sekolah', 'get_analytics', 'update_admin_profil', 'hapus_sekolah'];
+        if (!globalRoutes.includes(action)) {
+          if (Array.isArray(payload)) {
+            if (payload.some(p => !p.npsn)) throw new Error("Security Violation: Akses ditolak. NPSN hilang pada bulk payload.");
+          } else {
+            if (!payload.npsn) throw new Error("Security Violation: Akses ditolak. Kueri tidak memiliki parameter NPSN.");
+          }
+        }
+
         let data, error;
         switch (action) {
           // ================= AUTH =================
@@ -117,6 +128,31 @@
             ({ error } = await supabaseClient.from('admin').update(updateData).eq('id_admin', payload.id_admin));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Profil berhasil diperbarui. Silakan masuk kembali.' };
+          }
+
+          // ================= SUPERADMIN ANALYTICS =================
+          case 'get_analytics': {
+            const { data: sekolahData, error: sekolahErr } = await supabaseClient.from('sekolah').select('npsn, nama_sekolah');
+            if (sekolahErr) return { status: 'error', message: sekolahErr.message };
+
+            // We count items per school manually since Supabase client doesn't support complex GROUP BY out of the box easily.
+            // For production, a custom PostgreSQL function/RPC is highly recommended.
+            const stats = await Promise.all(sekolahData.map(async (s) => {
+              const [siswaRes, guruRes, soalRes] = await Promise.all([
+                supabaseClient.from('siswa').select('id_siswa', { count: 'exact' }).eq('npsn', s.npsn),
+                supabaseClient.from('guru').select('id_guru', { count: 'exact' }).eq('npsn', s.npsn),
+                supabaseClient.from('soal_ujian').select('id_soal', { count: 'exact' }).eq('npsn', s.npsn)
+              ]);
+              return {
+                npsn: s.npsn,
+                nama_sekolah: s.nama_sekolah,
+                total_siswa: siswaRes.count || 0,
+                total_guru: guruRes.count || 0,
+                total_soal: soalRes.count || 0
+              };
+            }));
+            
+            return { status: 'success', data: stats };
           }
 
           // ================= ADMIN DASHBOARD =================
@@ -331,6 +367,13 @@
             ({ error } = await supabaseClient.from('jadwal').insert(bulkData));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Jadwal berhasil ditambahkan secara massal' };
+          }
+
+          case 'reset_sesi_siswa': {
+             // Merubah status_ujian "SEDANG KERJA" menjadi "MULAI" agar siswa bisa masuk kembali
+             ({ error } = await supabaseClient.from('log_ujian').update({ status_ujian: 'MULAI' }).eq('id_siswa', payload.id_siswa).eq('status_ujian', 'SEDANG KERJA'));
+             if (error) return { status: 'error', message: error.message };
+             return { status: 'success', message: 'Sesi siswa berhasil direset.' };
           }
 
           case 'delete_jadwal': {

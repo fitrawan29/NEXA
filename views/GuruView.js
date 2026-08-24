@@ -19,6 +19,8 @@
       const [formSoal, setFormSoal] = useState({ isOpen: false, data: null });
       const [formNarasi, setFormNarasi] = useState({ isOpen: false, data: null });
       const [soalSubTab, setSoalSubTab] = useState('soal');
+      const [bankSoalPage, setBankSoalPage] = useState(1);
+      const itemsPerPage = 10;
       
       const [modalUraian, setModalUraian] = useState({ isOpen: false, logUjian: null, jawabanUraian: [] });
 
@@ -533,20 +535,38 @@
                           <tr><th className="p-4">Tipe</th><th className="p-4">Pertanyaan / Stimulus</th><th className="p-4 text-center">Bobot</th><th className="p-4 text-right">Aksi</th></tr>
                         </thead>
                         <tbody>
-                          {dataSoal.filter(s => s.tipe_soal !== 'NARASI' && s.tipe_soal !== 'SKEMA_PENILAIAN').map(s => (
-                            <tr key={s.id_soal} className="border-t border-outline-variant/30 hover:bg-surface-variant/10">
-                              <td className="p-4 font-bold text-primary">{s.tipe_soal}</td>
-                              <td className="p-4 text-sm"><div className="line-clamp-2 max-w-lg" dangerouslySetInnerHTML={{ __html: s.pertanyaan }}></div></td>
-                              <td className="p-4 text-center font-bold">{s.bobot || 1}</td>
-                              <td className="p-4 text-right whitespace-nowrap">
-                                <button onClick={() => setFormSoal({ isOpen: true, data: s })} className="text-blue-500 hover:text-blue-700 mr-3 p-1 rounded hover:bg-blue-50"><span className="material-symbols-outlined">edit</span></button>
-                                <button onClick={() => deleteSoal(s.id_soal)} className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50"><span className="material-symbols-outlined">delete</span></button>
-                              </td>
-                            </tr>
-                          ))}
-                          {dataSoal.filter(s => s.tipe_soal !== 'NARASI' && s.tipe_soal !== 'SKEMA_PENILAIAN').length === 0 && <tr><td colSpan="4" className="p-8 text-center text-slate-500">Belum ada soal untuk mata pelajaran ini.</td></tr>}
+                          {(() => {
+                            const filteredSoal = dataSoal.filter(s => s.tipe_soal !== 'NARASI' && s.tipe_soal !== 'SKEMA_PENILAIAN');
+                            const totalPages = Math.ceil(filteredSoal.length / itemsPerPage);
+                            const currentSoal = filteredSoal.slice((bankSoalPage - 1) * itemsPerPage, bankSoalPage * itemsPerPage);
+                            
+                            return currentSoal.length > 0 ? currentSoal.map(s => (
+                              <tr key={s.id_soal} className="border-t border-outline-variant/30 hover:bg-surface-variant/10">
+                                <td className="p-4 font-bold text-primary">{s.tipe_soal}</td>
+                                <td className="p-4 text-sm"><div className="line-clamp-2 max-w-lg" dangerouslySetInnerHTML={{ __html: s.pertanyaan }}></div></td>
+                                <td className="p-4 text-center font-bold">{s.bobot || 1}</td>
+                                <td className="p-4 text-right whitespace-nowrap">
+                                  <button onClick={() => setFormSoal({ isOpen: true, data: s })} className="text-blue-500 hover:text-blue-700 mr-3 p-1 rounded hover:bg-blue-50"><span className="material-symbols-outlined">edit</span></button>
+                                  <button onClick={() => deleteSoal(s.id_soal)} className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50"><span className="material-symbols-outlined">delete</span></button>
+                                </td>
+                              </tr>
+                            )) : <tr><td colSpan="4" className="p-8 text-center text-slate-500">Belum ada soal untuk mata pelajaran ini.</td></tr>;
+                          })()}
                         </tbody>
                       </table>
+                      {/* Pagination Controls */}
+                      {(() => {
+                        const filteredSoal = dataSoal.filter(s => s.tipe_soal !== 'NARASI' && s.tipe_soal !== 'SKEMA_PENILAIAN');
+                        const totalPages = Math.ceil(filteredSoal.length / itemsPerPage);
+                        if (totalPages <= 1) return null;
+                        return (
+                          <div className="flex justify-center items-center gap-2 p-4 border-t border-outline-variant">
+                            <button onClick={() => setBankSoalPage(p => Math.max(1, p - 1))} disabled={bankSoalPage === 1} className="px-3 py-1 rounded bg-surface-variant disabled:opacity-50 text-sm font-bold">Prev</button>
+                            <span className="text-sm font-medium text-slate-600">Hal {bankSoalPage} dari {totalPages}</span>
+                            <button onClick={() => setBankSoalPage(p => Math.min(totalPages, p + 1))} disabled={bankSoalPage === totalPages} className="px-3 py-1 rounded bg-surface-variant disabled:opacity-50 text-sm font-bold">Next</button>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 )}

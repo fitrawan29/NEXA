@@ -4,7 +4,10 @@
         return fetchAPI(action, { ...p, npsn: user.npsn });
       };
       const [soal, setSoal] = useState([]);
-      const [jawabanSiswa, setJawabanSiswa] = useState({});
+      const [jawabanSiswa, setJawabanSiswa] = useState(() => {
+        const saved = localStorage.getItem(`nexa_ans_${idLog}`);
+        return saved ? JSON.parse(saved) : {};
+      });
       const [raguRagu, setRaguRagu] = useState({});
       const [currentIndex, setCurrentIndex] = useState(0);
       const [isLoading, setIsLoading] = useState(true);
@@ -14,11 +17,26 @@
       const [timeLeft, setTimeLeft] = useState({ total: 1, hours: 0, minutes: 0, seconds: 0 });
       const [isSubmitting, setIsSubmitting] = useState(false);
       const [confirmModal, setConfirmModal] = useState({ isOpen: false });
+      const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+      const [isOffline, setIsOffline] = useState(!navigator.onLine);
+      const [offlineCountdown, setOfflineCountdown] = useState(15);
+      const offlineIntervalRef = useRef(null);
+      const gracePeriodTimer = useRef(null);
 
       const examContainerRef = useRef(null);
 
       useEffect(() => {
         fetchSoal();
+        let wakeLock = null;
+        const requestWakeLock = async () => {
+          try {
+            if ('wakeLock' in navigator) {
+              wakeLock = await navigator.wakeLock.request('screen');
+            }
+          } catch (err) {}
+        };
+        requestWakeLock();
         setupAntiCheat();
 
         const calculateTimeLeft = (endTimeStr) => {
@@ -43,12 +61,44 @@
           }
         }, 1000);
 
+        const handleOnline = () => {
+           setIsOffline(false);
+           if (offlineIntervalRef.current) clearInterval(offlineIntervalRef.current);
+           setOfflineCountdown(15);
+        };
+        const handleOffline = () => setIsOffline(true);
+        
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+
         return () => {
           clearInterval(timerInterval);
           document.removeEventListener('visibilitychange', handleVisibilityChange);
           document.removeEventListener('fullscreenchange', handleFullscreenChange);
+          window.removeEventListener('online', handleOnline);
+          window.removeEventListener('offline', handleOffline);
+          if (wakeLock) wakeLock.release().catch(()=>{});
         };
       }, []);
+
+      useEffect(() => {
+         if (isOffline) {
+            offlineIntervalRef.current = setInterval(() => {
+               setOfflineCountdown(prev => {
+                  if (prev <= 1) {
+                     reportViolation(); 
+                     return 15;
+                  }
+                  return prev - 1;
+               });
+            }, 1000);
+         } else {
+            if (offlineIntervalRef.current) clearInterval(offlineIntervalRef.current);
+         }
+         return () => {
+            if (offlineIntervalRef.current) clearInterval(offlineIntervalRef.current);
+         }
+      }, [isOffline]);
 
       const fetchSoal = async () => {
         const res = await api('get_soal_by_mapel', { id_mapel: jadwal.id_mapel });
@@ -96,8 +146,25 @@
         }
       };
 
-      const handleVisibilityChange = () => { if (document.hidden) reportViolation(); };
-      const handleFullscreenChange = () => { if (!document.fullscreenElement && !isSubmitting && !isBlocked) reportViolation(); };
+      const handleVisibilityChange = () => {
+        if (document.hidden) {
+          gracePeriodTimer.current = setTimeout(() => {
+            reportViolation();
+          }, 10000);
+        } else {
+          if (gracePeriodTimer.current) {
+            clearTimeout(gracePeriodTimer.current);
+            gracePeriodTimer.current = null;
+          }
+        }
+      };
+
+      const handleFullscreenChange = () => {
+        if (!document.fullscreenElement && !isSubmitting && !isBlocked) {
+          reportViolation();
+          enforceFullscreen();
+        }
+      };
 
       const setupAntiCheat = () => {
         if (jadwal.browser_lockdown) {
@@ -114,18 +181,22 @@
 
       const handleAnswerChange = (soalId, value, tipe, parentKey = null) => {
         setJawabanSiswa(prev => {
+          let newAns = prev;
           if (tipe === 'PGK') {
             let arr = Array.isArray(prev[soalId]) ? [...prev[soalId]] : [];
             if (arr.includes(value)) arr = arr.filter(item => item !== value);
             else arr.push(value);
-            return { ...prev, [soalId]: arr };
-          }
-          if (tipe === 'JODOH' && parentKey) {
+            newAns = { ...prev, [soalId]: arr };
+          } else if (tipe === 'JODOH' && parentKey) {
             const currentObj = typeof prev[soalId] === 'object' && !Array.isArray(prev[soalId]) ? { ...prev[soalId] } : {};
             currentObj[parentKey] = value;
-            return { ...prev, [soalId]: currentObj };
+            newAns = { ...prev, [soalId]: currentObj };
+          } else {
+            newAns = { ...prev, [soalId]: value };
           }
-          return { ...prev, [soalId]: value };
+          // Offline-First: Save answer to localStorage
+          localStorage.setItem(`nexa_ans_${idLog}`, JSON.stringify(newAns));
+          return newAns;
         });
       };
 
@@ -248,8 +319,70 @@
       const flaggedCount = Object.values(raguRagu).filter(Boolean).length;
       const unansweredCount = soal.length - answeredCount;
 
+      const renderNavGrid = () => (
+        <div className="grid grid-cols-6 gap-sm mb-lg">
+          {soal.map((s, idx) => {
+            const ans = jawabanSiswa[s.id_soal];
+            let hasAnswered = false;
+            if (ans) {
+              if (s.tipe_soal === 'PGK') hasAnswered = Array.isArray(ans) && ans.length > 0;
+              else if (s.tipe_soal === 'JODOH') hasAnswered = typeof ans === 'object' && Object.keys(ans).length > 0 && Object.values(ans).some(v => v !== '');
+              else hasAnswered = String(ans).trim() !== '';
+            }
+            
+            const isFlagged = raguRagu[s.id_soal];
+            let btnClass = "w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center cursor-pointer transition-all ";
+
+            if (currentIndex === idx) {
+              btnClass += "bg-primary text-on-primary ring-2 ring-primary ring-offset-2 dark:ring-offset-slate-900";
+            } else if (isFlagged) {
+              btnClass += "bg-[#D97706] text-white"; // flagged color
+            } else if (hasAnswered) {
+              btnClass += "bg-[#10B981] text-white"; // answered color
+            } else {
+              btnClass += "border border-outline-variant dark:border-slate-700 text-on-surface dark:text-slate-300 hover:border-primary hover:text-primary dark:hover:border-primary-fixed dark:hover:text-primary-fixed bg-white dark:bg-slate-800";
+            }
+
+            return (
+              <button key={s.id_soal} onClick={() => { setCurrentIndex(idx); setIsDrawerOpen(false); }} className={btnClass}>
+                {idx + 1}
+              </button>
+            );
+          })}
+        </div>
+      );
+
+      const renderLegend = () => (
+        <div className="mt-auto pt-md border-t border-outline-variant dark:border-slate-800">
+          <div className="flex items-center gap-sm mb-xs">
+            <div className="w-4 h-4 bg-[#10B981] rounded-sm"></div>
+            <span className="font-label-md text-label-md text-on-surface-variant dark:text-slate-400">Terjawab ({answeredCount})</span>
+          </div>
+          <div className="flex items-center gap-sm mb-xs">
+            <div className="w-4 h-4 bg-[#D97706] rounded-sm"></div>
+            <span className="font-label-md text-label-md text-on-surface-variant dark:text-slate-400">Ragu-ragu ({flaggedCount})</span>
+          </div>
+          <div className="flex items-center gap-sm mb-xs">
+            <div className="w-4 h-4 border border-outline-variant dark:border-slate-700 rounded-sm bg-white dark:bg-slate-800"></div>
+            <span className="font-label-md text-label-md text-on-surface-variant dark:text-slate-400">Belum ({unansweredCount})</span>
+          </div>
+        </div>
+      );
+
       return (
         <div className="font-body-md text-body-md text-on-background dark:text-slate-100 bg-background dark:bg-slate-900 h-screen flex flex-col overflow-hidden select-none transition-colors duration-500" ref={examContainerRef} onClick={enforceFullscreen}>
+          {isOffline && (
+            <div className="fixed inset-0 bg-black/80 z-[100] flex flex-col items-center justify-center text-white backdrop-blur-md">
+              <span className="material-symbols-outlined text-[80px] text-error mb-4">wifi_off</span>
+              <h1 className="text-3xl font-bold mb-2">Koneksi Terputus!</h1>
+              <p className="text-lg text-slate-300 mb-6 max-w-md text-center px-4">Ujian dibekukan sementara. Silakan periksa kembali jaringan internet Anda.</p>
+              <div className="bg-error/20 border border-error rounded-xl p-6 text-center shadow-lg shadow-error/20">
+                 <div className="text-5xl font-black text-error mb-2">{offlineCountdown}</div>
+                 <p className="text-sm">detik menuju pelanggaran</p>
+              </div>
+              <p className="mt-8 text-slate-400 text-sm px-8 text-center">Mohon segera pulihkan koneksi internet (Wi-Fi/Data) untuk melanjutkan.</p>
+            </div>
+          )}
           {/* TopNavBar */}
           <header className="fixed top-0 w-full z-50 flex justify-between items-center px-lg h-20 bg-primary dark:bg-slate-900 border-b border-transparent dark:border-slate-800 shadow-md">
             <div className="flex items-center gap-md">
@@ -284,56 +417,25 @@
                   </p>
                 )}
               </div>
-              <div className="grid grid-cols-6 gap-sm mb-lg">
-                {soal.map((s, idx) => {
-                  const ans = jawabanSiswa[s.id_soal];
-                  let hasAnswered = false;
-                  if (ans) {
-                    if (s.tipe_soal === 'PGK') hasAnswered = Array.isArray(ans) && ans.length > 0;
-                    else if (s.tipe_soal === 'JODOH') hasAnswered = typeof ans === 'object' && Object.keys(ans).length > 0 && Object.values(ans).some(v => v !== '');
-                    else hasAnswered = String(ans).trim() !== '';
-                  }
-                  
-                  const isFlagged = raguRagu[s.id_soal];
-
-                  let btnClass = "w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center cursor-pointer transition-all ";
-
-                  if (currentIndex === idx) {
-                    btnClass += "bg-primary text-on-primary ring-2 ring-primary ring-offset-2 dark:ring-offset-slate-900";
-                  } else if (isFlagged) {
-                    btnClass += "bg-[#D97706] text-white"; // flagged color
-                  } else if (hasAnswered) {
-                    btnClass += "bg-[#10B981] text-white"; // answered color
-                  } else {
-                    btnClass += "border border-outline-variant dark:border-slate-700 text-on-surface dark:text-slate-300 hover:border-primary hover:text-primary dark:hover:border-primary-fixed dark:hover:text-primary-fixed bg-white dark:bg-slate-800";
-                  }
-
-                  return (
-                    <button key={s.id_soal} onClick={() => setCurrentIndex(idx)} className={btnClass}>
-                      {idx + 1}
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="mt-auto pt-md border-t border-outline-variant dark:border-slate-800">
-                <div className="flex items-center gap-sm mb-xs">
-                  <div className="w-4 h-4 bg-[#10B981] rounded-sm"></div>
-                  <span className="font-label-md text-label-md text-on-surface-variant dark:text-slate-400">Terjawab ({answeredCount})</span>
-                </div>
-                <div className="flex items-center gap-sm mb-xs">
-                  <div className="w-4 h-4 bg-[#D97706] rounded-sm"></div>
-                  <span className="font-label-md text-label-md text-on-surface-variant dark:text-slate-400">Ragu-ragu ({flaggedCount})</span>
-                </div>
-                <div className="flex items-center gap-sm mb-xs">
-                  <div className="w-4 h-4 border border-outline-variant dark:border-slate-700 rounded-sm bg-white dark:bg-slate-800"></div>
-                  <span className="font-label-md text-label-md text-on-surface-variant dark:text-slate-400">Belum Dijawab ({unansweredCount})</span>
-                </div>
-                <div className="flex items-center gap-sm">
-                  <div className="w-4 h-4 bg-primary rounded-sm ring-1 ring-primary ring-offset-1 dark:ring-offset-slate-900"></div>
-                  <span className="font-label-md text-label-md text-on-surface-variant dark:text-slate-400">Posisi Saat Ini</span>
-                </div>
-              </div>
+              {renderNavGrid()}
+              {renderLegend()}
             </aside>
+
+            {/* Bottom Drawer (Mobile) */}
+            <div className={`md:hidden fixed inset-0 z-50 transition-opacity duration-300 ${isDrawerOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsDrawerOpen(false)}></div>
+              <div className={`absolute bottom-0 w-full bg-surface dark:bg-slate-900 rounded-t-[32px] shadow-2xl p-6 transition-transform duration-300 ${isDrawerOpen ? 'translate-y-0' : 'translate-y-full'}`}>
+                 <div className="w-16 h-1.5 bg-outline-variant dark:bg-slate-700 rounded-full mx-auto mb-6"></div>
+                 <div className="flex justify-between items-center mb-4">
+                    <h2 className="font-bold text-xl text-on-surface dark:text-white">Navigasi Soal</h2>
+                    <button onClick={() => setIsDrawerOpen(false)} className="text-slate-500 bg-surface-variant p-2 rounded-full"><span className="material-symbols-outlined">close</span></button>
+                 </div>
+                 <div className="max-h-[50vh] overflow-y-auto mb-4 p-2">
+                    {renderNavGrid()}
+                 </div>
+                 {renderLegend()}
+              </div>
+            </div>
 
             {/* Main Content (Canvas) */}
             <main className="flex-1 md:ml-80 flex flex-col bg-background dark:bg-slate-900 relative overflow-y-auto pb-24 transition-colors duration-500">
@@ -366,9 +468,13 @@
                   <button
                     onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
                     disabled={currentIndex === 0}
-                    className="flex items-center gap-xs px-md md:px-lg py-sm border-2 border-primary dark:border-primary-fixed text-primary dark:text-primary-fixed font-body-md text-body-md font-semibold rounded hover:bg-primary-fixed dark:hover:bg-primary/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    className="flex items-center justify-center p-3 md:px-lg md:py-sm border-2 border-primary dark:border-primary-fixed text-primary dark:text-primary-fixed font-body-md text-body-md font-semibold rounded hover:bg-primary-fixed dark:hover:bg-primary/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                     <span className="material-symbols-outlined">arrow_back</span>
-                    <span className="hidden sm:inline">Sebelumnya</span>
+                    <span className="hidden sm:inline ml-2">Sebelumnya</span>
+                  </button>
+                  <button onClick={() => setIsDrawerOpen(true)} className="md:hidden flex flex-col items-center justify-center text-on-surface dark:text-slate-300">
+                     <span className="material-symbols-outlined text-[28px]">apps</span>
+                     <span className="text-[10px] font-bold mt-1">Peta Soal</span>
                   </button>
                   <div className="flex items-center gap-md md:gap-lg">
                     <label className="flex items-center cursor-pointer gap-sm group">
@@ -378,13 +484,13 @@
                       </div>
                       <span className="font-body-md text-body-md text-on-surface dark:text-slate-200 group-hover:text-[#D97706] dark:group-hover:text-[#D97706] transition-colors hidden sm:inline">Tandai Ragu-ragu</span>
                     </label>
-                    <button
-                      onClick={() => setCurrentIndex(Math.min(soal.length - 1, currentIndex + 1))}
-                      disabled={currentIndex === soal.length - 1}
-                      className="flex items-center gap-xs px-md md:px-lg py-sm bg-primary text-on-primary font-body-md text-body-md font-semibold rounded hover:bg-on-primary-fixed-variant transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
-                      <span className="hidden sm:inline">Selanjutnya</span>
-                      <span className="material-symbols-outlined">arrow_forward</span>
-                    </button>
+                  <button
+                    onClick={() => setCurrentIndex(Math.min(soal.length - 1, currentIndex + 1))}
+                    disabled={currentIndex === soal.length - 1}
+                    className="flex items-center justify-center p-3 md:px-lg md:py-sm bg-primary text-on-primary font-body-md text-body-md font-semibold rounded hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md">
+                    <span className="hidden sm:inline mr-2">Selanjutnya</span>
+                    <span className="material-symbols-outlined">arrow_forward</span>
+                  </button>
                   </div>
                 </div>
               )}

@@ -37,7 +37,9 @@
               <p className="text-sm text-slate-500 mb-2">Narasi atau teks stimulus bersama dapat digunakan sebagai referensi untuk beberapa soal sekaligus (misalnya, satu wacana untuk soal 1-5).</p>
               <div>
                 <label className="block text-sm font-bold mb-1">Teks Narasi</label>
-                <textarea value={pertanyaan} onChange={(e) => setPertanyaan(e.target.value)} className="w-full p-2 border rounded h-40 bg-surface dark:bg-slate-900" placeholder="Ketik teks narasi atau bacaan di sini..."></textarea>
+                <div className="bg-surface dark:bg-slate-900 border rounded text-on-surface dark:text-white">
+                  <ReactQuill theme="snow" value={pertanyaan} onChange={setPertanyaan} className="h-40 mb-12" />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-bold mb-1">Gambar Pendukung (Opsional)</label>

@@ -96,7 +96,9 @@
               </div>
               <div>
                 <label className="block text-sm font-bold mb-1">Pertanyaan / Instruksi Spesifik</label>
-                <textarea value={pertanyaan} onChange={(e) => setPertanyaan(e.target.value)} className="w-full p-2 border rounded h-32 bg-surface dark:bg-slate-900" placeholder="Tuliskan pertanyaan..."></textarea>
+                <div className="bg-surface dark:bg-slate-900 border rounded text-on-surface dark:text-white">
+                  <ReactQuill theme="snow" value={pertanyaan} onChange={setPertanyaan} className="h-32 mb-12" />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-bold mb-1">Gambar (Opsional)</label>

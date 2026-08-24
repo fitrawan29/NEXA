@@ -177,6 +177,20 @@
             
             if (data.length === 0) return alert('File kosong atau format salah.');
             
+            // VALIDASI DUPLIKAT SEBELUM INSERT
+            if (type === 'siswa' || type === 'guru') {
+               const existingRes = await api(type === 'siswa' ? 'get_siswa' : 'get_guru');
+               if (existingRes.status === 'success') {
+                  const existingUsernames = existingRes.data.map(u => String(u.username));
+                  const duplicates = data.filter(d => existingUsernames.includes(String(d.username)));
+                  if (duplicates.length > 0) {
+                     alert(`Gagal Import: Ditemukan ${duplicates.length} data duplikat (Username sudah terdaftar). Contoh duplikat: ${duplicates[0].username}`);
+                     e.target.value = null;
+                     return;
+                  }
+               }
+            }
+
             let endpoint = `create_${type}_bulk`;
             
             // Format check (id fields are now auto-generated if missing)
@@ -764,6 +778,18 @@
                             {activeTab === 'mapel' && (<><td className="p-4">{row.id_mapel}</td><td className="p-4">{row.nama_mapel}</td></>)}
                             {activeTab === 'jadwal' && (<><td className="p-4">{row.id_jadwal}</td><td className="p-4">{row.nama_mapel}</td><td className="p-4">{row.guru}</td><td className="p-4 text-sm">{new Date(row.waktu_mulai).toLocaleString('id-ID')} s.d {new Date(row.waktu_selesai).toLocaleString('id-ID')}</td></>)}
                             <td className="p-4 text-right">
+                              {activeTab === 'siswa' && (
+                                <button onClick={async () => {
+                                  if (!confirm(`Reset sesi (hapus status SEDANG KERJA) untuk siswa ini?`)) return;
+                                  const res = await api('reset_sesi_siswa', { id_siswa: row.id_siswa });
+                                  if (res.status === 'success') {
+                                    alert('Sesi berhasil direset.');
+                                    await api('create_audit_log', { username: user.username, role: 'admin', action: 'RESET_SESI', target: `Siswa (${row.id_siswa})` });
+                                  } else alert('Gagal mereset sesi.');
+                                }} title="Reset Sesi Login / Ujian" className="p-1.5 text-orange-500 hover:bg-orange-100 rounded mr-2">
+                                  <span className="material-symbols-outlined text-[20px]">restart_alt</span>
+                                </button>
+                              )}
                               <button onClick={() => openEditModal(activeTab, row)} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded mr-2"><span className="material-symbols-outlined text-[20px]">edit</span></button>
                               <button onClick={() => handleDelete(row.id_jadwal || row.id_siswa || row.id_guru || row.id_mapel, activeTab)} className="p-1.5 text-error hover:bg-error/20 rounded"><span className="material-symbols-outlined text-[20px]">delete</span></button>
                             </td>

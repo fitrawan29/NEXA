@@ -1,7 +1,8 @@
     const SuperAdminView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) => {
-      const [activeTab, setActiveTab] = useState('sekolah'); // 'sekolah' or 'admin'
+      const [activeTab, setActiveTab] = useState('analytics');
       const [dataSekolah, setDataSekolah] = useState([]);
       const [dataAdmin, setDataAdmin] = useState([]);
+      const [dataAnalytics, setDataAnalytics] = useState([]);
       const [isLoading, setIsLoading] = useState(false);
       
       const [formModal, setFormModal] = useState({ isOpen: false, type: '', isEdit: false, editItem: null });
@@ -19,6 +20,9 @@
           // Also fetch sekolah to populate dropdown for adding admin
           const resSekolah = await fetchAPI('get_sekolah');
           if (resSekolah.status === 'success') setDataSekolah(resSekolah.data);
+        } else if (tab === 'analytics') {
+          const res = await fetchAPI('get_analytics');
+          if (res.status === 'success') setDataAnalytics(res.data);
         }
         setIsLoading(false);
       };
@@ -108,6 +112,9 @@
               <h1 className="font-headline-sm font-bold text-primary flex items-center gap-2"><span className="material-symbols-outlined">admin_panel_settings</span> SUPER ADMIN</h1>
             </div>
             <div className="flex-1 space-y-2 mt-4">
+              <a onClick={() => setActiveTab('analytics')} className={`flex items-center space-x-2 px-4 py-3 rounded-xl font-bold cursor-pointer transition-colors ${activeTab === 'analytics' ? 'bg-primary text-white shadow-md' : 'hover:bg-slate-200 dark:hover:bg-slate-800'}`}>
+                <span className="material-symbols-outlined">monitoring</span><span>Dasbor Analitik</span>
+              </a>
               <a onClick={() => setActiveTab('sekolah')} className={`flex items-center space-x-2 px-4 py-3 rounded-xl font-bold cursor-pointer transition-colors ${activeTab === 'sekolah' ? 'bg-primary text-white shadow-md' : 'hover:bg-slate-200 dark:hover:bg-slate-800'}`}>
                 <span className="material-symbols-outlined">account_balance</span><span>Data Sekolah</span>
               </a>
@@ -130,7 +137,43 @@
           </nav>
 
           <main className="flex-1 p-8 h-screen overflow-y-auto">
-            {activeTab !== 'profil' && (
+            {activeTab === 'analytics' && (
+              <div>
+                <h2 className="text-3xl font-black text-slate-800 dark:text-white mb-8">Dasbor Analitik Resource</h2>
+                {isLoading ? <div className="flex justify-center p-12"><span className="material-symbols-outlined animate-spin text-4xl text-primary">autorenew</span></div> : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {dataAnalytics.map(stat => (
+                      <div key={stat.npsn} className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-700">
+                        <div className="flex justify-between items-start mb-4">
+                          <div>
+                            <h3 className="font-bold text-xl text-slate-800 dark:text-white">{stat.nama_sekolah}</h3>
+                            <p className="text-sm font-mono text-slate-500">NPSN: {stat.npsn}</p>
+                          </div>
+                          <span className="material-symbols-outlined text-primary text-3xl">domain</span>
+                        </div>
+                        <div className="space-y-3">
+                          <div className="flex justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-700/50">
+                            <span className="text-slate-600 dark:text-slate-300 font-medium">Siswa Aktif</span>
+                            <span className="font-bold text-primary">{stat.total_siswa}</span>
+                          </div>
+                          <div className="flex justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-700/50">
+                            <span className="text-slate-600 dark:text-slate-300 font-medium">Guru Aktif</span>
+                            <span className="font-bold text-primary">{stat.total_guru}</span>
+                          </div>
+                          <div className="flex justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-700/50">
+                            <span className="text-slate-600 dark:text-slate-300 font-medium">Total Soal</span>
+                            <span className="font-bold text-primary">{stat.total_soal}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {dataAnalytics.length === 0 && <div className="col-span-full p-8 text-center text-slate-500">Belum ada data sekolah.</div>}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {(activeTab === 'sekolah' || activeTab === 'admin') && (
               <>
                 <div className="flex justify-between items-center mb-8">
                   <h2 className="text-3xl font-black text-slate-800 dark:text-white capitalize">Kelola {activeTab}</h2>
