@@ -2,24 +2,7 @@
 
     const generateId = (prefix) => `${prefix}-${crypto.randomUUID().split('-')[0].toUpperCase()}`;
 
-    // Helper untuk membongkar metadata soal dari field 'pertanyaan'
-    const unpackSoal = (s) => {
-      if (!s || !s.pertanyaan) return s;
-      let meta = null;
-      try { meta = JSON.parse(s.pertanyaan); } catch(e) {}
-      if (meta && meta._pertanyaan !== undefined) {
-        return {
-          ...s,
-          pertanyaan: meta._pertanyaan,
-          tipe_soal: meta._tipe_soal,
-          opsi: meta._opsi,
-          bobot: meta._bobot ?? 1,
-          gambar: meta._gambar ?? null,
-          id_narasi: meta._id_narasi ?? null
-        };
-      }
-      return s;
-    };
+    // Note: Database uses `id_mapel` now, `id_jadwal` column in `soal_ujian` might still exist but `id_mapel` is what we use.
 
     const fetchAPI = async (action, payload = {}) => {
       try {
@@ -373,30 +356,33 @@
           }
 
           case 'get_soal_by_mapel': {
-            // Note: in Supabase, the column is id_jadwal, but we use it to store id_mapel for the bank soal
-            ({ data, error } = await supabaseClient.from('soal_ujian').select('*').eq('id_jadwal', payload.id_mapel).eq('npsn', payload.npsn));
+            ({ data, error } = await supabaseClient.from('soal_ujian').select('*').eq('id_mapel', payload.id_mapel).eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
-            return { status: 'success', data: (data || []).map(unpackSoal) };
+            
+            // Format opsi column string to array if it is a JSON string
+            const formatOpsi = (s) => {
+              if (s.opsi && typeof s.opsi === 'string') {
+                try { s.opsi = JSON.parse(s.opsi); } catch(e) {}
+              }
+              return s;
+            }
+            return { status: 'success', data: (data || []).map(formatOpsi) };
           }
 
           case 'create_soal_mapel': {
-            // Pack metadata into pertanyaan field since soal_ujian table ONLY has: id_soal, id_jadwal, npsn, pertanyaan, kunci_jawaban
             const { id_soal, id_mapel, npsn, kunci_jawaban, pertanyaan, tipe_soal, opsi, bobot, gambar, id_narasi } = payload;
-            const metaPertanyaan = {
-              _pertanyaan: pertanyaan,
-              _tipe_soal: tipe_soal,
-              _opsi: opsi,
-              _bobot: bobot !== undefined ? bobot : 1,
-              _gambar: gambar || null,
-              _id_narasi: id_narasi || null
-            };
             
             const insertData = {
               id_soal,
-              id_jadwal: id_mapel, // Map id_mapel to id_jadwal
+              id_mapel,
               npsn,
+              tipe_soal,
+              pertanyaan,
+              opsi: opsi ? (typeof opsi === 'string' ? opsi : JSON.stringify(opsi)) : null,
               kunci_jawaban,
-              pertanyaan: JSON.stringify(metaPertanyaan)
+              bobot: bobot !== undefined ? bobot : 1,
+              gambar: gambar || null,
+              id_narasi: id_narasi || null
             };
             
             ({ error } = await supabaseClient.from('soal_ujian').insert([insertData]));
@@ -407,24 +393,15 @@
           case 'update_soal_mapel': {
             const { id_soal: upId, npsn: upNpsn, id_mapel, kunci_jawaban, pertanyaan, tipe_soal, opsi, bobot, gambar, id_narasi } = payload;
             
-            // First fetch the existing soal to get previous metadata if any is missing
-            const { data: existing } = await supabaseClient.from('soal_ujian').select('pertanyaan').eq('id_soal', upId).eq('npsn', upNpsn).single();
-            let meta = {};
-            if (existing && existing.pertanyaan) {
-              try { meta = JSON.parse(existing.pertanyaan); } catch(e) { meta = { _pertanyaan: existing.pertanyaan }; }
-            }
-            
-            if (pertanyaan !== undefined) meta._pertanyaan = pertanyaan;
-            if (tipe_soal !== undefined) meta._tipe_soal = tipe_soal;
-            if (opsi !== undefined) meta._opsi = opsi;
-            if (bobot !== undefined) meta._bobot = bobot;
-            if (gambar !== undefined) meta._gambar = gambar;
-            if (id_narasi !== undefined && id_narasi !== '') meta._id_narasi = id_narasi;
-            
             const updateData = {};
             if (kunci_jawaban !== undefined) updateData.kunci_jawaban = kunci_jawaban;
-            if (id_mapel !== undefined) updateData.id_jadwal = id_mapel;
-            updateData.pertanyaan = JSON.stringify(meta);
+            if (id_mapel !== undefined) updateData.id_mapel = id_mapel;
+            if (pertanyaan !== undefined) updateData.pertanyaan = pertanyaan;
+            if (tipe_soal !== undefined) updateData.tipe_soal = tipe_soal;
+            if (opsi !== undefined) updateData.opsi = typeof opsi === 'string' ? opsi : JSON.stringify(opsi);
+            if (bobot !== undefined) updateData.bobot = bobot;
+            if (gambar !== undefined) updateData.gambar = gambar;
+            if (id_narasi !== undefined) updateData.id_narasi = id_narasi;
 
             ({ error } = await supabaseClient.from('soal_ujian').update(updateData).eq('id_soal', upId).eq('npsn', upNpsn));
             if (error) return { status: 'error', message: error.message };
@@ -442,10 +419,7 @@
             if (error) return { status: 'error', message: error.message };
             return {
               status: 'success',
-              data: data.map(j => {
-                const soalUnpacked = unpackSoal(j.soal_ujian);
-                return { ...j, pertanyaan: soalUnpacked ? soalUnpacked.pertanyaan : 'Unknown' };
-              })
+              data: data.map(j => ({ ...j, pertanyaan: j.soal_ujian ? j.soal_ujian.pertanyaan : 'Unknown' }))
             };
           }
 
@@ -551,11 +525,16 @@
           case 'get_soal_ujian': {
             const { data: jadwal } = await supabaseClient.from('jadwal').select('id_mapel').eq('id_jadwal', payload.id_jadwal).single();
             if (!jadwal) return { status: 'error', message: 'Jadwal tidak ditemukan' };
-            ({ data, error } = await supabaseClient.from('soal_ujian').select('*').eq('id_jadwal', jadwal.id_mapel).eq('npsn', payload.npsn));
+            ({ data, error } = await supabaseClient.from('soal_ujian').select('*').eq('id_mapel', jadwal.id_mapel).eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
             
-            // Unpack data first
-            const unpackedData = (data || []).map(unpackSoal);
+            // Format opsi
+            const unpackedData = (data || []).map(s => {
+              if (s.opsi && typeof s.opsi === 'string') {
+                try { s.opsi = JSON.parse(s.opsi); } catch(e) {}
+              }
+              return s;
+            });
 
             // Fisher-Yates shuffle helper
             const shuffleArray = (arr) => {
@@ -575,13 +554,8 @@
             // Helper to extract clean options array
             const getCleanOpsi = (soal) => {
               if (!soal.opsi) return null;
-              // opsi can be an array directly since unpackSoal might have preserved it
               if (Array.isArray(soal.opsi)) return soal.opsi;
-              try {
-                const parsed = JSON.parse(soal.opsi);
-                if (Array.isArray(parsed)) return parsed;
-                return null;
-              } catch(e) { return null; }
+              return null;
             };
 
             // Shuffle soal order
@@ -617,8 +591,13 @@
             const idSiswa = payload.id_siswa;
 
             const { data: jadwal } = await supabaseClient.from('jadwal').select('id_mapel').eq('id_jadwal', payload.id_jadwal).single();
-            const { data: rawSoalData } = await supabaseClient.from('soal_ujian').select('*').eq('id_jadwal', jadwal?.id_mapel).eq('npsn', payload.npsn);
-            const soalData = (rawSoalData || []).map(unpackSoal);
+            const { data: rawSoalData } = await supabaseClient.from('soal_ujian').select('*').eq('id_mapel', jadwal?.id_mapel).eq('npsn', payload.npsn);
+            const soalData = (rawSoalData || []).map(s => {
+              if (s.opsi && typeof s.opsi === 'string') {
+                try { s.opsi = JSON.parse(s.opsi); } catch(e) {}
+              }
+              return s;
+            });
             
             let totalSkorMaxAuto = 0;
             let totalSkorDiperolehAuto = 0;
