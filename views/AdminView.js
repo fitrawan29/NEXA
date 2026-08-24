@@ -144,11 +144,12 @@
             
             let endpoint = `create_${type}_bulk`;
             
-            // Format check
-            if (type === 'siswa' && !data[0].id_siswa) return alert('Format salah. Pastikan ada kolom id_siswa.');
-            if (type === 'guru' && !data[0].id_guru) return alert('Format salah. Pastikan ada kolom id_guru.');
-            if (type === 'mapel' && !data[0].id_mapel) return alert('Format salah. Pastikan ada kolom id_mapel.');
-            if (type === 'jadwal' && !data[0].id_jadwal) return alert('Format salah. Pastikan ada kolom id_jadwal.');
+            // Format check (id fields are now auto-generated if missing)
+            // if (type === 'siswa' && !data[0].id_siswa) return alert('Format salah. Pastikan ada kolom id_siswa.');
+            // if (type === 'guru' && !data[0].id_guru) return alert('Format salah. Pastikan ada kolom id_guru.');
+            // if (type === 'mapel' && !data[0].id_mapel) return alert('Format salah. Pastikan ada kolom id_mapel.');
+            // if (type === 'jadwal' && !data[0].id_jadwal) return alert('Format salah. Pastikan ada kolom id_jadwal.');
+
 
             const res = await api(endpoint, data);
             if (res.status === 'success') {
@@ -230,14 +231,14 @@
               <form onSubmit={handleSaveForm} className="space-y-4">
                 {type === 'mapel' && (
                   <>
-                    <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">ID Mapel</label><input name="id_mapel" defaultValue={data?.id_mapel || ''} readOnly={isEdit} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
+                    {isEdit && <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">ID Mapel</label><input name="id_mapel" defaultValue={data?.id_mapel || ''} readOnly={isEdit} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-400 bg-slate-100" /></div>}
                     <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Nama Mapel</label><input name="nama_mapel" defaultValue={data?.nama_mapel || ''} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
                   </>
                 )}
 
                 {type === 'siswa' && (
                   <>
-                    <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">ID Siswa</label><input name="id_siswa" defaultValue={data?.id_siswa || ''} readOnly={isEdit} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
+                    {isEdit && <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">ID Siswa</label><input name="id_siswa" defaultValue={data?.id_siswa || ''} readOnly={isEdit} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-400 bg-slate-100" /></div>}
                     <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Nama Lengkap</label><input name="nama_lengkap" defaultValue={data?.nama_lengkap || ''} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
                     <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Username</label><input name="username" defaultValue={data?.username || ''} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
                     <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Password {isEdit && '(Kosongkan jika tidak diubah)'}</label><input name="password" type="password" required={!isEdit} className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
@@ -262,7 +263,7 @@
 
                 {type === 'guru' && (
                   <>
-                    <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">ID Guru</label><input name="id_guru" defaultValue={data?.id_guru || ''} readOnly={isEdit} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
+                    {isEdit && <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">ID Guru</label><input name="id_guru" defaultValue={data?.id_guru || ''} readOnly={isEdit} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-400 bg-slate-100" /></div>}
                     <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Nama Lengkap</label><input name="nama_lengkap" defaultValue={data?.nama_lengkap || ''} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
                     <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Username</label><input name="username" defaultValue={data?.username || ''} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
                     <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Password {isEdit && '(Kosongkan jika tidak diubah)'}</label><input name="password" type="password" required={!isEdit} className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
@@ -283,7 +284,7 @@
 
                 {type === 'jadwal' && (
                   <>
-                    <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">ID Ujian (Jadwal)</label><input name="id_jadwal" defaultValue={data?.id_jadwal || ''} readOnly={isEdit} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
+                    {isEdit && <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">ID Ujian (Jadwal)</label><input name="id_jadwal" defaultValue={data?.id_jadwal || ''} readOnly={isEdit} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-400 bg-slate-100" /></div>}
                     <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Mata Pelajaran</label><select name="id_mapel" defaultValue={data?.id_mapel || ''} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white"><option value="">Pilih Mapel</option>{dataMapel.map(m => <option key={m.id_mapel} value={m.id_mapel}>{m.nama_mapel}</option>)}</select></div>
                     <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Guru Pengawas</label><select name="id_guru" defaultValue={data?.id_guru || ''} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white"><option value="">Pilih Guru</option>{dataGuru.map(g => <option key={g.id_guru} value={g.id_guru}>{g.nama_lengkap}</option>)}</select></div>
                     <div className="grid grid-cols-2 gap-2">
@@ -327,8 +328,9 @@
               </div>
             </div>
             {/* Navigation Links */}
-            <div className="flex-1 space-y-1 mt-md overflow-y-auto">
-              <SidebarLink id="dashboard" icon="dashboard" label="Beranda" />
+            <div className="flex-1 space-y-2 mt-4">
+              <SidebarLink id="dashboard" icon="dashboard" label="Dashboard" />
+              <SidebarLink id="pemberitahuan" icon="notifications" label="Pemberitahuan" />
               <SidebarLink id="kelas" icon="meeting_room" label="Data Kelas" />
               <SidebarLink id="siswa" icon="group" label="Data Siswa" />
               <SidebarLink id="guru" icon="school" label="Data Guru" />
@@ -367,7 +369,7 @@
                 </button>
                 <div>
                   <h2 className="font-display-sm text-display-sm text-on-surface dark:text-white capitalize font-semibold mb-1">
-                    {activeTab === 'dashboard' ? 'Beranda' : activeTab === 'kelas' ? 'Data Kelas' : activeTab === 'siswa' ? 'Data Siswa' : activeTab === 'guru' ? 'Data Guru' : activeTab === 'mapel' ? 'Mata Pelajaran' : activeTab === 'jadwal' ? 'Kelola Jadwal' : activeTab === 'monitoring' ? 'Monitoring Ujian' : 'Hasil Ujian'}
+                    {activeTab === 'dashboard' ? 'Beranda' : activeTab === 'pemberitahuan' ? 'Pemberitahuan' : activeTab === 'kelas' ? 'Data Kelas' : activeTab === 'siswa' ? 'Data Siswa' : activeTab === 'guru' ? 'Data Guru' : activeTab === 'mapel' ? 'Mata Pelajaran' : activeTab === 'jadwal' ? 'Kelola Jadwal' : activeTab === 'monitoring' ? 'Monitoring Ujian' : 'Hasil Ujian'}
                   </h2>
                   <p className="text-body-md text-on-surface-variant dark:text-slate-400">Panel Manajemen Admin.</p>
                 </div>
@@ -441,6 +443,19 @@
                       <li><strong>Pengawasan:</strong> Guru pengawas meng-generate token ujian pada menu 'Pantau Ujian' saat hari H.</li>
                       <li><strong>Hasil Evaluasi:</strong> Lihat rekapitulasi nilai pada menu 'Hasil Ujian' setelah ujian selesai.</li>
                     </ol>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'pemberitahuan' && (
+              <div className="animate-fade-in-up">
+                <h2 className="text-3xl font-black text-slate-800 dark:text-white mb-6">Pemberitahuan Sistem</h2>
+                <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-xl p-8 border border-slate-100 dark:border-slate-700">
+                  <div className="flex flex-col items-center justify-center text-center space-y-4 text-slate-500 dark:text-slate-400 py-10">
+                    <span className="material-symbols-outlined text-6xl text-primary/50">notifications_active</span>
+                    <h3 className="text-xl font-bold text-slate-700 dark:text-slate-200">Belum Ada Pemberitahuan</h3>
+                    <p className="max-w-md">Saat ini tidak ada informasi atau pemberitahuan terbaru untuk Admin Sekolah. Semua informasi terkait sistem, pembaruan jadwal ujian, atau laporan sistem akan muncul di sini.</p>
                   </div>
                 </div>
               </div>

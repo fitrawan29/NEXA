@@ -1,5 +1,7 @@
     // Fungsi fetchAPI sebagai Router Supabase
 
+    const generateId = (prefix) => `${prefix}-${crypto.randomUUID().split('-')[0].toUpperCase()}`;
+
     const fetchAPI = async (action, payload = {}) => {
       try {
         let data, error;
@@ -147,12 +149,14 @@
             return { status: 'success', data };
           }
           case 'create_siswa': {
+            if (!payload.id_siswa) payload.id_siswa = generateId('S');
             ({ error } = await supabaseClient.from('siswa').insert([payload]));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Siswa berhasil ditambahkan' };
           }
           case 'create_siswa_bulk': {
-            ({ error } = await supabaseClient.from('siswa').insert(payload));
+            const bulkData = payload.map(item => ({ ...item, id_siswa: item.id_siswa || generateId('S') }));
+            ({ error } = await supabaseClient.from('siswa').insert(bulkData));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Siswa berhasil ditambahkan secara massal' };
           }
@@ -184,6 +188,7 @@
             return { status: 'success', data: processedData };
           }
           case 'create_guru': {
+            if (!payload.id_guru) payload.id_guru = generateId('G');
             const { mapels, ...guruData } = payload;
             const res = await supabaseClient.from('guru').insert([guruData]).select();
             if (res.error) return { status: 'error', message: res.error.message };
@@ -194,7 +199,8 @@
             return { status: 'success', message: 'Guru berhasil ditambahkan' };
           }
           case 'create_guru_bulk': {
-            ({ error } = await supabaseClient.from('guru').insert(payload));
+            const bulkData = payload.map(item => ({ ...item, id_guru: item.id_guru || generateId('G') }));
+            ({ error } = await supabaseClient.from('guru').insert(bulkData));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Guru berhasil ditambahkan secara massal' };
           }
@@ -224,12 +230,14 @@
             return { status: 'success', data };
           }
           case 'create_mapel': {
+            if (!payload.id_mapel) payload.id_mapel = generateId('M');
             ({ error } = await supabaseClient.from('mata_pelajaran').insert([payload]));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Mata pelajaran berhasil ditambahkan' };
           }
           case 'create_mapel_bulk': {
-            ({ error } = await supabaseClient.from('mata_pelajaran').insert(payload));
+            const bulkData = payload.map(item => ({ ...item, id_mapel: item.id_mapel || generateId('M') }));
+            ({ error } = await supabaseClient.from('mata_pelajaran').insert(bulkData));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Mata pelajaran berhasil ditambahkan secara massal' };
           }
@@ -259,12 +267,14 @@
           }
 
           case 'create_jadwal': {
+            if (!payload.id_jadwal) payload.id_jadwal = generateId('U');
             ({ error } = await supabaseClient.from('jadwal').insert([payload]));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Jadwal berhasil ditambahkan' };
           }
           case 'create_jadwal_bulk': {
-            ({ error } = await supabaseClient.from('jadwal').insert(payload));
+            const bulkData = payload.map(item => ({ ...item, id_jadwal: item.id_jadwal || generateId('U') }));
+            ({ error } = await supabaseClient.from('jadwal').insert(bulkData));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Jadwal berhasil ditambahkan secara massal' };
           }
