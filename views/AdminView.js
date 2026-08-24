@@ -11,8 +11,10 @@
       const [dataGuru, setDataGuru] = useState([]);
       const [dataJadwal, setDataJadwal] = useState([]);
       const [dataMapel, setDataMapel] = useState([]);
+      const [dataKelas, setDataKelas] = useState([]);
       const [dataLog, setDataLog] = useState([]); // monitoring / hasil
       const [isLoading, setIsLoading] = useState(true);
+      const [hasNotification, setHasNotification] = useState(false);
 
       const [selectedKelas, setSelectedKelas] = useState(null); // Filter kelas
       const [selectedJadwal, setSelectedJadwal] = useState(null); // Filter monitoring/hasil
@@ -29,6 +31,8 @@
         } else if (tab === 'siswa' || tab === 'kelas') {
           const res = await api('get_siswa', {});
           if (res.status === 'success') setDataSiswa(res.data);
+          const resK = await api('get_kelas', {});
+          if (resK.status === 'success') setDataKelas(resK.data);
         } else if (tab === 'guru') {
           const res = await api('get_guru', {});
           if (res.status === 'success') setDataGuru(res.data);
@@ -81,6 +85,14 @@
         // Handle Guru mapels checkbox
         if (formModal.type === 'guru') {
           payload.mapels = formData.getAll('mapels');
+        }
+
+        // Handle Siswa kelas_gabungan
+        if (formModal.type === 'siswa' && payload.kelas_gabungan) {
+          const [t, p] = payload.kelas_gabungan.split('|');
+          payload.angkatan = t;
+          payload.kelas_paralel = p;
+          delete payload.kelas_gabungan;
         }
 
         const res = await api(endpoint, payload);
@@ -218,6 +230,37 @@
         return groups;
       }, [dataSiswa]);
 
+      const [autoUsername, setAutoUsername] = useState('');
+
+      useEffect(() => {
+        if (formModal.isOpen && formModal.data) {
+          setAutoUsername(formModal.data.username || '');
+        } else if (formModal.isOpen) {
+          setAutoUsername('');
+        }
+      }, [formModal.isOpen, formModal.data]);
+
+      const handleAutoUsernameSiswa = () => {
+        const nama = document.getElementById('input_nama_siswa')?.value || '';
+        const kelas = document.getElementById('input_kelas_siswa')?.value || '';
+        if (!nama || !kelas) return;
+        const [t, p] = kelas.split('|');
+        const u = `${nama.split(' ')[0].toLowerCase()}_${t.toLowerCase()}_${p.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`;
+        setAutoUsername(u);
+      };
+
+      const handleAutoUsernameGuru = () => {
+        const nama = document.getElementById('input_nama_guru')?.value || '';
+        const mapelEls = document.querySelectorAll('input[name="mapels"]:checked');
+        if (!nama || mapelEls.length === 0) return;
+        const mapelId = mapelEls[0].value;
+        const mapelObj = dataMapel.find(m => m.id_mapel === mapelId);
+        if (!mapelObj) return;
+        const mapelName = mapelObj.nama_mapel.split(' ')[0].toLowerCase();
+        const u = `${nama.split(' ')[0].toLowerCase()}_${mapelName}`;
+        setAutoUsername(u);
+      };
+
       const renderFormModal = () => {
         if (!formModal.isOpen) return null;
         const { type, data } = formModal;
@@ -230,6 +273,13 @@
                 {isEdit ? 'Edit Data' : 'Tambah Data'} {type}
               </h2>
               <form onSubmit={handleSaveForm} className="space-y-4">
+                {type === 'kelas' && (
+                  <>
+                    {isEdit && <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">ID Kelas</label><input name="id_kelas" defaultValue={data?.id_kelas || ''} readOnly={isEdit} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800" /></div>}
+                    <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Tingkat (Contoh: X, 10, dll)</label><input name="tingkat" defaultValue={data?.tingkat || ''} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
+                    <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Kelas Paralel (Contoh: IPA 1, A, dll)</label><input name="kelas_paralel" defaultValue={data?.kelas_paralel || ''} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
+                  </>
+                )}
                 {type === 'mapel' && (
                   <>
                     {isEdit && <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">ID Mapel</label><input name="id_mapel" defaultValue={data?.id_mapel || ''} readOnly={isEdit} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-400 bg-slate-100" /></div>}
@@ -240,24 +290,15 @@
                 {type === 'siswa' && (
                   <>
                     {isEdit && <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">ID Siswa</label><input name="id_siswa" defaultValue={data?.id_siswa || ''} readOnly={isEdit} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-400 bg-slate-100" /></div>}
-                    <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Nama Lengkap</label><input name="nama_lengkap" defaultValue={data?.nama_lengkap || ''} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
-                    <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Username</label><input name="username" defaultValue={data?.username || ''} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
+                    <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Nama Lengkap</label><input id="input_nama_siswa" name="nama_lengkap" defaultValue={data?.nama_lengkap || ''} onChange={handleAutoUsernameSiswa} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
+                    <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Username</label><input name="username" value={autoUsername} onChange={(e) => setAutoUsername(e.target.value)} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
                     <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Password {isEdit && '(Kosongkan jika tidak diubah)'}</label><input name="password" type="password" required={!isEdit} className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-sm font-medium mb-1 dark:text-slate-300">Tingkat Kelas</label>
-                        <select name="angkatan" defaultValue={data?.angkatan || ''} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white">
-                          <option value="">Pilih</option>
-                          {['VII', 'VIII', 'IX', 'X', 'XI', 'XII'].map(o => <option key={o} value={o}>{o}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1 dark:text-slate-300">Paralel</label>
-                        <select name="kelas_paralel" defaultValue={data?.kelas_paralel || ''} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white">
-                          <option value="">Pilih</option>
-                          {['A', 'B', 'C', 'D', 'IPA-1', 'IPA-2', 'IPS-1', 'IPS-2'].map(o => <option key={o} value={o}>{o}</option>)}
-                        </select>
-                      </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1 dark:text-slate-300">Kelas</label>
+                      <select id="input_kelas_siswa" name="kelas_gabungan" defaultValue={data ? `${data.angkatan}|${data.kelas_paralel}` : ''} onChange={handleAutoUsernameSiswa} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white">
+                        <option value="">Pilih Kelas</option>
+                        {dataKelas.map(k => <option key={k.id_kelas} value={`${k.tingkat}|${k.kelas_paralel}`}>{k.tingkat} {k.kelas_paralel}</option>)}
+                      </select>
                     </div>
                   </>
                 )}
@@ -265,15 +306,15 @@
                 {type === 'guru' && (
                   <>
                     {isEdit && <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">ID Guru</label><input name="id_guru" defaultValue={data?.id_guru || ''} readOnly={isEdit} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-400 bg-slate-100" /></div>}
-                    <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Nama Lengkap</label><input name="nama_lengkap" defaultValue={data?.nama_lengkap || ''} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
-                    <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Username</label><input name="username" defaultValue={data?.username || ''} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
+                    <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Nama Lengkap</label><input id="input_nama_guru" name="nama_lengkap" defaultValue={data?.nama_lengkap || ''} onChange={handleAutoUsernameGuru} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
+                    <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Username</label><input name="username" value={autoUsername} onChange={(e) => setAutoUsername(e.target.value)} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
                     <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Password {isEdit && '(Kosongkan jika tidak diubah)'}</label><input name="password" type="password" required={!isEdit} className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
                     <div>
                       <label className="block text-sm font-medium mb-2 dark:text-slate-300">Mata Pelajaran (Bisa Pilih Lebih dari 1)</label>
                       <div className="max-h-40 overflow-y-auto border border-outline-variant dark:border-slate-600 rounded-md p-2 space-y-1">
                         {dataMapel.map(m => (
                           <label key={m.id_mapel} className="flex items-center space-x-2 text-sm text-on-surface dark:text-slate-300">
-                            <input type="checkbox" name="mapels" value={m.id_mapel} defaultChecked={data?.id_mapels?.includes(m.id_mapel)} className="rounded text-primary focus:ring-primary" />
+                            <input type="checkbox" name="mapels" value={m.id_mapel} defaultChecked={data?.id_mapels?.includes(m.id_mapel)} onChange={handleAutoUsernameGuru} className="rounded text-primary focus:ring-primary" />
                             <span>{m.nama_mapel}</span>
                           </label>
                         ))}
@@ -395,7 +436,7 @@
 
                  <button onClick={() => setActiveTab('pemberitahuan')} className="relative p-2 rounded-full text-on-surface-variant hover:bg-surface-variant dark:hover:bg-slate-800 transition-colors" title="Pemberitahuan">
                    <span className="material-symbols-outlined">notifications</span>
-                   <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-slate-900"></span>
+                   {hasNotification && <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-slate-900"></span>}
                  </button>
                  
                  <div onClick={() => setProfileModalOpen(true)} className="flex items-center space-x-2 cursor-pointer p-1 pr-3 rounded-full hover:bg-surface-variant dark:hover:bg-slate-800 transition-colors" title="Profil Admin">
@@ -553,11 +594,12 @@
             )}
 
             {/* TAB CONTENT: TABEL CRUD STANDARD */}
-            {['siswa', 'guru', 'mapel', 'jadwal'].includes(activeTab) && (
+            {['kelas', 'siswa', 'guru', 'mapel', 'jadwal'].includes(activeTab) && (
               <div className="bg-surface dark:bg-slate-800 rounded-2xl border border-outline-variant dark:border-slate-700 shadow-sm overflow-hidden animate-fade-in-up overflow-x-auto">
                 <table className="w-full text-left border-collapse min-w-[800px]">
                   <thead className="bg-surface-variant/30 dark:bg-slate-800/80">
                     <tr>
+                      {activeTab === 'kelas' && (<><th className="py-md px-md text-label-md font-semibold text-on-surface-variant dark:text-slate-400">Tingkat</th><th className="py-md px-md font-semibold">Paralel</th></>)}
                       {activeTab === 'siswa' && (<><th className="py-md px-md text-label-md font-semibold text-on-surface-variant dark:text-slate-400">ID Siswa</th><th className="py-md px-md font-semibold">Nama Lengkap</th><th className="py-md px-md font-semibold">Username</th><th className="py-md px-md font-semibold">Tingkat</th><th className="py-md px-md font-semibold">Paralel</th></>)}
                       {activeTab === 'guru' && (<><th className="py-md px-md text-label-md font-semibold text-on-surface-variant dark:text-slate-400">ID Guru</th><th className="py-md px-md font-semibold">Nama Lengkap</th><th className="py-md px-md font-semibold">Username</th><th className="py-md px-md font-semibold">Mata Pelajaran</th></>)}
                       {activeTab === 'mapel' && (<><th className="py-md px-md text-label-md font-semibold text-on-surface-variant dark:text-slate-400">ID Mapel</th><th className="py-md px-md font-semibold">Nama Mapel</th></>)}
@@ -567,16 +609,17 @@
                   </thead>
                   <tbody className="text-body-md divide-y divide-outline-variant/30 dark:divide-slate-700">
                     {isLoading ? (<tr><td colSpan="6" className="py-xl text-center">Memuat data...</td></tr>) : (
-                      (activeTab === 'siswa' ? dataSiswa : activeTab === 'guru' ? dataGuru : activeTab === 'mapel' ? dataMapel : dataJadwal).length > 0 ? (
-                        (activeTab === 'siswa' ? dataSiswa : activeTab === 'guru' ? dataGuru : activeTab === 'mapel' ? dataMapel : dataJadwal).map((row) => (
-                          <tr key={row.id_jadwal || row.id_siswa || row.id_guru || row.id_mapel} className="hover:bg-surface-variant/20 dark:hover:bg-slate-800/50">
+                      (activeTab === 'kelas' ? dataKelas : activeTab === 'siswa' ? dataSiswa : activeTab === 'guru' ? dataGuru : activeTab === 'mapel' ? dataMapel : dataJadwal).length > 0 ? (
+                        (activeTab === 'kelas' ? dataKelas : activeTab === 'siswa' ? dataSiswa : activeTab === 'guru' ? dataGuru : activeTab === 'mapel' ? dataMapel : dataJadwal).map((row) => (
+                          <tr key={row.id_kelas || row.id_jadwal || row.id_siswa || row.id_guru || row.id_mapel} className="hover:bg-surface-variant/20 dark:hover:bg-slate-800/50">
+                            {activeTab === 'kelas' && (<><td className="p-4">{row.tingkat}</td><td className="p-4">{row.kelas_paralel}</td></>)}
                             {activeTab === 'siswa' && (<><td className="p-4">{row.id_siswa}</td><td className="p-4">{row.nama_lengkap}</td><td className="p-4">{row.username}</td><td className="p-4">{row.angkatan}</td><td className="p-4">{row.kelas_paralel}</td></>)}
                             {activeTab === 'guru' && (<><td className="p-4">{row.id_guru}</td><td className="p-4">{row.nama_lengkap}</td><td className="p-4">{row.username}</td><td className="p-4 text-xs max-w-xs truncate">{row.mapels_list}</td></>)}
                             {activeTab === 'mapel' && (<><td className="p-4">{row.id_mapel}</td><td className="p-4">{row.nama_mapel}</td></>)}
                             {activeTab === 'jadwal' && (<><td className="p-4">{row.id_jadwal}</td><td className="p-4">{row.nama_mapel}</td><td className="p-4">{row.guru}</td><td className="p-4 text-sm">{new Date(row.waktu_mulai).toLocaleString('id-ID')} s.d {new Date(row.waktu_selesai).toLocaleString('id-ID')}</td></>)}
                             <td className="p-4 text-right">
                               <button onClick={() => openEditModal(activeTab, row)} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded mr-2"><span className="material-symbols-outlined text-[20px]">edit</span></button>
-                              <button onClick={() => handleDelete(row.id_jadwal || row.id_siswa || row.id_guru || row.id_mapel, activeTab)} className="p-1.5 text-error hover:bg-error/20 rounded"><span className="material-symbols-outlined text-[20px]">delete</span></button>
+                              <button onClick={() => handleDelete(row.id_kelas || row.id_jadwal || row.id_siswa || row.id_guru || row.id_mapel, activeTab)} className="p-1.5 text-error hover:bg-error/20 rounded"><span className="material-symbols-outlined text-[20px]">delete</span></button>
                             </td>
                           </tr>
                         ))

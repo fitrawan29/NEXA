@@ -276,6 +276,29 @@
             return { status: 'success', message: 'Mata pelajaran berhasil dihapus' };
           }
 
+          // DATA KELAS
+          case 'get_kelas': {
+            ({ data, error } = await supabaseClient.from('kelas').select('*').eq('npsn', payload.npsn).order('tingkat', { ascending: true }));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', data };
+          }
+          case 'create_kelas': {
+            ({ error } = await supabaseClient.from('kelas').insert([payload]));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Kelas berhasil ditambahkan' };
+          }
+          case 'update_kelas': {
+            const { id_kelas, npsn, ...updates } = payload;
+            ({ error } = await supabaseClient.from('kelas').update(updates).eq('id_kelas', id_kelas).eq('npsn', payload.npsn));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Kelas berhasil diperbarui' };
+          }
+          case 'delete_kelas': {
+            ({ error } = await supabaseClient.from('kelas').delete().eq('id_kelas', payload.id_kelas).eq('npsn', payload.npsn));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Kelas berhasil dihapus' };
+          }
+
           case 'get_all_jadwal': {
             ({ data, error } = await supabaseClient.from('jadwal').select('*, guru(nama_lengkap), mata_pelajaran(nama_mapel)').eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
