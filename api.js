@@ -2,6 +2,25 @@
 
     const generateId = (prefix) => `${prefix}-${crypto.randomUUID().split('-')[0].toUpperCase()}`;
 
+    // Helper untuk membongkar metadata soal dari field 'pertanyaan'
+    const unpackSoal = (s) => {
+      if (!s || !s.pertanyaan) return s;
+      let meta = null;
+      try { meta = JSON.parse(s.pertanyaan); } catch(e) {}
+      if (meta && meta._pertanyaan !== undefined) {
+        return {
+          ...s,
+          pertanyaan: meta._pertanyaan,
+          tipe_soal: meta._tipe_soal,
+          opsi: meta._opsi,
+          bobot: meta._bobot ?? 1,
+          gambar: meta._gambar ?? null,
+          id_narasi: meta._id_narasi ?? null
+        };
+      }
+      return s;
+    };
+
     const fetchAPI = async (action, payload = {}) => {
       try {
         let data, error;
@@ -357,51 +376,57 @@
             // Note: in Supabase, the column is id_jadwal, but we use it to store id_mapel for the bank soal
             ({ data, error } = await supabaseClient.from('soal_ujian').select('*').eq('id_jadwal', payload.id_mapel).eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
-            // Unpack bobot/gambar/id_narasi and restore original opsi from packed field
-            const unpackSoal = (s) => {
-              let meta = null;
-              if (s.opsi) { try { meta = JSON.parse(s.opsi); } catch(e) {} }
-              const bobot = meta?._bobot ?? 1;
-              const gambar = meta?._gambar ?? null;
-              const id_narasi = meta?._id_narasi ?? null;
-              // Restore original opsi (the answer options array/string)
-              const originalOpsi = meta?._raw ?? s.opsi;
-              return { ...s, opsi: originalOpsi, bobot, gambar, id_narasi };
-            };
             return { status: 'success', data: (data || []).map(unpackSoal) };
           }
 
           case 'create_soal_mapel': {
-            // Pack extra metadata (bobot, gambar, id_narasi) alongside raw opsi
-            // soal_ujian table only has: id_soal, id_mapel, npsn, tipe_soal, pertanyaan, opsi, kunci_jawaban
-            const buildOpsiField = (p) => {
-              // opsiMeta wraps everything; _raw holds the original options array/string
-              const meta = {};
-              if (p.bobot !== undefined) meta._bobot = p.bobot;
-              if (p.gambar !== undefined) meta._gambar = p.gambar;
-              if (p.id_narasi !== undefined && p.id_narasi !== '') meta._id_narasi = p.id_narasi;
-              if (p.opsi !== undefined && p.opsi !== null) meta._raw = p.opsi; // keep original opsi as _raw
-              return JSON.stringify(meta);
+            // Pack metadata into pertanyaan field since soal_ujian table ONLY has: id_soal, id_jadwal, npsn, pertanyaan, kunci_jawaban
+            const { id_soal, id_mapel, npsn, kunci_jawaban, pertanyaan, tipe_soal, opsi, bobot, gambar, id_narasi } = payload;
+            const metaPertanyaan = {
+              _pertanyaan: pertanyaan,
+              _tipe_soal: tipe_soal,
+              _opsi: opsi,
+              _bobot: bobot !== undefined ? bobot : 1,
+              _gambar: gambar || null,
+              _id_narasi: id_narasi || null
             };
-            const { bobot: _b1, gambar: _g1, id_narasi: _n1, id_mapel, ...soalFields1 } = payload;
-            soalFields1.id_jadwal = id_mapel; // Map id_mapel to id_jadwal column
-            soalFields1.opsi = buildOpsiField(payload);
-            ({ error } = await supabaseClient.from('soal_ujian').insert([soalFields1]));
+            
+            const insertData = {
+              id_soal,
+              id_jadwal: id_mapel, // Map id_mapel to id_jadwal
+              npsn,
+              kunci_jawaban,
+              pertanyaan: JSON.stringify(metaPertanyaan)
+            };
+            
+            ({ error } = await supabaseClient.from('soal_ujian').insert([insertData]));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Soal berhasil ditambahkan.' };
           }
 
           case 'update_soal_mapel': {
-            const { id_soal: upId, npsn: upNpsn, bobot: _b2, gambar: _g2, id_narasi: _n2, id_mapel, ...upFields } = payload;
-            if (id_mapel) upFields.id_jadwal = id_mapel;
-            // Pack extra metadata into opsi
-            const meta2 = {};
-            if (payload.bobot !== undefined) meta2._bobot = payload.bobot;
-            if (payload.gambar !== undefined) meta2._gambar = payload.gambar;
-            if (payload.id_narasi !== undefined && payload.id_narasi !== '') meta2._id_narasi = payload.id_narasi;
-            if (upFields.opsi !== undefined && upFields.opsi !== null) meta2._raw = upFields.opsi;
-            upFields.opsi = JSON.stringify(meta2);
-            ({ error } = await supabaseClient.from('soal_ujian').update(upFields).eq('id_soal', upId).eq('npsn', upNpsn));
+            const { id_soal: upId, npsn: upNpsn, id_mapel, kunci_jawaban, pertanyaan, tipe_soal, opsi, bobot, gambar, id_narasi } = payload;
+            
+            // First fetch the existing soal to get previous metadata if any is missing
+            const { data: existing } = await supabaseClient.from('soal_ujian').select('pertanyaan').eq('id_soal', upId).eq('npsn', upNpsn).single();
+            let meta = {};
+            if (existing && existing.pertanyaan) {
+              try { meta = JSON.parse(existing.pertanyaan); } catch(e) { meta = { _pertanyaan: existing.pertanyaan }; }
+            }
+            
+            if (pertanyaan !== undefined) meta._pertanyaan = pertanyaan;
+            if (tipe_soal !== undefined) meta._tipe_soal = tipe_soal;
+            if (opsi !== undefined) meta._opsi = opsi;
+            if (bobot !== undefined) meta._bobot = bobot;
+            if (gambar !== undefined) meta._gambar = gambar;
+            if (id_narasi !== undefined && id_narasi !== '') meta._id_narasi = id_narasi;
+            
+            const updateData = {};
+            if (kunci_jawaban !== undefined) updateData.kunci_jawaban = kunci_jawaban;
+            if (id_mapel !== undefined) updateData.id_jadwal = id_mapel;
+            updateData.pertanyaan = JSON.stringify(meta);
+
+            ({ error } = await supabaseClient.from('soal_ujian').update(updateData).eq('id_soal', upId).eq('npsn', upNpsn));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Soal berhasil diperbarui.' };
           }
@@ -417,7 +442,10 @@
             if (error) return { status: 'error', message: error.message };
             return {
               status: 'success',
-              data: data.map(j => ({ ...j, pertanyaan: j.soal_ujian ? j.soal_ujian.pertanyaan : 'Unknown' }))
+              data: data.map(j => {
+                const soalUnpacked = unpackSoal(j.soal_ujian);
+                return { ...j, pertanyaan: soalUnpacked ? soalUnpacked.pertanyaan : 'Unknown' };
+              })
             };
           }
 
@@ -526,6 +554,9 @@
             ({ data, error } = await supabaseClient.from('soal_ujian').select('*').eq('id_jadwal', jadwal.id_mapel).eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
             
+            // Unpack data first
+            const unpackedData = (data || []).map(unpackSoal);
+
             // Fisher-Yates shuffle helper
             const shuffleArray = (arr) => {
               const a = [...arr];
@@ -537,20 +568,18 @@
             };
 
             // Filter out NARASI and SKEMA_PENILAIAN from exam questions
-            const soalAktif = (data || []).filter(s => s.tipe_soal !== 'NARASI' && s.tipe_soal !== 'SKEMA_PENILAIAN');
+            const soalAktif = unpackedData.filter(s => s.tipe_soal !== 'NARASI' && s.tipe_soal !== 'SKEMA_PENILAIAN');
             const narasiMap = {};
-            (data || []).filter(s => s.tipe_soal === 'NARASI').forEach(n => { narasiMap[n.id_soal] = n; });
+            unpackedData.filter(s => s.tipe_soal === 'NARASI').forEach(n => { narasiMap[n.id_soal] = n; });
 
-            // Helper to extract clean options array from packed opsi field
+            // Helper to extract clean options array
             const getCleanOpsi = (soal) => {
               if (!soal.opsi) return null;
+              // opsi can be an array directly since unpackSoal might have preserved it
+              if (Array.isArray(soal.opsi)) return soal.opsi;
               try {
                 const parsed = JSON.parse(soal.opsi);
-                // If it's an array, it's the raw options
                 if (Array.isArray(parsed)) return parsed;
-                // If it's an object, strip metadata keys and check for actual options
-                const { _bobot, _gambar, _id_narasi, _raw } = parsed;
-                if (_raw) { try { return JSON.parse(_raw); } catch(e) { return _raw; } }
                 return null;
               } catch(e) { return null; }
             };
@@ -588,7 +617,8 @@
             const idSiswa = payload.id_siswa;
 
             const { data: jadwal } = await supabaseClient.from('jadwal').select('id_mapel').eq('id_jadwal', payload.id_jadwal).single();
-            const { data: soalData } = await supabaseClient.from('soal_ujian').select('*').eq('id_jadwal', jadwal?.id_mapel).eq('npsn', payload.npsn);
+            const { data: rawSoalData } = await supabaseClient.from('soal_ujian').select('*').eq('id_jadwal', jadwal?.id_mapel).eq('npsn', payload.npsn);
+            const soalData = (rawSoalData || []).map(unpackSoal);
             
             let totalSkorMaxAuto = 0;
             let totalSkorDiperolehAuto = 0;
