@@ -8,6 +8,26 @@
       const [activeExamData, setActiveExamData] = useState(null);
       const [inputToken, setInputToken] = useState('');
       const [selectedJadwalUntukToken, setSelectedJadwalUntukToken] = useState(null);
+      
+      const [activeTab, setActiveTab] = useState('ujian');
+      const [dataPengumuman, setDataPengumuman] = useState([]);
+      const [hasNotification, setHasNotification] = useState(false);
+
+      useEffect(() => {
+        if (activeTab === 'pengumuman') {
+          loadPengumuman();
+        }
+      }, [activeTab]);
+
+      const loadPengumuman = async () => {
+        setIsLoading(true);
+        const res = await api('get_pengumuman', { role: 'siswa' });
+        if (res.status === 'success') {
+          setDataPengumuman(res.data);
+          setHasNotification(false);
+        }
+        setIsLoading(false);
+      };
 
       useEffect(() => { loadJadwal(); }, []);
 
@@ -67,12 +87,14 @@
                 <img src="stitch_assets/screen_3_logo.png" alt="NEXA Logo" className="h-full w-auto object-contain" />
               </div>
               <div className="hidden md:flex items-center h-full gap-lg">
-                <a className="h-16 flex items-center text-primary dark:text-primary-fixed font-bold border-b-2 border-primary dark:border-primary-fixed font-label-md text-label-md" href="#">Portal Ujian Siswa</a>
+                <a onClick={() => setActiveTab('ujian')} className={`cursor-pointer h-16 flex items-center font-bold border-b-2 font-label-md text-label-md transition-colors ${activeTab === 'ujian' ? 'text-primary dark:text-primary-fixed border-primary dark:border-primary-fixed' : 'text-on-surface-variant border-transparent hover:text-primary'}`}>Portal Ujian</a>
+                <a onClick={() => setActiveTab('pengumuman')} className={`cursor-pointer h-16 flex items-center font-bold border-b-2 font-label-md text-label-md transition-colors ${activeTab === 'pengumuman' ? 'text-primary dark:text-primary-fixed border-primary dark:border-primary-fixed' : 'text-on-surface-variant border-transparent hover:text-primary'}`}>Pengumuman</a>
               </div>
             </div>
             <div className="flex items-center gap-md">
-              <button className="w-10 h-10 flex items-center justify-center rounded-full text-secondary dark:text-slate-400 hover:bg-surface-container-highest dark:hover:bg-slate-800 transition-colors relative hidden sm:flex">
+              <button onClick={() => setActiveTab('pengumuman')} className="w-10 h-10 flex items-center justify-center rounded-full text-secondary dark:text-slate-400 hover:bg-surface-container-highest dark:hover:bg-slate-800 transition-colors relative hidden sm:flex">
                 <span className="material-symbols-outlined">notifications</span>
+                {hasNotification && <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-slate-900"></span>}
               </button>
               <button onClick={() => setIsDarkMode(!isDarkMode)} className="w-9 h-9 rounded-full bg-surface-container-highest dark:bg-slate-800 border border-outline-variant dark:border-slate-700 flex items-center justify-center text-on-surface dark:text-white hover:bg-white dark:hover:bg-slate-700 transition-colors shadow-sm">
                 <span className="material-symbols-outlined text-[20px]">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
@@ -91,21 +113,23 @@
 
           {/* Main Content Canvas */}
           <main className="pt-[96px] px-md md:px-lg max-w-container-max mx-auto space-y-gutter pb-xl flex-1 w-full">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-sm mb-lg">
-              <div>
-                <h1 className="font-headline-lg text-headline-lg text-on-surface dark:text-white flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary dark:text-primary-fixed text-[32px]">menu_book</span> Daftar Ujian Tersedia
-                </h1>
-                <p className="font-body-md text-body-md text-on-surface-variant dark:text-slate-400 mt-1">Pilih jadwal ujian dan masukkan token dari pengawas untuk memulai.</p>
-              </div>
-              <div className="flex gap-sm">
-                <button onClick={loadJadwal} className="bg-primary text-on-primary py-sm px-md rounded-lg font-label-md text-label-md hover:bg-on-primary-fixed-variant transition-colors flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[18px]">refresh</span> Refresh Jadwal
-                </button>
-              </div>
-            </div>
+            {activeTab === 'ujian' && (
+              <>
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-sm mb-lg">
+                  <div>
+                    <h1 className="font-headline-lg text-headline-lg text-on-surface dark:text-white flex items-center gap-2">
+                      <span className="material-symbols-outlined text-primary dark:text-primary-fixed text-[32px]">menu_book</span> Daftar Ujian Tersedia
+                    </h1>
+                    <p className="font-body-md text-body-md text-on-surface-variant dark:text-slate-400 mt-1">Pilih jadwal ujian dan masukkan token dari pengawas untuk memulai.</p>
+                  </div>
+                  <div className="flex gap-sm">
+                    <button onClick={loadJadwal} className="bg-primary text-on-primary py-sm px-md rounded-lg font-label-md text-label-md hover:bg-on-primary-fixed-variant transition-colors flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[18px]">refresh</span> Refresh Jadwal
+                    </button>
+                  </div>
+                </div>
 
-            {isLoading ? <Loader text="Menyinkronkan jadwal..." /> : (
+                {isLoading ? <Loader text="Menyinkronkan jadwal..." /> : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {jadwal.map(j => (
                   <div key={j.id_jadwal} className="group bg-white dark:bg-slate-800 border border-outline-variant dark:border-slate-700 rounded-xl p-6 hover:shadow-lg hover:-translate-y-1 hover:border-primary/30 transition-all duration-300 relative overflow-hidden flex flex-col">
@@ -168,6 +192,38 @@
                 ))}
                 {jadwal.length === 0 && (
                   <div className="col-span-full py-12 text-center font-body-md text-on-surface-variant">Tidak ada jadwal ujian saat ini.</div>
+                )}
+              </div>
+            )}
+              </>
+            )}
+
+            {activeTab === 'pengumuman' && (
+              <div className="animate-fade-in-up">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-sm mb-lg">
+                  <div>
+                    <h1 className="font-headline-lg text-headline-lg text-on-surface dark:text-white flex items-center gap-2">
+                      <span className="material-symbols-outlined text-primary dark:text-primary-fixed text-[32px]">campaign</span> Pengumuman
+                    </h1>
+                    <p className="font-body-md text-body-md text-on-surface-variant dark:text-slate-400 mt-1">Informasi dan pembaruan terbaru dari sekolah.</p>
+                  </div>
+                </div>
+                {isLoading ? <Loader text="Memuat pengumuman..." /> : (
+                  <div className="space-y-4 max-w-4xl">
+                    {dataPengumuman.map(p => (
+                      <div key={p.id_pengumuman} className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-outline-variant dark:border-slate-700 shadow-sm relative hover:shadow-md transition-shadow">
+                        <h4 className="font-bold text-on-surface dark:text-white text-xl mb-1">{p.judul}</h4>
+                        <p className="text-sm text-slate-500 mb-4">{new Date(p.created_at).toLocaleString('id-ID')} • <span className="uppercase text-primary font-bold text-xs bg-primary/10 px-2 py-0.5 rounded">Untuk {p.target_role}</span></p>
+                        <p className="text-on-surface-variant dark:text-slate-300 leading-relaxed whitespace-pre-line text-body-lg">{p.isi}</p>
+                      </div>
+                    ))}
+                    {dataPengumuman.length === 0 && (
+                      <div className="p-12 text-center bg-surface-container-low dark:bg-slate-800/50 rounded-2xl border border-dashed border-outline-variant dark:border-slate-700">
+                        <span className="material-symbols-outlined text-5xl text-slate-400 mb-3 block">notifications_paused</span>
+                        <p className="text-slate-500 font-medium text-lg">Belum ada pengumuman.</p>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             )}

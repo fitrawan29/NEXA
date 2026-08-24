@@ -53,13 +53,27 @@
       const fetchSoal = async () => {
         const res = await api('get_soal_by_mapel', { id_mapel: jadwal.id_mapel });
         if (res.status === 'success') {
-          const parsedSoal = res.data.map(s => {
+          let parsedSoal = res.data.map(s => {
             let parsedOpsi = null;
             if (s.opsi) {
               try { parsedOpsi = JSON.parse(s.opsi); } catch (e) { parsedOpsi = s.opsi; }
             }
+            if (jadwal.acak_opsi && parsedOpsi && (s.tipe_soal === 'PG' || s.tipe_soal === 'PGK')) {
+              for (let i = parsedOpsi.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [parsedOpsi[i], parsedOpsi[j]] = [parsedOpsi[j], parsedOpsi[i]];
+              }
+            }
             return { ...s, opsi: parsedOpsi };
           });
+
+          if (jadwal.acak_soal) {
+            for (let i = parsedSoal.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [parsedSoal[i], parsedSoal[j]] = [parsedSoal[j], parsedSoal[i]];
+            }
+          }
+
           setSoal(parsedSoal);
         }
         setIsLoading(false);
@@ -86,12 +100,14 @@
       const handleFullscreenChange = () => { if (!document.fullscreenElement && !isSubmitting && !isBlocked) reportViolation(); };
 
       const setupAntiCheat = () => {
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        if (jadwal.browser_lockdown) {
+          document.addEventListener('visibilitychange', handleVisibilityChange);
+          document.addEventListener('fullscreenchange', handleFullscreenChange);
+        }
       };
 
       const enforceFullscreen = () => {
-        if (!isBlocked && document.documentElement.requestFullscreen && !document.fullscreenElement) {
+        if (jadwal.browser_lockdown && !isBlocked && document.documentElement.requestFullscreen && !document.fullscreenElement) {
           document.documentElement.requestFullscreen().catch(() => { });
         }
       };
