@@ -1,7 +1,9 @@
-    const FormSoalModal = ({ isOpen, data, onClose, onSave }) => {
+    const FormSoalModal = ({ isOpen, data, narasiList = [], onClose, onSave }) => {
       if (!isOpen) return null;
       const [tipe, setTipe] = useState(data ? data.tipe_soal : 'PG');
       const [pertanyaan, setPertanyaan] = useState(data ? data.pertanyaan : '');
+      const [idNarasi, setIdNarasi] = useState(data && data.id_narasi ? data.id_narasi : '');
+      const [gambar, setGambar] = useState(data ? data.gambar : null);
       const [bobot, setBobot] = useState(data ? data.bobot : 1);
       
       const [opsiPG, setOpsiPG] = useState(data && (data.tipe_soal==='PG' || data.tipe_soal==='PGK') ? JSON.parse(data.opsi || '["","","","",""]') : ['','','','','']);
@@ -17,11 +19,24 @@
       
       const [kunciIsian, setKunciIsian] = useState(data && data.tipe_soal==='ISIAN' ? data.kunci_jawaban : '');
 
+      const handleImageUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (upload) => {
+            setGambar(upload.target.result);
+          };
+          reader.readAsDataURL(file);
+        }
+      };
+
       const handleSave = () => {
         let payload = {
           id_soal: data ? data.id_soal : null,
           tipe_soal: tipe,
           pertanyaan: pertanyaan,
+          id_narasi: idNarasi,
+          gambar: gambar,
           bobot: bobot
         };
 
@@ -70,8 +85,23 @@
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-bold mb-1">Pertanyaan / Stimulus</label>
-                <textarea value={pertanyaan} onChange={(e) => setPertanyaan(e.target.value)} className="w-full p-2 border rounded h-32 bg-surface dark:bg-slate-900" placeholder="Tuliskan teks bacaan (stimulus) beserta pertanyaan..."></textarea>
+                <label className="block text-sm font-bold mb-1">Pilih Narasi / Stimulus Bersama (Opsional)</label>
+                <select value={idNarasi} onChange={(e) => setIdNarasi(e.target.value)} className="w-full p-2 border rounded bg-surface dark:bg-slate-900">
+                  <option value="">-- Tanpa Narasi Bersama --</option>
+                  {narasiList.map(n => (
+                    <option key={n.id_soal} value={n.id_soal}>ID: {n.id_soal} - {n.pertanyaan.substring(0, 50)}...</option>
+                  ))}
+                </select>
+                <p className="text-xs text-slate-500 mt-1">Gunakan ini jika soal ini merujuk pada bacaan/stimulus yang sama dengan soal lain.</p>
+              </div>
+              <div>
+                <label className="block text-sm font-bold mb-1">Pertanyaan / Instruksi Spesifik</label>
+                <textarea value={pertanyaan} onChange={(e) => setPertanyaan(e.target.value)} className="w-full p-2 border rounded h-32 bg-surface dark:bg-slate-900" placeholder="Tuliskan pertanyaan..."></textarea>
+              </div>
+              <div>
+                <label className="block text-sm font-bold mb-1">Gambar (Opsional)</label>
+                <input type="file" accept="image/*" onChange={handleImageUpload} className="w-full p-2 border rounded bg-surface dark:bg-slate-900" />
+                {gambar && <img src={gambar} alt="Preview" className="mt-2 max-h-32 rounded border" />}
               </div>
               <div>
                 <label className="block text-sm font-bold mb-1">Bobot Nilai</label>

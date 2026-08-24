@@ -11,8 +11,10 @@
       
       const [dataMapel, setDataMapel] = useState([]);
       const [selectedMapel, setSelectedMapel] = useState(null);
-      const [dataSoal, setDataSoal] = useState([]);
+      const [dataSoal, setDataSoal] = useState([]); // This will contain SOAL, NARASI, and SKEMA
       const [formSoal, setFormSoal] = useState({ isOpen: false, data: null });
+      const [formNarasi, setFormNarasi] = useState({ isOpen: false, data: null });
+      const [soalSubTab, setSoalSubTab] = useState('soal'); // soal, narasi, skema
       
       const [modalUraian, setModalUraian] = useState({ isOpen: false, logUjian: null, jawabanUraian: [] });
 
@@ -79,6 +81,23 @@
         const res = await api(endpoint, payload);
         if (res.status === 'success') {
           setFormSoal({ isOpen: false, data: null });
+          setFormNarasi({ isOpen: false, data: null });
+          fetchData();
+        } else alert(res.message);
+      };
+
+      const saveSkema = async (payload) => {
+        // Skema is saved as a special Soal record
+        let skemaRecord = dataSoal.find(s => s.tipe_soal === 'SKEMA_PENILAIAN');
+        payload.id_soal = skemaRecord ? skemaRecord.id_soal : 'SKEMA-' + selectedMapel;
+        payload.tipe_soal = 'SKEMA_PENILAIAN';
+        payload.id_mapel = selectedMapel;
+        payload.pertanyaan = 'Skema Penilaian';
+        
+        const endpoint = skemaRecord ? 'update_soal_mapel' : 'create_soal_mapel';
+        const res = await api(endpoint, payload);
+        if (res.status === 'success') {
+          alert('Skema penilaian berhasil disimpan.');
           fetchData();
         } else alert(res.message);
       };
@@ -218,35 +237,75 @@
             {activeTab === 'bank_soal' && selectedMapel && (
               <div className="animate-fade-in-up">
                 <div className="flex justify-between items-center mb-4">
-                  <button onClick={() => setSelectedMapel(null)} className="flex items-center gap-2 text-primary font-bold hover:underline"><span className="material-symbols-outlined">arrow_back</span> Kembali</button>
-                  <button onClick={() => setFormSoal({ isOpen: true, data: null })} className="bg-primary text-on-primary hover:bg-primary/90 px-4 py-2 rounded-lg font-bold flex items-center gap-2 shadow-sm hover:-translate-y-0.5 transition-all"><span className="material-symbols-outlined">add</span> Tambah Soal</button>
+                  <button onClick={() => { setSelectedMapel(null); setSoalSubTab('soal'); }} className="flex items-center gap-2 text-primary font-bold hover:underline"><span className="material-symbols-outlined">arrow_back</span> Kembali</button>
+                  <div className="flex gap-2">
+                    <button onClick={() => setSoalSubTab('soal')} className={`px-4 py-2 rounded-lg font-bold transition-all ${soalSubTab === 'soal' ? 'bg-primary text-on-primary shadow-sm' : 'bg-surface-variant hover:bg-surface-variant/80'}`}>Daftar Soal</button>
+                    <button onClick={() => setSoalSubTab('narasi')} className={`px-4 py-2 rounded-lg font-bold transition-all ${soalSubTab === 'narasi' ? 'bg-primary text-on-primary shadow-sm' : 'bg-surface-variant hover:bg-surface-variant/80'}`}>Daftar Narasi</button>
+                    <button onClick={() => setSoalSubTab('skema')} className={`px-4 py-2 rounded-lg font-bold transition-all ${soalSubTab === 'skema' ? 'bg-primary text-on-primary shadow-sm' : 'bg-surface-variant hover:bg-surface-variant/80'}`}>Skema Penilaian</button>
+                  </div>
                 </div>
-                <div className="bg-surface dark:bg-slate-800 rounded-2xl border border-outline-variant shadow-sm overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead className="bg-surface-variant/30">
-                      <tr><th className="p-4">Tipe</th><th className="p-4">Pertanyaan / Stimulus</th><th className="p-4 text-center">Bobot</th><th className="p-4 text-right">Aksi</th></tr>
-                    </thead>
-                    <tbody>
-                      {dataSoal.map(s => (
-                        <tr key={s.id_soal} className="border-t border-outline-variant/30 hover:bg-surface-variant/10">
-                          <td className="p-4 font-bold text-primary">{s.tipe_soal}</td>
-                          <td className="p-4 text-sm"><div className="line-clamp-2 max-w-lg" dangerouslySetInnerHTML={{ __html: s.pertanyaan }}></div></td>
-                          <td className="p-4 text-center font-bold">{s.bobot || 1}</td>
-                          <td className="p-4 text-right whitespace-nowrap">
-                            <button onClick={() => setFormSoal({ isOpen: true, data: s })} className="text-blue-500 hover:text-blue-700 mr-3 p-1 rounded hover:bg-blue-50"><span className="material-symbols-outlined">edit</span></button>
-                            <button onClick={() => deleteSoal(s.id_soal)} className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50"><span className="material-symbols-outlined">delete</span></button>
-                          </td>
-                        </tr>
+
+                {soalSubTab === 'soal' && (
+                  <div className="bg-surface dark:bg-slate-800 rounded-2xl border border-outline-variant shadow-sm overflow-hidden">
+                    <div className="p-4 border-b border-outline-variant flex justify-between items-center">
+                      <h3 className="font-bold text-lg">Daftar Soal</h3>
+                      <button onClick={() => setFormSoal({ isOpen: true, data: null })} className="bg-primary text-on-primary hover:bg-primary/90 px-4 py-2 rounded-lg font-bold flex items-center gap-2 shadow-sm hover:-translate-y-0.5 transition-all"><span className="material-symbols-outlined">add</span> Tambah Soal</button>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead className="bg-surface-variant/30">
+                          <tr><th className="p-4">Tipe</th><th className="p-4">Pertanyaan / Stimulus</th><th className="p-4 text-center">Bobot</th><th className="p-4 text-right">Aksi</th></tr>
+                        </thead>
+                        <tbody>
+                          {dataSoal.filter(s => s.tipe_soal !== 'NARASI' && s.tipe_soal !== 'SKEMA_PENILAIAN').map(s => (
+                            <tr key={s.id_soal} className="border-t border-outline-variant/30 hover:bg-surface-variant/10">
+                              <td className="p-4 font-bold text-primary">{s.tipe_soal}</td>
+                              <td className="p-4 text-sm"><div className="line-clamp-2 max-w-lg" dangerouslySetInnerHTML={{ __html: s.pertanyaan }}></div></td>
+                              <td className="p-4 text-center font-bold">{s.bobot || 1}</td>
+                              <td className="p-4 text-right whitespace-nowrap">
+                                <button onClick={() => setFormSoal({ isOpen: true, data: s })} className="text-blue-500 hover:text-blue-700 mr-3 p-1 rounded hover:bg-blue-50"><span className="material-symbols-outlined">edit</span></button>
+                                <button onClick={() => deleteSoal(s.id_soal)} className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50"><span className="material-symbols-outlined">delete</span></button>
+                              </td>
+                            </tr>
+                          ))}
+                          {dataSoal.filter(s => s.tipe_soal !== 'NARASI' && s.tipe_soal !== 'SKEMA_PENILAIAN').length === 0 && <tr><td colSpan="4" className="p-8 text-center text-slate-500">Belum ada soal untuk mata pelajaran ini.</td></tr>}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {soalSubTab === 'narasi' && (
+                  <div className="bg-surface dark:bg-slate-800 rounded-2xl border border-outline-variant shadow-sm overflow-hidden">
+                    <div className="p-4 border-b border-outline-variant flex justify-between items-center">
+                      <h3 className="font-bold text-lg">Daftar Narasi (Teks Berbagi)</h3>
+                      <button onClick={() => setFormNarasi({ isOpen: true, data: null })} className="bg-primary text-on-primary hover:bg-primary/90 px-4 py-2 rounded-lg font-bold flex items-center gap-2 shadow-sm hover:-translate-y-0.5 transition-all"><span className="material-symbols-outlined">add</span> Tambah Narasi</button>
+                    </div>
+                    <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {dataSoal.filter(s => s.tipe_soal === 'NARASI').map(s => (
+                        <div key={s.id_soal} className="p-4 border border-outline-variant rounded-xl relative group">
+                          <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => setFormNarasi({ isOpen: true, data: s })} className="text-blue-500 p-1 bg-blue-50 rounded"><span className="material-symbols-outlined text-[18px]">edit</span></button>
+                            <button onClick={() => deleteSoal(s.id_soal)} className="text-red-500 p-1 bg-red-50 rounded"><span className="material-symbols-outlined text-[18px]">delete</span></button>
+                          </div>
+                          <p className="font-bold mb-2 text-sm text-slate-500">ID: {s.id_soal}</p>
+                          <div className="text-sm line-clamp-4" dangerouslySetInnerHTML={{ __html: s.pertanyaan }}></div>
+                        </div>
                       ))}
-                      {dataSoal.length === 0 && <tr><td colSpan="4" className="p-8 text-center text-slate-500">Belum ada soal untuk mata pelajaran ini.</td></tr>}
-                    </tbody>
-                  </table>
-                </div>
+                      {dataSoal.filter(s => s.tipe_soal === 'NARASI').length === 0 && <p className="text-slate-500 col-span-full">Belum ada narasi.</p>}
+                    </div>
+                  </div>
+                )}
+
+                {soalSubTab === 'skema' && (
+                  <SkemaPenilaianPanel dataSoal={dataSoal} onSave={saveSkema} />
+                )}
               </div>
             )}
 
             {/* Render Form Modals */}
-            <FormSoalModal isOpen={formSoal.isOpen} data={formSoal.data} onClose={() => setFormSoal({ isOpen: false, data: null })} onSave={saveSoal} />
+            <FormSoalModal isOpen={formSoal.isOpen} data={formSoal.data} narasiList={dataSoal.filter(s => s.tipe_soal === 'NARASI')} onClose={() => setFormSoal({ isOpen: false, data: null })} onSave={saveSoal} />
+            <FormNarasiModal isOpen={formNarasi.isOpen} data={formNarasi.data} onClose={() => setFormNarasi({ isOpen: false, data: null })} onSave={saveSoal} />
             <ModalPeriksaUraian isOpen={modalUraian.isOpen} logUjian={modalUraian.logUjian} jawabanUraian={modalUraian.jawabanUraian} onClose={() => setModalUraian({ isOpen: false, logUjian: null, jawabanUraian: [] })} onSave={saveNilaiUraian} />
           </main>
         </div>
