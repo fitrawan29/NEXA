@@ -21,17 +21,17 @@
       const fetchData = async () => {
         setIsLoading(true);
         if (activeTab === 'jadwal') {
-          const res = await api('get_jadwal_pengawas', { id_guru: user.id_guru });
+          const res = await api('get_jadwal_pengawas', { id_guru: user.id_user });
           if (res.status === 'success') setDataJadwal(res.data);
         } else if (activeTab === 'monitoring') {
-          const res = await api('get_jadwal_pengawas', { id_guru: user.id_guru });
+          const res = await api('get_jadwal_pengawas', { id_guru: user.id_user });
           if (res.status === 'success') setDataJadwal(res.data);
           if (selectedJadwal) {
             const logRes = await api('monitoring_ujian', { id_jadwal: selectedJadwal });
             if (logRes.status === 'success') setDataLog(logRes.data);
           }
         } else if (activeTab === 'bank_soal') {
-          const res = await api('get_mapel_guru', { id_guru: user.id_guru });
+          const res = await api('get_mapel_guru', { id_guru: user.id_user });
           if (res.status === 'success') setDataMapel(res.data);
           
           if (selectedMapel) {

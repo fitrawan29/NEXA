@@ -4,7 +4,7 @@
         return fetchAPI(action, { ...p, npsn: user.npsn });
       };
       const [soal, setSoal] = useState([]);
-      const [narasiMap, setNarasiMap] = useState({});
+      const [narasiList, setNarasiList] = useState([]);
       const [jawabanSiswa, setJawabanSiswa] = useState({});
       const [raguRagu, setRaguRagu] = useState({});
       const [currentIndex, setCurrentIndex] = useState(0);
@@ -17,6 +17,15 @@
       const [confirmModal, setConfirmModal] = useState({ isOpen: false });
 
       const examContainerRef = useRef(null);
+
+      const shuffleArray = (array) => {
+        let shuffled = [...array];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return shuffled;
+      };
 
       useEffect(() => {
         fetchSoal();
@@ -54,40 +63,23 @@
       const fetchSoal = async () => {
         const res = await api('get_soal_by_mapel', { id_mapel: jadwal.id_mapel });
         if (res.status === 'success') {
-          let parsedSoal = res.data.map(s => {
-            let parsedOpsi = null;
-            if (s.opsi) {
-              try { parsedOpsi = JSON.parse(s.opsi); } catch (e) { parsedOpsi = s.opsi; }
-            }
-            return { ...s, opsi: parsedOpsi };
-          });
+          const allData = res.data;
+          setNarasiList(allData.filter(s => s.tipe_soal === 'NARASI'));
 
-          // Pisahkan NARASI dan SKEMA
-          const nMap = {};
-          parsedSoal.filter(s => s.tipe_soal === 'NARASI').forEach(n => {
-            nMap[n.id_soal] = n;
-          });
-          setNarasiMap(nMap);
-
-          let validSoal = parsedSoal.filter(s => s.tipe_soal !== 'NARASI' && s.tipe_soal !== 'SKEMA_PENILAIAN');
-
-          // Cek apakah sudah ada urutan acak yang disimpan di localStorage
-          const orderKey = `exam_order_${idLog}`;
-          const savedOrder = localStorage.getItem(orderKey);
-          
-          if (savedOrder) {
-            const orderArr = JSON.parse(savedOrder);
-            validSoal.sort((a, b) => orderArr.indexOf(a.id_soal) - orderArr.indexOf(b.id_soal));
-          } else {
-            // Acak urutan soal (Fisher-Yates)
-            for (let i = validSoal.length - 1; i > 0; i--) {
-              const j = Math.floor(Math.random() * (i + 1));
-              [validSoal[i], validSoal[j]] = [validSoal[j], validSoal[i]];
-            }
-            localStorage.setItem(orderKey, JSON.stringify(validSoal.map(s => s.id_soal)));
-          }
-
-          setSoal(validSoal);
+          let parsedSoal = allData
+            .filter(s => s.tipe_soal !== 'NARASI' && s.tipe_soal !== 'SKEMA_PENILAIAN')
+            .map(s => {
+              let parsedOpsi = null;
+              if (s.opsi) {
+                try { parsedOpsi = JSON.parse(s.opsi); } catch (e) { parsedOpsi = s.opsi; }
+              }
+              if (Array.isArray(parsedOpsi) && (s.tipe_soal === 'PG' || s.tipe_soal === 'PGK')) {
+                parsedOpsi = shuffleArray(parsedOpsi.filter(op => op && op.trim() !== ''));
+              }
+              return { ...s, opsi: parsedOpsi };
+            });
+            
+          setSoal(shuffleArray(parsedSoal));
         }
         setIsLoading(false);
       };
@@ -359,20 +351,22 @@
                         {currentS.bobot && <span className="text-xs ml-2 text-slate-500">({currentS.bobot} Poin)</span>}
                       </div>
                     </div>
-                    {currentS.id_narasi && narasiMap[currentS.id_narasi] && (
-                      <div className="bg-surface-variant/20 border border-outline-variant rounded-xl p-4 mb-6">
-                        <div className="font-bold text-sm mb-2 text-primary uppercase tracking-wide">Teks Referensi:</div>
-                        <div className="font-body-md text-on-surface dark:text-white mb-2 whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: narasiMap[currentS.id_narasi].pertanyaan }}></div>
-                        {narasiMap[currentS.id_narasi].gambar && <img src={narasiMap[currentS.id_narasi].gambar} alt="Narasi" className="mt-2 max-h-64 rounded-lg object-contain mx-auto" />}
+                    
+                    {currentS.id_narasi && narasiList.find(n => n.id_soal === currentS.id_narasi) && (
+                      <div className="mb-md p-md bg-surface-variant/30 dark:bg-slate-800/50 rounded-lg border border-outline-variant dark:border-slate-700">
+                        <div className="font-bold text-sm text-secondary mb-2 uppercase flex items-center gap-1"><span className="material-symbols-outlined text-[16px]">menu_book</span> Informasi / Bacaan:</div>
+                        <div className="font-question-text text-sm mb-2 whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: narasiList.find(n => n.id_soal === currentS.id_narasi).pertanyaan }}></div>
+                        {narasiList.find(n => n.id_soal === currentS.id_narasi).gambar && <img src={narasiList.find(n => n.id_soal === currentS.id_narasi).gambar} alt="Narasi" className="mt-2 max-h-64 rounded border object-contain" />}
                       </div>
                     )}
-                    <div className="font-question-text text-question-text text-on-surface dark:text-white mb-4 whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: currentS.pertanyaan }}>
-                    </div>
                     {currentS.gambar && (
-                      <div className="mb-6 flex justify-center">
-                        <img src={currentS.gambar} alt="Soal" className="max-h-64 rounded-lg object-contain border border-outline-variant" />
+                      <div className="mb-md">
+                         <img src={currentS.gambar} alt="Gambar Soal" className="max-h-64 rounded border object-contain" />
                       </div>
                     )}
+                    
+                    <div className="font-question-text text-question-text text-on-surface dark:text-white mb-xl whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: currentS.pertanyaan }}>
+                    </div>
                     {/* Options */}
                     <div className="space-y-sm">
                       {renderQuestionInput(currentS)}
