@@ -219,6 +219,40 @@
         XLSX.writeFile(workbook, `Hasil_Ujian_${selectedJadwal}.xlsx`);
       };
 
+      const exportDataToExcel = (type) => {
+        let exportData = [];
+        let fileName = '';
+        if (type === 'siswa') {
+          if (!dataSiswa || dataSiswa.length === 0) return alert('Tidak ada data siswa untuk di-export');
+          exportData = dataSiswa.map((s, i) => ({
+            'No': i + 1,
+            'ID Siswa': s.id_siswa,
+            'Nama Lengkap': s.nama_lengkap,
+            'Username': s.username,
+            'Tingkat': s.angkatan,
+            'Kelas Paralel': s.kelas_paralel,
+          }));
+          fileName = 'Data_Siswa.xlsx';
+        } else if (type === 'guru') {
+          if (!dataGuru || dataGuru.length === 0) return alert('Tidak ada data guru untuk di-export');
+          exportData = dataGuru.map((g, i) => ({
+            'No': i + 1,
+            'ID Guru': g.id_guru,
+            'Nama Lengkap': g.nama_lengkap,
+            'Username': g.username,
+            'Mata Pelajaran': g.mapels_list || '-',
+          }));
+          fileName = 'Data_Guru.xlsx';
+        }
+        
+        if (exportData.length > 0) {
+          const worksheet = XLSX.utils.json_to_sheet(exportData);
+          const workbook = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(workbook, worksheet, `Data ${type}`);
+          XLSX.writeFile(workbook, fileName);
+        }
+      };
+
       // Kelompokkan siswa berdasarkan Angkatan & Paralel
       const groupedClasses = React.useMemo(() => {
         const groups = {};
@@ -474,6 +508,12 @@
                 <div className="flex flex-col sm:flex-row gap-2 mt-4 sm:mt-0">
                   {activeTab !== 'kelas' && (
                     <>
+                      {(activeTab === 'siswa' || activeTab === 'guru') && (
+                        <button onClick={() => exportDataToExcel(activeTab)} className="bg-surface-container-highest dark:bg-slate-700 text-on-surface-variant dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 px-md py-sm rounded-full font-label-md shadow-sm transition-all flex items-center justify-center gap-sm hover:-translate-y-0.5 whitespace-nowrap">
+                          <span className="material-symbols-outlined text-[20px]">file_download</span>
+                          Download Data
+                        </button>
+                      )}
                       <button onClick={() => downloadTemplate(activeTab)} className="bg-surface-container-highest dark:bg-slate-700 text-on-surface-variant dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 px-md py-sm rounded-full font-label-md shadow-sm transition-all flex items-center justify-center gap-sm hover:-translate-y-0.5 whitespace-nowrap">
                         <span className="material-symbols-outlined text-[20px]">download</span>
                         Template
