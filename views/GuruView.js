@@ -20,18 +20,20 @@
 
       const fetchData = async () => {
         setIsLoading(true);
+        // Guru uses id_guru as their primary key, not id_user
+        const guruId = user.id_guru || user.id_user;
         if (activeTab === 'jadwal') {
-          const res = await api('get_jadwal_pengawas', { id_guru: user.id_user });
+          const res = await api('get_jadwal_pengawas', { id_guru: guruId });
           if (res.status === 'success') setDataJadwal(res.data);
         } else if (activeTab === 'monitoring') {
-          const res = await api('get_jadwal_pengawas', { id_guru: user.id_user });
+          const res = await api('get_jadwal_pengawas', { id_guru: guruId });
           if (res.status === 'success') setDataJadwal(res.data);
           if (selectedJadwal) {
             const logRes = await api('monitoring_ujian', { id_jadwal: selectedJadwal });
             if (logRes.status === 'success') setDataLog(logRes.data);
           }
         } else if (activeTab === 'bank_soal') {
-          const res = await api('get_mapel_guru', { id_guru: user.id_user });
+          const res = await api('get_mapel_guru', { id_guru: guruId });
           if (res.status === 'success') setDataMapel(res.data);
           
           if (selectedMapel) {
@@ -128,35 +130,58 @@
 
       return (
         <div className="bg-background dark:bg-slate-900 text-on-background dark:text-slate-100 antialiased flex min-h-screen transition-colors duration-500">
-          <nav className="bg-surface-container-low dark:bg-slate-900 text-primary docked left-0 h-full w-64 border-r border-outline-variant dark:border-slate-800 flex flex-col p-md z-40 hidden md:flex transition-colors duration-500">
-            <div className="flex items-center space-x-sm mb-lg px-sm">
+          {/* SIDEBAR */}
+          <nav className="bg-surface dark:bg-slate-800 text-primary fixed left-0 top-0 h-full w-64 border-r border-outline-variant dark:border-slate-700 flex flex-col p-4 z-40 hidden md:flex transition-colors duration-500 shadow-sm">
+            <div className="flex items-center space-x-3 mb-8 px-2 pt-2">
               <div>
-                <h1 className="font-headline-sm text-headline-sm font-bold text-on-surface dark:text-white flex items-center gap-2"><img src="stitch_assets/screen_3_logo.png" className="w-8 h-8 rounded-full bg-white p-0.5 object-contain" /> NEXA</h1>
-                <p className="font-label-md text-label-md text-on-surface-variant dark:text-slate-400">Guru Panel</p>
+                <h1 className="font-bold text-lg text-on-surface dark:text-white flex items-center gap-2"><img src="stitch_assets/screen_3_logo.png" className="w-8 h-8 rounded-full bg-white p-0.5 object-contain" /> NEXA</h1>
+                <p className="text-sm text-on-surface-variant dark:text-slate-400">Guru Panel</p>
               </div>
             </div>
-            <div className="flex-1 space-y-base mt-md">
-              <a onClick={(e) => { e.preventDefault(); setActiveTab('jadwal'); setSelectedMapel(null); }} className={`flex items-center space-x-sm px-md py-sm rounded-lg font-label-md cursor-pointer ${activeTab === 'jadwal' ? 'bg-primary-container text-on-primary-container' : 'hover:bg-surface-variant'}`}>
+            <div className="flex-1 space-y-1">
+              <a onClick={(e) => { e.preventDefault(); setActiveTab('jadwal'); setSelectedMapel(null); }} className={`flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium cursor-pointer transition-all ${activeTab === 'jadwal' ? 'bg-primary-container text-on-primary-container' : 'text-on-surface-variant hover:bg-surface-variant dark:hover:bg-slate-700'}`}>
                 <span className="material-symbols-outlined">calendar_today</span><span>Jadwal Saya</span>
               </a>
-              <a onClick={(e) => { e.preventDefault(); setActiveTab('bank_soal'); setSelectedMapel(null); }} className={`flex items-center space-x-sm px-md py-sm rounded-lg font-label-md cursor-pointer ${activeTab === 'bank_soal' ? 'bg-primary-container text-on-primary-container' : 'hover:bg-surface-variant'}`}>
+              <a onClick={(e) => { e.preventDefault(); setActiveTab('bank_soal'); setSelectedMapel(null); setSoalSubTab('soal'); }} className={`flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium cursor-pointer transition-all ${activeTab === 'bank_soal' ? 'bg-primary-container text-on-primary-container' : 'text-on-surface-variant hover:bg-surface-variant dark:hover:bg-slate-700'}`}>
                 <span className="material-symbols-outlined">library_books</span><span>Bank Soal</span>
               </a>
-              <a onClick={(e) => { e.preventDefault(); setActiveTab('monitoring'); setSelectedMapel(null); }} className={`flex items-center space-x-sm px-md py-sm rounded-lg font-label-md cursor-pointer ${activeTab === 'monitoring' ? 'bg-primary-container text-on-primary-container' : 'hover:bg-surface-variant'}`}>
+              <a onClick={(e) => { e.preventDefault(); setActiveTab('monitoring'); setSelectedMapel(null); }} className={`flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium cursor-pointer transition-all ${activeTab === 'monitoring' ? 'bg-primary-container text-on-primary-container' : 'text-on-surface-variant hover:bg-surface-variant dark:hover:bg-slate-700'}`}>
                 <span className="material-symbols-outlined">monitor</span><span>Monitoring</span>
               </a>
             </div>
-            <div className="mt-auto border-t border-outline-variant dark:border-slate-800 pt-md">
-              <button onClick={onLogout} className="w-full flex items-center justify-center space-x-sm bg-error-container text-on-error-container px-md py-sm rounded-lg font-label-md hover:bg-error/20">
-                <span className="material-symbols-outlined">logout</span><span>Keluar</span>
-              </button>
-            </div>
           </nav>
 
-          <main className="flex-1 p-lg sm:p-xl w-full">
-            <header className="mb-xl">
-              <h2 className="font-display-sm text-display-sm font-semibold">{activeTab === 'jadwal' ? 'Jadwal Mengawas' : activeTab === 'bank_soal' ? 'Bank Soal' : 'Monitoring Ujian'}</h2>
+          {/* MAIN CONTENT */}
+          <div className="flex-1 flex flex-col min-h-screen md:ml-64">
+            {/* TOPBAR */}
+            <header className="sticky top-0 z-30 bg-surface/80 dark:bg-slate-800/80 backdrop-blur-md border-b border-outline-variant dark:border-slate-700 px-6 py-3 flex items-center justify-between shadow-sm">
+              <div>
+                <h2 className="font-semibold text-lg text-on-surface dark:text-white">
+                  {activeTab === 'jadwal' ? 'Jadwal Mengawas' : activeTab === 'bank_soal' ? 'Bank Soal' : 'Monitoring Ujian'}
+                </h2>
+                <p className="text-sm text-on-surface-variant dark:text-slate-400">{user.nama_lengkap}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {/* Dark/Light Mode */}
+                <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full hover:bg-surface-variant dark:hover:bg-slate-700 transition-all" title={isDarkMode ? 'Mode Terang' : 'Mode Gelap'}>
+                  <span className="material-symbols-outlined text-on-surface-variant dark:text-slate-400">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
+                </button>
+                {/* Profile */}
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-variant dark:bg-slate-700">
+                  <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-on-primary font-bold text-sm">
+                    {user.nama_lengkap ? user.nama_lengkap.charAt(0).toUpperCase() : 'G'}
+                  </div>
+                  <span className="text-sm font-medium hidden sm:block">{user.nama_lengkap || 'Guru'}</span>
+                </div>
+                {/* Logout */}
+                <button onClick={onLogout} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-error/10 text-error hover:bg-error/20 transition-all text-sm font-medium" title="Keluar">
+                  <span className="material-symbols-outlined text-[18px]">logout</span>
+                  <span className="hidden sm:block">Keluar</span>
+                </button>
+              </div>
             </header>
+
+            <main className="flex-1 p-6 lg:p-8">
 
             {activeTab === 'jadwal' && (
               <div className="bg-surface dark:bg-slate-800 rounded-2xl border border-outline-variant shadow-sm overflow-x-auto">
@@ -309,6 +334,7 @@
             <ModalPeriksaUraian isOpen={modalUraian.isOpen} logUjian={modalUraian.logUjian} jawabanUraian={modalUraian.jawabanUraian} onClose={() => setModalUraian({ isOpen: false, logUjian: null, jawabanUraian: [] })} onSave={saveNilaiUraian} />
           </main>
         </div>
+      </div>
       );
     };
 

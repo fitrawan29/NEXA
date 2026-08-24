@@ -491,7 +491,36 @@
             if (!jadwal) return { status: 'error', message: 'Jadwal tidak ditemukan' };
             ({ data, error } = await supabaseClient.from('soal_ujian').select('*').eq('id_mapel', jadwal.id_mapel).eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
-            return { status: 'success', data };
+            
+            // Fisher-Yates shuffle helper
+            const shuffleArray = (arr) => {
+              const a = [...arr];
+              for (let i = a.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [a[i], a[j]] = [a[j], a[i]];
+              }
+              return a;
+            };
+
+            // Filter out NARASI and SKEMA_PENILAIAN from exam questions
+            const soalAktif = (data || []).filter(s => s.tipe_soal !== 'NARASI' && s.tipe_soal !== 'SKEMA_PENILAIAN');
+            const narasiMap = {};
+            (data || []).filter(s => s.tipe_soal === 'NARASI').forEach(n => { narasiMap[n.id_soal] = n; });
+
+            // Shuffle soal order
+            const soalAcak = shuffleArray(soalAktif).map(soal => {
+              // Shuffle opsi for PG and PGK
+              if ((soal.tipe_soal === 'PG' || soal.tipe_soal === 'PGK') && soal.opsi) {
+                try {
+                  const opsiArr = JSON.parse(soal.opsi);
+                  const opsiAcak = shuffleArray(opsiArr);
+                  return { ...soal, opsi: JSON.stringify(opsiAcak) };
+                } catch(e) { return soal; }
+              }
+              return soal;
+            });
+
+            return { status: 'success', data: soalAcak, narasiMap };
           }
 
           case 'catat_pelanggaran': {
@@ -516,7 +545,7 @@
             let insertJawaban = [];
 
             if (soalData) {
-              for (const soal of soalData) {
+              for (const soal of soalData.filter(s => s.tipe_soal !== 'NARASI' && s.tipe_soal !== 'SKEMA_PENILAIAN')) {
                 let jwb = jawaban[soal.id_soal];
                 let isCorrect = false;
                 let skorDiperoleh = 0;
