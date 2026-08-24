@@ -600,56 +600,90 @@
               </div>
             )}
 
-            {/* TAB CONTENT: DATA KELAS - DAFTAR SISWA */}
+            {/* TAB CONTENT: DATA KELAS */}
             {activeTab === 'kelas' && (
-              <div className="animate-fade-in-up mt-10">
-                <div className="mb-6 border-t border-outline-variant/30 dark:border-slate-700 pt-6">
-                  <h2 className="text-xl font-bold text-on-surface dark:text-white flex items-center gap-2">
-                    <span className="material-symbols-outlined text-primary">groups</span> Rekapitulasi Siswa per Kelas
-                  </h2>
-                  <p className="text-body-sm text-on-surface-variant dark:text-slate-400 mt-1">Daftar siswa yang sudah terdaftar, dikelompokkan berdasarkan kelas.</p>
-                </div>
-                {!selectedKelas ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-md">
-                    {Object.keys(groupedClasses).map(kelasKey => (
-                      <div key={kelasKey} onClick={() => setSelectedKelas(kelasKey)} className="bg-surface dark:bg-slate-800 p-lg rounded-2xl border border-outline-variant dark:border-slate-700 shadow-sm cursor-pointer hover:-translate-y-1 hover:shadow-md transition-all">
-                        <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-4"><span className="material-symbols-outlined">meeting_room</span></div>
-                        <h3 className="text-xl font-bold text-on-surface dark:text-white mb-1">Kelas {kelasKey}</h3>
-                        <p className="text-sm text-slate-500">{groupedClasses[kelasKey].length} Siswa</p>
-                      </div>
-                    ))}
-                    {Object.keys(groupedClasses).length === 0 && !isLoading && <p>Belum ada data siswa.</p>}
+              <div className="flex flex-col lg:flex-row gap-6 animate-fade-in-up">
+                {/* Bagian Kiri: Tabel Daftar Kelas (CRUD) */}
+                <div className="w-full lg:w-1/2 bg-surface dark:bg-slate-800 rounded-2xl border border-outline-variant dark:border-slate-700 shadow-sm overflow-hidden flex flex-col">
+                  <div className="p-4 border-b border-outline-variant dark:border-slate-700 font-bold text-lg text-on-surface dark:text-white flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary">view_list</span> Daftar Kelas
                   </div>
-                ) : (
-                  <div>
-                    <button onClick={() => setSelectedKelas(null)} className="mb-4 flex items-center gap-2 text-primary hover:underline font-medium"><span className="material-symbols-outlined">arrow_back</span> Kembali ke Daftar Kelas</button>
-                    <div className="bg-surface dark:bg-slate-800 rounded-2xl border border-outline-variant dark:border-slate-700 overflow-hidden">
-                      <div className="p-4 border-b border-outline-variant dark:border-slate-700 font-bold">Data Siswa: Kelas {selectedKelas}</div>
-                      <table className="w-full text-left">
-                        <thead className="bg-surface-variant/30 dark:bg-slate-800/80">
-                          <tr><th className="p-4">ID</th><th className="p-4">Nama Lengkap</th><th className="p-4">Username</th></tr>
-                        </thead>
-                        <tbody>
-                          {groupedClasses[selectedKelas]?.map(s => (
-                            <tr key={s.id_siswa} className="border-t border-outline-variant/30 dark:border-slate-700">
-                              <td className="p-4">{s.id_siswa}</td><td className="p-4">{s.nama_lengkap}</td><td className="p-4">{s.username}</td>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="bg-surface-variant/30 dark:bg-slate-800/80">
+                        <tr>
+                          <th className="p-4 text-label-md font-semibold text-on-surface-variant dark:text-slate-400">Tingkat</th>
+                          <th className="p-4 text-label-md font-semibold text-on-surface-variant dark:text-slate-400">Paralel</th>
+                          <th className="p-4 text-label-md font-semibold text-on-surface-variant dark:text-slate-400 text-right">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-body-md divide-y divide-outline-variant/30 dark:divide-slate-700">
+                        {isLoading ? (<tr><td colSpan="3" className="p-4 text-center">Memuat data...</td></tr>) : dataKelas.length > 0 ? (
+                          dataKelas.map((row) => (
+                            <tr key={row.id_kelas} className="hover:bg-surface-variant/20 dark:hover:bg-slate-800/50">
+                              <td className="p-4">{row.tingkat}</td>
+                              <td className="p-4">{row.kelas_paralel}</td>
+                              <td className="p-4 text-right">
+                                <button onClick={() => openEditModal('kelas', row)} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded mr-2"><span className="material-symbols-outlined text-[20px]">edit</span></button>
+                                <button onClick={() => handleDelete(row.id_kelas, 'kelas')} className="p-1.5 text-error hover:bg-error/20 rounded"><span className="material-symbols-outlined text-[20px]">delete</span></button>
+                              </td>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                          ))
+                        ) : (<tr><td colSpan="3" className="p-4 text-center">Data kelas kosong.</td></tr>)}
+                      </tbody>
+                    </table>
                   </div>
-                )}
+                </div>
+
+                {/* Bagian Kanan: Rekapitulasi Siswa */}
+                <div className="w-full lg:w-1/2 flex flex-col">
+                  {!selectedKelas ? (
+                    <div className="bg-surface dark:bg-slate-800 rounded-2xl border border-outline-variant dark:border-slate-700 shadow-sm p-4 flex-1">
+                      <h3 className="font-bold text-lg text-on-surface dark:text-white mb-4 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-[#10B981]">groups</span> Rekapitulasi Siswa
+                      </h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {Object.keys(groupedClasses).map(kelasKey => (
+                          <div key={kelasKey} onClick={() => setSelectedKelas(kelasKey)} className="bg-surface-variant/20 dark:bg-slate-700/50 p-4 rounded-xl border border-outline-variant/50 dark:border-slate-600 shadow-sm cursor-pointer hover:-translate-y-1 hover:shadow-md transition-all">
+                            <h3 className="text-lg font-bold text-on-surface dark:text-white mb-1">{kelasKey}</h3>
+                            <p className="text-sm text-slate-500">{groupedClasses[kelasKey].length} Siswa</p>
+                          </div>
+                        ))}
+                        {Object.keys(groupedClasses).length === 0 && !isLoading && <p className="text-sm text-slate-500">Belum ada siswa terdaftar.</p>}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex-1 flex flex-col">
+                      <button onClick={() => setSelectedKelas(null)} className="mb-4 flex items-center gap-2 text-primary hover:underline font-medium w-fit"><span className="material-symbols-outlined">arrow_back</span> Kembali</button>
+                      <div className="bg-surface dark:bg-slate-800 rounded-2xl border border-outline-variant dark:border-slate-700 overflow-hidden flex-1 shadow-sm">
+                        <div className="p-4 border-b border-outline-variant dark:border-slate-700 font-bold">Data Siswa: Kelas {selectedKelas}</div>
+                        <div className="overflow-x-auto max-h-[500px]">
+                          <table className="w-full text-left">
+                            <thead className="bg-surface-variant/30 dark:bg-slate-800/80 sticky top-0">
+                              <tr><th className="p-4">ID</th><th className="p-4">Nama Lengkap</th><th className="p-4">Username</th></tr>
+                            </thead>
+                            <tbody className="divide-y divide-outline-variant/30 dark:divide-slate-700">
+                              {groupedClasses[selectedKelas]?.map(s => (
+                                <tr key={s.id_siswa} className="hover:bg-surface-variant/10 dark:hover:bg-slate-800/30">
+                                  <td className="p-4 text-sm">{s.id_siswa}</td><td className="p-4 text-sm">{s.nama_lengkap}</td><td className="p-4 text-sm">{s.username}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
             {/* TAB CONTENT: TABEL CRUD STANDARD */}
-            {['kelas', 'siswa', 'guru', 'mapel', 'jadwal'].includes(activeTab) && (
+            {['siswa', 'guru', 'mapel', 'jadwal'].includes(activeTab) && (
               <div className="bg-surface dark:bg-slate-800 rounded-2xl border border-outline-variant dark:border-slate-700 shadow-sm overflow-hidden animate-fade-in-up overflow-x-auto">
                 <table className="w-full text-left border-collapse min-w-[800px]">
                   <thead className="bg-surface-variant/30 dark:bg-slate-800/80">
                     <tr>
-                      {activeTab === 'kelas' && (<><th className="py-md px-md text-label-md font-semibold text-on-surface-variant dark:text-slate-400">Tingkat</th><th className="py-md px-md font-semibold">Paralel</th></>)}
                       {activeTab === 'siswa' && (<><th className="py-md px-md text-label-md font-semibold text-on-surface-variant dark:text-slate-400">ID Siswa</th><th className="py-md px-md font-semibold">Nama Lengkap</th><th className="py-md px-md font-semibold">Username</th><th className="py-md px-md font-semibold">Tingkat</th><th className="py-md px-md font-semibold">Paralel</th></>)}
                       {activeTab === 'guru' && (<><th className="py-md px-md text-label-md font-semibold text-on-surface-variant dark:text-slate-400">ID Guru</th><th className="py-md px-md font-semibold">Nama Lengkap</th><th className="py-md px-md font-semibold">Username</th><th className="py-md px-md font-semibold">Mata Pelajaran</th></>)}
                       {activeTab === 'mapel' && (<><th className="py-md px-md text-label-md font-semibold text-on-surface-variant dark:text-slate-400">ID Mapel</th><th className="py-md px-md font-semibold">Nama Mapel</th></>)}
@@ -659,17 +693,16 @@
                   </thead>
                   <tbody className="text-body-md divide-y divide-outline-variant/30 dark:divide-slate-700">
                     {isLoading ? (<tr><td colSpan="6" className="py-xl text-center">Memuat data...</td></tr>) : (
-                      (activeTab === 'kelas' ? dataKelas : activeTab === 'siswa' ? dataSiswa : activeTab === 'guru' ? dataGuru : activeTab === 'mapel' ? dataMapel : dataJadwal).length > 0 ? (
-                        (activeTab === 'kelas' ? dataKelas : activeTab === 'siswa' ? dataSiswa : activeTab === 'guru' ? dataGuru : activeTab === 'mapel' ? dataMapel : dataJadwal).map((row) => (
-                          <tr key={row.id_kelas || row.id_jadwal || row.id_siswa || row.id_guru || row.id_mapel} className="hover:bg-surface-variant/20 dark:hover:bg-slate-800/50">
-                            {activeTab === 'kelas' && (<><td className="p-4">{row.tingkat}</td><td className="p-4">{row.kelas_paralel}</td></>)}
+                      (activeTab === 'siswa' ? dataSiswa : activeTab === 'guru' ? dataGuru : activeTab === 'mapel' ? dataMapel : dataJadwal).length > 0 ? (
+                        (activeTab === 'siswa' ? dataSiswa : activeTab === 'guru' ? dataGuru : activeTab === 'mapel' ? dataMapel : dataJadwal).map((row) => (
+                          <tr key={row.id_jadwal || row.id_siswa || row.id_guru || row.id_mapel} className="hover:bg-surface-variant/20 dark:hover:bg-slate-800/50">
                             {activeTab === 'siswa' && (<><td className="p-4">{row.id_siswa}</td><td className="p-4">{row.nama_lengkap}</td><td className="p-4">{row.username}</td><td className="p-4">{row.angkatan}</td><td className="p-4">{row.kelas_paralel}</td></>)}
                             {activeTab === 'guru' && (<><td className="p-4">{row.id_guru}</td><td className="p-4">{row.nama_lengkap}</td><td className="p-4">{row.username}</td><td className="p-4 text-xs max-w-xs truncate">{row.mapels_list}</td></>)}
                             {activeTab === 'mapel' && (<><td className="p-4">{row.id_mapel}</td><td className="p-4">{row.nama_mapel}</td></>)}
                             {activeTab === 'jadwal' && (<><td className="p-4">{row.id_jadwal}</td><td className="p-4">{row.nama_mapel}</td><td className="p-4">{row.guru}</td><td className="p-4 text-sm">{new Date(row.waktu_mulai).toLocaleString('id-ID')} s.d {new Date(row.waktu_selesai).toLocaleString('id-ID')}</td></>)}
                             <td className="p-4 text-right">
                               <button onClick={() => openEditModal(activeTab, row)} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded mr-2"><span className="material-symbols-outlined text-[20px]">edit</span></button>
-                              <button onClick={() => handleDelete(row.id_kelas || row.id_jadwal || row.id_siswa || row.id_guru || row.id_mapel, activeTab)} className="p-1.5 text-error hover:bg-error/20 rounded"><span className="material-symbols-outlined text-[20px]">delete</span></button>
+                              <button onClick={() => handleDelete(row.id_jadwal || row.id_siswa || row.id_guru || row.id_mapel, activeTab)} className="p-1.5 text-error hover:bg-error/20 rounded"><span className="material-symbols-outlined text-[20px]">delete</span></button>
                             </td>
                           </tr>
                         ))
