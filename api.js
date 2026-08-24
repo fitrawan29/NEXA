@@ -354,7 +354,8 @@
           }
 
           case 'get_soal_by_mapel': {
-            ({ data, error } = await supabaseClient.from('soal_ujian').select('*').eq('id_mapel', payload.id_mapel).eq('npsn', payload.npsn));
+            // Note: in Supabase, the column is id_jadwal, but we use it to store id_mapel for the bank soal
+            ({ data, error } = await supabaseClient.from('soal_ujian').select('*').eq('id_jadwal', payload.id_mapel).eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
             // Unpack bobot/gambar/id_narasi and restore original opsi from packed field
             const unpackSoal = (s) => {
@@ -382,7 +383,8 @@
               if (p.opsi !== undefined && p.opsi !== null) meta._raw = p.opsi; // keep original opsi as _raw
               return JSON.stringify(meta);
             };
-            const { bobot: _b1, gambar: _g1, id_narasi: _n1, ...soalFields1 } = payload;
+            const { bobot: _b1, gambar: _g1, id_narasi: _n1, id_mapel, ...soalFields1 } = payload;
+            soalFields1.id_jadwal = id_mapel; // Map id_mapel to id_jadwal column
             soalFields1.opsi = buildOpsiField(payload);
             ({ error } = await supabaseClient.from('soal_ujian').insert([soalFields1]));
             if (error) return { status: 'error', message: error.message };
@@ -390,7 +392,8 @@
           }
 
           case 'update_soal_mapel': {
-            const { id_soal: upId, npsn: upNpsn, bobot: _b2, gambar: _g2, id_narasi: _n2, ...upFields } = payload;
+            const { id_soal: upId, npsn: upNpsn, bobot: _b2, gambar: _g2, id_narasi: _n2, id_mapel, ...upFields } = payload;
+            if (id_mapel) upFields.id_jadwal = id_mapel;
             // Pack extra metadata into opsi
             const meta2 = {};
             if (payload.bobot !== undefined) meta2._bobot = payload.bobot;
@@ -520,7 +523,7 @@
           case 'get_soal_ujian': {
             const { data: jadwal } = await supabaseClient.from('jadwal').select('id_mapel').eq('id_jadwal', payload.id_jadwal).single();
             if (!jadwal) return { status: 'error', message: 'Jadwal tidak ditemukan' };
-            ({ data, error } = await supabaseClient.from('soal_ujian').select('*').eq('id_mapel', jadwal.id_mapel).eq('npsn', payload.npsn));
+            ({ data, error } = await supabaseClient.from('soal_ujian').select('*').eq('id_jadwal', jadwal.id_mapel).eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
             
             // Fisher-Yates shuffle helper
@@ -585,7 +588,7 @@
             const idSiswa = payload.id_siswa;
 
             const { data: jadwal } = await supabaseClient.from('jadwal').select('id_mapel').eq('id_jadwal', payload.id_jadwal).single();
-            const { data: soalData } = await supabaseClient.from('soal_ujian').select('*').eq('id_mapel', jadwal?.id_mapel).eq('npsn', payload.npsn);
+            const { data: soalData } = await supabaseClient.from('soal_ujian').select('*').eq('id_jadwal', jadwal?.id_mapel).eq('npsn', payload.npsn);
             
             let totalSkorMaxAuto = 0;
             let totalSkorDiperolehAuto = 0;
