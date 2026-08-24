@@ -602,79 +602,48 @@
 
             {/* TAB CONTENT: DATA KELAS */}
             {activeTab === 'kelas' && (
-              <div className="flex flex-col lg:flex-row gap-6 animate-fade-in-up">
-                {/* Bagian Kiri: Tabel Daftar Kelas (CRUD) */}
-                <div className="w-full lg:w-1/2 bg-surface dark:bg-slate-800 rounded-2xl border border-outline-variant dark:border-slate-700 shadow-sm overflow-hidden flex flex-col">
-                  <div className="p-4 border-b border-outline-variant dark:border-slate-700 font-bold text-lg text-on-surface dark:text-white flex items-center gap-2">
-                    <span className="material-symbols-outlined text-primary">view_list</span> Daftar Kelas
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead className="bg-surface-variant/30 dark:bg-slate-800/80">
-                        <tr>
-                          <th className="p-4 text-label-md font-semibold text-on-surface-variant dark:text-slate-400">Tingkat</th>
-                          <th className="p-4 text-label-md font-semibold text-on-surface-variant dark:text-slate-400">Paralel</th>
-                          <th className="p-4 text-label-md font-semibold text-on-surface-variant dark:text-slate-400 text-right">Aksi</th>
-                        </tr>
-                      </thead>
-                      <tbody className="text-body-md divide-y divide-outline-variant/30 dark:divide-slate-700">
-                        {isLoading ? (<tr><td colSpan="3" className="p-4 text-center">Memuat data...</td></tr>) : dataKelas.length > 0 ? (
-                          dataKelas.map((row) => (
-                            <tr key={row.id_kelas} className="hover:bg-surface-variant/20 dark:hover:bg-slate-800/50">
-                              <td className="p-4">{row.tingkat}</td>
-                              <td className="p-4">{row.kelas_paralel}</td>
-                              <td className="p-4 text-right">
-                                <button onClick={() => openEditModal('kelas', row)} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded mr-2"><span className="material-symbols-outlined text-[20px]">edit</span></button>
-                                <button onClick={() => handleDelete(row.id_kelas, 'kelas')} className="p-1.5 text-error hover:bg-error/20 rounded"><span className="material-symbols-outlined text-[20px]">delete</span></button>
-                              </td>
-                            </tr>
-                          ))
-                        ) : (<tr><td colSpan="3" className="p-4 text-center">Data kelas kosong.</td></tr>)}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* Bagian Kanan: Rekapitulasi Siswa */}
-                <div className="w-full lg:w-1/2 flex flex-col">
-                  {!selectedKelas ? (
-                    <div className="bg-surface dark:bg-slate-800 rounded-2xl border border-outline-variant dark:border-slate-700 shadow-sm p-4 flex-1">
-                      <h3 className="font-bold text-lg text-on-surface dark:text-white mb-4 flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[#10B981]">groups</span> Rekapitulasi Siswa
-                      </h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {Object.keys(groupedClasses).map(kelasKey => (
-                          <div key={kelasKey} onClick={() => setSelectedKelas(kelasKey)} className="bg-surface-variant/20 dark:bg-slate-700/50 p-4 rounded-xl border border-outline-variant/50 dark:border-slate-600 shadow-sm cursor-pointer hover:-translate-y-1 hover:shadow-md transition-all">
-                            <h3 className="text-lg font-bold text-on-surface dark:text-white mb-1">{kelasKey}</h3>
-                            <p className="text-sm text-slate-500">{groupedClasses[kelasKey].length} Siswa</p>
-                          </div>
-                        ))}
-                        {Object.keys(groupedClasses).length === 0 && !isLoading && <p className="text-sm text-slate-500">Belum ada siswa terdaftar.</p>}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex-1 flex flex-col">
-                      <button onClick={() => setSelectedKelas(null)} className="mb-4 flex items-center gap-2 text-primary hover:underline font-medium w-fit"><span className="material-symbols-outlined">arrow_back</span> Kembali</button>
-                      <div className="bg-surface dark:bg-slate-800 rounded-2xl border border-outline-variant dark:border-slate-700 overflow-hidden flex-1 shadow-sm">
-                        <div className="p-4 border-b border-outline-variant dark:border-slate-700 font-bold">Data Siswa: Kelas {selectedKelas}</div>
-                        <div className="overflow-x-auto max-h-[500px]">
-                          <table className="w-full text-left">
-                            <thead className="bg-surface-variant/30 dark:bg-slate-800/80 sticky top-0">
-                              <tr><th className="p-4">ID</th><th className="p-4">Nama Lengkap</th><th className="p-4">Username</th></tr>
-                            </thead>
-                            <tbody className="divide-y divide-outline-variant/30 dark:divide-slate-700">
-                              {groupedClasses[selectedKelas]?.map(s => (
-                                <tr key={s.id_siswa} className="hover:bg-surface-variant/10 dark:hover:bg-slate-800/30">
-                                  <td className="p-4 text-sm">{s.id_siswa}</td><td className="p-4 text-sm">{s.nama_lengkap}</td><td className="p-4 text-sm">{s.username}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
+              <div className="animate-fade-in-up">
+                {!selectedKelas ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-md">
+                    {dataKelas.map(kelasObj => (
+                      <div key={kelasObj.id_kelas} className="bg-surface dark:bg-slate-800 p-lg rounded-2xl border border-outline-variant dark:border-slate-700 shadow-sm relative transition-all hover:shadow-md hover:-translate-y-1 group">
+                        <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={(e) => { e.stopPropagation(); openEditModal('kelas', kelasObj); }} className="text-blue-500 hover:bg-blue-100 dark:hover:bg-slate-700 p-1.5 rounded-md transition-colors"><span className="material-symbols-outlined text-[18px]">edit</span></button>
+                          <button onClick={(e) => { e.stopPropagation(); handleDelete(kelasObj.id_kelas, 'kelas'); }} className="text-error hover:bg-error/10 dark:hover:bg-slate-700 p-1.5 rounded-md transition-colors"><span className="material-symbols-outlined text-[18px]">delete</span></button>
+                        </div>
+                        <div onClick={() => setSelectedKelas(`${kelasObj.tingkat} ${kelasObj.kelas_paralel}`)} className="cursor-pointer h-full pt-2">
+                          <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-4"><span className="material-symbols-outlined">meeting_room</span></div>
+                          <h3 className="text-xl font-bold text-on-surface dark:text-white mb-1">Kelas {kelasObj.tingkat} {kelasObj.kelas_paralel}</h3>
+                          <p className="text-sm text-slate-500">{groupedClasses[`${kelasObj.tingkat} ${kelasObj.kelas_paralel}`]?.length || 0} Siswa</p>
                         </div>
                       </div>
+                    ))}
+                    {dataKelas.length === 0 && !isLoading && <p className="text-slate-500">Belum ada data kelas. Silakan tambah kelas terlebih dahulu.</p>}
+                  </div>
+                ) : (
+                  <div>
+                    <button onClick={() => setSelectedKelas(null)} className="mb-4 flex items-center gap-2 text-primary hover:underline font-medium"><span className="material-symbols-outlined">arrow_back</span> Kembali ke Daftar Kelas</button>
+                    <div className="bg-surface dark:bg-slate-800 rounded-2xl border border-outline-variant dark:border-slate-700 overflow-hidden">
+                      <div className="p-4 border-b border-outline-variant dark:border-slate-700 font-bold">Data Siswa: Kelas {selectedKelas}</div>
+                      <table className="w-full text-left">
+                        <thead className="bg-surface-variant/30 dark:bg-slate-800/80">
+                          <tr><th className="p-4">ID</th><th className="p-4">Nama Lengkap</th><th className="p-4">Username</th></tr>
+                        </thead>
+                        <tbody>
+                          {groupedClasses[selectedKelas]?.length > 0 ? (
+                            groupedClasses[selectedKelas].map(s => (
+                              <tr key={s.id_siswa} className="border-t border-outline-variant/30 dark:border-slate-700">
+                                <td className="p-4">{s.id_siswa}</td><td className="p-4">{s.nama_lengkap}</td><td className="p-4">{s.username}</td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr><td colSpan="3" className="p-4 text-center text-slate-500">Belum ada siswa di kelas ini.</td></tr>
+                          )}
+                        </tbody>
+                      </table>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             )}
 
