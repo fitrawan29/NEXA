@@ -108,6 +108,14 @@
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Admin Sekolah berhasil diperbarui.' };
           }
+          case 'update_admin_profil': {
+            const updateData = {};
+            if (payload.password) updateData.password = payload.password;
+            if (payload.foto_profil) updateData.foto_profil = payload.foto_profil;
+            ({ error } = await supabaseClient.from('admin').update(updateData).eq('id_admin', payload.id_admin));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Profil berhasil diperbarui. Silakan masuk kembali.' };
+          }
 
           // ================= ADMIN DASHBOARD =================
           case 'get_admin_dashboard_data': {

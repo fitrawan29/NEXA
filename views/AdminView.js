@@ -19,6 +19,7 @@
 
       // Modal State
       const [formModal, setFormModal] = useState({ isOpen: false, type: '', data: null });
+      const [profileModalOpen, setProfileModalOpen] = useState(false);
 
       const fetchData = async (tab) => {
         setIsLoading(true);
@@ -304,6 +305,49 @@
         );
       };
 
+      const renderProfileModal = () => {
+        if (!profileModalOpen) return null;
+        return (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
+            <div className="bg-surface dark:bg-slate-800 rounded-2xl w-full max-w-md shadow-2xl p-6 relative border border-outline-variant/30 dark:border-slate-700">
+              <h2 className="text-xl font-bold mb-4 text-on-surface dark:text-white">Profil Admin</h2>
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                const fd = new FormData(e.target);
+                const payload = Object.fromEntries(fd.entries());
+                if (payload.password && payload.password !== payload.password_confirm) {
+                  return alert('Password tidak cocok!');
+                }
+                const res = await api('update_admin_profil', { id_admin: user.id_admin, password: payload.password, foto_profil: payload.foto_profil });
+                if (res.status === 'success') {
+                  alert(res.message);
+                  setProfileModalOpen(false);
+                  onLogout(); // Force logout to reflect changes
+                } else {
+                  alert(res.message);
+                }
+              }} className="space-y-4">
+                <div className="flex items-center justify-center mb-4">
+                  {user.foto_profil ? (
+                    <img src={user.foto_profil} alt="Profile" className="w-20 h-20 rounded-full object-cover border-4 border-primary/20" />
+                  ) : (
+                    <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-3xl">{user.nama_lengkap.charAt(0)}</div>
+                  )}
+                </div>
+                <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">URL Foto Profil</label><input name="foto_profil" defaultValue={user.foto_profil || ''} placeholder="https://..." className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
+                <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Password Baru (Kosongkan jika tidak diubah)</label><input name="password" type="password" className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
+                <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Konfirmasi Password</label><input name="password_confirm" type="password" className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
+                
+                <div className="flex justify-end space-x-2 pt-4">
+                  <button type="button" onClick={() => setProfileModalOpen(false)} className="px-4 py-2 rounded-lg font-label-md text-on-surface-variant hover:bg-surface-variant">Batal</button>
+                  <button type="submit" className="px-4 py-2 rounded-lg font-label-md bg-primary text-on-primary hover:bg-primary/90">Simpan</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        );
+      };
+
       const SidebarLink = ({ id, icon, label }) => (
         <a onClick={(e) => { e.preventDefault(); setActiveTab(id); setIsSidebarOpen(false); }} className={`flex items-center space-x-sm px-md py-sm rounded-lg font-label-md text-label-md duration-200 ease-in-out cursor-pointer ${activeTab === id ? 'bg-primary-container dark:bg-primary/20 text-on-primary-container dark:text-primary-fixed shadow-sm' : 'text-on-surface-variant dark:text-slate-400 hover:bg-surface-container-highest dark:hover:bg-slate-800 transition-colors'}`}>
           <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>{icon}</span>
@@ -330,7 +374,6 @@
             {/* Navigation Links */}
             <div className="flex-1 space-y-2 mt-4">
               <SidebarLink id="dashboard" icon="dashboard" label="Dashboard" />
-              <SidebarLink id="pemberitahuan" icon="notifications" label="Pemberitahuan" />
               <SidebarLink id="kelas" icon="meeting_room" label="Data Kelas" />
               <SidebarLink id="siswa" icon="group" label="Data Siswa" />
               <SidebarLink id="guru" icon="school" label="Data Guru" />
@@ -339,29 +382,40 @@
               <SidebarLink id="monitoring" icon="monitor" label="Pantau Ujian" />
               <SidebarLink id="hasil" icon="assignment_turned_in" label="Hasil Ujian" />
             </div>
-            {/* User Profile */}
-            <div className="mt-auto border-t border-outline-variant dark:border-slate-800 pt-md">
-              <div className="flex items-center justify-between mb-sm px-sm">
-                <div className="flex items-center space-x-sm">
-                  <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">{user.nama_lengkap.charAt(0)}</div>
-                  <div>
-                    <p className="text-sm font-medium text-on-surface dark:text-white truncate w-24">{user.nama_lengkap}</p>
-                    <p className="text-xs text-on-surface-variant dark:text-slate-400 capitalize">{user.role}</p>
-                  </div>
-                </div>
-                <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-1 rounded-full text-on-surface-variant hover:bg-surface-variant dark:hover:bg-slate-800">
-                  <span className="material-symbols-outlined text-[20px]">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
-                </button>
-              </div>
-              <button onClick={onLogout} className="w-full flex items-center justify-center space-x-sm bg-error-container text-on-error-container px-md py-sm rounded-lg font-label-md hover:bg-error/20 transition-colors">
-                <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>logout</span>
-                <span>Keluar</span>
-              </button>
-            </div>
           </nav>
 
           {/* Main Content Area */}
-          <main className="flex-1 md:ml-64 p-lg sm:p-xl md:p-gutter w-full transition-all duration-500 min-h-screen">
+          <main className="flex-1 md:ml-64 w-full transition-all duration-500 min-h-screen flex flex-col">
+            
+            {/* Top Bar for User Actions */}
+            <div className="w-full flex justify-end items-center p-4 border-b border-outline-variant dark:border-slate-800 bg-surface dark:bg-slate-900 sticky top-0 z-20 gap-2">
+                 <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full text-on-surface-variant hover:bg-surface-variant dark:hover:bg-slate-800 transition-colors" title="Mode Tema">
+                   <span className="material-symbols-outlined">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
+                 </button>
+
+                 <button onClick={() => setActiveTab('pemberitahuan')} className="relative p-2 rounded-full text-on-surface-variant hover:bg-surface-variant dark:hover:bg-slate-800 transition-colors" title="Pemberitahuan">
+                   <span className="material-symbols-outlined">notifications</span>
+                   <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-slate-900"></span>
+                 </button>
+                 
+                 <div onClick={() => setProfileModalOpen(true)} className="flex items-center space-x-2 cursor-pointer p-1 pr-3 rounded-full hover:bg-surface-variant dark:hover:bg-slate-800 transition-colors" title="Profil Admin">
+                   {user.foto_profil ? (
+                     <img src={user.foto_profil} alt="Profile" className="w-8 h-8 rounded-full object-cover" />
+                   ) : (
+                     <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">{user.nama_lengkap.charAt(0)}</div>
+                   )}
+                   <div className="hidden sm:block text-left">
+                     <p className="text-sm font-medium text-on-surface dark:text-white leading-tight">{user.nama_lengkap}</p>
+                     <p className="text-xs text-on-surface-variant dark:text-slate-400 capitalize">{user.role}</p>
+                   </div>
+                 </div>
+
+                 <button onClick={onLogout} className="flex items-center space-x-1 p-2 rounded-lg text-error hover:bg-error/10 transition-colors" title="Keluar">
+                   <span className="material-symbols-outlined">logout</span>
+                 </button>
+            </div>
+
+            <div className="p-lg sm:p-xl md:p-gutter flex-1">
             <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-xl gap-md">
               <div className="flex items-center gap-3">
                 <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-2 bg-surface-variant/50 rounded-lg text-on-surface dark:text-white">
@@ -606,8 +660,8 @@
               </div>
             )}
             {renderFormModal()}
+            {renderProfileModal()}
           </main>
         </div>
       );
     };
-
