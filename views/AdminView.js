@@ -600,9 +600,15 @@
               </div>
             )}
 
-            {/* TAB CONTENT: DATA KELAS */}
+            {/* TAB CONTENT: DATA KELAS - DAFTAR SISWA */}
             {activeTab === 'kelas' && (
-              <div className="animate-fade-in-up">
+              <div className="animate-fade-in-up mt-10">
+                <div className="mb-6 border-t border-outline-variant/30 dark:border-slate-700 pt-6">
+                  <h2 className="text-xl font-bold text-on-surface dark:text-white flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary">groups</span> Rekapitulasi Siswa per Kelas
+                  </h2>
+                  <p className="text-body-sm text-on-surface-variant dark:text-slate-400 mt-1">Daftar siswa yang sudah terdaftar, dikelompokkan berdasarkan kelas.</p>
+                </div>
                 {!selectedKelas ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-md">
                     {Object.keys(groupedClasses).map(kelasKey => (
