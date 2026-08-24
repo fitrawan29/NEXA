@@ -199,7 +199,12 @@
             if (!payload.id_guru) payload.id_guru = generateId('G');
             const { mapels, ...guruData } = payload;
             const res = await supabaseClient.from('guru').insert([guruData]).select();
-            if (res.error) return { status: 'error', message: res.error.message };
+            if (res.error) {
+              if (res.error.message.includes('guru_username_key')) {
+                return { status: 'error', message: 'Username ini sudah digunakan oleh guru lain. Silakan gunakan username yang berbeda.' };
+              }
+              return { status: 'error', message: res.error.message };
+            }
             if (mapels && mapels.length > 0) {
               const mapelInserts = mapels.map(m => ({ id_guru: guruData.id_guru, id_mapel: m }));
               await supabaseClient.from('guru_mapel').insert(mapelInserts);
@@ -209,13 +214,23 @@
           case 'create_guru_bulk': {
             const bulkData = payload.map(item => ({ ...item, id_guru: item.id_guru || generateId('G') }));
             ({ error } = await supabaseClient.from('guru').insert(bulkData));
-            if (error) return { status: 'error', message: error.message };
+            if (error) {
+              if (error.message.includes('guru_username_key')) {
+                return { status: 'error', message: 'Gagal menambah data masal: Terdapat username guru yang sudah digunakan.' };
+              }
+              return { status: 'error', message: error.message };
+            }
             return { status: 'success', message: 'Guru berhasil ditambahkan secara massal' };
           }
           case 'update_guru': {
             const { id_guru, mapels, npsn, ...updates } = payload;
             const res = await supabaseClient.from('guru').update(updates).eq('id_guru', id_guru).eq('npsn', payload.npsn);
-            if (res.error) return { status: 'error', message: res.error.message };
+            if (res.error) {
+              if (res.error.message.includes('guru_username_key')) {
+                return { status: 'error', message: 'Username ini sudah digunakan oleh guru lain. Silakan gunakan username yang berbeda.' };
+              }
+              return { status: 'error', message: res.error.message };
+            }
             // delete old guru_mapel
             await supabaseClient.from('guru_mapel').delete().eq('id_guru', id_guru);
             // insert new guru_mapel
