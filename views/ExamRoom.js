@@ -4,6 +4,7 @@
         return fetchAPI(action, { ...p, npsn: user.npsn });
       };
       const [soal, setSoal] = useState([]);
+      const [narasiMap, setNarasiMap] = useState({});
       const [jawabanSiswa, setJawabanSiswa] = useState({});
       const [raguRagu, setRaguRagu] = useState({});
       const [currentIndex, setCurrentIndex] = useState(0);
@@ -53,14 +54,40 @@
       const fetchSoal = async () => {
         const res = await api('get_soal_by_mapel', { id_mapel: jadwal.id_mapel });
         if (res.status === 'success') {
-          const parsedSoal = res.data.map(s => {
+          let parsedSoal = res.data.map(s => {
             let parsedOpsi = null;
             if (s.opsi) {
               try { parsedOpsi = JSON.parse(s.opsi); } catch (e) { parsedOpsi = s.opsi; }
             }
             return { ...s, opsi: parsedOpsi };
           });
-          setSoal(parsedSoal);
+
+          // Pisahkan NARASI dan SKEMA
+          const nMap = {};
+          parsedSoal.filter(s => s.tipe_soal === 'NARASI').forEach(n => {
+            nMap[n.id_soal] = n;
+          });
+          setNarasiMap(nMap);
+
+          let validSoal = parsedSoal.filter(s => s.tipe_soal !== 'NARASI' && s.tipe_soal !== 'SKEMA_PENILAIAN');
+
+          // Cek apakah sudah ada urutan acak yang disimpan di localStorage
+          const orderKey = `exam_order_${idLog}`;
+          const savedOrder = localStorage.getItem(orderKey);
+          
+          if (savedOrder) {
+            const orderArr = JSON.parse(savedOrder);
+            validSoal.sort((a, b) => orderArr.indexOf(a.id_soal) - orderArr.indexOf(b.id_soal));
+          } else {
+            // Acak urutan soal (Fisher-Yates)
+            for (let i = validSoal.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [validSoal[i], validSoal[j]] = [validSoal[j], validSoal[i]];
+            }
+            localStorage.setItem(orderKey, JSON.stringify(validSoal.map(s => s.id_soal)));
+          }
+
+          setSoal(validSoal);
         }
         setIsLoading(false);
       };
@@ -332,8 +359,20 @@
                         {currentS.bobot && <span className="text-xs ml-2 text-slate-500">({currentS.bobot} Poin)</span>}
                       </div>
                     </div>
-                    <div className="font-question-text text-question-text text-on-surface dark:text-white mb-xl whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: currentS.pertanyaan }}>
+                    {currentS.id_narasi && narasiMap[currentS.id_narasi] && (
+                      <div className="bg-surface-variant/20 border border-outline-variant rounded-xl p-4 mb-6">
+                        <div className="font-bold text-sm mb-2 text-primary uppercase tracking-wide">Teks Referensi:</div>
+                        <div className="font-body-md text-on-surface dark:text-white mb-2 whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: narasiMap[currentS.id_narasi].pertanyaan }}></div>
+                        {narasiMap[currentS.id_narasi].gambar && <img src={narasiMap[currentS.id_narasi].gambar} alt="Narasi" className="mt-2 max-h-64 rounded-lg object-contain mx-auto" />}
+                      </div>
+                    )}
+                    <div className="font-question-text text-question-text text-on-surface dark:text-white mb-4 whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: currentS.pertanyaan }}>
                     </div>
+                    {currentS.gambar && (
+                      <div className="mb-6 flex justify-center">
+                        <img src={currentS.gambar} alt="Soal" className="max-h-64 rounded-lg object-contain border border-outline-variant" />
+                      </div>
+                    )}
                     {/* Options */}
                     <div className="space-y-sm">
                       {renderQuestionInput(currentS)}
