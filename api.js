@@ -48,6 +48,11 @@
           }
 
           // ================= SUPER ADMIN =================
+          case 'update_superadmin_password': {
+            ({ error } = await supabaseClient.from('super_admin').update({ password: payload.password }).eq('username', payload.username));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Password Super Admin berhasil diperbarui.' };
+          }
           case 'get_sekolah': {
             ({ data, error } = await supabaseClient.from('sekolah').select('*').order('created_at', { ascending: false }));
             if (error) return { status: 'error', message: error.message };
@@ -62,6 +67,11 @@
             ({ error } = await supabaseClient.from('sekolah').delete().eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Sekolah berhasil dihapus.' };
+          }
+          case 'update_sekolah': {
+            ({ error } = await supabaseClient.from('sekolah').update({ nama_sekolah: payload.nama_sekolah }).eq('npsn', payload.npsn));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Sekolah berhasil diperbarui.' };
           }
           case 'get_admin_all': {
             ({ data, error } = await supabaseClient.from('admin').select('*, sekolah(nama_sekolah)').order('created_at', { ascending: false }));
@@ -83,6 +93,18 @@
             ({ error } = await supabaseClient.from('admin').delete().eq('id_admin', payload.id_admin));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Admin Sekolah berhasil dihapus.' };
+          }
+          case 'update_admin_sekolah': {
+            const updateData = {
+              nama_lengkap: payload.nama_lengkap,
+              username: payload.username,
+              npsn: payload.npsn
+            };
+            if (payload.password) updateData.password = payload.password;
+            
+            ({ error } = await supabaseClient.from('admin').update(updateData).eq('id_admin', payload.id_admin));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Admin Sekolah berhasil diperbarui.' };
           }
 
           // ================= ADMIN DASHBOARD =================

@@ -4,9 +4,10 @@
       const [dataAdmin, setDataAdmin] = useState([]);
       const [isLoading, setIsLoading] = useState(false);
       
-      const [formModal, setFormModal] = useState({ isOpen: false, type: '' });
+      const [formModal, setFormModal] = useState({ isOpen: false, type: '', isEdit: false, editItem: null });
 
       const fetchData = async (tab) => {
+        if (tab === 'profil') return;
         setIsLoading(true);
         if (tab === 'sekolah') {
           const res = await fetchAPI('get_sekolah');
@@ -32,16 +33,20 @@
         const payload = Object.fromEntries(formData.entries());
 
         let endpoint = '';
-        if (formModal.type === 'sekolah') endpoint = 'create_sekolah';
-        else if (formModal.type === 'admin') endpoint = 'create_admin_sekolah';
+        if (formModal.type === 'sekolah') endpoint = formModal.isEdit ? 'update_sekolah' : 'create_sekolah';
+        else if (formModal.type === 'admin') endpoint = formModal.isEdit ? 'update_admin_sekolah' : 'create_admin_sekolah';
 
         const res = await fetchAPI(endpoint, payload);
         if (res.status === 'success') {
-          setFormModal({ isOpen: false, type: '' });
+          setFormModal({ isOpen: false, type: '', isEdit: false, editItem: null });
           fetchData(activeTab);
         } else {
           alert(res.message);
         }
+      };
+
+      const handleEdit = (type, item) => {
+        setFormModal({ isOpen: true, type, isEdit: true, editItem: item });
       };
 
       const handleDelete = async (type, item) => {
@@ -62,23 +67,24 @@
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
             <div className="bg-surface dark:bg-slate-800 rounded-2xl w-full max-w-md shadow-2xl p-6 relative border border-outline-variant/30 dark:border-slate-700">
               <h2 className="text-xl font-bold mb-4 text-on-surface dark:text-white capitalize">
-                Tambah {type === 'sekolah' ? 'Sekolah' : 'Admin'}
+                {formModal.isEdit ? 'Edit' : 'Tambah'} {type === 'sekolah' ? 'Sekolah' : 'Admin'}
               </h2>
               <form onSubmit={handleSaveForm} className="space-y-4">
                 {type === 'sekolah' && (
                   <>
-                    <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">NPSN</label><input name="npsn" required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
-                    <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Nama Sekolah</label><input name="nama_sekolah" required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
+                    <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">NPSN</label><input name="npsn" defaultValue={formModal.editItem?.npsn} readOnly={formModal.isEdit} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
+                    <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Nama Sekolah</label><input name="nama_sekolah" defaultValue={formModal.editItem?.nama_sekolah} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
                   </>
                 )}
                 {type === 'admin' && (
                   <>
-                    <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Nama Lengkap</label><input name="nama_lengkap" required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
-                    <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Username</label><input name="username" required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
-                    <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Password</label><input name="password" type="password" required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
+                    {formModal.isEdit && <input type="hidden" name="id_admin" value={formModal.editItem?.id_admin} />}
+                    <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Nama Lengkap</label><input name="nama_lengkap" defaultValue={formModal.editItem?.nama_lengkap} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
+                    <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Username</label><input name="username" defaultValue={formModal.editItem?.username} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
+                    <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Password {formModal.isEdit && '(Kosongkan jika tidak diubah)'}</label><input name="password" type="password" required={!formModal.isEdit} className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
                     <div>
                       <label className="block text-sm font-medium mb-1 dark:text-slate-300">Sekolah (NPSN)</label>
-                      <select name="npsn" required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white">
+                      <select name="npsn" defaultValue={formModal.editItem?.npsn} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white">
                         <option value="">-- Pilih Sekolah --</option>
                         {dataSekolah.map(s => <option key={s.npsn} value={s.npsn}>{s.npsn} - {s.nama_sekolah}</option>)}
                       </select>
@@ -86,7 +92,7 @@
                   </>
                 )}
                 <div className="flex justify-end space-x-2 pt-4">
-                  <button type="button" onClick={() => setFormModal({ isOpen: false, type: '' })} className="px-4 py-2 rounded-lg font-label-md text-on-surface-variant hover:bg-surface-variant">Batal</button>
+                  <button type="button" onClick={() => setFormModal({ isOpen: false, type: '', isEdit: false, editItem: null })} className="px-4 py-2 rounded-lg font-label-md text-on-surface-variant hover:bg-surface-variant">Batal</button>
                   <button type="submit" className="px-4 py-2 rounded-lg font-label-md bg-primary text-on-primary hover:bg-primary/90">Simpan</button>
                 </div>
               </form>
@@ -108,6 +114,9 @@
               <a onClick={() => setActiveTab('admin')} className={`flex items-center space-x-2 px-4 py-3 rounded-xl font-bold cursor-pointer transition-colors ${activeTab === 'admin' ? 'bg-primary text-white shadow-md' : 'hover:bg-slate-200 dark:hover:bg-slate-800'}`}>
                 <span className="material-symbols-outlined">shield_person</span><span>Data Admin Sekolah</span>
               </a>
+              <a onClick={() => setActiveTab('profil')} className={`flex items-center space-x-2 px-4 py-3 rounded-xl font-bold cursor-pointer transition-colors ${activeTab === 'profil' ? 'bg-primary text-white shadow-md' : 'hover:bg-slate-200 dark:hover:bg-slate-800'}`}>
+                <span className="material-symbols-outlined">manage_accounts</span><span>Profil / Password</span>
+              </a>
             </div>
             <div className="mt-auto space-y-2">
               <button onClick={() => setIsDarkMode(!isDarkMode)} className="w-full text-left px-4 py-2 rounded-lg hover:bg-surface-variant dark:hover:bg-slate-800 flex items-center space-x-2">
@@ -121,12 +130,15 @@
           </nav>
 
           <main className="flex-1 p-8 h-screen overflow-y-auto">
-            <div className="flex justify-between items-center mb-8">
-              <h2 className="text-3xl font-black text-slate-800 dark:text-white capitalize">Kelola {activeTab}</h2>
-              <button onClick={() => setFormModal({ isOpen: true, type: activeTab })} className="bg-primary text-white px-6 py-2.5 rounded-full font-bold shadow-md hover:bg-primary/90 hover:scale-105 transition-all flex items-center gap-2">
-                <span className="material-symbols-outlined">add</span> Tambah {activeTab === 'sekolah' ? 'Sekolah' : 'Admin'}
-              </button>
-            </div>
+            {activeTab !== 'profil' && (
+              <>
+                <div className="flex justify-between items-center mb-8">
+                  <h2 className="text-3xl font-black text-slate-800 dark:text-white capitalize">Kelola {activeTab}</h2>
+                  <button onClick={() => setFormModal({ isOpen: true, type: activeTab, isEdit: false, editItem: null })} className="bg-primary text-white px-6 py-2.5 rounded-full font-bold shadow-md hover:bg-primary/90 hover:scale-105 transition-all flex items-center gap-2">
+                    <span className="material-symbols-outlined">add</span> Tambah {activeTab === 'sekolah' ? 'Sekolah' : 'Admin'}
+                  </button>
+                </div>
+
 
             <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-xl overflow-hidden border border-slate-100 dark:border-slate-700">
               <div className="overflow-x-auto">
@@ -146,6 +158,7 @@
                         <td className="p-4 font-mono font-medium text-slate-700 dark:text-slate-300">{s.npsn}</td>
                         <td className="p-4 font-bold text-slate-800 dark:text-slate-100">{s.nama_sekolah}</td>
                         <td className="p-4 text-right">
+                          <button onClick={() => handleEdit('sekolah', s)} className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-2 rounded-lg transition-colors inline-flex items-center gap-1"><span className="material-symbols-outlined text-[20px]">edit</span></button>
                           <button onClick={() => handleDelete('sekolah', s)} className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition-colors inline-flex items-center gap-1"><span className="material-symbols-outlined text-[20px]">delete</span></button>
                         </td>
                       </tr>
@@ -158,6 +171,7 @@
                         <td className="p-4 text-slate-600 dark:text-slate-300 font-mono text-sm">{a.username}</td>
                         <td className="p-4 text-slate-600 dark:text-slate-300">{a.sekolah?.nama_sekolah} (NPSN: {a.npsn})</td>
                         <td className="p-4 text-right">
+                          <button onClick={() => handleEdit('admin', a)} className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-2 rounded-lg transition-colors inline-flex items-center gap-1"><span className="material-symbols-outlined text-[20px]">edit</span></button>
                           <button onClick={() => handleDelete('admin', a)} className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition-colors inline-flex items-center gap-1"><span className="material-symbols-outlined text-[20px]">delete</span></button>
                         </td>
                       </tr>
@@ -167,6 +181,42 @@
                 </table>
               </div>
             </div>
+            </>
+            )}
+            
+            {activeTab === 'profil' && (
+              <div>
+                <h2 className="text-3xl font-black text-slate-800 dark:text-white mb-8">Profil / Password</h2>
+                <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-700 max-w-lg">
+                  <form onSubmit={async (e) => {
+                      e.preventDefault();
+                      const fd = new FormData(e.target);
+                      const payload = Object.fromEntries(fd.entries());
+                      if (payload.password !== payload.password_confirm) {
+                          alert("Password tidak cocok!");
+                          return;
+                      }
+                      const res = await fetchAPI('update_superadmin_password', { username: user?.username, password: payload.password });
+                      alert(res.message);
+                      if (res.status === 'success') e.target.reset();
+                  }}>
+                      <div className="mb-4">
+                          <label className="block text-sm font-medium mb-1 dark:text-slate-300">Username Super Admin</label>
+                          <input type="text" readOnly value={user?.username || ''} className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800" />
+                      </div>
+                      <div className="mb-4">
+                          <label className="block text-sm font-medium mb-1 dark:text-slate-300">Password Baru</label>
+                          <input type="password" name="password" required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" />
+                      </div>
+                      <div className="mb-6">
+                          <label className="block text-sm font-medium mb-1 dark:text-slate-300">Konfirmasi Password Baru</label>
+                          <input type="password" name="password_confirm" required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" />
+                      </div>
+                      <button type="submit" className="px-6 py-2 rounded-lg font-bold bg-primary text-white hover:bg-primary/90">Simpan Perubahan</button>
+                  </form>
+                </div>
+              </div>
+            )}
             {renderFormModal()}
           </main>
         </div>
