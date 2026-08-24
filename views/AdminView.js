@@ -470,17 +470,21 @@
                 </div>
               </div>
 
-              {['siswa', 'guru', 'mapel', 'jadwal'].includes(activeTab) && (
+              {['kelas', 'siswa', 'guru', 'mapel', 'jadwal'].includes(activeTab) && (
                 <div className="flex flex-col sm:flex-row gap-2 mt-4 sm:mt-0">
-                  <button onClick={() => downloadTemplate(activeTab)} className="bg-surface-container-highest dark:bg-slate-700 text-on-surface-variant dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 px-md py-sm rounded-full font-label-md shadow-sm transition-all flex items-center justify-center gap-sm hover:-translate-y-0.5 whitespace-nowrap">
-                    <span className="material-symbols-outlined text-[20px]">download</span>
-                    Template
-                  </button>
-                  <button onClick={() => document.getElementById('file-upload').click()} className="bg-[#10B981] text-white hover:bg-[#059669] px-md py-sm rounded-full font-label-md shadow-sm transition-all flex items-center justify-center gap-sm hover:-translate-y-0.5 whitespace-nowrap">
-                    <span className="material-symbols-outlined text-[20px]">upload_file</span>
-                    Upload Excel
-                  </button>
-                  <input type="file" id="file-upload" accept=".xlsx, .xls, .csv" className="hidden" onChange={(e) => handleFileUpload(e, activeTab)} />
+                  {activeTab !== 'kelas' && (
+                    <>
+                      <button onClick={() => downloadTemplate(activeTab)} className="bg-surface-container-highest dark:bg-slate-700 text-on-surface-variant dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 px-md py-sm rounded-full font-label-md shadow-sm transition-all flex items-center justify-center gap-sm hover:-translate-y-0.5 whitespace-nowrap">
+                        <span className="material-symbols-outlined text-[20px]">download</span>
+                        Template
+                      </button>
+                      <button onClick={() => document.getElementById('file-upload').click()} className="bg-[#10B981] text-white hover:bg-[#059669] px-md py-sm rounded-full font-label-md shadow-sm transition-all flex items-center justify-center gap-sm hover:-translate-y-0.5 whitespace-nowrap">
+                        <span className="material-symbols-outlined text-[20px]">upload_file</span>
+                        Upload Excel
+                      </button>
+                      <input type="file" id="file-upload" accept=".xlsx, .xls, .csv" className="hidden" onChange={(e) => handleFileUpload(e, activeTab)} />
+                    </>
+                  )}
                   <button onClick={() => openCreateModal(activeTab)} className="bg-primary text-on-primary hover:bg-primary/90 px-md py-sm rounded-full font-label-md shadow-sm transition-all flex items-center justify-center gap-sm hover:-translate-y-0.5 whitespace-nowrap">
                     <span className="material-symbols-outlined text-[20px]">add</span>
                     Tambah {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
