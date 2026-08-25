@@ -11,11 +11,14 @@
       
       const [activeTab, setActiveTab] = useState('ujian');
       const [dataPengumuman, setDataPengumuman] = useState([]);
+      const [dataRiwayat, setDataRiwayat] = useState([]);
       const [hasNotification, setHasNotification] = useState(false);
 
       useEffect(() => {
         if (activeTab === 'pengumuman') {
           loadPengumuman();
+        } else if (activeTab === 'riwayat') {
+          loadRiwayat();
         }
       }, [activeTab]);
 
@@ -26,6 +29,13 @@
           setDataPengumuman(res.data);
           setHasNotification(false);
         }
+        setIsLoading(false);
+      };
+
+      const loadRiwayat = async () => {
+        setIsLoading(true);
+        const res = await api('get_riwayat_ujian_siswa', { id_siswa: user.id_user });
+        if (res.status === 'success') setDataRiwayat(res.data);
         setIsLoading(false);
       };
 
@@ -88,6 +98,7 @@
               </div>
               <div className="hidden md:flex items-center h-full gap-lg">
                 <a onClick={() => setActiveTab('ujian')} className={`cursor-pointer h-16 flex items-center font-bold border-b-2 font-label-md text-label-md transition-colors ${activeTab === 'ujian' ? 'text-primary dark:text-primary-fixed border-primary dark:border-primary-fixed' : 'text-on-surface-variant border-transparent hover:text-primary'}`}>Portal Ujian</a>
+                <a onClick={() => setActiveTab('riwayat')} className={`cursor-pointer h-16 flex items-center font-bold border-b-2 font-label-md text-label-md transition-colors ${activeTab === 'riwayat' ? 'text-primary dark:text-primary-fixed border-primary dark:border-primary-fixed' : 'text-on-surface-variant border-transparent hover:text-primary'}`}>Riwayat Ujian</a>
                 <a onClick={() => setActiveTab('pengumuman')} className={`cursor-pointer h-16 flex items-center font-bold border-b-2 font-label-md text-label-md transition-colors ${activeTab === 'pengumuman' ? 'text-primary dark:text-primary-fixed border-primary dark:border-primary-fixed' : 'text-on-surface-variant border-transparent hover:text-primary'}`}>Pengumuman</a>
               </div>
             </div>
@@ -223,6 +234,54 @@
                         <p className="text-slate-500 font-medium text-lg">Belum ada pengumuman.</p>
                       </div>
                     )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'riwayat' && (
+              <div className="animate-fade-in-up">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-sm mb-lg">
+                  <div>
+                    <h1 className="font-headline-lg text-headline-lg text-on-surface dark:text-white flex items-center gap-2">
+                      <span className="material-symbols-outlined text-primary dark:text-primary-fixed text-[32px]">history</span> Riwayat Ujian
+                    </h1>
+                    <p className="font-body-md text-body-md text-on-surface-variant dark:text-slate-400 mt-1">Daftar ujian yang telah Anda selesaikan beserta skornya.</p>
+                  </div>
+                </div>
+                {isLoading ? <Loader text="Memuat riwayat..." /> : (
+                  <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-xl overflow-hidden border border-slate-100 dark:border-slate-700">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead className="bg-slate-50 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600">
+                          <tr>
+                            <th className="p-4 font-bold text-slate-600 dark:text-slate-300">Waktu Pelaksanaan</th>
+                            <th className="p-4 font-bold text-slate-600 dark:text-slate-300">Mata Pelajaran</th>
+                            <th className="p-4 font-bold text-slate-600 dark:text-slate-300">Skor PG</th>
+                            <th className="p-4 font-bold text-slate-600 dark:text-slate-300">Skor Uraian</th>
+                            <th className="p-4 font-bold text-primary dark:text-primary-fixed">Total Skor</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                          {dataRiwayat.map(r => (
+                            <tr key={r.id_log} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                              <td className="p-4 font-mono text-sm text-slate-600 dark:text-slate-300">
+                                {new Date(r.waktu_mulai).toLocaleString('id-ID')}
+                              </td>
+                              <td className="p-4 font-bold text-slate-800 dark:text-slate-100">{r.nama_mapel}</td>
+                              <td className="p-4 text-slate-600 dark:text-slate-300">{r.nilai_auto}</td>
+                              <td className="p-4 text-slate-600 dark:text-slate-300">{r.nilai_uraian}</td>
+                              <td className="p-4 font-bold text-primary text-lg">{r.total_nilai}</td>
+                            </tr>
+                          ))}
+                          {dataRiwayat.length === 0 && (
+                            <tr>
+                              <td colSpan="5" className="p-8 text-center text-slate-500">Belum ada riwayat ujian yang diselesaikan.</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
               </div>

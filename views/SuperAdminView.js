@@ -2,7 +2,9 @@
       const [activeTab, setActiveTab] = useState('analytics');
       const [dataSekolah, setDataSekolah] = useState([]);
       const [dataAdmin, setDataAdmin] = useState([]);
-      const [dataAnalytics, setDataAnalytics] = useState([]);
+      const [dataAnalytics, setDataAnalytics] = useState({});
+      const [dataPengumuman, setDataPengumuman] = useState([]);
+      const [dataLog, setDataLog] = useState([]);
       const [isLoading, setIsLoading] = useState(false);
       
       const [formModal, setFormModal] = useState({ isOpen: false, type: '', isEdit: false, editItem: null });
@@ -23,6 +25,12 @@
         } else if (tab === 'analytics') {
           const res = await fetchAPI('get_analytics');
           if (res.status === 'success') setDataAnalytics(res.data);
+        } else if (tab === 'pengumuman') {
+          const res = await fetchAPI('get_pengumuman_global');
+          if (res.status === 'success') setDataPengumuman(res.data);
+        } else if (tab === 'log') {
+          const res = await fetchAPI('get_log_aktivitas_global');
+          if (res.status === 'success') setDataLog(res.data);
         }
         setIsLoading(false);
       };
@@ -39,6 +47,7 @@
         let endpoint = '';
         if (formModal.type === 'sekolah') endpoint = formModal.isEdit ? 'update_sekolah' : 'create_sekolah';
         else if (formModal.type === 'admin') endpoint = formModal.isEdit ? 'update_admin_sekolah' : 'create_admin_sekolah';
+        else if (formModal.type === 'pengumuman') endpoint = 'create_pengumuman_global';
 
         const res = await fetchAPI(endpoint, payload);
         if (res.status === 'success') {
@@ -55,8 +64,12 @@
 
       const handleDelete = async (type, item) => {
         if (!confirm(`Hapus data ini secara permanen?`)) return;
-        let endpoint = type === 'sekolah' ? 'delete_sekolah' : 'delete_admin_sekolah';
-        let payload = type === 'sekolah' ? { npsn: item.npsn } : { id_admin: item.id_admin };
+        let endpoint = '';
+        let payload = {};
+        
+        if (type === 'sekolah') { endpoint = 'delete_sekolah'; payload = { npsn: item.npsn }; }
+        else if (type === 'admin') { endpoint = 'delete_admin_sekolah'; payload = { id_admin: item.id_admin }; }
+        else if (type === 'pengumuman') { endpoint = 'delete_pengumuman_global'; payload = { id_pengumuman: item.id_pengumuman }; }
         
         const res = await fetchAPI(endpoint, payload);
         if (res.status === 'success') fetchData(activeTab);
@@ -71,7 +84,7 @@
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
             <div className="bg-surface dark:bg-slate-800 rounded-2xl w-full max-w-md shadow-2xl p-6 relative border border-outline-variant/30 dark:border-slate-700">
               <h2 className="text-xl font-bold mb-4 text-on-surface dark:text-white capitalize">
-                {formModal.isEdit ? 'Edit' : 'Tambah'} {type === 'sekolah' ? 'Sekolah' : 'Admin'}
+                {formModal.isEdit ? 'Edit' : 'Tambah'} {type}
               </h2>
               <form onSubmit={handleSaveForm} className="space-y-4">
                 {type === 'sekolah' && (
@@ -91,6 +104,20 @@
                       <select name="npsn" defaultValue={formModal.editItem?.npsn} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white">
                         <option value="">-- Pilih Sekolah --</option>
                         {dataSekolah.map(s => <option key={s.npsn} value={s.npsn}>{s.npsn} - {s.nama_sekolah}</option>)}
+                      </select>
+                    </div>
+                  </>
+                )}
+                {type === 'pengumuman' && (
+                  <>
+                    <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Judul Pengumuman</label><input name="judul" required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
+                    <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Isi Pengumuman</label><textarea name="isi" required rows="4" className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white"></textarea></div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1 dark:text-slate-300">Tipe</label>
+                      <select name="tipe" required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white">
+                        <option value="info">Info (Biru)</option>
+                        <option value="warning">Warning (Kuning)</option>
+                        <option value="success">Success (Hijau)</option>
                       </select>
                     </div>
                   </>
@@ -121,6 +148,12 @@
               <a onClick={() => setActiveTab('admin')} className={`flex items-center space-x-2 px-4 py-3 rounded-xl font-bold cursor-pointer transition-colors ${activeTab === 'admin' ? 'bg-primary text-white shadow-md' : 'hover:bg-slate-200 dark:hover:bg-slate-800'}`}>
                 <span className="material-symbols-outlined">shield_person</span><span>Data Admin Sekolah</span>
               </a>
+              <a onClick={() => setActiveTab('pengumuman')} className={`flex items-center space-x-2 px-4 py-3 rounded-xl font-bold cursor-pointer transition-colors ${activeTab === 'pengumuman' ? 'bg-primary text-white shadow-md' : 'hover:bg-slate-200 dark:hover:bg-slate-800'}`}>
+                <span className="material-symbols-outlined">campaign</span><span>Pengumuman Global</span>
+              </a>
+              <a onClick={() => setActiveTab('log')} className={`flex items-center space-x-2 px-4 py-3 rounded-xl font-bold cursor-pointer transition-colors ${activeTab === 'log' ? 'bg-primary text-white shadow-md' : 'hover:bg-slate-200 dark:hover:bg-slate-800'}`}>
+                <span className="material-symbols-outlined">list_alt</span><span>Log Aktivitas</span>
+              </a>
               <a onClick={() => setActiveTab('profil')} className={`flex items-center space-x-2 px-4 py-3 rounded-xl font-bold cursor-pointer transition-colors ${activeTab === 'profil' ? 'bg-primary text-white shadow-md' : 'hover:bg-slate-200 dark:hover:bg-slate-800'}`}>
                 <span className="material-symbols-outlined">manage_accounts</span><span>Profil / Password</span>
               </a>
@@ -141,8 +174,19 @@
               <div>
                 <h2 className="text-3xl font-black text-slate-800 dark:text-white mb-8">Dasbor Analitik Resource</h2>
                 {isLoading ? <div className="flex justify-center p-12"><span className="material-symbols-outlined animate-spin text-4xl text-primary">autorenew</span></div> : (
+                  <>
+                  <div className="mb-6 bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                    <div>
+                      <h3 className="font-bold text-xl text-slate-800 dark:text-white">Pengguna Aktif Saat Ini (Semua Sekolah)</h3>
+                      <p className="text-sm text-slate-500">Siswa yang sedang dalam status SEDANG KERJA ujian</p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="text-5xl font-black text-primary">{dataAnalytics.concurrentUsers || 0}</span>
+                      <span className="material-symbols-outlined text-4xl text-emerald-500 animate-pulse">wifi_tethering</span>
+                    </div>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {dataAnalytics.map(stat => (
+                    {(dataAnalytics.stats || []).map(stat => (
                       <div key={stat.npsn} className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-700">
                         <div className="flex justify-between items-start mb-4">
                           <div>
@@ -167,8 +211,9 @@
                         </div>
                       </div>
                     ))}
-                    {dataAnalytics.length === 0 && <div className="col-span-full p-8 text-center text-slate-500">Belum ada data sekolah.</div>}
+                    {(dataAnalytics.stats || []).length === 0 && <div className="col-span-full p-8 text-center text-slate-500">Belum ada data sekolah.</div>}
                   </div>
+                  </>
                 )}
               </div>
             )}
@@ -225,6 +270,55 @@
               </div>
             </div>
             </>
+            )}
+
+            {activeTab === 'pengumuman' && (
+              <>
+                <div className="flex justify-between items-center mb-8">
+                  <h2 className="text-3xl font-black text-slate-800 dark:text-white capitalize">Pengumuman Global</h2>
+                  <button onClick={() => setFormModal({ isOpen: true, type: 'pengumuman', isEdit: false, editItem: null })} className="bg-primary text-white px-6 py-2.5 rounded-full font-bold shadow-md hover:bg-primary/90 hover:scale-105 transition-all flex items-center gap-2">
+                    <span className="material-symbols-outlined">add</span> Buat Pengumuman
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  {isLoading ? <div className="flex justify-center p-12"><span className="material-symbols-outlined animate-spin text-4xl text-primary">autorenew</span></div> : null}
+                  {!isLoading && dataPengumuman.map(p => (
+                    <div key={p.id_pengumuman} className={`p-6 rounded-2xl border-l-4 shadow-sm bg-white dark:bg-slate-800 relative ${p.tipe === 'warning' ? 'border-amber-500' : p.tipe === 'success' ? 'border-emerald-500' : 'border-blue-500'}`}>
+                      <button onClick={() => handleDelete('pengumuman', p)} className="absolute top-4 right-4 text-red-500 hover:text-red-700 bg-red-50 dark:bg-red-500/10 p-1.5 rounded-lg transition-colors"><span className="material-symbols-outlined text-[18px]">delete</span></button>
+                      <h3 className="font-bold text-lg mb-1">{p.judul}</h3>
+                      <p className="text-slate-600 dark:text-slate-300 text-sm mb-2">{p.isi}</p>
+                      <span className="text-xs text-slate-400 font-mono">{new Date(p.created_at).toLocaleString('id-ID')}</span>
+                    </div>
+                  ))}
+                  {!isLoading && dataPengumuman.length === 0 && <div className="p-8 text-center text-slate-500">Belum ada pengumuman global.</div>}
+                </div>
+              </>
+            )}
+
+            {activeTab === 'log' && (
+              <>
+                <h2 className="text-3xl font-black text-slate-800 dark:text-white mb-8">Log Aktivitas Global</h2>
+                <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-xl overflow-hidden border border-slate-100 dark:border-slate-700">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead className="bg-slate-50 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600">
+                        <tr><th className="p-4 font-bold text-slate-600 dark:text-slate-300">Waktu</th><th className="p-4 font-bold text-slate-600 dark:text-slate-300">User / Role</th><th className="p-4 font-bold text-slate-600 dark:text-slate-300">Aksi</th></tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                        {isLoading ? <tr><td colSpan="3" className="p-8 text-center"><span className="material-symbols-outlined animate-spin text-4xl text-primary">autorenew</span></td></tr> : null}
+                        {!isLoading && dataLog.map(l => (
+                          <tr key={l.id_log} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                            <td className="p-4 text-xs font-mono text-slate-500">{new Date(l.created_at).toLocaleString('id-ID')}</td>
+                            <td className="p-4 font-bold text-slate-800 dark:text-slate-100">{l.username} <span className="px-2 py-0.5 bg-slate-200 dark:bg-slate-700 rounded-full text-[10px] font-mono font-normal ml-2">{l.role}</span></td>
+                            <td className="p-4 text-slate-600 dark:text-slate-300 text-sm">{l.action}: {l.detail}</td>
+                          </tr>
+                        ))}
+                        {!isLoading && dataLog.length === 0 && <tr><td colSpan="3" className="p-8 text-center text-slate-500">Belum ada log.</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
             )}
             
             {activeTab === 'profil' && (

@@ -8,7 +8,7 @@
       try {
         // ================= APPLICATION-LEVEL RLS =================
         // Menolak kueri jika npsn tidak disertakan untuk rute non-global
-        const globalRoutes = ['login', 'register', 'get_sekolah', 'update_admin_sekolah', 'tambah_admin_sekolah', 'get_analytics', 'update_admin_profil', 'hapus_sekolah'];
+        const globalRoutes = ['login', 'register', 'get_sekolah', 'update_admin_sekolah', 'tambah_admin_sekolah', 'get_analytics', 'update_admin_profil', 'hapus_sekolah', 'get_pengumuman_global', 'create_pengumuman_global', 'delete_pengumuman_global', 'get_log_aktivitas_global', 'create_log_aktivitas_global'];
         if (!globalRoutes.includes(action)) {
           if (Array.isArray(payload)) {
             if (payload.some(p => !p.npsn)) throw new Error("Security Violation: Akses ditolak. NPSN hilang pada bulk payload.");
@@ -152,7 +152,40 @@
               };
             }));
             
-            return { status: 'success', data: stats };
+            // Calculate global concurrent users
+            const { count: concurrentUsers } = await supabaseClient
+              .from('log_ujian')
+              .select('id_log', { count: 'exact', head: true })
+              .eq('status_ujian', 'SEDANG KERJA');
+
+            return { status: 'success', data: { stats, concurrentUsers: concurrentUsers || 0 } };
+          }
+
+          // ================= PENGUMUMAN & LOG GLOBAL =================
+          case 'get_pengumuman_global': {
+            ({ data, error } = await supabaseClient.from('pengumuman_global').select('*').order('created_at', { ascending: false }));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', data };
+          }
+          case 'create_pengumuman_global': {
+            ({ error } = await supabaseClient.from('pengumuman_global').insert([{ judul: payload.judul, isi: payload.isi, tipe: payload.tipe }]));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Pengumuman berhasil ditambahkan.' };
+          }
+          case 'delete_pengumuman_global': {
+            ({ error } = await supabaseClient.from('pengumuman_global').delete().eq('id_pengumuman', payload.id_pengumuman));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Pengumuman berhasil dihapus.' };
+          }
+          case 'get_log_aktivitas_global': {
+            ({ data, error } = await supabaseClient.from('log_aktivitas_global').select('*').order('created_at', { ascending: false }).limit(100));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', data };
+          }
+          case 'create_log_aktivitas_global': {
+            ({ error } = await supabaseClient.from('log_aktivitas_global').insert([{ username: payload.username, role: payload.role, action: payload.action, detail: payload.detail }]));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Log dicatat.' };
           }
 
           // ================= ADMIN DASHBOARD =================
@@ -214,6 +247,33 @@
           }
           case 'delete_siswa': {
             ({ error } = await supabaseClient.from('siswa').delete().eq('id_siswa', payload.id_siswa).eq('npsn', payload.npsn));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Siswa berhasil dihapus' };
+          }
+          case 'reset_sesi_siswa': {
+            ({ error } = await supabaseClient.from('log_ujian').delete().eq('id_siswa', payload.id_siswa).eq('status_ujian', 'SEDANG KERJA'));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Sesi siswa berhasil direset' };
+          }
+          case 'get_kelas': {
+            ({ data, error } = await supabaseClient.from('kelas').select('*').eq('npsn', payload.npsn));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', data };
+          }
+          case 'create_kelas': {
+            payload.id_kelas = generateId('KLS');
+            ({ error } = await supabaseClient.from('kelas').insert([payload]));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Kelas berhasil ditambahkan' };
+          }
+          case 'update_kelas': {
+            const { id_kelas, npsn, ...updates } = payload;
+            ({ error } = await supabaseClient.from('kelas').update(updates).eq('id_kelas', id_kelas).eq('npsn', payload.npsn));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Kelas berhasil diperbarui' };
+          }
+          case 'delete_kelas': {
+            ({ error } = await supabaseClient.from('kelas').delete().eq('id_kelas', payload.id_kelas).eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Siswa berhasil dihapus' };
           }
@@ -804,6 +864,29 @@
             ({ error } = await supabaseClient.from('pengumuman').delete().eq('id_pengumuman', payload.id_pengumuman).eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Pengumuman dihapus.' };
+          }
+
+          case 'get_riwayat_ujian_siswa': {
+            ({ data, error } = await supabaseClient
+              .from('log_ujian')
+              .select('*, jadwal!inner(waktu_mulai, waktu_selesai, mata_pelajaran(nama_mapel))')
+              .eq('id_siswa', payload.id_siswa)
+              .eq('status_ujian', 'SELESAI')
+              .order('waktu_mulai', { ascending: false }));
+            if (error) return { status: 'error', message: error.message };
+            
+            return { 
+              status: 'success', 
+              data: data.map(log => ({
+                id_log: log.id_log,
+                waktu_mulai: log.waktu_mulai,
+                waktu_selesai: log.waktu_selesai,
+                nilai_auto: log.nilai_auto || 0,
+                nilai_uraian: log.nilai_uraian || 0,
+                total_nilai: (Number(log.nilai_auto) || 0) + (Number(log.nilai_uraian) || 0),
+                nama_mapel: log.jadwal?.mata_pelajaran?.nama_mapel || 'Unknown'
+              })) 
+            };
           }
 
           default:

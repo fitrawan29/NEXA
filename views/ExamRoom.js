@@ -100,6 +100,15 @@
          }
       }, [isOffline]);
 
+      useEffect(() => {
+        if (window.MathJax) {
+          setTimeout(() => {
+            window.MathJax.typesetPromise().catch(err => console.error('MathJax error:', err));
+          }, 100);
+        }
+      }, [currentIndex, soal]);
+
+
       const fetchSoal = async () => {
         const res = await api('get_soal_by_mapel', { id_mapel: jadwal.id_mapel });
         if (res.status === 'success') {

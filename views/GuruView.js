@@ -68,6 +68,14 @@
         return () => clearInterval(interval);
       }, [activeTab, selectedJadwal, selectedMapel]);
 
+      useEffect(() => {
+        if (window.MathJax) {
+          setTimeout(() => {
+            window.MathJax.typesetPromise().catch(err => console.error('MathJax error:', err));
+          }, 100);
+        }
+      }, [dataSoal, activeTab, bankSoalPage, selectedMapel, modalUraian.isOpen, formSoal.isOpen, isAnalisisModalOpen]);
+
       const handleGenerateToken = async (id) => {
         const res = await api('get_token', { id_jadwal: id });
         if (res.status === 'success') {
