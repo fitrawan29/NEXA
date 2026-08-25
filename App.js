@@ -107,44 +107,12 @@
         if (!user) {
           const onLoginSubmit = (e) => {
             e.preventDefault();
-            handleLogin(e);
+            handleLogin();
           };
 
-          const onRegisterSubmit = async (e) => {
+          const onRegisterSubmit = (e) => {
             e.preventDefault();
-            setLoading(true);
-            const payload = {
-              role: registerRole,
-              nama: regName,
-              username: regUsername,
-              identitas: registerRole === 'siswa' ? regNisn : regNip,
-              password: regPassword,
-              npsn: npsn
-            };
-            const res = await fetchAPI('register', payload);
-            setLoading(false);
-
-            if (res.status === 'success') {
-              showMessage('Pendaftaran Berhasil', res.message, 'success');
-              setRegName('');
-              setRegUsername('');
-              setRegNisn('');
-              setRegNip('');
-              setRegPassword('');
-              setIsRegistering(false);
-            } else {
-              showMessage('Pendaftaran Gagal', res.message || 'Terjadi kesalahan saat mendaftar.', 'error');
-            }
-          };
-
-          const handleLupaPassword = (e) => {
-            e.preventDefault();
-            showMessage('Lupa Password?', 'Untuk mereset password, silakan hubungi Administrator Sekolah atau Wali Kelas Anda.', 'info');
-          };
-
-          const handleSyaratKetentuan = (e) => {
-            e.preventDefault();
-            showMessage('Syarat & Ketentuan', 'Dengan mendaftar dan menggunakan sistem NEXA CBT, Anda setuju untuk mematuhi tata tertib ujian, tidak melakukan kecurangan, dan menjaga kerahasiaan akun.', 'info');
+            handleRegister();
           };
 
           return (
@@ -163,56 +131,24 @@
                 </button>
               </div>
 
-              {/* Decorative Background Elements */}
-              <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary-fixed dark:bg-primary/20 rounded-full blur-[100px] opacity-60 pointer-events-none transition-colors duration-500"></div>
-              <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-secondary-fixed dark:bg-secondary/20 rounded-full blur-[100px] opacity-60 pointer-events-none transition-colors duration-500"></div>
-
-              <div className="w-full max-w-[900px] my-auto bg-white/70 dark:bg-slate-800/80 backdrop-blur-xl border border-white/50 dark:border-slate-700 rounded-2xl shadow-2xl overflow-hidden relative z-10 flex flex-col md:flex-row animate-fade-in-up">
-
-                {/* Left Side: Illustration / Branding (Hidden on small screens) */}
-                <div className="hidden md:flex md:w-1/2 bg-primary text-white p-xl flex-col justify-between relative overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-br from-primary to-blue-900 opacity-90"></div>
-                  <div className="absolute top-[-20%] right-[-20%] w-64 h-64 bg-white opacity-10 rounded-full blur-3xl"></div>
-
-                  <div className="relative z-10">
-                    <h2 className="font-headline-lg text-white font-bold flex items-center gap-2 mb-4">
-                      <img alt="NEXA Logo" className="w-10 h-10 object-contain rounded bg-white p-1" src="stitch_assets/screen_3_logo.png" />
-                      NEXA
-                    </h2>
-                    <p className="font-body-lg text-primary-fixed-dim">Platform Ujian Berbasis Komputer Modern untuk Sekolah.</p>
-                  </div>
-
-                  <div className="relative z-10">
-                    <div className="bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/20 hover:bg-white/20 transition-colors min-h-[140px] flex flex-col justify-center">
-                      <p key={quoteIndex} className="font-body-md text-white transition-opacity duration-500 animate-fade-in-up">"{quotes[quoteIndex].text}"</p>
-                      <p key={`author-${quoteIndex}`} className="font-label-md text-primary-fixed-dim mt-2 transition-opacity duration-500 animate-fade-in-up">- {quotes[quoteIndex].author}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right Side: Forms */}
-                <div className="w-full md:w-1/2 h-full overflow-hidden relative bg-white/50 dark:bg-slate-900/50">
+              {/* Clean, centered login card with no AI blobs */}
+              <div className="w-full max-w-md my-auto bg-white dark:bg-slate-800 border border-outline-variant/30 dark:border-slate-700 rounded-3xl shadow-xl overflow-hidden relative z-10 flex flex-col animate-fade-in-up">
                   <div className={`form-slider h-full ${isRegistering ? 'show-register' : ''}`}>
                     {/* MASUK FORM PANE */}
-                    <div className="form-pane p-lg sm:p-xl flex flex-col justify-center h-full overflow-y-auto">
-                      <div className="mb-8 md:hidden flex flex-col items-center text-center">
-                        <div className="w-16 h-16 bg-white/90 shadow-md rounded-2xl flex items-center justify-center p-2 mb-4 border border-outline-variant/30">
+                    <div className="form-pane p-8 flex flex-col justify-center h-full overflow-y-auto">
+                      <div className="mb-6 flex flex-col items-center text-center">
+                        <div className="w-16 h-16 bg-surface shadow-sm rounded-2xl flex items-center justify-center p-2 mb-4 border border-outline-variant/30 dark:bg-slate-700 dark:border-slate-600">
                           <img alt="NEXA Logo" className="w-full h-full object-contain" src="stitch_assets/screen_3_logo.png" />
                         </div>
                         <h2 className="text-2xl font-bold text-on-surface dark:text-white tracking-tight">
                           NEXA CBT
                         </h2>
-                        <p className="font-body-md text-on-surface-variant dark:text-slate-400 mt-1.5">Platform Ujian Berbasis Komputer</p>
+                        <p className="font-body-md text-on-surface-variant dark:text-slate-400 mt-1">Sistem Ujian Berbasis Komputer</p>
                       </div>
 
-                      <div className="hidden md:block mb-8">
-                        <h2 className="text-3xl font-bold text-on-surface dark:text-white tracking-tight">Selamat Datang 👋</h2>
-                        <p className="font-body-md text-on-surface-variant dark:text-slate-400 mt-2">Silakan masuk dengan akun Anda untuk melanjutkan.</p>
-                      </div>
-
-                      <form onSubmit={onLoginSubmit} className="flex flex-col gap-md">
+                      <form onSubmit={onLoginSubmit} className="flex flex-col gap-4">
                         {/* Segmented Control */}
-                        <div className="grid grid-cols-2 sm:flex bg-surface-container/50 dark:bg-slate-800/50 p-1.5 rounded-xl relative isolation-auto z-0 mb-6 shadow-inner border border-outline-variant/20 backdrop-blur-sm transition-colors duration-300 gap-1 sm:gap-0">
+                        <div className="grid grid-cols-2 bg-surface-container/50 dark:bg-slate-900/50 p-1 rounded-xl relative isolation-auto z-0 mb-2 shadow-inner border border-outline-variant/20 transition-colors duration-300 gap-1">
                           {[
                             {val: 'siswa', label: 'Siswa', icon: 'school'},
                             {val: 'guru', label: 'Guru', icon: 'local_library'},
@@ -221,11 +157,11 @@
                           ].map((r) => (
                             <label key={r.val} className="flex-1 cursor-pointer relative group">
                               <input checked={loginRole === r.val} onChange={() => setLoginRole(r.val)} className="peer sr-only" name="login-role" type="radio" value={r.val} />
-                              <div className="w-full flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 py-2 sm:py-2.5 rounded-lg text-on-surface-variant dark:text-slate-400 font-label-md transition-all duration-300 peer-checked:text-primary dark:peer-checked:text-white z-10 relative capitalize group-hover:text-on-surface dark:group-hover:text-slate-200">
-                                <span className="material-symbols-outlined text-[20px] sm:text-[18px] transition-transform duration-300 peer-checked:scale-110">{r.icon}</span>
+                              <div className="w-full flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 py-2 rounded-lg text-on-surface-variant dark:text-slate-400 font-label-md transition-all duration-300 peer-checked:text-primary dark:peer-checked:text-white z-10 relative capitalize group-hover:text-on-surface dark:group-hover:text-slate-200">
+                                <span className="material-symbols-outlined text-[18px] transition-transform duration-300 peer-checked:scale-110">{r.icon}</span>
                                 <span className="text-[12px] sm:text-[13px] font-semibold tracking-wide whitespace-nowrap">{r.label}</span>
                               </div>
-                              <div className="absolute inset-0 bg-white dark:bg-primary rounded-lg shadow-sm border border-black/5 dark:border-white/10 transform scale-95 opacity-0 peer-checked:opacity-100 peer-checked:scale-100 transition-all duration-300 -z-10"></div>
+                              <div className="absolute inset-0 bg-white dark:bg-slate-700 rounded-lg shadow-sm border border-black/5 dark:border-white/10 transform scale-95 opacity-0 peer-checked:opacity-100 peer-checked:scale-100 transition-all duration-300 -z-10"></div>
                             </label>
                           ))}
                         </div>
@@ -238,170 +174,164 @@
                         )}
 
                         {loginRole !== 'super_admin' && (
-                          <div className="flex flex-col gap-xs group">
-                            <label className="font-label-md text-on-surface dark:text-slate-200 group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="login-npsn">
+                          <div className="flex flex-col gap-1.5 group">
+                            <label className="font-label-md text-on-surface dark:text-slate-200 text-[13px] group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="login-npsn">
                               NPSN Sekolah
                             </label>
                             <div className="relative flex items-center">
-                              <span className="material-symbols-outlined absolute left-sm text-outline group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors z-10">account_balance</span>
-                              <input required value={npsn} onChange={e => setNpsn(e.target.value)} className="academic-input w-full pl-[40px] pr-sm py-sm rounded-lg border border-outline-variant dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-body-md text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-400 transition-all hover:border-outline focus:border-primary dark:focus:border-primary-fixed focus:ring-4 focus:ring-primary/10 dark:focus:ring-primary-fixed/20 focus:bg-white dark:focus:bg-slate-800" id="login-npsn" placeholder="Masukkan NPSN Sekolah Anda" type="text" />
+                              <span className="material-symbols-outlined absolute left-3 text-outline group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors z-10 text-[20px]">account_balance</span>
+                              <input required value={npsn} onChange={e => setNpsn(e.target.value)} className="w-full pl-10 pr-3 py-2.5 rounded-lg border border-outline-variant dark:border-slate-600 bg-surface dark:bg-slate-900 text-body-md text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-500 transition-all focus:border-primary dark:focus:border-primary-fixed focus:ring-2 focus:ring-primary/20 outline-none" id="login-npsn" placeholder="NPSN Sekolah" type="text" />
                             </div>
                           </div>
                         )}
 
-                        <div className="flex flex-col gap-xs group">
-                          <label className="font-label-md text-on-surface dark:text-slate-200 group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="login-username">
+                        <div className="flex flex-col gap-1.5 group">
+                          <label className="font-label-md text-on-surface dark:text-slate-200 text-[13px] group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="login-username">
                             {loginRole === 'guru' ? 'Username / NIP' : loginRole === 'admin' ? 'Username' : 'Username / NISN'}
                           </label>
                           <div className="relative flex items-center">
-                            <span className="material-symbols-outlined absolute left-sm text-outline group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors z-10">person</span>
-                            <input ref={usernameInputRef} required value={username} onChange={e => setUsername(e.target.value)} className="academic-input w-full pl-[40px] pr-sm py-sm rounded-lg border border-outline-variant dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-body-md text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-400 transition-all hover:border-outline focus:border-primary dark:focus:border-primary-fixed focus:ring-4 focus:ring-primary/10 dark:focus:ring-primary-fixed/20 focus:bg-white dark:focus:bg-slate-800" id="login-username" placeholder={loginRole === 'guru' ? 'Masukkan Username atau NIP' : loginRole === 'admin' ? 'Masukkan Username' : 'Masukkan Username atau NISN'} type="text" />
+                            <span className="material-symbols-outlined absolute left-3 text-outline group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors z-10 text-[20px]">person</span>
+                            <input ref={usernameInputRef} required value={username} onChange={e => setUsername(e.target.value)} className="w-full pl-10 pr-3 py-2.5 rounded-lg border border-outline-variant dark:border-slate-600 bg-surface dark:bg-slate-900 text-body-md text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-500 transition-all focus:border-primary dark:focus:border-primary-fixed focus:ring-2 focus:ring-primary/20 outline-none" id="login-username" placeholder={loginRole === 'guru' ? 'Username atau NIP' : loginRole === 'admin' ? 'Username Admin' : 'Username atau NISN'} type="text" />
                           </div>
                         </div>
 
-                        <div className="flex flex-col gap-xs group">
+                        <div className="flex flex-col gap-1.5 group">
                           <div className="flex justify-between items-end">
-                            <label className="font-label-md text-on-surface dark:text-slate-200 group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="login-password">Password</label>
+                            <label className="font-label-md text-on-surface dark:text-slate-200 text-[13px] group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="login-password">Password</label>
                             {capsLockActive && <span className="text-[10px] text-error font-bold flex items-center gap-1 animate-fade-in-up"><span className="material-symbols-outlined text-[12px]">keyboard_capslock</span> Caps Lock Aktif</span>}
                           </div>
                           <div className="relative flex items-center">
-                            <span className="material-symbols-outlined absolute left-sm text-outline group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors z-10">lock</span>
-                            <input required value={password} onChange={e => setPassword(e.target.value)} onKeyUp={handlePasswordKeyUp} className="academic-input w-full pl-[40px] pr-[40px] py-sm rounded-lg border border-outline-variant dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-body-md text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-400 transition-all hover:border-outline focus:border-primary dark:focus:border-primary-fixed focus:ring-4 focus:ring-primary/10 dark:focus:ring-primary-fixed/20 focus:bg-white dark:focus:bg-slate-800" id="login-password" placeholder="Dapat berupa huruf, angka & simbol" type={showPassword ? "text" : "password"} />
-                            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-sm text-outline hover:text-on-surface-variant dark:hover:text-white transition-colors flex items-center justify-center h-full z-10">
+                            <span className="material-symbols-outlined absolute left-3 text-outline group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors z-10 text-[20px]">lock</span>
+                            <input required value={password} onChange={e => setPassword(e.target.value)} onKeyUp={handlePasswordKeyUp} className="w-full pl-10 pr-10 py-2.5 rounded-lg border border-outline-variant dark:border-slate-600 bg-surface dark:bg-slate-900 text-body-md text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-500 transition-all focus:border-primary dark:focus:border-primary-fixed focus:ring-2 focus:ring-primary/20 outline-none" id="login-password" placeholder="Password Anda" type={showPassword ? "text" : "password"} />
+                            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 text-outline hover:text-on-surface-variant dark:hover:text-white transition-colors flex items-center justify-center h-full z-10">
                               <span className="material-symbols-outlined text-[20px]">{showPassword ? 'visibility_off' : 'visibility'}</span>
                             </button>
                           </div>
                         </div>
 
-                        <div className="flex justify-between items-center mb-xs mt-[-4px]">
+                        <div className="flex justify-between items-center mt-1">
                           <label className="flex items-center gap-2 cursor-pointer group">
                             <div className="relative flex items-center justify-center w-4 h-4 border border-outline-variant rounded group-hover:border-primary transition-colors">
                               <input type="checkbox" checked={rememberMe} onChange={() => setRememberMe(!rememberMe)} className="absolute opacity-0 w-full h-full cursor-pointer peer" />
-                              <span className="material-symbols-outlined text-primary opacity-0 peer-checked:opacity-100 transition-opacity" style={{ fontSize: "14px", fontVariationSettings: "'FILL' 1" }}>check</span>
+                              <span className="material-symbols-outlined text-primary opacity-0 peer-checked:opacity-100 transition-opacity text-[14px]">check</span>
                             </div>
-                            <span className="font-body-md text-sm text-on-surface-variant group-hover:text-on-surface transition-colors">Ingat Saya</span>
+                            <span className="font-body-md text-[13px] text-on-surface-variant group-hover:text-on-surface transition-colors">Ingat Saya</span>
                           </label>
-                          <button type="button" onClick={handleLupaPassword} className="font-body-md text-sm text-primary font-medium hover:text-primary-container transition-colors">Lupa Password?</button>
+                          <button type="button" onClick={handleLupaPassword} className="font-body-md text-[13px] text-primary font-medium hover:text-primary-container transition-colors">Lupa Password?</button>
                         </div>
 
-                        <button disabled={loading || loginSuccess} className={`w-full font-label-md py-sm rounded-lg transition-all duration-300 shadow-sm flex justify-center items-center gap-xs mt-2 ${loginSuccess ? 'bg-[#10B981] text-white' : 'bg-primary text-on-primary hover:bg-primary-container hover:shadow-lg hover:-translate-y-1'} disabled:opacity-80 disabled:cursor-not-allowed`} type="submit">
+                        <button disabled={loading || loginSuccess} className={`w-full font-label-md py-3 rounded-xl transition-all duration-300 shadow-sm flex justify-center items-center gap-2 mt-2 ${loginSuccess ? 'bg-[#10B981] text-white' : 'bg-primary text-on-primary hover:bg-primary-container hover:shadow-md hover:-translate-y-0.5'} disabled:opacity-80 disabled:cursor-not-allowed disabled:transform-none`} type="submit">
                           {loading ? (
                             <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                           ) : loginSuccess ? (
                             <><span className="material-symbols-outlined text-[20px] animate-fade-in-up">check_circle</span> Berhasil Masuk</>
                           ) : (
-                            <>Masuk Sekarang <span className="material-symbols-outlined text-[18px]">arrow_forward</span></>
+                            <>Masuk <span className="material-symbols-outlined text-[18px]">login</span></>
                           )}
                         </button>
                       </form>
 
-                      <p className="text-center font-body-md text-sm text-on-surface-variant dark:text-slate-400 mt-lg">
-                        Belum punya akun? <button onClick={() => { setIsRegistering(true); setLoginError(''); }} className="text-primary hover:underline font-semibold" type="button">Daftar</button>
+                      <p className="text-center font-body-md text-[13px] text-on-surface-variant dark:text-slate-400 mt-6">
+                        Belum punya akun? <button onClick={() => { setIsRegistering(true); setLoginError(''); }} className="text-primary hover:underline font-semibold" type="button">Daftar Sekarang</button>
                       </p>
                     </div>
 
                     {/* DAFTAR FORM PANE */}
-                    <div className="form-pane p-lg sm:p-xl flex flex-col justify-center h-full overflow-y-auto">
-                      <div className="mb-8 md:hidden flex-shrink-0 flex flex-col items-center text-center">
-                        <div className="w-16 h-16 bg-white/90 shadow-md rounded-2xl flex items-center justify-center p-2 mb-4 border border-outline-variant/30">
+                    <div className="form-pane p-8 flex flex-col justify-center h-full overflow-y-auto">
+                      <div className="mb-6 flex flex-col items-center text-center">
+                        <div className="w-14 h-14 bg-surface shadow-sm rounded-2xl flex items-center justify-center p-2 mb-3 border border-outline-variant/30 dark:bg-slate-700 dark:border-slate-600">
                           <img alt="NEXA Logo" className="w-full h-full object-contain" src="stitch_assets/screen_3_logo.png" />
                         </div>
                         <h2 className="text-2xl font-bold text-on-surface dark:text-white tracking-tight">
                           Daftar Akun Baru
                         </h2>
-                        <p className="font-body-md text-on-surface-variant dark:text-slate-400 mt-1.5">Bergabung dengan platform NEXA CBT.</p>
+                        <p className="font-body-md text-[13px] text-on-surface-variant dark:text-slate-400 mt-1">Bergabung dengan platform NEXA CBT.</p>
                       </div>
 
-                      <div className="hidden md:block mb-8 flex-shrink-0">
-                        <h2 className="text-3xl font-bold text-on-surface dark:text-white tracking-tight">Buat Akun Baru ✨</h2>
-                        <p className="font-body-md text-on-surface-variant dark:text-slate-400 mt-2">Lengkapi form di bawah ini untuk bergabung.</p>
-                      </div>
-
-                      <form onSubmit={onRegisterSubmit} className="flex flex-col gap-sm flex-1">
+                      <form onSubmit={onRegisterSubmit} className="flex flex-col gap-3">
                         {/* Segmented Control */}
-                        <div className="flex bg-surface-container/50 dark:bg-slate-800/50 p-1.5 rounded-xl relative isolation-auto z-0 mb-6 shadow-inner border border-outline-variant/20 backdrop-blur-sm transition-colors duration-300 flex-shrink-0">
+                        <div className="flex bg-surface-container/50 dark:bg-slate-900/50 p-1 rounded-xl relative isolation-auto z-0 mb-2 shadow-inner border border-outline-variant/20 transition-colors duration-300">
                           {[
                             {val: 'siswa', label: 'Siswa', icon: 'school'},
                             {val: 'guru', label: 'Guru', icon: 'local_library'}
                           ].map((r) => (
                             <label key={r.val} className="flex-1 cursor-pointer relative group">
                               <input checked={registerRole === r.val} onChange={() => setRegisterRole(r.val)} className="peer sr-only" name="reg-role" type="radio" value={r.val} />
-                              <div className="w-full flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 py-2 sm:py-2.5 rounded-lg text-on-surface-variant dark:text-slate-400 font-label-md transition-all duration-300 peer-checked:text-primary dark:peer-checked:text-white z-10 relative capitalize group-hover:text-on-surface dark:group-hover:text-slate-200">
-                                <span className="material-symbols-outlined text-[20px] sm:text-[18px] transition-transform duration-300 peer-checked:scale-110">{r.icon}</span>
-                                <span className="text-[12px] sm:text-[14px] font-semibold tracking-wide whitespace-nowrap">{r.label}</span>
+                              <div className="w-full flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 py-2 rounded-lg text-on-surface-variant dark:text-slate-400 font-label-md transition-all duration-300 peer-checked:text-primary dark:peer-checked:text-white z-10 relative capitalize group-hover:text-on-surface dark:group-hover:text-slate-200">
+                                <span className="material-symbols-outlined text-[18px] transition-transform duration-300 peer-checked:scale-110">{r.icon}</span>
+                                <span className="text-[13px] font-semibold tracking-wide whitespace-nowrap">{r.label}</span>
                               </div>
-                              <div className="absolute inset-0 bg-white dark:bg-primary rounded-lg shadow-sm border border-black/5 dark:border-white/10 transform scale-95 opacity-0 peer-checked:opacity-100 peer-checked:scale-100 transition-all duration-300 -z-10"></div>
+                              <div className="absolute inset-0 bg-white dark:bg-slate-700 rounded-lg shadow-sm border border-black/5 dark:border-white/10 transform scale-95 opacity-0 peer-checked:opacity-100 peer-checked:scale-100 transition-all duration-300 -z-10"></div>
                             </label>
                           ))}
                         </div>
 
-                        <div className="flex flex-col gap-xs group flex-shrink-0">
-                          <label className="font-label-md text-on-surface dark:text-slate-200 text-sm group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="reg-name">Nama Lengkap</label>
-                          <input required value={regName} onChange={e => setRegName(e.target.value)} className="academic-input w-full px-sm py-2 rounded-lg border border-outline-variant dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-body-md text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-400 transition-all hover:border-outline focus:border-primary dark:focus:border-primary-fixed focus:ring-4 focus:ring-primary/10 dark:focus:ring-primary-fixed/20 focus:bg-white dark:focus:bg-slate-800" id="reg-name" placeholder="Masukkan nama lengkap" type="text" />
+                        <div className="flex flex-col gap-1 group">
+                          <label className="font-label-md text-on-surface dark:text-slate-200 text-[12px] group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="reg-name">Nama Lengkap</label>
+                          <input required value={regName} onChange={e => setRegName(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-outline-variant dark:border-slate-600 bg-surface dark:bg-slate-900 text-[14px] text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-500 transition-all focus:border-primary dark:focus:border-primary-fixed focus:ring-2 focus:ring-primary/20 outline-none" id="reg-name" placeholder="Nama lengkap" type="text" />
                         </div>
-                        <div className="flex flex-col gap-xs group flex-shrink-0">
-                          <label className="font-label-md text-on-surface dark:text-slate-200 text-sm group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="reg-username">Username</label>
-                          <input required value={regUsername} onChange={e => setRegUsername(e.target.value)} className="academic-input w-full px-sm py-2 rounded-lg border border-outline-variant dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-body-md text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-400 transition-all hover:border-outline focus:border-primary dark:focus:border-primary-fixed focus:ring-4 focus:ring-primary/10 dark:focus:ring-primary-fixed/20 focus:bg-white dark:focus:bg-slate-800" id="reg-username" placeholder="Masukkan Username unik" type="text" />
+                        <div className="flex flex-col gap-1 group">
+                          <label className="font-label-md text-on-surface dark:text-slate-200 text-[12px] group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="reg-username">Username</label>
+                          <input required value={regUsername} onChange={e => setRegUsername(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-outline-variant dark:border-slate-600 bg-surface dark:bg-slate-900 text-[14px] text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-500 transition-all focus:border-primary dark:focus:border-primary-fixed focus:ring-2 focus:ring-primary/20 outline-none" id="reg-username" placeholder="Username unik" type="text" />
                         </div>
 
                         {registerRole === 'siswa' && (
-                          <div className="flex flex-col gap-xs group animate-fade-in-up flex-shrink-0">
-                            <label className="font-label-md text-on-surface dark:text-slate-200 text-sm group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="reg-nisn">NISN</label>
-                            <input required value={regNisn} onChange={e => setRegNisn(e.target.value)} className="academic-input w-full px-sm py-2 rounded-lg border border-outline-variant dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-body-md text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-400 transition-all hover:border-outline focus:border-primary dark:focus:border-primary-fixed focus:ring-4 focus:ring-primary/10 dark:focus:ring-primary-fixed/20 focus:bg-white dark:focus:bg-slate-800" id="reg-nisn" placeholder="Masukkan NISN valid" type="text" />
+                          <div className="flex flex-col gap-1 group animate-fade-in-up">
+                            <label className="font-label-md text-on-surface dark:text-slate-200 text-[12px] group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="reg-nisn">NISN</label>
+                            <input required value={regNisn} onChange={e => setRegNisn(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-outline-variant dark:border-slate-600 bg-surface dark:bg-slate-900 text-[14px] text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-500 transition-all focus:border-primary dark:focus:border-primary-fixed focus:ring-2 focus:ring-primary/20 outline-none" id="reg-nisn" placeholder="NISN valid" type="text" />
                           </div>
                         )}
 
                         {registerRole === 'guru' && (
-                          <div className="flex flex-col gap-xs group animate-fade-in-up flex-shrink-0">
-                            <label className="font-label-md text-on-surface dark:text-slate-200 text-sm group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="reg-nip">NIP (Opsional)</label>
-                            <input value={regNip} onChange={e => setRegNip(e.target.value)} className="academic-input w-full px-sm py-2 rounded-lg border border-outline-variant dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-body-md text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-400 transition-all hover:border-outline focus:border-primary dark:focus:border-primary-fixed focus:ring-4 focus:ring-primary/10 dark:focus:ring-primary-fixed/20 focus:bg-white dark:focus:bg-slate-800" id="reg-nip" placeholder="Ketik '-' jika belum memiliki" type="text" />
+                          <div className="flex flex-col gap-1 group animate-fade-in-up">
+                            <label className="font-label-md text-on-surface dark:text-slate-200 text-[12px] group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="reg-nip">NIP (Opsional)</label>
+                            <input value={regNip} onChange={e => setRegNip(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-outline-variant dark:border-slate-600 bg-surface dark:bg-slate-900 text-[14px] text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-500 transition-all focus:border-primary dark:focus:border-primary-fixed focus:ring-2 focus:ring-primary/20 outline-none" id="reg-nip" placeholder="Ketik '-' jika belum memiliki" type="text" />
                           </div>
                         )}
 
-                        <div className="flex flex-col gap-xs group flex-shrink-0">
-                          <label className="font-label-md text-on-surface dark:text-slate-200 text-sm group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="reg-npsn">NPSN Sekolah</label>
-                          <input required value={npsn} onChange={e => setNpsn(e.target.value)} className="academic-input w-full px-sm py-2 rounded-lg border border-outline-variant dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-body-md text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-400 transition-all hover:border-outline focus:border-primary dark:focus:border-primary-fixed focus:ring-4 focus:ring-primary/10 dark:focus:ring-primary-fixed/20 focus:bg-white dark:focus:bg-slate-800" id="reg-npsn" placeholder="Masukkan NPSN Sekolah Anda" type="text" />
+                        <div className="flex flex-col gap-1 group">
+                          <label className="font-label-md text-on-surface dark:text-slate-200 text-[12px] group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="reg-npsn">NPSN Sekolah</label>
+                          <input required value={npsn} onChange={e => setNpsn(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-outline-variant dark:border-slate-600 bg-surface dark:bg-slate-900 text-[14px] text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-500 transition-all focus:border-primary dark:focus:border-primary-fixed focus:ring-2 focus:ring-primary/20 outline-none" id="reg-npsn" placeholder="NPSN Sekolah" type="text" />
                         </div>
 
-                        <div className="flex flex-col gap-xs group mb-1 flex-shrink-0">
-                          <label className="font-label-md text-on-surface dark:text-slate-200 text-sm group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="reg-password">Password</label>
+                        <div className="flex flex-col gap-1 group mb-2">
+                          <label className="font-label-md text-on-surface dark:text-slate-200 text-[12px] group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="reg-password">Password</label>
                           <div className="relative flex items-center">
-                            <input required value={regPassword} onChange={e => setRegPassword(e.target.value)} className="academic-input w-full px-sm pr-[40px] py-2 rounded-lg border border-outline-variant dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-body-md text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-400 transition-all hover:border-outline focus:border-primary dark:focus:border-primary-fixed focus:ring-4 focus:ring-primary/10 dark:focus:ring-primary-fixed/20 focus:bg-white dark:focus:bg-slate-800" id="reg-password" placeholder="Dapat berupa huruf, angka & simbol" type={showPassword ? "text" : "password"} />
-                            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-sm text-outline hover:text-on-surface-variant dark:hover:text-white transition-colors flex items-center justify-center h-full">
-                              <span className="material-symbols-outlined text-[20px]">{showPassword ? 'visibility_off' : 'visibility'}</span>
+                            <input required value={regPassword} onChange={e => setRegPassword(e.target.value)} className="w-full px-3 pr-[40px] py-2 rounded-lg border border-outline-variant dark:border-slate-600 bg-surface dark:bg-slate-900 text-[14px] text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-500 transition-all focus:border-primary dark:focus:border-primary-fixed focus:ring-2 focus:ring-primary/20 outline-none" id="reg-password" placeholder="Minimal 6 karakter" type={showPassword ? "text" : "password"} />
+                            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2 text-outline hover:text-on-surface-variant dark:hover:text-white transition-colors flex items-center justify-center h-full">
+                              <span className="material-symbols-outlined text-[18px]">{showPassword ? 'visibility_off' : 'visibility'}</span>
                             </button>
                           </div>
                         </div>
 
-                        <div className="mt-auto pt-2">
-                          <button disabled={loading} className="w-full bg-primary text-on-primary font-label-md py-sm rounded-lg hover:bg-primary-container hover:shadow-lg hover:-translate-y-1 transition-all duration-300 shadow-sm flex justify-center items-center gap-xs disabled:opacity-80 disabled:cursor-not-allowed" type="submit">
+                        <div className="mt-2">
+                          <button disabled={loading} className="w-full bg-primary text-on-primary font-label-md py-2.5 rounded-xl hover:bg-primary-container hover:shadow-md transition-all duration-300 flex justify-center items-center gap-2 disabled:opacity-80 disabled:cursor-not-allowed" type="submit">
                             {loading ? (
                               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                             ) : (
                               <>
-                                Daftar Sekarang
-                                <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                                Daftar Akun
+                                <span className="material-symbols-outlined text-[18px]">person_add</span>
                               </>
                             )}
                           </button>
-                          <p className="text-center font-body-md text-on-surface-variant mt-sm text-[12px]">
-                            Dengan mendaftar, Anda menyetujui <button type="button" onClick={handleSyaratKetentuan} className="text-primary hover:underline">Syarat & Ketentuan</button> kami.
+                          <p className="text-center font-body-md text-on-surface-variant mt-3 text-[12px]">
+                            Dengan mendaftar, Anda setuju dengan <button type="button" onClick={handleSyaratKetentuan} className="text-primary hover:underline">Syarat & Ketentuan</button> kami.
                           </p>
                         </div>
                       </form>
 
-                      <p className="text-center font-body-md text-sm text-on-surface-variant dark:text-slate-400 mt-md">
-                        Sudah punya akun? <button onClick={() => { setIsRegistering(false); setLoginError(''); }} className="text-primary hover:underline font-semibold" type="button">Masuk</button>
+                      <p className="text-center font-body-md text-[13px] text-on-surface-variant dark:text-slate-400 mt-4">
+                        Sudah punya akun? <button onClick={() => { setIsRegistering(false); setLoginError(''); }} className="text-primary hover:underline font-semibold" type="button">Masuk ke Akun</button>
                       </p>
                     </div>
                   </div>
-                </div>
               </div>
 
               {/* Footer */}
-              <div className="w-full text-center z-50 mt-8 mb-4">
-                <p className="font-body-md text-sm text-on-surface-variant dark:text-slate-400">
-                  NEXA CBT v1.0.0 &copy; 2026. <button type="button" onClick={handleSyaratKetentuan} className="hover:text-primary dark:hover:text-primary-fixed transition-colors underline underline-offset-2">Panduan & Tata Tertib Ujian</button>
+              <div className="w-full text-center z-50 mt-8 mb-2">
+                <p className="font-body-md text-[13px] text-on-surface-variant dark:text-slate-400">
+                  NEXA CBT v1.0.0 &copy; 2026. <button type="button" onClick={handleSyaratKetentuan} className="hover:text-primary dark:hover:text-primary-fixed transition-colors underline underline-offset-2">Bantuan & Panduan</button>
                 </p>
               </div>
             </div>
