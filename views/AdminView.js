@@ -81,6 +81,17 @@
         } else alert(res.message);
       };
 
+      
+      const handleResetLogin = async (id_siswa) => {
+        if (!confirm('Reset sesi login siswa ini?')) return;
+        const res = await fetchAPI('reset_login_siswa', { id_siswa, npsn: user.npsn });
+        if (res.status === 'success') {
+          alert('Sesi login berhasil direset.');
+        } else {
+          alert(res.message);
+        }
+      };
+      
       const handleSaveForm = async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
@@ -778,19 +789,12 @@
                             {activeTab === 'mapel' && (<><td className="p-4">{row.id_mapel}</td><td className="p-4">{row.nama_mapel}</td></>)}
                             {activeTab === 'jadwal' && (<><td className="p-4">{row.id_jadwal}</td><td className="p-4">{row.nama_mapel}</td><td className="p-4">{row.guru}</td><td className="p-4 text-sm">{new Date(row.waktu_mulai).toLocaleString('id-ID')} s.d {new Date(row.waktu_selesai).toLocaleString('id-ID')}</td></>)}
                             <td className="p-4 text-right">
-                              {activeTab === 'siswa' && (
-                                <button onClick={async () => {
-                                  if (!confirm(`Reset sesi (hapus status SEDANG KERJA) untuk siswa ini?`)) return;
-                                  const res = await api('reset_sesi_siswa', { id_siswa: row.id_siswa });
-                                  if (res.status === 'success') {
-                                    alert('Sesi berhasil direset.');
-                                    await api('create_audit_log', { username: user.username, role: 'admin', action: 'RESET_SESI', target: `Siswa (${row.id_siswa})` });
-                                  } else alert('Gagal mereset sesi.');
-                                }} title="Reset Sesi Login / Ujian" className="p-1.5 text-orange-500 hover:bg-orange-100 rounded mr-2">
-                                  <span className="material-symbols-outlined text-[20px]">restart_alt</span>
-                                </button>
-                              )}
-                              <button onClick={() => openEditModal(activeTab, row)} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded mr-2"><span className="material-symbols-outlined text-[20px]">edit</span></button>
+                            {activeTab === 'siswa' && (
+                              <button onClick={() => handleResetLogin(row.id_siswa)} title="Reset Login Sesi" className="text-orange-500 hover:bg-orange-100 dark:hover:bg-slate-700 p-2 rounded-lg transition-colors mr-1">
+                                <span className="material-symbols-outlined text-[20px]">sync</span>
+                              </button>
+                            )}
+                            <button onClick={() => openEditModal(activeTab, row)} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded mr-2"><span className="material-symbols-outlined text-[20px]">edit</span></button>
                               <button onClick={() => handleDelete(row.id_jadwal || row.id_siswa || row.id_guru || row.id_mapel, activeTab)} className="p-1.5 text-error hover:bg-error/20 rounded"><span className="material-symbols-outlined text-[20px]">delete</span></button>
                             </td>
                           </tr>

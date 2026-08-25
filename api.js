@@ -8,7 +8,7 @@
       try {
         // ================= APPLICATION-LEVEL RLS =================
         // Menolak kueri jika npsn tidak disertakan untuk rute non-global
-        const globalRoutes = ['login', 'register', 'get_sekolah', 'update_admin_sekolah', 'tambah_admin_sekolah', 'get_analytics', 'update_admin_profil', 'hapus_sekolah', 'get_pengumuman_global', 'create_pengumuman_global', 'delete_pengumuman_global', 'get_log_aktivitas_global', 'create_log_aktivitas_global'];
+        const globalRoutes = ['login', 'register', 'get_sekolah', 'update_admin_sekolah', 'tambah_admin_sekolah', 'get_analytics', 'update_admin_profil', 'hapus_sekolah', 'get_pengumuman_global', 'create_pengumuman_global', 'delete_pengumuman_global', 'get_log_aktivitas_global', 'create_log_aktivitas_global', 'update_sekolah_status'];
         if (!globalRoutes.includes(action)) {
           if (Array.isArray(payload)) {
             if (payload.some(p => !p.npsn)) throw new Error("Security Violation: Akses ditolak. NPSN hilang pada bulk payload.");
@@ -887,6 +887,23 @@
                 nama_mapel: log.jadwal?.mata_pelajaran?.nama_mapel || 'Unknown'
               })) 
             };
+          }
+
+          
+          case 'update_sekolah_status': {
+            ({ error } = await supabaseClient.from('sekolah').update({ status: payload.status }).eq('npsn', payload.npsn));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Status sekolah berhasil diperbarui.' };
+          }
+          case 'reset_login_siswa': {
+            ({ error } = await supabaseClient.from('siswa').update({ session_token: null }).eq('id_siswa', payload.id_siswa).eq('npsn', payload.npsn));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Sesi siswa berhasil direset.' };
+          }
+          case 'import_soal_bulk': {
+            ({ error } = await supabaseClient.from('soal_ujian').insert(payload.data));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Soal berhasil diimport.' };
           }
 
           default:
