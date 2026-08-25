@@ -427,17 +427,17 @@
             {/* ============ JADWAL TAB ============ */}
             {activeTab === 'jadwal' && (
               <div className="bg-surface dark:bg-slate-800 rounded-2xl border border-outline-variant shadow-sm overflow-x-auto">
-                <table className="w-full text-left">
+                <div className="overflow-x-auto"><table className="w-full text-left whitespace-nowrap">
                   <thead className="bg-surface-variant/30">
-                    <tr><th className="p-4">ID Jadwal</th><th className="p-4">Mapel</th><th className="p-4">Waktu</th><th className="p-4 text-right">Aksi</th></tr>
+                    <tr><th className="py-3 px-4 font-semibold text-sm">ID Jadwal</th><th className="py-3 px-4 font-semibold text-sm">Mapel</th><th className="py-3 px-4 font-semibold text-sm">Waktu</th><th className="py-3 px-4 font-semibold text-sm text-right">Aksi</th></tr>
                   </thead>
                   <tbody>
                     {dataJadwal.map(j => (
                       <tr key={j.id_jadwal} className="border-t border-outline-variant/30">
-                        <td className="p-4">{j.id_jadwal}</td>
-                        <td className="p-4">{j.nama_mapel}</td>
-                        <td className="p-4 text-sm">{new Date(j.waktu_mulai).toLocaleString()} - {new Date(j.waktu_selesai).toLocaleString()}</td>
-                        <td className="p-4 text-right">
+                        <td className="py-2 px-4">{j.id_jadwal}</td>
+                        <td className="py-2 px-4">{j.nama_mapel}</td>
+                        <td className="py-2 px-4 text-sm">{new Date(j.waktu_mulai).toLocaleString()} - {new Date(j.waktu_selesai).toLocaleString()}</td>
+                        <td className="py-2 px-4 text-right">
                           <button onClick={() => handleGenerateToken(j.id_jadwal)} className="bg-primary/10 text-primary hover:bg-primary/20 px-3 py-1 rounded text-sm font-bold">Token</button>
                           <button onClick={() => { setSelectedJadwal(j.id_jadwal); setActiveTab('monitoring'); }} className="bg-green-100 text-green-700 hover:bg-green-200 px-3 py-1 rounded text-sm font-bold ml-2">Pantau</button>
                         </td>
@@ -445,7 +445,7 @@
                     ))}
                     {dataJadwal.length === 0 && <tr><td colSpan="4" className="p-8 text-center text-slate-500">Tidak ada jadwal mengawas.</td></tr>}
                   </tbody>
-                </table>
+                </table></div>
               </div>
             )}
 
@@ -459,30 +459,30 @@
 
                 {selectedJadwal ? (
                   <div className="bg-surface dark:bg-slate-800 rounded-2xl border shadow-sm overflow-x-auto">
-                    <table className="w-full text-left">
+                    <div className="overflow-x-auto"><table className="w-full text-left whitespace-nowrap">
                       <thead className="bg-surface-variant/30">
                         <tr>
-                          <th className="p-4">Nama Lengkap</th>
-                          <th className="p-4">Status Ujian</th>
-                          <th className="p-4 text-center">Pelanggaran</th>
-                          <th className="p-4 text-right">Aksi</th>
+                          <th className="py-3 px-4 font-semibold text-sm">Nama Lengkap</th>
+                          <th className="py-3 px-4 font-semibold text-sm">Status Ujian</th>
+                          <th className="py-3 px-4 font-semibold text-sm text-center">Pelanggaran</th>
+                          <th className="py-3 px-4 font-semibold text-sm text-right">Aksi</th>
                         </tr>
                       </thead>
                       <tbody>
                         {dataLog.map(l => (
                           <tr key={l.id_log} className="border-t border-outline-variant/30">
-                            <td className="p-4 font-semibold">{l.nama_lengkap}</td>
-                            <td className="p-4">
+                            <td className="py-2 px-4 font-semibold">{l.nama_lengkap}</td>
+                            <td className="py-2 px-4">
                               <span className={`px-3 py-1 rounded-full text-xs font-bold ${
                                 l.is_blocked ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400' : 
                                 l.status_ujian === 'SELESAI' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' : 
                                 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400'
                               }`}>{l.is_blocked ? 'DIBLOKIR' : l.status_ujian}</span>
                             </td>
-                            <td className="p-4 text-center">
+                            <td className="py-2 px-4 text-center">
                               <span className={`font-bold ${(l.pelanggaran || 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-400'}`}>{l.pelanggaran || 0}</span>
                             </td>
-                            <td className="p-4 text-right space-x-2">
+                            <td className="py-2 px-4 text-right space-x-2">
                               {!l.is_blocked ? (
                                 <button onClick={() => handleBlock(l.id_log)} className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors inline-flex items-center gap-1">
                                   <span className="material-symbols-outlined text-[16px]">block</span>Blokir
@@ -502,7 +502,7 @@
                         ))}
                         {dataLog.length === 0 && <tr><td colSpan="4" className="p-8 text-center text-slate-500">Belum ada siswa yang mengerjakan ujian ini.</td></tr>}
                       </tbody>
-                    </table>
+                    </table></div>
                   </div>
                 ) : <div className="p-8 text-center bg-surface-variant/30 rounded-xl text-slate-500">Pilih jadwal ujian untuk melihat siswa yang sedang mengerjakan.</div>}
               </div>
@@ -554,32 +554,32 @@
 
                 {selectedJadwal ? (
                   <div className="bg-surface dark:bg-slate-800 rounded-2xl border border-outline-variant dark:border-slate-700 shadow-sm overflow-x-auto">
-                    <table className="w-full text-left">
+                    <div className="overflow-x-auto"><table className="w-full text-left whitespace-nowrap">
                       <thead className="bg-surface-variant/30 dark:bg-slate-800/80">
                         <tr>
-                          <th className="p-4">Siswa</th>
-                          <th className="p-4">Kelas</th>
-                          <th className="p-4 text-right">Nilai PG</th>
-                          <th className="p-4 text-right">Nilai Uraian</th>
-                          <th className="p-4 text-right">Total Nilai</th>
+                          <th className="py-3 px-4 font-semibold text-sm">Siswa</th>
+                          <th className="py-3 px-4 font-semibold text-sm">Kelas</th>
+                          <th className="py-3 px-4 font-semibold text-sm text-right">Nilai PG</th>
+                          <th className="py-3 px-4 font-semibold text-sm text-right">Nilai Uraian</th>
+                          <th className="py-3 px-4 font-semibold text-sm text-right">Total Nilai</th>
                         </tr>
                       </thead>
                       <tbody>
                         {dataLog.map(l => (
                           <tr key={l.id_log} className="border-t border-outline-variant/30 dark:border-slate-700 hover:bg-surface-variant/10 dark:hover:bg-slate-800/50">
-                            <td className="p-4">
+                            <td className="py-2 px-4">
                               <div className="font-bold">{l.nama_lengkap}</div>
                               <div className="text-xs text-slate-500">{l.id_siswa}</div>
                             </td>
-                            <td className="p-4 text-sm">{l.angkatan} {l.kelas_paralel}</td>
-                            <td className="p-4 text-right font-medium text-slate-700 dark:text-slate-300">{l.nilai_auto}</td>
-                            <td className="p-4 text-right font-medium text-slate-700 dark:text-slate-300">{l.nilai_uraian}</td>
-                            <td className="p-4 text-right font-bold text-primary text-lg">{l.total_nilai}</td>
+                            <td className="py-2 px-4 text-sm">{l.angkatan} {l.kelas_paralel}</td>
+                            <td className="py-2 px-4 text-right font-medium text-slate-700 dark:text-slate-300">{l.nilai_auto}</td>
+                            <td className="py-2 px-4 text-right font-medium text-slate-700 dark:text-slate-300">{l.nilai_uraian}</td>
+                            <td className="py-2 px-4 text-right font-bold text-primary text-lg">{l.total_nilai}</td>
                           </tr>
                         ))}
                         {dataLog.length === 0 && <tr><td colSpan="5" className="p-8 text-center text-slate-500">Belum ada hasil untuk jadwal ini.</td></tr>}
                       </tbody>
-                    </table>
+                    </table></div>
                   </div>
                 ) : (
                   <div className="p-12 text-center bg-surface-variant/30 rounded-2xl border border-dashed border-outline-variant dark:border-slate-700">
@@ -632,9 +632,9 @@
                       <button onClick={() => setFormSoal({ isOpen: true, data: null })} className="bg-primary text-on-primary hover:bg-primary/90 px-4 py-2 rounded-lg font-bold flex items-center gap-2 shadow-sm hover:-translate-y-0.5 transition-all"><span className="material-symbols-outlined">add</span> Tambah Soal</button>
                     </div>
                     <div className="overflow-x-auto">
-                      <table className="w-full text-left">
+                      <div className="overflow-x-auto"><table className="w-full text-left whitespace-nowrap">
                         <thead className="bg-surface-variant/30">
-                          <tr><th className="p-4">Tipe</th><th className="p-4">Pertanyaan / Stimulus</th><th className="p-4 text-center">Bobot</th><th className="p-4 text-right">Aksi</th></tr>
+                          <tr><th className="py-3 px-4 font-semibold text-sm">Tipe</th><th className="py-3 px-4 font-semibold text-sm">Pertanyaan / Stimulus</th><th className="py-3 px-4 font-semibold text-sm text-center">Bobot</th><th className="py-3 px-4 font-semibold text-sm text-right">Aksi</th></tr>
                         </thead>
                         <tbody>
                           {(() => {
@@ -644,10 +644,10 @@
                             
                             return currentSoal.length > 0 ? currentSoal.map(s => (
                               <tr key={s.id_soal} className="border-t border-outline-variant/30 hover:bg-surface-variant/10">
-                                <td className="p-4 font-bold text-primary">{s.tipe_soal}</td>
-                                <td className="p-4 text-sm"><div className="line-clamp-2 max-w-lg" dangerouslySetInnerHTML={{ __html: s.pertanyaan }}></div></td>
-                                <td className="p-4 text-center font-bold">{s.bobot || 1}</td>
-                                <td className="p-4 text-right whitespace-nowrap">
+                                <td className="py-2 px-4 font-bold text-primary">{s.tipe_soal}</td>
+                                <td className="py-2 px-4 text-sm"><div className="line-clamp-2 max-w-lg" dangerouslySetInnerHTML={{ __html: s.pertanyaan }}></div></td>
+                                <td className="py-2 px-4 text-center font-bold">{s.bobot || 1}</td>
+                                <td className="py-2 px-4 text-right whitespace-nowrap">
                                   <button onClick={() => setFormSoal({ isOpen: true, data: s })} className="text-blue-500 hover:text-blue-700 mr-3 p-1 rounded hover:bg-blue-50"><span className="material-symbols-outlined">edit</span></button>
                                   <button onClick={() => deleteSoal(s.id_soal)} className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50"><span className="material-symbols-outlined">delete</span></button>
                                 </td>
@@ -655,7 +655,7 @@
                             )) : <tr><td colSpan="4" className="p-8 text-center text-slate-500">Belum ada soal untuk mata pelajaran ini.</td></tr>;
                           })()}
                         </tbody>
-                      </table>
+                      </table></div>
                       {/* Pagination Controls */}
                       {(() => {
                         const filteredSoal = dataSoal.filter(s => s.tipe_soal !== 'NARASI' && s.tipe_soal !== 'SKEMA_PENILAIAN');

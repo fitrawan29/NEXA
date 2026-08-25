@@ -233,9 +233,9 @@
                 <table className="w-full text-left">
                   <thead className="bg-slate-50 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600">
                     {activeTab === 'sekolah' ? (
-                      <tr><th className="p-4 font-bold text-slate-600 dark:text-slate-300">NPSN</th><th className="p-4 font-bold text-slate-600 dark:text-slate-300">Nama Sekolah</th><th className="p-4 font-bold text-slate-600 dark:text-slate-300 text-right">Aksi</th></tr>
+                      <tr><th className="py-3 px-4 font-semibold text-sm font-bold text-slate-600 dark:text-slate-300">NPSN</th><th className="py-3 px-4 font-semibold text-sm font-bold text-slate-600 dark:text-slate-300">Nama Sekolah</th><th className="py-3 px-4 font-semibold text-sm font-bold text-slate-600 dark:text-slate-300 text-right">Aksi</th></tr>
                     ) : (
-                      <tr><th className="p-4 font-bold text-slate-600 dark:text-slate-300">Nama Admin</th><th className="p-4 font-bold text-slate-600 dark:text-slate-300">Username</th><th className="p-4 font-bold text-slate-600 dark:text-slate-300">Sekolah</th><th className="p-4 font-bold text-slate-600 dark:text-slate-300 text-right">Aksi</th></tr>
+                      <tr><th className="py-3 px-4 font-semibold text-sm font-bold text-slate-600 dark:text-slate-300">Nama Admin</th><th className="py-3 px-4 font-semibold text-sm font-bold text-slate-600 dark:text-slate-300">Username</th><th className="py-3 px-4 font-semibold text-sm font-bold text-slate-600 dark:text-slate-300">Sekolah</th><th className="py-3 px-4 font-semibold text-sm font-bold text-slate-600 dark:text-slate-300 text-right">Aksi</th></tr>
                     )}
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
@@ -243,9 +243,9 @@
                     
                     {!isLoading && activeTab === 'sekolah' && dataSekolah.map(s => (
                       <tr key={s.npsn} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                        <td className="p-4 font-mono font-medium text-slate-700 dark:text-slate-300">{s.npsn}</td>
-                        <td className="p-4 font-bold text-slate-800 dark:text-slate-100">{s.nama_sekolah}</td>
-                        <td className="p-4 text-right">
+                        <td className="py-2 px-4 font-mono font-medium text-slate-700 dark:text-slate-300">{s.npsn}</td>
+                        <td className="py-2 px-4 font-bold text-slate-800 dark:text-slate-100">{s.nama_sekolah}</td>
+                        <td className="py-2 px-4 text-right">
                           <button onClick={() => handleEdit('sekolah', s)} className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-2 rounded-lg transition-colors inline-flex items-center gap-1"><span className="material-symbols-outlined text-[20px]">edit</span></button>
                           <button onClick={() => handleDelete('sekolah', s)} className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition-colors inline-flex items-center gap-1"><span className="material-symbols-outlined text-[20px]">delete</span></button>
                         </td>
@@ -255,10 +255,10 @@
 
                     {!isLoading && activeTab === 'admin' && dataAdmin.map(a => (
                       <tr key={a.id_admin} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                        <td className="p-4 font-bold text-slate-800 dark:text-slate-100">{a.nama_lengkap}</td>
-                        <td className="p-4 text-slate-600 dark:text-slate-300 font-mono text-sm">{a.username}</td>
-                        <td className="p-4 text-slate-600 dark:text-slate-300">{a.sekolah?.nama_sekolah} (NPSN: {a.npsn})</td>
-                        <td className="p-4 text-right">
+                        <td className="py-2 px-4 font-bold text-slate-800 dark:text-slate-100">{a.nama_lengkap}</td>
+                        <td className="py-2 px-4 text-slate-600 dark:text-slate-300 font-mono text-sm">{a.username}</td>
+                        <td className="py-2 px-4 text-slate-600 dark:text-slate-300">{a.sekolah?.nama_sekolah} (NPSN: {a.npsn})</td>
+                        <td className="py-2 px-4 text-right">
                           <button onClick={() => handleEdit('admin', a)} className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-2 rounded-lg transition-colors inline-flex items-center gap-1"><span className="material-symbols-outlined text-[20px]">edit</span></button>
                           <button onClick={() => handleDelete('admin', a)} className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition-colors inline-flex items-center gap-1"><span className="material-symbols-outlined text-[20px]">delete</span></button>
                         </td>
@@ -302,15 +302,15 @@
                   <div className="overflow-x-auto">
                     <table className="w-full text-left">
                       <thead className="bg-slate-50 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600">
-                        <tr><th className="p-4 font-bold text-slate-600 dark:text-slate-300">Waktu</th><th className="p-4 font-bold text-slate-600 dark:text-slate-300">User / Role</th><th className="p-4 font-bold text-slate-600 dark:text-slate-300">Aksi</th></tr>
+                        <tr><th className="py-3 px-4 font-semibold text-sm font-bold text-slate-600 dark:text-slate-300">Waktu</th><th className="py-3 px-4 font-semibold text-sm font-bold text-slate-600 dark:text-slate-300">User / Role</th><th className="py-3 px-4 font-semibold text-sm font-bold text-slate-600 dark:text-slate-300">Aksi</th></tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
                         {isLoading ? <tr><td colSpan="3" className="p-8 text-center"><span className="material-symbols-outlined animate-spin text-4xl text-primary">autorenew</span></td></tr> : null}
                         {!isLoading && dataLog.map(l => (
                           <tr key={l.id_log} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                            <td className="p-4 text-xs font-mono text-slate-500">{new Date(l.created_at).toLocaleString('id-ID')}</td>
-                            <td className="p-4 font-bold text-slate-800 dark:text-slate-100">{l.username} <span className="px-2 py-0.5 bg-slate-200 dark:bg-slate-700 rounded-full text-[10px] font-mono font-normal ml-2">{l.role}</span></td>
-                            <td className="p-4 text-slate-600 dark:text-slate-300 text-sm">{l.action}: {l.detail}</td>
+                            <td className="py-2 px-4 text-xs font-mono text-slate-500">{new Date(l.created_at).toLocaleString('id-ID')}</td>
+                            <td className="py-2 px-4 font-bold text-slate-800 dark:text-slate-100">{l.username} <span className="px-2 py-0.5 bg-slate-200 dark:bg-slate-700 rounded-full text-[10px] font-mono font-normal ml-2">{l.role}</span></td>
+                            <td className="py-2 px-4 text-slate-600 dark:text-slate-300 text-sm">{l.action}: {l.detail}</td>
                           </tr>
                         ))}
                         {!isLoading && dataLog.length === 0 && <tr><td colSpan="3" className="p-8 text-center text-slate-500">Belum ada log.</td></tr>}

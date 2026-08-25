@@ -744,22 +744,22 @@
                     <button onClick={() => setSelectedKelas(null)} className="mb-4 flex items-center gap-2 text-primary hover:underline font-medium"><span className="material-symbols-outlined">arrow_back</span> Kembali ke Daftar Kelas</button>
                     <div className="bg-surface dark:bg-slate-800 rounded-2xl border border-outline-variant dark:border-slate-700 overflow-hidden">
                       <div className="p-4 border-b border-outline-variant dark:border-slate-700 font-bold">Data Siswa: Kelas {selectedKelas}</div>
-                      <table className="w-full text-left">
+                      <div className="overflow-x-auto"><table className="w-full text-left whitespace-nowrap">
                         <thead className="bg-surface-variant/30 dark:bg-slate-800/80">
-                          <tr><th className="p-4">ID</th><th className="p-4">Nama Lengkap</th><th className="p-4">Username</th></tr>
+                          <tr><th className="py-3 px-4 font-semibold text-sm">ID</th><th className="py-3 px-4 font-semibold text-sm">Nama Lengkap</th><th className="py-3 px-4 font-semibold text-sm">Username</th></tr>
                         </thead>
                         <tbody>
                           {groupedClasses[selectedKelas]?.length > 0 ? (
                             groupedClasses[selectedKelas].map(s => (
                               <tr key={s.id_siswa} className="border-t border-outline-variant/30 dark:border-slate-700">
-                                <td className="p-4">{s.id_siswa}</td><td className="p-4">{s.nama_lengkap}</td><td className="p-4">{s.username}</td>
+                                <td className="py-2 px-4">{s.id_siswa}</td><td className="py-2 px-4">{s.nama_lengkap}</td><td className="py-2 px-4">{s.username}</td>
                               </tr>
                             ))
                           ) : (
-                            <tr><td colSpan="3" className="p-4 text-center text-slate-500">Belum ada siswa di kelas ini.</td></tr>
+                            <tr><td colSpan="3" className="p-0"><EmptyState icon="group_off" title="Kelas Kosong" message="Belum ada siswa yang terdaftar di kelas ini." /></td></tr>
                           )}
                         </tbody>
-                      </table>
+                      </table></div>
                     </div>
                   </div>
                 )}
@@ -784,11 +784,11 @@
                       (activeTab === 'siswa' ? dataSiswa : activeTab === 'guru' ? dataGuru : activeTab === 'mapel' ? dataMapel : dataJadwal).length > 0 ? (
                         (activeTab === 'siswa' ? dataSiswa : activeTab === 'guru' ? dataGuru : activeTab === 'mapel' ? dataMapel : dataJadwal).map((row) => (
                           <tr key={row.id_jadwal || row.id_siswa || row.id_guru || row.id_mapel} className="hover:bg-surface-variant/20 dark:hover:bg-slate-800/50">
-                            {activeTab === 'siswa' && (<><td className="p-4">{row.id_siswa}</td><td className="p-4">{row.nama_lengkap}</td><td className="p-4">{row.username}</td><td className="p-4">{row.angkatan}</td><td className="p-4">{row.kelas_paralel}</td></>)}
-                            {activeTab === 'guru' && (<><td className="p-4">{row.id_guru}</td><td className="p-4">{row.nama_lengkap}</td><td className="p-4">{row.username}</td><td className="p-4 text-xs max-w-xs truncate">{row.mapels_list}</td></>)}
-                            {activeTab === 'mapel' && (<><td className="p-4">{row.id_mapel}</td><td className="p-4">{row.nama_mapel}</td></>)}
-                            {activeTab === 'jadwal' && (<><td className="p-4">{row.id_jadwal}</td><td className="p-4">{row.nama_mapel}</td><td className="p-4">{row.guru}</td><td className="p-4 text-sm">{new Date(row.waktu_mulai).toLocaleString('id-ID')} s.d {new Date(row.waktu_selesai).toLocaleString('id-ID')}</td></>)}
-                            <td className="p-4 text-right">
+                            {activeTab === 'siswa' && (<><td className="py-2 px-4">{row.id_siswa}</td><td className="py-2 px-4">{row.nama_lengkap}</td><td className="py-2 px-4">{row.username}</td><td className="py-2 px-4">{row.angkatan}</td><td className="py-2 px-4">{row.kelas_paralel}</td></>)}
+                            {activeTab === 'guru' && (<><td className="py-2 px-4">{row.id_guru}</td><td className="py-2 px-4">{row.nama_lengkap}</td><td className="py-2 px-4">{row.username}</td><td className="py-2 px-4 text-xs max-w-xs truncate">{row.mapels_list}</td></>)}
+                            {activeTab === 'mapel' && (<><td className="py-2 px-4">{row.id_mapel}</td><td className="py-2 px-4">{row.nama_mapel}</td></>)}
+                            {activeTab === 'jadwal' && (<><td className="py-2 px-4">{row.id_jadwal}</td><td className="py-2 px-4">{row.nama_mapel}</td><td className="py-2 px-4">{row.guru}</td><td className="py-2 px-4 text-sm">{new Date(row.waktu_mulai).toLocaleString('id-ID')} s.d {new Date(row.waktu_selesai).toLocaleString('id-ID')}</td></>)}
+                            <td className="py-2 px-4 text-right">
                             {activeTab === 'siswa' && (
                               <button onClick={() => handleResetLogin(row.id_siswa)} title="Reset Login Sesi" className="text-orange-500 hover:bg-orange-100 dark:hover:bg-slate-700 p-2 rounded-lg transition-colors mr-1">
                                 <span className="material-symbols-outlined text-[20px]">sync</span>
@@ -858,26 +858,26 @@
             {activeTab === 'logs' && (
               <div className="animate-fade-in-up">
                 <div className="bg-surface dark:bg-slate-800 rounded-2xl border border-outline-variant dark:border-slate-700 overflow-hidden shadow-sm">
-                  <table className="w-full text-left">
+                  <div className="overflow-x-auto"><table className="w-full text-left whitespace-nowrap">
                     <thead className="bg-surface-variant/30 dark:bg-slate-800/80">
-                      <tr><th className="p-4">Waktu</th><th className="p-4">User</th><th className="p-4">Role</th><th className="p-4 text-center">Action</th><th className="p-4">Target</th></tr>
+                      <tr><th className="py-3 px-4 font-semibold text-sm">Waktu</th><th className="py-3 px-4 font-semibold text-sm">User</th><th className="py-3 px-4 font-semibold text-sm">Role</th><th className="py-3 px-4 font-semibold text-sm text-center">Action</th><th className="py-3 px-4 font-semibold text-sm">Target</th></tr>
                     </thead>
                     <tbody>
                       {dataAudit.length > 0 ? dataAudit.map(log => (
                         <tr key={log.id_audit} className="border-t border-outline-variant/30 dark:border-slate-700 hover:bg-surface-variant/10 dark:hover:bg-slate-800">
-                          <td className="p-4 text-sm text-slate-500">{new Date(log.created_at).toLocaleString('id-ID')}</td>
-                          <td className="p-4 font-bold">{log.username}</td>
-                          <td className="p-4 text-xs uppercase">{log.role}</td>
-                          <td className="p-4 text-center">
+                          <td className="py-2 px-4 text-sm text-slate-500">{new Date(log.created_at).toLocaleString('id-ID')}</td>
+                          <td className="py-2 px-4 font-bold">{log.username}</td>
+                          <td className="py-2 px-4 text-xs uppercase">{log.role}</td>
+                          <td className="py-2 px-4 text-center">
                             <span className={`px-2 py-1 rounded text-xs font-bold ${log.action === 'CREATE' ? 'bg-green-100 text-green-700' : log.action === 'UPDATE' ? 'bg-blue-100 text-blue-700' : log.action === 'DELETE' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700'}`}>
                               {log.action}
                             </span>
                           </td>
-                          <td className="p-4 text-sm">{log.target}</td>
+                          <td className="py-2 px-4 text-sm">{log.target}</td>
                         </tr>
                       )) : <tr><td colSpan="5" className="p-6 text-center text-slate-500">Log sistem kosong.</td></tr>}
                     </tbody>
-                  </table>
+                  </table></div>
                 </div>
               </div>
             )}
@@ -907,39 +907,39 @@
                     <table className="w-full text-left min-w-[800px]">
                       <thead className="bg-surface-variant/30 dark:bg-slate-800/80">
                         <tr>
-                          <th className="p-4">Siswa</th>
-                          {activeTab === 'hasil' && <th className="p-4">Kelas</th>}
-                          {activeTab === 'monitoring' && <th className="p-4">Status</th>}
-                          {activeTab === 'monitoring' && <th className="p-4 text-center">Pelanggaran</th>}
-                          {activeTab === 'hasil' && <th className="p-4 text-right">Nilai PG</th>}
-                          {activeTab === 'hasil' && <th className="p-4 text-right">Nilai Uraian</th>}
-                          {activeTab === 'hasil' && <th className="p-4 text-right">Total Nilai</th>}
-                          {activeTab === 'monitoring' && <th className="p-4 text-right">Aksi</th>}
+                          <th className="py-3 px-4 font-semibold text-sm">Siswa</th>
+                          {activeTab === 'hasil' && <th className="py-3 px-4 font-semibold text-sm">Kelas</th>}
+                          {activeTab === 'monitoring' && <th className="py-3 px-4 font-semibold text-sm">Status</th>}
+                          {activeTab === 'monitoring' && <th className="py-3 px-4 font-semibold text-sm text-center">Pelanggaran</th>}
+                          {activeTab === 'hasil' && <th className="py-3 px-4 font-semibold text-sm text-right">Nilai PG</th>}
+                          {activeTab === 'hasil' && <th className="py-3 px-4 font-semibold text-sm text-right">Nilai Uraian</th>}
+                          {activeTab === 'hasil' && <th className="py-3 px-4 font-semibold text-sm text-right">Total Nilai</th>}
+                          {activeTab === 'monitoring' && <th className="py-3 px-4 font-semibold text-sm text-right">Aksi</th>}
                         </tr>
                       </thead>
                       <tbody>
                         {dataLog.length > 0 ? dataLog.map(l => (
                           <tr key={l.id_log} className="border-t border-outline-variant/30 dark:border-slate-700">
-                            <td className="p-4">
+                            <td className="py-2 px-4">
                               <div className="font-bold">{l.nama_lengkap}</div>
                               <div className="text-xs text-slate-500">{l.id_siswa}</div>
                             </td>
-                            {activeTab === 'hasil' && <td className="p-4 text-sm">{l.angkatan} {l.kelas_paralel}</td>}
+                            {activeTab === 'hasil' && <td className="py-2 px-4 text-sm">{l.angkatan} {l.kelas_paralel}</td>}
                             {activeTab === 'monitoring' && (
-                              <td className="p-4">
+                              <td className="py-2 px-4">
                                 <span className={`px-2 py-1 rounded text-xs font-bold ${l.is_blocked ? 'bg-red-100 text-red-700' : l.status_ujian === 'SELESAI' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
                                   {l.is_blocked ? 'DIBLOKIR' : l.status_ujian}
                                 </span>
                               </td>
                             )}
-                            {activeTab === 'monitoring' && <td className="p-4 text-center font-bold text-error">{l.pelanggaran || 0}</td>}
+                            {activeTab === 'monitoring' && <td className="py-2 px-4 text-center font-bold text-error">{l.pelanggaran || 0}</td>}
 
-                            {activeTab === 'hasil' && <td className="p-4 text-right font-medium">{l.nilai_auto}</td>}
-                            {activeTab === 'hasil' && <td className="p-4 text-right font-medium">{l.nilai_uraian}</td>}
-                            {activeTab === 'hasil' && <td className="p-4 text-right font-bold text-primary text-lg">{l.total_nilai}</td>}
+                            {activeTab === 'hasil' && <td className="py-2 px-4 text-right font-medium">{l.nilai_auto}</td>}
+                            {activeTab === 'hasil' && <td className="py-2 px-4 text-right font-medium">{l.nilai_uraian}</td>}
+                            {activeTab === 'hasil' && <td className="py-2 px-4 text-right font-bold text-primary text-lg">{l.total_nilai}</td>}
 
                             {activeTab === 'monitoring' && (
-                              <td className="p-4 text-right">
+                              <td className="py-2 px-4 text-right">
                                 {!l.is_blocked ? (
                                   <button onClick={() => handleBlock(l.id_log)} className="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded text-xs font-bold">Blokir</button>
                                 ) : (
