@@ -96,6 +96,34 @@ const App = () => {
         }
       };
 
+      const handleRegister = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setLoginError('');
+        const payload = {
+          role: registerRole,
+          nama: regName,
+          username: regUsername,
+          password: regPassword,
+          npsn: npsn,
+          identitas: registerRole === 'siswa' ? regNisn : (regNip || crypto.randomUUID())
+        };
+        const res = await fetchAPI('register', payload);
+        setLoading(false);
+
+        if (res.status === 'success') {
+          showMessage('Berhasil', 'Pendaftaran berhasil. Silakan login.', 'success');
+          setIsRegistering(false);
+          setRegName('');
+          setRegUsername('');
+          setRegNip('');
+          setRegNisn('');
+          setRegPassword('');
+        } else {
+          setLoginError(res.message || 'Pendaftaran gagal. Periksa kembali data Anda.');
+        }
+      };
+
       const handleLogout = () => {
         setUser(null);
         setUsername('');
@@ -114,13 +142,11 @@ const App = () => {
       const renderView = () => {
         if (!user) {
           const onLoginSubmit = (e) => {
-            e.preventDefault();
-            handleLogin();
+            handleLogin(e);
           };
 
           const onRegisterSubmit = (e) => {
-            e.preventDefault();
-            handleRegister();
+            handleRegister(e);
           };
 
           return (

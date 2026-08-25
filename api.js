@@ -42,6 +42,23 @@
               .eq('npsn', payload.npsn)
               .single());
             if (error || !data) return { status: 'error', message: 'Username, password, atau NPSN salah.' };
+            
+            // Periksa proteksi multi-login khusus Siswa
+            if (payload.role === 'siswa') {
+               if (data.session_token) {
+                  return { status: 'error', message: 'Akun Anda sedang digunakan di perangkat lain. Minta admin mereset sesi Anda.' };
+               }
+               // Generate and set new session_token
+               const newSessionToken = crypto.randomUUID();
+               const { error: updateErr } = await supabaseClient
+                  .from('siswa')
+                  .update({ session_token: newSessionToken })
+                  .eq('id_siswa', data.id_siswa);
+               if (updateErr) return { status: 'error', message: 'Gagal membuat sesi aman.' };
+               
+               data.session_token = newSessionToken;
+            }
+
             data.role = payload.role;
             return { status: 'success', data };
           }
