@@ -40,13 +40,35 @@
             
             const payloadData = rows.map(row => {
               let opsiStr = null;
+              let finalKunci = row.kunci_jawaban;
+              if (row.tipe_soal === 'PG') {
+                if (finalKunci === 'A') finalKunci = row.opsi_A;
+                else if (finalKunci === 'B') finalKunci = row.opsi_B;
+                else if (finalKunci === 'C') finalKunci = row.opsi_C;
+                else if (finalKunci === 'D') finalKunci = row.opsi_D;
+                else if (finalKunci === 'E') finalKunci = row.opsi_E;
+              } else if (row.tipe_soal === 'PGK') {
+                // PGK kunci could be "A,B". Need to convert to JSON array of strings
+                try {
+                   let keys = finalKunci.split(',').map(k => k.trim());
+                   let mappedKeys = keys.map(k => {
+                      if (k === 'A') return row.opsi_A;
+                      if (k === 'B') return row.opsi_B;
+                      if (k === 'C') return row.opsi_C;
+                      if (k === 'D') return row.opsi_D;
+                      if (k === 'E') return row.opsi_E;
+                      return k;
+                   });
+                   finalKunci = JSON.stringify(mappedKeys);
+                } catch(e) {}
+              }
               if (row.tipe_soal === 'PG' || row.tipe_soal === 'PGK') {
                 opsiStr = JSON.stringify([
-                  { id: 'A', teks: row.opsi_A || '' },
-                  { id: 'B', teks: row.opsi_B || '' },
-                  { id: 'C', teks: row.opsi_C || '' },
-                  { id: 'D', teks: row.opsi_D || '' },
-                  { id: 'E', teks: row.opsi_E || '' }
+                  row.opsi_A || '',
+                  row.opsi_B || '',
+                  row.opsi_C || '',
+                  row.opsi_D || '',
+                  row.opsi_E || ''
                 ]);
               }
               return {
@@ -94,13 +116,25 @@
                       <span className="text-sm font-normal text-slate-500">Bobot: {soal.bobot}</span>
                     </div>
                     <div className="mb-4 prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: soal.pertanyaan }} />
-                    {soal.tipe_soal === 'PG' && soal.opsi && (
+                    {soal.tipe_soal === 'PG' && soal.opsi && Array.isArray(soal.opsi) && (
                       <div className="space-y-2">
-                        {soal.opsi.map(opt => (
-                          <div key={opt.id} className={`p-3 rounded-lg border ${soal.kunci_jawaban === opt.id ? 'bg-green-100 border-green-500' : 'border-outline-variant'}`}>
-                            <span className="font-bold mr-2">{opt.id}.</span> <span dangerouslySetInnerHTML={{ __html: opt.teks }} />
+                        {soal.opsi.map((opt, oIdx) => (
+                          <div key={oIdx} className={`p-3 rounded-lg border ${soal.kunci_jawaban === opt ? 'bg-green-100 border-green-500 dark:bg-green-900/40' : 'border-outline-variant dark:border-slate-700'}`}>
+                            <span className="font-bold mr-2">{String.fromCharCode(65 + oIdx)}.</span> <span dangerouslySetInnerHTML={{ __html: typeof opt === 'string' ? opt : opt.teks }} />
                           </div>
                         ))}
+                      </div>
+                    )}
+                    {soal.tipe_soal === 'PGK' && soal.opsi && Array.isArray(soal.opsi) && (
+                      <div className="space-y-2">
+                        {soal.opsi.map((opt, oIdx) => {
+                           const isChecked = soal.kunci_jawaban && soal.kunci_jawaban.includes(opt);
+                           return (
+                              <div key={oIdx} className={`p-3 rounded-lg border ${isChecked ? 'bg-green-100 border-green-500 dark:bg-green-900/40' : 'border-outline-variant dark:border-slate-700'}`}>
+                                <span className="font-bold mr-2">{String.fromCharCode(65 + oIdx)}.</span> <span dangerouslySetInnerHTML={{ __html: typeof opt === 'string' ? opt : opt.teks }} />
+                              </div>
+                           );
+                        })}
                       </div>
                     )}
                     {soal.tipe_soal === 'URAIAN' && (
