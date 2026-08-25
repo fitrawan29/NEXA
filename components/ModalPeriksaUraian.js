@@ -3,12 +3,18 @@
       
       const [scores, setScores] = useState({});
 
-      const handleSave = () => {
+      const handleSave = (isNext = false) => {
         let totalUraian = 0;
         for (let key in scores) {
           totalUraian += Number(scores[key] || 0);
         }
-        onSave(totalUraian);
+        onSave(totalUraian, isNext);
+      };
+        let totalUraian = 0;
+        for (let key in scores) {
+          totalUraian += Number(scores[key] || 0);
+        }
+        onSave(totalUraian, false);
       };
 
       return (
