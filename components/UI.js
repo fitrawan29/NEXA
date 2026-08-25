@@ -75,3 +75,5 @@ const useSupabaseRealtime = (table, filterString, onUpdate) => {
     };
   }, [table, filterString, onUpdate]);
 };
+
+window.useSupabaseRealtime = useSupabaseRealtime;
