@@ -10,12 +10,6 @@
         }
         onSave(totalUraian, isNext);
       };
-        let totalUraian = 0;
-        for (let key in scores) {
-          totalUraian += Number(scores[key] || 0);
-        }
-        onSave(totalUraian, false);
-      };
 
       return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
