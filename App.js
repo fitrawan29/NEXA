@@ -1,4 +1,4 @@
-    const App = () => {
+const App = () => {
       const [user, setUser] = useState(null);
       const [isRegistering, setIsRegistering] = useState(false);
       const [loading, setLoading] = useState(false);
@@ -101,6 +101,14 @@
         setUsername('');
         setPassword('');
         setRememberMe(false);
+      };
+
+      const handleLupaPassword = () => {
+        showMessage('Informasi', 'Fitur reset password mandiri sedang dalam pengembangan. Silakan hubungi Administrator sekolah Anda untuk mereset password.', 'info');
+      };
+
+      const handleSyaratKetentuan = () => {
+        showMessage('Syarat & Ketentuan', 'Aplikasi NEXA CBT merupakan sistem ujian tertutup. Segala bentuk kecurangan atau eksploitasi sistem akan terekam dan dapat berakibat pembatalan hasil ujian. Mohon kerjakan ujian dengan jujur.', 'info');
       };
 
       const renderView = () => {
