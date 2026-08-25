@@ -39,6 +39,42 @@
         fetchData(activeTab);
       }, [activeTab]);
 
+      // Realtime Sync for sekolah
+      const useCallbackSekolah = useCallback((payload) => {
+         if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+            setDataSekolah(prev => {
+               const idx = prev.findIndex(item => item.npsn === payload.new.npsn);
+               if (idx !== -1) {
+                  const newArr = [...prev];
+                  newArr[idx] = { ...newArr[idx], ...payload.new };
+                  return newArr;
+               }
+               return [payload.new, ...prev];
+            });
+         } else if (payload.eventType === 'DELETE') {
+            setDataSekolah(prev => prev.filter(item => item.npsn !== payload.old.npsn));
+         }
+      }, []);
+      useSupabaseRealtime('sekolah', null, useCallbackSekolah);
+      
+      // Realtime Sync for admin
+      const useCallbackAdmin = useCallback((payload) => {
+         if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+            setDataAdmin(prev => {
+               const idx = prev.findIndex(item => item.id_admin === payload.new.id_admin);
+               if (idx !== -1) {
+                  const newArr = [...prev];
+                  newArr[idx] = { ...newArr[idx], ...payload.new };
+                  return newArr;
+               }
+               return [payload.new, ...prev];
+            });
+         } else if (payload.eventType === 'DELETE') {
+            setDataAdmin(prev => prev.filter(item => item.id_admin !== payload.old.id_admin));
+         }
+      }, []);
+      useSupabaseRealtime('admin', null, useCallbackAdmin);
+
       const handleSaveForm = async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
