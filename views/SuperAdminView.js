@@ -245,6 +245,29 @@
                             <span className="font-bold text-primary">{stat.total_soal}</span>
                           </div>
                         </div>
+                          
+                          {/* CSS Bar Chart */}
+                          <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-700">
+                            <h4 className="font-semibold text-sm mb-4 text-slate-700 dark:text-slate-300">Grafik Komparasi</h4>
+                            <div className="flex items-end gap-2 h-32 mt-2">
+                              <div className="flex flex-col items-center justify-end h-full w-1/3 group relative">
+                                 <div className="w-full bg-blue-500 rounded-t-md transition-all duration-500" style={{ height: `${Math.max(5, Math.min(100, (stat.total_siswa / Math.max(1, stat.total_siswa + stat.total_guru + stat.total_soal)) * 100))}%` }}></div>
+                                 <span className="text-xs mt-2 text-slate-500 font-medium">Siswa</span>
+                                 <div className="absolute -top-8 bg-slate-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none whitespace-nowrap shadow-lg">{stat.total_siswa} Siswa</div>
+                              </div>
+                              <div className="flex flex-col items-center justify-end h-full w-1/3 group relative">
+                                 <div className="w-full bg-emerald-500 rounded-t-md transition-all duration-500" style={{ height: `${Math.max(5, Math.min(100, (stat.total_guru / Math.max(1, stat.total_siswa + stat.total_guru + stat.total_soal)) * 100))}%` }}></div>
+                                 <span className="text-xs mt-2 text-slate-500 font-medium">Guru</span>
+                                 <div className="absolute -top-8 bg-slate-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none whitespace-nowrap shadow-lg">{stat.total_guru} Guru</div>
+                              </div>
+                              <div className="flex flex-col items-center justify-end h-full w-1/3 group relative">
+                                 <div className="w-full bg-amber-500 rounded-t-md transition-all duration-500" style={{ height: `${Math.max(5, Math.min(100, (stat.total_soal / Math.max(1, stat.total_siswa + stat.total_guru + stat.total_soal)) * 100))}%` }}></div>
+                                 <span className="text-xs mt-2 text-slate-500 font-medium">Soal</span>
+                                 <div className="absolute -top-8 bg-slate-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none whitespace-nowrap shadow-lg">{stat.total_soal} Soal</div>
+                              </div>
+                            </div>
+                          </div>
+
                       </div>
                     ))}
                     {(dataAnalytics.stats || []).length === 0 && <div className="col-span-full p-8 text-center text-slate-500">Belum ada data sekolah.</div>}

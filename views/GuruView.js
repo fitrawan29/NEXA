@@ -559,7 +559,8 @@
                   {dataPengumuman.length === 0 && (
                     <div className="p-12 text-center bg-surface-variant/30 rounded-2xl border border-dashed border-outline-variant dark:border-slate-700">
                       <span className="material-symbols-outlined text-4xl text-slate-400 mb-2">notifications_paused</span>
-                      <p className="text-slate-500">Belum ada pengumuman.</p>
+                      <p className="text-slate-500 font-bold text-lg mb-1">Belum Ada Pemberitahuan</p>
+                      <p className="text-slate-400 text-sm max-w-sm mx-auto">Saat ini tidak ada informasi atau pemberitahuan terbaru untuk Guru. Semua informasi terkait sistem, atau pembaruan jadwal akan muncul di sini.</p>
                     </div>
                   )}
                 </div>

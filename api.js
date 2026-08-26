@@ -106,8 +106,13 @@
             return { status: 'success', message: 'Sekolah berhasil diperbarui.' };
           }
           case 'get_admin_all': {
-            ({ data, error } = await supabaseClient.from('admin').select('*, sekolah(nama_sekolah)').order('created_at', { ascending: false }));
-            if (error) return { status: 'error', message: error.message };
+            const { data: adminData, error: adminErr } = await supabaseClient.from('admin').select('*').order('created_at', { ascending: false });
+            if (adminErr) return { status: 'error', message: adminErr.message };
+            const { data: sekolahData } = await supabaseClient.from('sekolah').select('npsn, nama_sekolah');
+            const data = adminData.map(a => ({
+               ...a,
+               sekolah: sekolahData?.find(s => s.npsn === a.npsn) || { nama_sekolah: 'Unknown' }
+            }));
             return { status: 'success', data };
           }
           case 'create_admin_sekolah': {
@@ -195,7 +200,7 @@
             return { status: 'success', message: 'Pengumuman berhasil dihapus.' };
           }
           case 'get_log_aktivitas_global': {
-            ({ data, error } = await supabaseClient.from('log_aktivitas_global').select('*').order('created_at', { ascending: false }).limit(100));
+            ({ data, error } = await supabaseClient.from('audit_log').select('*').order('created_at', { ascending: false }).limit(100));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', data };
           }
@@ -297,7 +302,7 @@
 
           // GURU
           case 'get_guru': {
-            ({ data, error } = await supabaseClient.from('guru').select('*, guru_mapel(id_mapel, mata_pelajaran(nama_mapel))').eq('npsn', payload.npsn).order('created_at', { ascending: false }));
+            ({ data, error } = await supabaseClient.from('guru').select('id_guru, nip, nama_lengkap, username, role, password, npsn, created_at, guru_mapel(id_mapel, mata_pelajaran(nama_mapel))').eq('npsn', payload.npsn).order('created_at', { ascending: false }));
             if (error) return { status: 'error', message: error.message };
             const processedData = data.map(g => {
               const mapels = g.guru_mapel ? g.guru_mapel.map(gm => gm.mata_pelajaran?.nama_mapel).filter(Boolean) : [];
@@ -623,7 +628,18 @@
 
           // ================= SISWA =================
           case 'get_jadwal': {
-            ({ data, error } = await supabaseClient.from('jadwal').select('*, guru(nama_lengkap), mata_pelajaran(nama_mapel)').eq('npsn', payload.npsn));
+            const { data: siswaData } = await supabaseClient.from('siswa').select('kelas').eq('id_siswa', payload.id_siswa).eq('npsn', payload.npsn).single();
+            let siswaTingkat = null;
+            if (siswaData && siswaData.kelas) {
+               siswaTingkat = siswaData.kelas.split('|')[0];
+            }
+            
+            let q = supabaseClient.from('jadwal').select('*, guru(nama_lengkap), mata_pelajaran(nama_mapel)').eq('npsn', payload.npsn);
+            if (siswaTingkat) {
+               q = q.or(`kelas.eq.${siswaTingkat},kelas.is.null`);
+            }
+            
+            const { data, error } = await q.order('waktu_mulai', { ascending: false });
             if (error) return { status: 'error', message: error.message };
             return {
               status: 'success',
@@ -865,9 +881,23 @@
             if (payload.role && payload.role !== 'admin') {
                q = q.in('target_role', ['all', payload.role]);
             }
-            ({ data, error } = await q);
+            let { data: localData, error } = await q;
             if (error) return { status: 'error', message: error.message };
-            return { status: 'success', data };
+            
+            const { data: globalData, error: globalErr } = await supabaseClient.from('pengumuman_global').select('*').order('created_at', { ascending: false });
+            if (globalErr) return { status: 'error', message: globalErr.message };
+            
+            // Format global data to match local data structure
+            const formattedGlobal = globalData.map(g => ({
+               id_pengumuman: g.id_pengumuman,
+               judul: `[GLOBAL] ${g.judul}`,
+               isi: g.isi,
+               target_role: 'all',
+               created_at: g.created_at,
+               tipe: g.tipe || 'info'
+            }));
+            
+            return { status: 'success', data: [...formattedGlobal, ...(localData || [])] };
           }
           
           case 'create_pengumuman': {
