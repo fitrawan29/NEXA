@@ -931,3 +931,30 @@
         return { status: 'error', message: error.message };
       }
     };
+
+    // =============================================================================
+    // GLOBAL UTILITIES — available to all components/views
+    // =============================================================================
+
+    // Safe JSON parser — never throws, returns fallback on invalid input
+    window.safeJSONParse = (str, fallback) => {
+      if (str === null || str === undefined || str === '') return fallback;
+      try { return JSON.parse(str); } catch (e) { console.warn('safeJSONParse error:', e); return fallback; }
+    };
+
+    // Custom hook: Supabase realtime listener
+    window.useSupabaseRealtime = (table, filterString, onUpdate) => {
+      React.useEffect(() => {
+        if (typeof supabaseClient === 'undefined') return;
+        const channelName = `realtime:${table}:${filterString || 'all'}`;
+        const channel = supabaseClient.channel(channelName)
+          .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: table,
+            filter: filterString || undefined
+          }, (payload) => { onUpdate(payload); })
+          .subscribe();
+        return () => { supabaseClient.removeChannel(channel); };
+      }, [table, filterString, onUpdate]);
+    };

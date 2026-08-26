@@ -63,27 +63,5 @@ window.EmptyState = EmptyState;
 window.TableSkeleton = TableSkeleton;
 window.CardSkeleton = CardSkeleton;
 
-const useSupabaseRealtime = (table, filterString, onUpdate) => {
-  React.useEffect(() => {
-    if (typeof supabaseClient === 'undefined') return;
-    
-    // Create a unique channel name based on table and filter
-    const channelName = `realtime:${table}:${filterString || 'all'}`;
-    const channel = supabaseClient.channel(channelName)
-      .on('postgres_changes', { 
-         event: '*', 
-         schema: 'public', 
-         table: table, 
-         filter: filterString || undefined 
-      }, (payload) => {
-         onUpdate(payload);
-      })
-      .subscribe();
-
-    return () => {
-      supabaseClient.removeChannel(channel);
-    };
-  }, [table, filterString, onUpdate]);
-};
-
-window.useSupabaseRealtime = useSupabaseRealtime;
+// useSupabaseRealtime and safeJSONParse are now defined in api.js
+// which loads before this file, so they are always available globally.
