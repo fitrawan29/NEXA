@@ -1,4 +1,14 @@
 // components/UI.js
+window.safeJSONParse = (str, fallback) => {
+  if (!str) return fallback;
+  try {
+    return JSON.parse(str);
+  } catch (e) {
+    console.warn("JSON parse error:", e);
+    return fallback;
+  }
+};
+
 const EmptyState = ({ icon, title, message, actionText, onAction }) => {
   return (
     <div className="flex flex-col items-center justify-center p-12 text-center bg-surface dark:bg-slate-800 rounded-2xl border border-outline-variant dark:border-slate-700 animate-fade-in-up">

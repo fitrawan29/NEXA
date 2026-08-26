@@ -2,7 +2,7 @@
       // Find the schema record if it exists
       const skemaRecord = dataSoal.find(s => s.tipe_soal === 'SKEMA_PENILAIAN');
       const defaultSkema = { PG: 0, PGK: 0, BS: 0, JODOH: 0, ISIAN: 0, URAIAN: 0 };
-      const currentSkema = skemaRecord && skemaRecord.kunci_jawaban ? { ...defaultSkema, ...JSON.parse(skemaRecord.kunci_jawaban) } : defaultSkema;
+      const currentSkema = skemaRecord && skemaRecord.kunci_jawaban ? { ...defaultSkema, ...window.safeJSONParse(skemaRecord.kunci_jawaban, {}) } : defaultSkema;
 
       const [skema, setSkema] = useState(currentSkema);
 

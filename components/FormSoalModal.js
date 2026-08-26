@@ -1,22 +1,22 @@
     const FormSoalModal = ({ isOpen, data, narasiList = [], onClose, onSave }) => {
       if (!isOpen) return null;
-      const savedDraft = !data ? JSON.parse(localStorage.getItem('formSoalDraft') || '{}') : {};
+      const savedDraft = !data ? window.safeJSONParse(localStorage.getItem('formSoalDraft'), {}) : {};
       const [tipe, setTipe] = useState(data ? data.tipe_soal : (savedDraft.tipe || 'PG'));
       const [pertanyaan, setPertanyaan] = useState(data ? data.pertanyaan : (savedDraft.pertanyaan || ''));
       const [idNarasi, setIdNarasi] = useState(data && data.id_narasi ? data.id_narasi : (savedDraft.idNarasi || ''));
       const [gambar, setGambar] = useState(data ? data.gambar : null);
       const [bobot, setBobot] = useState(data ? data.bobot : (savedDraft.bobot || 1));
       
-      const [opsiPG, setOpsiPG] = useState(data && (data.tipe_soal==='PG' || data.tipe_soal==='PGK') ? JSON.parse(data.opsi || '["","","","",""]') : (savedDraft.opsiPG || ['','','','','']));
+      const [opsiPG, setOpsiPG] = useState(data && (data.tipe_soal==='PG' || data.tipe_soal==='PGK') ? window.safeJSONParse(data.opsi, ["","","","",""]) : (savedDraft.opsiPG || ['','','','','']));
       const [kunciPG, setKunciPG] = useState(data && data.tipe_soal==='PG' ? data.kunci_jawaban : (savedDraft.kunciPG || ''));
-      const [kunciPGK, setKunciPGK] = useState(data && data.tipe_soal==='PGK' ? JSON.parse(data.kunci_jawaban || '[]') : (savedDraft.kunciPGK || []));
+      const [kunciPGK, setKunciPGK] = useState(data && data.tipe_soal==='PGK' ? window.safeJSONParse(data.kunci_jawaban, []) : (savedDraft.kunciPGK || []));
       const [kunciBS, setKunciBS] = useState(data && data.tipe_soal==='BS' ? data.kunci_jawaban : (savedDraft.kunciBS || 'Benar'));
       
       const defaultPremis = [''];
       const defaultRespon = [''];
-      const [premis, setPremis] = useState(data && data.tipe_soal==='JODOH' && data.opsi ? JSON.parse(data.opsi).premis : (savedDraft.premis || defaultPremis));
-      const [respon, setRespon] = useState(data && data.tipe_soal==='JODOH' && data.opsi ? JSON.parse(data.opsi).respon : (savedDraft.respon || defaultRespon));
-      const [kunciJodoh, setKunciJodoh] = useState(data && data.tipe_soal==='JODOH' ? JSON.parse(data.kunci_jawaban || '{}') : (savedDraft.kunciJodoh || {}));
+      const [premis, setPremis] = useState(data && data.tipe_soal==='JODOH' && data.opsi ? window.safeJSONParse(data.opsi, {}).premis || defaultPremis : (savedDraft.premis || defaultPremis));
+      const [respon, setRespon] = useState(data && data.tipe_soal==='JODOH' && data.opsi ? window.safeJSONParse(data.opsi, {}).respon || defaultRespon : (savedDraft.respon || defaultRespon));
+      const [kunciJodoh, setKunciJodoh] = useState(data && data.tipe_soal==='JODOH' ? window.safeJSONParse(data.kunci_jawaban, {}) : (savedDraft.kunciJodoh || {}));
       
       const [kunciIsian, setKunciIsian] = useState(data && data.tipe_soal==='ISIAN' ? data.kunci_jawaban : (savedDraft.kunciIsian || ''));
       
@@ -129,7 +129,7 @@
                       {tipe === 'PG' ? (
                         <input type="radio" name="kunciPG" value={idx} checked={String(kunciPG) === String(idx) || (data && opsiPG[idx] === data.kunci_jawaban)} onChange={() => setKunciPG(idx)} />
                       ) : (
-                        <input type="checkbox" checked={kunciPGK.includes(idx) || (data && JSON.parse(data.kunci_jawaban || '[]').includes(opsiPG[idx]))} onChange={(e) => {
+                        <input type="checkbox" checked={kunciPGK.includes(idx) || (data && window.safeJSONParse(data.kunci_jawaban, []).includes(opsiPG[idx]))} onChange={(e) => {
                           if (e.target.checked) setKunciPGK([...kunciPGK, idx]);
                           else setKunciPGK(kunciPGK.filter(i => i !== idx));
                         }} />

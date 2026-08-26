@@ -1,4 +1,4 @@
-    const ExamRoom = ({ user, jadwal, idLog, showMessage, onFinish, isDarkMode, setIsDarkMode }) => {
+const ExamRoom = ({ user, jadwal, idLog, showMessage, onFinish, isDarkMode, setIsDarkMode }) => {
       const api = (action, p = {}) => {
         if (Array.isArray(p)) return fetchAPI(action, p.map(item => ({ ...item, npsn: user.npsn })));
         return fetchAPI(action, { ...p, npsn: user.npsn });
@@ -6,7 +6,7 @@
       const [soal, setSoal] = useState([]);
       const [jawabanSiswa, setJawabanSiswa] = useState(() => {
         const saved = localStorage.getItem(`nexa_ans_${idLog}`);
-        return saved ? JSON.parse(saved) : {};
+        return saved ? window.safeJSONParse(saved, {}) : {};
       });
       const [raguRagu, setRaguRagu] = useState({});
       const [currentIndex, setCurrentIndex] = useState(0);
