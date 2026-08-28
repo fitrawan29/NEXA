@@ -1,3 +1,4 @@
+import React, { useState, useEffect, useRef } from 'react';
     const ModalPeriksaUraian = ({ isOpen, logUjian, jawabanUraian, onClose, onSave }) => {
       if (!isOpen) return null;
       
@@ -44,3 +45,5 @@
         </div>
       );
     };
+
+export default ModalPeriksaUraian;

@@ -1,3 +1,4 @@
+import React, { useState, useEffect, useRef } from 'react';
     const FormSoalModal = ({ isOpen, data, narasiList = [], onClose, onSave }) => {
       if (!isOpen) return null;
       const savedDraft = !data ? window.safeJSONParse(localStorage.getItem('formSoalDraft'), {}) : {};
@@ -203,3 +204,5 @@
         </div>
       );
     };
+
+export default FormSoalModal;

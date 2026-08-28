@@ -1,3 +1,4 @@
+import React, { useState, useEffect, useRef } from 'react';
 // components/UI.js
 window.safeJSONParse = (str, fallback) => {
   if (!str) return fallback;

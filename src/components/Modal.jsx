@@ -1,3 +1,4 @@
+import React, { useState, useEffect, useRef } from 'react';
     // Komponen Modal Premium (Pengganti Alert dan Confirm bawaan browser)
     const Modal = ({ isOpen, title, message, onClose, type = 'info', children, onConfirm, confirmText = "Lanjutkan" }) => {
       if (!isOpen) return null;
@@ -27,3 +28,5 @@
         </div>
       );
     };
+
+export default Modal;

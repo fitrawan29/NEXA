@@ -1,3 +1,4 @@
+import React, { useState, useEffect, useRef } from 'react';
     const FormNarasiModal = ({ isOpen, data, onClose, onSave }) => {
       if (!isOpen) return null;
       const [pertanyaan, setPertanyaan] = useState(data ? data.pertanyaan : '');
@@ -55,3 +56,5 @@
         </div>
       );
     };
+
+export default FormNarasiModal;

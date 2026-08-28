@@ -1,3 +1,4 @@
+import React, { useState, useEffect, useRef } from 'react';
 ﻿    const SuperAdminView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) => {
       const [activeTab, setActiveTab] = useState('analytics');
       const [dataSekolah, setDataSekolah] = useState([]);
@@ -397,3 +398,5 @@
 
 
 
+
+export default SuperAdminView;

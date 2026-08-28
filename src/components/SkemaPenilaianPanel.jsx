@@ -1,3 +1,4 @@
+import React, { useState, useEffect, useRef } from 'react';
     const SkemaPenilaianPanel = ({ dataSoal, onSave }) => {
       // Find the schema record if it exists
       const skemaRecord = dataSoal.find(s => s.tipe_soal === 'SKEMA_PENILAIAN');
@@ -63,3 +64,5 @@
         </div>
       );
     };
+
+export default SkemaPenilaianPanel;

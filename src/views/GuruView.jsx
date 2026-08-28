@@ -1,3 +1,4 @@
+import React, { useState, useEffect, useRef } from 'react';
 ﻿    const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
       const api = (action, p = {}) => {
         if (Array.isArray(p)) return fetchAPI(action, p.map(item => ({ ...item, npsn: user.npsn })));
@@ -683,3 +684,5 @@
 
 
 
+
+export default GuruView;

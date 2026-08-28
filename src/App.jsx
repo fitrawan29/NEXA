@@ -1,3 +1,11 @@
+import React, { useState, useEffect, useRef } from 'react';
+import AdminView from './views/AdminView';
+import ExamRoom from './views/ExamRoom';
+import GuruView from './views/GuruView';
+import SiswaView from './views/SiswaView';
+import SuperAdminView from './views/SuperAdminView';
+import Modal from './components/Modal';
+
 ﻿    class ErrorBoundary extends React.Component { 
       constructor(props) { super(props); this.state = { hasError: false, error: null }; } 
       static getDerivedStateFromError(error) { return { hasError: true, error }; } 
@@ -417,10 +425,4 @@
       );
     };
 
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(
-      <ErrorBoundary>
-        <App />
-      </ErrorBoundary>
-    );
-
+    export default App;
