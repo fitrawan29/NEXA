@@ -1,4 +1,4 @@
-﻿    class ErrorBoundary extends React.Component { 
+    class ErrorBoundary extends React.Component { 
       constructor(props) { super(props); this.state = { hasError: false, error: null }; } 
       static getDerivedStateFromError(error) { return { hasError: true, error }; } 
       componentDidCatch(error, errorInfo) { console.error('ErrorBoundary caught error', error, errorInfo); } 
@@ -368,11 +368,13 @@
             </div>
           );
 
+        }
+
         switch (user.role) {
-          case 'super_admin': return <ErrorBoundary><SuperAdminView user={$user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></ErrorBoundary>;
-          case 'admin': return <ErrorBoundary><AdminView user={$user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></ErrorBoundary>;
-          case 'guru': return <ErrorBoundary><GuruView user={$user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></ErrorBoundary>;
-          case 'siswa': return <ErrorBoundary><SiswaView user={$user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></ErrorBoundary>;
+          case 'super_admin': return <ErrorBoundary><SuperAdminView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></ErrorBoundary>;
+          case 'admin': return <ErrorBoundary><AdminView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></ErrorBoundary>;
+          case 'guru': return <ErrorBoundary><GuruView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></ErrorBoundary>;
+          case 'siswa': return <ErrorBoundary><SiswaView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></ErrorBoundary>;
           default: return <div className="p-8 text-center text-red-600 font-bold bg-white h-screen">Role tidak valid!</div>;
         }
       };

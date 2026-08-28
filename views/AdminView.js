@@ -776,5 +776,5 @@
       );
     };
 
-    export default AdminView;
+
 

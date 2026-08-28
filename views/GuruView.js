@@ -681,5 +681,5 @@
       );
     };
 
-    export default GuruView;
+
 

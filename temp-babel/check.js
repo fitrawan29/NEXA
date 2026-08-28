@@ -1,0 +1,1 @@
+const babel = require("@babel/core"); const fs = require("fs"); try { const code = fs.readFileSync("../App.js", "utf8"); babel.transformSync(code, { presets: ["@babel/preset-react"] }); console.log("No syntax errors found by Babel."); } catch (e) { console.error("Syntax Error at:", e.loc); console.error(e.message); }
