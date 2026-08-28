@@ -1,4 +1,4 @@
-    class ErrorBoundary extends React.Component { 
+﻿    class ErrorBoundary extends React.Component { 
       constructor(props) { super(props); this.state = { hasError: false, error: null }; } 
       static getDerivedStateFromError(error) { return { hasError: true, error }; } 
       componentDidCatch(error, errorInfo) { console.error('ErrorBoundary caught error', error, errorInfo); } 
@@ -160,261 +160,210 @@
           };
 
           return (
-            <div className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-x-hidden overflow-y-auto bg-surface transition-colors duration-500 dark:bg-slate-900">
-              {/* Top Right Controls (Online Status & Dark Mode) */}
-              <div className="absolute top-4 right-4 flex items-center gap-3 z-50">
-                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[12px] font-bold shadow-sm transition-colors ${isOnline ? 'bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/30' : 'bg-error-container text-error border border-error/30'}`}>
-                  <span className="relative flex h-2 w-2">
-                    {isOnline && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#10B981] opacity-75"></span>}
-                    <span className={`relative inline-flex rounded-full h-2 w-2 ${isOnline ? 'bg-[#10B981]' : 'bg-error'}`}></span>
-                  </span>
-                  {isOnline ? 'Online' : 'Offline'}
-                </div>
-                <button onClick={() => setIsDarkMode(!isDarkMode)} className="w-9 h-9 rounded-full bg-white/50 dark:bg-slate-800/50 backdrop-blur-md border border-outline-variant dark:border-slate-600 flex items-center justify-center text-on-surface dark:text-white hover:bg-white/80 dark:hover:bg-slate-700 transition-colors shadow-sm">
-                  <span className="material-symbols-outlined text-[20px]">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
-                </button>
-              </div>
+            <div className="bg-slate-50 dark:bg-slate-900 min-h-screen flex justify-center selection:bg-primary/20 selection:text-primary relative">
+              
+              {/* Background gradient effects */}
+              <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-primary/20 to-transparent pointer-events-none"></div>
 
-              {/* Decorative Background Elements */}
-              <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary-fixed dark:bg-primary/20 rounded-full blur-[100px] opacity-60 pointer-events-none transition-colors duration-500"></div>
-              <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-secondary-fixed dark:bg-secondary/20 rounded-full blur-[100px] opacity-60 pointer-events-none transition-colors duration-500"></div>
-
-              <div className="w-full max-w-[900px] my-auto bg-white/70 dark:bg-slate-800/80 backdrop-blur-xl border border-white/50 dark:border-slate-700 rounded-2xl shadow-2xl overflow-hidden relative z-10 flex flex-col md:flex-row animate-fade-in-up">
-
-                {/* Left Side: Illustration / Branding (Hidden on small screens) */}
-                <div className="hidden md:flex md:w-1/2 bg-primary text-white p-xl flex-col justify-between relative overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-br from-primary to-blue-900 opacity-90"></div>
-                  <div className="absolute top-[-20%] right-[-20%] w-64 h-64 bg-white opacity-10 rounded-full blur-3xl"></div>
-
-                  <div className="relative z-10">
-                    <h2 className="font-headline-lg text-white font-bold flex items-center gap-2 mb-4">
-                      <img alt="NEXA Logo" className="w-10 h-10 object-contain rounded bg-white p-1" src="stitch_assets/screen_3_logo.png" />
-                      NEXA
-                    </h2>
-                    <p className="font-body-lg text-primary-fixed-dim">Platform Ujian Berbasis Komputer Modern untuk Sekolah.</p>
-                  </div>
-
-                  <div className="relative z-10">
-                    <div className="bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/20 hover:bg-white/20 transition-colors min-h-[140px] flex flex-col justify-center">
-                      <p key={quoteIndex} className="font-body-md text-white transition-opacity duration-500 animate-fade-in-up">"{quotes[quoteIndex].text}"</p>
-                      <p key={`author-${quoteIndex}`} className="font-label-md text-primary-fixed-dim mt-2 transition-opacity duration-500 animate-fade-in-up">- {quotes[quoteIndex].author}</p>
-                    </div>
-                  </div>
+              <div className="w-full max-w-md bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col h-screen z-10">
+                {/* Header Section */}
+                <div className="bg-[#3ecf8e] rounded-b-[40px] px-6 pt-12 pb-24 relative text-white shadow-md z-0 flex flex-col items-center justify-center text-center">
+                   <div className="w-20 h-20 bg-white shadow-lg rounded-2xl flex items-center justify-center p-3 mb-4 border border-white/20">
+                     <img alt="NEXA Logo" className="w-full h-full object-contain" src="stitch_assets/screen_3_logo.png" />
+                   </div>
+                   <h2 className="text-3xl font-bold tracking-tight mb-1">NEXA CBT</h2>
+                   <p className="text-sm font-medium opacity-90">{isRegistering ? 'Daftar Akun Baru' : 'Platform Ujian Modern'}</p>
+                   
+                   <div className="absolute top-4 right-4">
+                      <button type="button" onClick={() => setIsDarkMode(!isDarkMode)} className="w-9 h-9 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/30 transition-colors shadow-sm">
+                        <span className="material-symbols-outlined text-[20px]">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
+                      </button>
+                   </div>
                 </div>
 
-                {/* Right Side: Forms */}
-                <div className="w-full md:w-1/2 h-full overflow-hidden relative bg-white/50 dark:bg-slate-900/50">
-                  <div className={`form-slider h-full ${isRegistering ? 'show-register' : ''}`}>
-                    {/* MASUK FORM PANE */}
-                    <div className="form-pane p-lg sm:p-xl flex flex-col justify-center h-full overflow-y-auto">
-                      <div className="mb-8 md:hidden flex flex-col items-center text-center">
-                        <div className="w-16 h-16 bg-white/90 shadow-md rounded-2xl flex items-center justify-center p-2 mb-4 border border-outline-variant/30">
-                          <img alt="NEXA Logo" className="w-full h-full object-contain" src="stitch_assets/screen_3_logo.png" />
-                        </div>
-                        <h2 className="text-2xl font-bold text-on-surface dark:text-white tracking-tight">
-                          NEXA CBT
-                        </h2>
-                        <p className="font-body-md text-on-surface-variant dark:text-slate-400 mt-1.5">Platform Ujian Berbasis Komputer</p>
-                      </div>
-
-                      <div className="hidden md:block mb-8">
-                        <h2 className="text-3xl font-bold text-on-surface dark:text-white tracking-tight">Selamat Datang 👋</h2>
-                        <p className="font-body-md text-on-surface-variant dark:text-slate-400 mt-2">Silakan masuk dengan akun Anda untuk melanjutkan.</p>
-                      </div>
-
-                      <form onSubmit={onLoginSubmit} className="flex flex-col gap-md">
-                        {/* Segmented Control */}
-                        <div className="grid grid-cols-2 sm:flex bg-surface-container/50 dark:bg-slate-800/50 p-1.5 rounded-xl relative isolation-auto z-0 mb-6 shadow-inner border border-outline-variant/20 backdrop-blur-sm transition-colors duration-300 gap-1 sm:gap-0">
-                          {[
-                            {val: 'siswa', label: 'Siswa', icon: 'school'},
-                            {val: 'guru', label: 'Guru', icon: 'local_library'},
-                            {val: 'admin', label: 'Admin', icon: 'admin_panel_settings'},
-                            {val: 'super_admin', label: 'Super Admin', icon: 'shield_person'}
-                          ].map((r) => (
-                            <label key={r.val} className="flex-1 cursor-pointer relative group">
-                              <input checked={loginRole === r.val} onChange={() => setLoginRole(r.val)} className="peer sr-only" name="login-role" type="radio" value={r.val} />
-                              <div className="w-full flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 py-2 sm:py-2.5 rounded-lg text-on-surface-variant dark:text-slate-400 font-label-md transition-all duration-300 peer-checked:text-primary dark:peer-checked:text-white z-10 relative capitalize group-hover:text-on-surface dark:group-hover:text-slate-200">
-                                <span className="material-symbols-outlined text-[20px] sm:text-[18px] transition-transform duration-300 peer-checked:scale-110">{r.icon}</span>
-                                <span className="text-[12px] sm:text-[13px] font-semibold tracking-wide whitespace-nowrap">{r.label}</span>
-                              </div>
-                              <div className="absolute inset-0 bg-white dark:bg-primary rounded-lg shadow-sm border border-black/5 dark:border-white/10 transform scale-95 opacity-0 peer-checked:opacity-100 peer-checked:scale-100 transition-all duration-300 -z-10"></div>
-                            </label>
-                          ))}
-                        </div>
-
-                        {loginError && (
-                          <div className="bg-error-container text-error px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2 animate-fade-in-up border border-error/20">
-                            <span className="material-symbols-outlined text-[18px]">error</span>
-                            {loginError}
+                {/* Main Content Pane (overlapping) */}
+                <div className="flex-1 overflow-y-auto px-6 -mt-16 pb-8 relative z-10 hide-scrollbar">
+                   <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-xl p-6 border border-slate-100 dark:border-slate-700 animate-fade-in-up">
+                      
+                      {!isRegistering ? (
+                        <>
+                          <div className="mb-6 text-center">
+                            <h3 className="font-bold text-xl text-slate-800 dark:text-white">Selamat Datang 👋</h3>
+                            <p className="text-sm text-slate-500 mt-1">Silakan masuk untuk melanjutkan</p>
                           </div>
-                        )}
+                          
+                          <form onSubmit={onLoginSubmit} className="flex flex-col gap-4">
+                             {/* Role Selection */}
+                             <div className="grid grid-cols-2 bg-slate-100 dark:bg-slate-900/50 p-1 rounded-xl relative z-0">
+                               {[
+                                 {val: 'siswa', label: 'Siswa', icon: 'school'},
+                                 {val: 'guru', label: 'Guru', icon: 'local_library'},
+                                 {val: 'admin', label: 'Admin', icon: 'admin_panel_settings'},
+                                 {val: 'super_admin', label: 'S-Admin', icon: 'shield_person'}
+                               ].map((r) => (
+                                 <label key={r.val} className="cursor-pointer relative group text-center py-2">
+                                   <input checked={loginRole === r.val} onChange={() => setLoginRole(r.val)} className="peer sr-only" name="login-role" type="radio" value={r.val} />
+                                   <div className="relative z-10 text-xs font-bold text-slate-500 dark:text-slate-400 peer-checked:text-primary transition-colors flex flex-col items-center gap-1">
+                                      <span className="material-symbols-outlined text-[18px]">{r.icon}</span>
+                                      {r.label}
+                                   </div>
+                                   <div className="absolute inset-0 bg-white dark:bg-slate-700 rounded-lg shadow-sm opacity-0 peer-checked:opacity-100 scale-95 peer-checked:scale-100 transition-all -z-10"></div>
+                                 </label>
+                               ))}
+                             </div>
 
-                        {loginRole !== 'super_admin' && (
-                          <div className="flex flex-col gap-xs group">
-                            <label className="font-label-md text-on-surface dark:text-slate-200 group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="login-npsn">
-                              NPSN Sekolah
-                            </label>
-                            <div className="relative flex items-center">
-                              <span className="material-symbols-outlined absolute left-sm text-outline group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors z-10">account_balance</span>
-                              <input required value={npsn} onChange={e => setNpsn(e.target.value)} className="academic-input w-full pl-[40px] pr-sm py-sm rounded-lg border border-outline-variant dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-body-md text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-400 transition-all hover:border-outline focus:border-primary dark:focus:border-primary-fixed focus:ring-4 focus:ring-primary/10 dark:focus:ring-primary-fixed/20 focus:bg-white dark:focus:bg-slate-800" id="login-npsn" placeholder="Masukkan NPSN Sekolah Anda" type="text" />
-                            </div>
-                          </div>
-                        )}
+                             {loginError && (
+                               <div className="bg-red-50 text-red-500 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 border border-red-100">
+                                 <span className="material-symbols-outlined text-[16px]">error</span>
+                                 {loginError}
+                               </div>
+                             )}
 
-                        <div className="flex flex-col gap-xs group">
-                          <label className="font-label-md text-on-surface dark:text-slate-200 group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="login-username">
-                            {loginRole === 'guru' ? 'Username / NIP' : loginRole === 'admin' ? 'Username' : 'Username / NISN'}
-                          </label>
-                          <div className="relative flex items-center">
-                            <span className="material-symbols-outlined absolute left-sm text-outline group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors z-10">person</span>
-                            <input ref={usernameInputRef} required value={username} onChange={e => setUsername(e.target.value)} className="academic-input w-full pl-[40px] pr-sm py-sm rounded-lg border border-outline-variant dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-body-md text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-400 transition-all hover:border-outline focus:border-primary dark:focus:border-primary-fixed focus:ring-4 focus:ring-primary/10 dark:focus:ring-primary-fixed/20 focus:bg-white dark:focus:bg-slate-800" id="login-username" placeholder={loginRole === 'guru' ? 'Masukkan Username atau NIP' : loginRole === 'admin' ? 'Masukkan Username' : 'Masukkan Username atau NISN'} type="text" />
-                          </div>
-                        </div>
+                             {loginRole !== 'super_admin' && (
+                               <div className="flex flex-col gap-1">
+                                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300">NPSN Sekolah</label>
+                                 <div className="relative">
+                                   <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">account_balance</span>
+                                   <input required value={npsn} onChange={e => setNpsn(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Masukkan NPSN" type="text" />
+                                 </div>
+                               </div>
+                             )}
 
-                        <div className="flex flex-col gap-xs group">
-                          <div className="flex justify-between items-end">
-                            <label className="font-label-md text-on-surface dark:text-slate-200 group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="login-password">Password</label>
-                            {capsLockActive && <span className="text-[10px] text-error font-bold flex items-center gap-1 animate-fade-in-up"><span className="material-symbols-outlined text-[12px]">keyboard_capslock</span> Caps Lock Aktif</span>}
-                          </div>
-                          <div className="relative flex items-center">
-                            <span className="material-symbols-outlined absolute left-sm text-outline group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors z-10">lock</span>
-                            <input required value={password} onChange={e => setPassword(e.target.value)} onKeyUp={handlePasswordKeyUp} className="academic-input w-full pl-[40px] pr-[40px] py-sm rounded-lg border border-outline-variant dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-body-md text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-400 transition-all hover:border-outline focus:border-primary dark:focus:border-primary-fixed focus:ring-4 focus:ring-primary/10 dark:focus:ring-primary-fixed/20 focus:bg-white dark:focus:bg-slate-800" id="login-password" placeholder="Dapat berupa huruf, angka & simbol" type={showPassword ? "text" : "password"} />
-                            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-sm text-outline hover:text-on-surface-variant dark:hover:text-white transition-colors flex items-center justify-center h-full z-10">
-                              <span className="material-symbols-outlined text-[20px]">{showPassword ? 'visibility_off' : 'visibility'}</span>
-                            </button>
-                          </div>
-                        </div>
+                             <div className="flex flex-col gap-1">
+                               <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Username</label>
+                               <div className="relative">
+                                 <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">person</span>
+                                 <input ref={usernameInputRef} required value={username} onChange={e => setUsername(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder={loginRole === 'guru' ? 'Username / NIP' : loginRole === 'admin' ? 'Username' : 'Username / NISN'} type="text" />
+                               </div>
+                             </div>
 
-                        <div className="flex justify-between items-center mb-xs mt-[-4px]">
-                          <label className="flex items-center gap-2 cursor-pointer group">
-                            <div className="relative flex items-center justify-center w-4 h-4 border border-outline-variant rounded group-hover:border-primary transition-colors">
-                              <input type="checkbox" checked={rememberMe} onChange={() => setRememberMe(!rememberMe)} className="absolute opacity-0 w-full h-full cursor-pointer peer" />
-                              <span className="material-symbols-outlined text-primary opacity-0 peer-checked:opacity-100 transition-opacity" style={{ fontSize: "14px", fontVariationSettings: "'FILL' 1" }}>check</span>
-                            </div>
-                            <span className="font-body-md text-sm text-on-surface-variant group-hover:text-on-surface transition-colors">Ingat Saya</span>
-                          </label>
-                          <button type="button" onClick={handleLupaPassword} className="font-body-md text-sm text-primary font-medium hover:text-primary-container transition-colors">Lupa Password?</button>
-                        </div>
+                             <div className="flex flex-col gap-1">
+                               <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex justify-between">
+                                 Password
+                                 {capsLockActive && <span className="text-red-500 flex items-center gap-1"><span className="material-symbols-outlined text-[12px]">keyboard_capslock</span> Caps Lock</span>}
+                               </label>
+                               <div className="relative">
+                                 <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">lock</span>
+                                 <input required value={password} onChange={e => setPassword(e.target.value)} onKeyUp={handlePasswordKeyUp} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl py-3 pl-10 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Masukkan Password" type={showPassword ? "text" : "password"} />
+                                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                                   <span className="material-symbols-outlined text-[18px]">{showPassword ? 'visibility_off' : 'visibility'}</span>
+                                 </button>
+                               </div>
+                             </div>
 
-                        <button disabled={loading || loginSuccess} className={`w-full font-label-md py-sm rounded-lg transition-all duration-300 shadow-sm flex justify-center items-center gap-xs mt-2 ${loginSuccess ? 'bg-[#10B981] text-white' : 'bg-primary text-on-primary hover:bg-primary-container hover:shadow-lg hover:-translate-y-1'} disabled:opacity-80 disabled:cursor-not-allowed`} type="submit">
-                          {loading ? (
-                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                          ) : loginSuccess ? (
-                            <><span className="material-symbols-outlined text-[20px] animate-fade-in-up">check_circle</span> Berhasil Masuk</>
-                          ) : (
-                            <>Masuk Sekarang <span className="material-symbols-outlined text-[18px]">arrow_forward</span></>
-                          )}
-                        </button>
-                      </form>
+                             <div className="flex justify-between items-center text-xs mt-1">
+                               <label className="flex items-center gap-2 cursor-pointer">
+                                 <input type="checkbox" checked={rememberMe} onChange={() => setRememberMe(!rememberMe)} className="rounded text-primary border-slate-300 focus:ring-primary" />
+                                 <span className="font-bold text-slate-600 dark:text-slate-400">Ingat Saya</span>
+                               </label>
+                               <button type="button" onClick={handleLupaPassword} className="font-bold text-primary">Lupa Password?</button>
+                             </div>
 
-                      <p className="text-center font-body-md text-sm text-on-surface-variant dark:text-slate-400 mt-lg">
-                        Belum punya akun? <button onClick={() => { setIsRegistering(true); setLoginError(''); }} className="text-primary hover:underline font-semibold" type="button">Daftar</button>
-                      </p>
-                    </div>
+                             <button disabled={loading || loginSuccess} className={w-full py-3 rounded-xl font-bold text-white transition-all shadow-md mt-2 flex justify-center items-center gap-2 } type="submit">
+                               {loading ? (
+                                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                               ) : loginSuccess ? (
+                                 <><span className="material-symbols-outlined">check_circle</span> Berhasil Masuk</>
+                               ) : (
+                                 <>Masuk <span className="material-symbols-outlined text-[18px]">arrow_forward</span></>
+                               )}
+                             </button>
+                          </form>
 
-                    {/* DAFTAR FORM PANE */}
-                    <div className="form-pane p-lg sm:p-xl flex flex-col justify-center h-full overflow-y-auto">
-                      <div className="mb-8 md:hidden flex-shrink-0 flex flex-col items-center text-center">
-                        <div className="w-16 h-16 bg-white/90 shadow-md rounded-2xl flex items-center justify-center p-2 mb-4 border border-outline-variant/30">
-                          <img alt="NEXA Logo" className="w-full h-full object-contain" src="stitch_assets/screen_3_logo.png" />
-                        </div>
-                        <h2 className="text-2xl font-bold text-on-surface dark:text-white tracking-tight">
-                          Daftar Akun Baru
-                        </h2>
-                        <p className="font-body-md text-on-surface-variant dark:text-slate-400 mt-1.5">Bergabung dengan platform NEXA CBT.</p>
-                      </div>
-
-                      <div className="hidden md:block mb-8 flex-shrink-0">
-                        <h2 className="text-3xl font-bold text-on-surface dark:text-white tracking-tight">Buat Akun Baru ✨</h2>
-                        <p className="font-body-md text-on-surface-variant dark:text-slate-400 mt-2">Lengkapi form di bawah ini untuk bergabung.</p>
-                      </div>
-
-                      <form onSubmit={onRegisterSubmit} className="flex flex-col gap-sm flex-1">
-                        {/* Segmented Control */}
-                        <div className="flex bg-surface-container/50 dark:bg-slate-800/50 p-1.5 rounded-xl relative isolation-auto z-0 mb-6 shadow-inner border border-outline-variant/20 backdrop-blur-sm transition-colors duration-300 flex-shrink-0">
-                          {[
-                            {val: 'siswa', label: 'Siswa', icon: 'school'},
-                            {val: 'guru', label: 'Guru', icon: 'local_library'}
-                          ].map((r) => (
-                            <label key={r.val} className="flex-1 cursor-pointer relative group">
-                              <input checked={registerRole === r.val} onChange={() => setRegisterRole(r.val)} className="peer sr-only" name="reg-role" type="radio" value={r.val} />
-                              <div className="w-full flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 py-2 sm:py-2.5 rounded-lg text-on-surface-variant dark:text-slate-400 font-label-md transition-all duration-300 peer-checked:text-primary dark:peer-checked:text-white z-10 relative capitalize group-hover:text-on-surface dark:group-hover:text-slate-200">
-                                <span className="material-symbols-outlined text-[20px] sm:text-[18px] transition-transform duration-300 peer-checked:scale-110">{r.icon}</span>
-                                <span className="text-[12px] sm:text-[14px] font-semibold tracking-wide whitespace-nowrap">{r.label}</span>
-                              </div>
-                              <div className="absolute inset-0 bg-white dark:bg-primary rounded-lg shadow-sm border border-black/5 dark:border-white/10 transform scale-95 opacity-0 peer-checked:opacity-100 peer-checked:scale-100 transition-all duration-300 -z-10"></div>
-                            </label>
-                          ))}
-                        </div>
-
-                        <div className="flex flex-col gap-xs group flex-shrink-0">
-                          <label className="font-label-md text-on-surface dark:text-slate-200 text-sm group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="reg-name">Nama Lengkap</label>
-                          <input required value={regName} onChange={e => setRegName(e.target.value)} className="academic-input w-full px-sm py-2 rounded-lg border border-outline-variant dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-body-md text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-400 transition-all hover:border-outline focus:border-primary dark:focus:border-primary-fixed focus:ring-4 focus:ring-primary/10 dark:focus:ring-primary-fixed/20 focus:bg-white dark:focus:bg-slate-800" id="reg-name" placeholder="Masukkan nama lengkap" type="text" />
-                        </div>
-                        <div className="flex flex-col gap-xs group flex-shrink-0">
-                          <label className="font-label-md text-on-surface dark:text-slate-200 text-sm group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="reg-username">Username</label>
-                          <input required value={regUsername} onChange={e => setRegUsername(e.target.value)} className="academic-input w-full px-sm py-2 rounded-lg border border-outline-variant dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-body-md text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-400 transition-all hover:border-outline focus:border-primary dark:focus:border-primary-fixed focus:ring-4 focus:ring-primary/10 dark:focus:ring-primary-fixed/20 focus:bg-white dark:focus:bg-slate-800" id="reg-username" placeholder="Masukkan Username unik" type="text" />
-                        </div>
-
-                        {registerRole === 'siswa' && (
-                          <div className="flex flex-col gap-xs group animate-fade-in-up flex-shrink-0">
-                            <label className="font-label-md text-on-surface dark:text-slate-200 text-sm group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="reg-nisn">NISN</label>
-                            <input required value={regNisn} onChange={e => setRegNisn(e.target.value)} className="academic-input w-full px-sm py-2 rounded-lg border border-outline-variant dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-body-md text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-400 transition-all hover:border-outline focus:border-primary dark:focus:border-primary-fixed focus:ring-4 focus:ring-primary/10 dark:focus:ring-primary-fixed/20 focus:bg-white dark:focus:bg-slate-800" id="reg-nisn" placeholder="Masukkan NISN valid" type="text" />
-                          </div>
-                        )}
-
-                        {registerRole === 'guru' && (
-                          <div className="flex flex-col gap-xs group animate-fade-in-up flex-shrink-0">
-                            <label className="font-label-md text-on-surface dark:text-slate-200 text-sm group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="reg-nip">NIP (Opsional)</label>
-                            <input value={regNip} onChange={e => setRegNip(e.target.value)} className="academic-input w-full px-sm py-2 rounded-lg border border-outline-variant dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-body-md text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-400 transition-all hover:border-outline focus:border-primary dark:focus:border-primary-fixed focus:ring-4 focus:ring-primary/10 dark:focus:ring-primary-fixed/20 focus:bg-white dark:focus:bg-slate-800" id="reg-nip" placeholder="Ketik '-' jika belum memiliki" type="text" />
-                          </div>
-                        )}
-
-                        <div className="flex flex-col gap-xs group flex-shrink-0">
-                          <label className="font-label-md text-on-surface dark:text-slate-200 text-sm group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="reg-npsn">NPSN Sekolah</label>
-                          <input required value={npsn} onChange={e => setNpsn(e.target.value)} className="academic-input w-full px-sm py-2 rounded-lg border border-outline-variant dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-body-md text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-400 transition-all hover:border-outline focus:border-primary dark:focus:border-primary-fixed focus:ring-4 focus:ring-primary/10 dark:focus:ring-primary-fixed/20 focus:bg-white dark:focus:bg-slate-800" id="reg-npsn" placeholder="Masukkan NPSN Sekolah Anda" type="text" />
-                        </div>
-
-                        <div className="flex flex-col gap-xs group mb-1 flex-shrink-0">
-                          <label className="font-label-md text-on-surface dark:text-slate-200 text-sm group-focus-within:text-primary dark:group-focus-within:text-primary-fixed transition-colors" htmlFor="reg-password">Password</label>
-                          <div className="relative flex items-center">
-                            <input required value={regPassword} onChange={e => setRegPassword(e.target.value)} className="academic-input w-full px-sm pr-[40px] py-2 rounded-lg border border-outline-variant dark:border-slate-600 bg-white/80 dark:bg-slate-800/80 text-body-md text-on-surface dark:text-white placeholder:text-outline-variant dark:placeholder:text-slate-400 transition-all hover:border-outline focus:border-primary dark:focus:border-primary-fixed focus:ring-4 focus:ring-primary/10 dark:focus:ring-primary-fixed/20 focus:bg-white dark:focus:bg-slate-800" id="reg-password" placeholder="Dapat berupa huruf, angka & simbol" type={showPassword ? "text" : "password"} />
-                            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-sm text-outline hover:text-on-surface-variant dark:hover:text-white transition-colors flex items-center justify-center h-full">
-                              <span className="material-symbols-outlined text-[20px]">{showPassword ? 'visibility_off' : 'visibility'}</span>
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="mt-auto pt-2">
-                          <button disabled={loading} className="w-full bg-primary text-on-primary font-label-md py-sm rounded-lg hover:bg-primary-container hover:shadow-lg hover:-translate-y-1 transition-all duration-300 shadow-sm flex justify-center items-center gap-xs disabled:opacity-80 disabled:cursor-not-allowed" type="submit">
-                            {loading ? (
-                              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                            ) : (
-                              <>
-                                Daftar Sekarang
-                                <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
-                              </>
-                            )}
-                          </button>
-                          <p className="text-center font-body-md text-on-surface-variant mt-sm text-[12px]">
-                            Dengan mendaftar, Anda menyetujui <button type="button" onClick={handleSyaratKetentuan} className="text-primary hover:underline">Syarat & Ketentuan</button> kami.
+                          <p className="text-center text-xs font-bold text-slate-500 mt-6">
+                            Belum punya akun? <button onClick={() => { setIsRegistering(true); setLoginError(''); }} className="text-primary hover:underline">Daftar disini</button>
                           </p>
-                        </div>
-                      </form>
+                        </>
+                      ) : (
+                        <>
+                          <div className="mb-6 text-center">
+                            <h3 className="font-bold text-xl text-slate-800 dark:text-white">Buat Akun Baru</h3>
+                            <p className="text-sm text-slate-500 mt-1">Bergabung dengan platform NEXA</p>
+                          </div>
+                          
+                          <form onSubmit={onRegisterSubmit} className="flex flex-col gap-4">
+                             <div className="flex bg-slate-100 dark:bg-slate-900/50 p-1 rounded-xl relative z-0">
+                               {[
+                                 {val: 'siswa', label: 'Daftar Siswa', icon: 'school'},
+                                 {val: 'guru', label: 'Daftar Guru', icon: 'local_library'}
+                               ].map((r) => (
+                                 <label key={r.val} className="flex-1 cursor-pointer relative group text-center py-2">
+                                   <input checked={registerRole === r.val} onChange={() => setRegisterRole(r.val)} className="peer sr-only" name="reg-role" type="radio" value={r.val} />
+                                   <div className="relative z-10 text-xs font-bold text-slate-500 dark:text-slate-400 peer-checked:text-primary transition-colors flex items-center justify-center gap-1">
+                                      <span className="material-symbols-outlined text-[16px]">{r.icon}</span>
+                                      {r.label}
+                                   </div>
+                                   <div className="absolute inset-0 bg-white dark:bg-slate-700 rounded-lg shadow-sm opacity-0 peer-checked:opacity-100 scale-95 peer-checked:scale-100 transition-all -z-10"></div>
+                                 </label>
+                               ))}
+                             </div>
 
-                      <p className="text-center font-body-md text-sm text-on-surface-variant dark:text-slate-400 mt-md">
-                        Sudah punya akun? <button onClick={() => { setIsRegistering(false); setLoginError(''); }} className="text-primary hover:underline font-semibold" type="button">Masuk</button>
-                      </p>
-                    </div>
-                  </div>
+                             <div className="flex flex-col gap-1">
+                               <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Nama Lengkap</label>
+                               <input required value={regName} onChange={e => setRegName(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Nama Lengkap" type="text" />
+                             </div>
+                             
+                             <div className="flex flex-col gap-1">
+                               <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Username</label>
+                               <input required value={regUsername} onChange={e => setRegUsername(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Username Unik" type="text" />
+                             </div>
+
+                             {registerRole === 'siswa' && (
+                               <div className="flex flex-col gap-1 animate-fade-in-up">
+                                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300">NISN</label>
+                                 <input required value={regNisn} onChange={e => setRegNisn(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="NISN Valid" type="text" />
+                               </div>
+                             )}
+
+                             {registerRole === 'guru' && (
+                               <div className="flex flex-col gap-1 animate-fade-in-up">
+                                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300">NIP (Opsional)</label>
+                                 <input value={regNip} onChange={e => setRegNip(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Ketik '-' jika tidak ada" type="text" />
+                               </div>
+                             )}
+
+                             <div className="flex flex-col gap-1">
+                               <label className="text-xs font-bold text-slate-700 dark:text-slate-300">NPSN Sekolah</label>
+                               <input required value={npsn} onChange={e => setNpsn(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="NPSN Sekolah" type="text" />
+                             </div>
+
+                             <div className="flex flex-col gap-1">
+                               <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Password</label>
+                               <div className="relative">
+                                 <input required value={regPassword} onChange={e => setRegPassword(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 pl-4 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Password kuat" type={showPassword ? "text" : "password"} />
+                                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                                   <span className="material-symbols-outlined text-[16px]">{showPassword ? 'visibility_off' : 'visibility'}</span>
+                                 </button>
+                               </div>
+                             </div>
+
+                             <button disabled={loading} className="w-full py-3 rounded-xl font-bold text-white bg-[#3ecf8e] hover:bg-[#3ecf8e]/90 transition-all shadow-md mt-2 flex justify-center items-center gap-2 disabled:opacity-80" type="submit">
+                               {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <>Daftar <span className="material-symbols-outlined text-[18px]">arrow_forward</span></>}
+                             </button>
+                          </form>
+                          
+                          <p className="text-center text-xs font-bold text-slate-500 mt-6">
+                            Sudah punya akun? <button onClick={() => { setIsRegistering(false); setLoginError(''); }} className="text-primary hover:underline">Masuk disini</button>
+                          </p>
+                        </>
+                      )}
+                   </div>
+                   
+                   {/* Online Indicator & Footer */}
+                   <div className="mt-8 flex flex-col items-center justify-center gap-2 pb-4">
+                     <div className={lex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold }>
+                        <span className={elative flex h-2 w-2}>
+                          {isOnline && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>}
+                          <span className={elative inline-flex rounded-full h-2 w-2 }></span>
+                        </span>
+                        {isOnline ? 'Sistem Online' : 'Koneksi Offline'}
+                     </div>
+                     <p className="text-[10px] text-slate-400 font-medium">
+                       NEXA CBT v1.0.0 &copy; 2026. <button type="button" onClick={handleSyaratKetentuan} className="hover:text-primary underline">Syarat & Ketentuan</button>
+                     </p>
+                   </div>
                 </div>
-              </div>
 
-              {/* Footer */}
-              <div className="w-full text-center z-50 mt-8 mb-4">
-                <p className="font-body-md text-sm text-on-surface-variant dark:text-slate-400">
-                  NEXA CBT v1.0.0 &copy; 2026. <button type="button" onClick={handleSyaratKetentuan} className="hover:text-primary dark:hover:text-primary-fixed transition-colors underline underline-offset-2">Panduan & Tata Tertib Ujian</button>
-                </p>
               </div>
             </div>
           );
@@ -449,3 +398,4 @@
         <App />
       </ErrorBoundary>
     );
+
