@@ -20,19 +20,6 @@
       const [password, setPassword] = useState('');
       const [showPassword, setShowPassword] = useState(false);
       const [rememberMe, setRememberMe] = useState(false);
-      const [loginError, setLoginError] = useState('');
-      const [loginSuccess, setLoginSuccess] = useState(false);
-      const [isOnline, setIsOnline] = useState(navigator.onLine);
-      const [isDarkMode, setIsDarkMode] = useState(false);
-      const [capsLockActive, setCapsLockActive] = useState(false);
-
-      const [loginRole, setLoginRole] = useState('siswa');
-      const [registerRole, setRegisterRole] = useState('siswa');
-      const [regName, setRegName] = useState('');
-      const [regUsername, setRegUsername] = useState('');
-      const [regNip, setRegNip] = useState('');
-      const [regNisn, setRegNisn] = useState('');
-      const [regPassword, setRegPassword] = useState('');
 
       const quotes = [
         { text: "Pendidikan adalah senjata paling mematikan di dunia, karena dengan pendidikan, Anda dapat mengubah dunia.", author: "Nelson Mandela" },
@@ -193,81 +180,93 @@
                           </div>
                           
                           <form onSubmit={onLoginSubmit} className="flex flex-col gap-4">
-                             {/* Role Selection */}
-                             <div className="grid grid-cols-2 bg-slate-100 dark:bg-slate-900/50 p-1 rounded-xl relative z-0">
-                               {[
-                                 {val: 'siswa', label: 'Siswa', icon: 'school'},
-                                 {val: 'guru', label: 'Guru', icon: 'local_library'},
-                                 {val: 'admin', label: 'Admin', icon: 'admin_panel_settings'},
-                                 {val: 'super_admin', label: 'S-Admin', icon: 'shield_person'}
-                               ].map((r) => (
-                                 <label key={r.val} className="cursor-pointer relative group text-center py-2">
-                                   <input checked={loginRole === r.val} onChange={() => setLoginRole(r.val)} className="peer sr-only" name="login-role" type="radio" value={r.val} />
-                                   <div className="relative z-10 text-xs font-bold text-slate-500 dark:text-slate-400 peer-checked:text-primary transition-colors flex flex-col items-center gap-1">
-                                      <span className="material-symbols-outlined text-[18px]">{r.icon}</span>
-                                      {r.label}
-                                   </div>
-                                   <div className="absolute inset-0 bg-white dark:bg-slate-700 rounded-lg shadow-sm opacity-0 peer-checked:opacity-100 scale-95 peer-checked:scale-100 transition-all -z-10"></div>
-                                 </label>
-                               ))}
-                             </div>
-
-                             {loginError && (
-                               <div className="bg-red-50 text-red-500 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 border border-red-100">
-                                 <span className="material-symbols-outlined text-[16px]">error</span>
-                                 {loginError}
-                               </div>
-                             )}
-
-                             {loginRole !== 'super_admin' && (
-                               <div className="flex flex-col gap-1">
-                                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300">NPSN Sekolah</label>
-                                 <div className="relative">
-                                   <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">account_balance</span>
-                                   <input required value={npsn} onChange={e => setNpsn(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Masukkan NPSN" type="text" />
+                             {!loginRole ? (
+                               <div className="flex flex-col gap-4 animate-fade-in-up">
+                                 <p className="text-center text-sm font-medium text-slate-500 dark:text-slate-400">Pilih akses masuk Anda:</p>
+                                 <div className="grid grid-cols-2 gap-3">
+                                   {[
+                                     {val: 'siswa', label: 'Siswa', icon: 'school'},
+                                     {val: 'guru', label: 'Guru', icon: 'local_library'},
+                                     {val: 'admin', label: 'Admin', icon: 'admin_panel_settings'},
+                                     {val: 'super_admin', label: 'S-Admin', icon: 'shield_person'}
+                                   ].map((r) => (
+                                     <button type="button" key={r.val} onClick={() => setLoginRole(r.val)} className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl hover:bg-primary/10 dark:hover:bg-primary/20 hover:border-primary/30 transition-all gap-2 group shadow-sm hover:shadow-md">
+                                        <span className="material-symbols-outlined text-3xl text-slate-400 dark:text-slate-500 group-hover:text-primary dark:group-hover:text-primary transition-colors">{r.icon}</span>
+                                        <span className="font-bold text-slate-700 dark:text-slate-200 group-hover:text-primary dark:group-hover:text-primary">{r.label}</span>
+                                     </button>
+                                   ))}
                                  </div>
                                </div>
-                             )}
+                             ) : (
+                               <div className="flex flex-col gap-4 animate-fade-in-up">
+                                 <div className="flex items-center justify-between mb-2 pb-3 border-b border-slate-100 dark:border-slate-700">
+                                     <div className="flex items-center gap-2 text-primary font-bold">
+                                         <span className="material-symbols-outlined">{loginRole === 'siswa' ? 'school' : loginRole === 'guru' ? 'local_library' : loginRole === 'admin' ? 'admin_panel_settings' : 'shield_person'}</span>
+                                         <span className="capitalize">Masuk {loginRole.replace('_', ' ')}</span>
+                                     </div>
+                                     <button type="button" onClick={() => setLoginRole('')} className="text-xs font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg transition-colors">
+                                         <span className="material-symbols-outlined text-[14px]">arrow_back</span> Ganti
+                                     </button>
+                                 </div>
 
-                             <div className="flex flex-col gap-1">
-                               <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Username</label>
-                               <div className="relative">
-                                 <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">person</span>
-                                 <input ref={usernameInputRef} required value={username} onChange={e => setUsername(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder={loginRole === 'guru' ? 'Username / NIP' : loginRole === 'admin' ? 'Username' : 'Username / NISN'} type="text" />
-                               </div>
-                             </div>
+                                 {loginError && (
+                                   <div className="bg-red-50 dark:bg-red-900/30 text-red-500 dark:text-red-400 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 border border-red-100 dark:border-red-900/50">
+                                     <span className="material-symbols-outlined text-[16px]">error</span>
+                                     {loginError}
+                                   </div>
+                                 )}
 
-                             <div className="flex flex-col gap-1">
-                               <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex justify-between">
-                                 Password
-                                 {capsLockActive && <span className="text-red-500 flex items-center gap-1"><span className="material-symbols-outlined text-[12px]">keyboard_capslock</span> Caps Lock</span>}
-                               </label>
-                               <div className="relative">
-                                 <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">lock</span>
-                                 <input required value={password} onChange={e => setPassword(e.target.value)} onKeyUp={handlePasswordKeyUp} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl py-3 pl-10 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Masukkan Password" type={showPassword ? "text" : "password"} />
-                                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
-                                   <span className="material-symbols-outlined text-[18px]">{showPassword ? 'visibility_off' : 'visibility'}</span>
+                                 {loginRole !== 'super_admin' && (
+                                   <div className="flex flex-col gap-1">
+                                     <label className="text-xs font-bold text-slate-700 dark:text-slate-300">NPSN Sekolah</label>
+                                     <div className="relative">
+                                       <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">account_balance</span>
+                                       <input required value={npsn} onChange={e => setNpsn(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl py-3 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Masukkan NPSN" type="text" />
+                                     </div>
+                                   </div>
+                                 )}
+
+                                 <div className="flex flex-col gap-1">
+                                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Username</label>
+                                   <div className="relative">
+                                     <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">person</span>
+                                     <input ref={usernameInputRef} required value={username} onChange={e => setUsername(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl py-3 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder={loginRole === 'guru' ? 'Username / NIP' : loginRole === 'admin' ? 'Username' : 'Username / NISN'} type="text" />
+                                   </div>
+                                 </div>
+
+                                 <div className="flex flex-col gap-1">
+                                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex justify-between">
+                                     Password
+                                     {capsLockActive && <span className="text-red-500 dark:text-red-400 flex items-center gap-1"><span className="material-symbols-outlined text-[12px]">keyboard_capslock</span> Caps Lock</span>}
+                                   </label>
+                                   <div className="relative">
+                                     <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">lock</span>
+                                     <input required value={password} onChange={e => setPassword(e.target.value)} onKeyUp={handlePasswordKeyUp} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl py-3 pl-10 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Masukkan Password" type={showPassword ? "text" : "password"} />
+                                     <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
+                                       <span className="material-symbols-outlined text-[18px]">{showPassword ? 'visibility_off' : 'visibility'}</span>
+                                     </button>
+                                   </div>
+                                 </div>
+
+                                 <div className="flex justify-between items-center text-xs mt-1">
+                                   <label className="flex items-center gap-2 cursor-pointer group">
+                                     <input type="checkbox" checked={rememberMe} onChange={() => setRememberMe(!rememberMe)} className="rounded text-primary border-slate-300 dark:border-slate-600 focus:ring-primary dark:bg-slate-800" />
+                                     <span className="font-bold text-slate-600 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200 transition-colors">Ingat Saya</span>
+                                   </label>
+                                   <button type="button" onClick={handleLupaPassword} className="font-bold text-primary hover:text-primary/80 transition-colors">Lupa Password?</button>
+                                 </div>
+
+                                 <button disabled={loading || loginSuccess} className={`w-full py-3 rounded-xl font-bold text-white transition-all shadow-md mt-2 flex justify-center items-center gap-2 ${loginSuccess ? 'bg-green-500' : 'bg-[#3ecf8e] hover:bg-[#3ecf8e]/90 hover:shadow-lg'}`} type="submit">
+                                   {loading ? (
+                                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                   ) : loginSuccess ? (
+                                     <><span className="material-symbols-outlined">check_circle</span> Berhasil Masuk</>
+                                   ) : (
+                                     <>Masuk <span className="material-symbols-outlined text-[18px]">arrow_forward</span></>
+                                   )}
                                  </button>
                                </div>
-                             </div>
-
-                             <div className="flex justify-between items-center text-xs mt-1">
-                               <label className="flex items-center gap-2 cursor-pointer">
-                                 <input type="checkbox" checked={rememberMe} onChange={() => setRememberMe(!rememberMe)} className="rounded text-primary border-slate-300 focus:ring-primary" />
-                                 <span className="font-bold text-slate-600 dark:text-slate-400">Ingat Saya</span>
-                               </label>
-                               <button type="button" onClick={handleLupaPassword} className="font-bold text-primary">Lupa Password?</button>
-                             </div>
-
-                             <button disabled={loading || loginSuccess} className={`w-full py-3 rounded-xl font-bold text-white transition-all shadow-md mt-2 flex justify-center items-center gap-2 ${loginSuccess ? 'bg-green-500' : 'bg-[#3ecf8e] hover:bg-[#3ecf8e]/90'}`} type="submit">
-                               {loading ? (
-                                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                               ) : loginSuccess ? (
-                                 <><span className="material-symbols-outlined">check_circle</span> Berhasil Masuk</>
-                               ) : (
-                                 <>Masuk <span className="material-symbols-outlined text-[18px]">arrow_forward</span></>
-                               )}
-                             </button>
+                             )}
                           </form>
 
                           <p className="text-center text-xs font-bold text-slate-500 mt-6">
@@ -282,64 +281,77 @@
                           </div>
                           
                           <form onSubmit={onRegisterSubmit} className="flex flex-col gap-4">
-                             <div className="flex bg-slate-100 dark:bg-slate-900/50 p-1 rounded-xl relative z-0">
-                               {[
-                                 {val: 'siswa', label: 'Daftar Siswa', icon: 'school'},
-                                 {val: 'guru', label: 'Daftar Guru', icon: 'local_library'}
-                               ].map((r) => (
-                                 <label key={r.val} className="flex-1 cursor-pointer relative group text-center py-2">
-                                   <input checked={registerRole === r.val} onChange={() => setRegisterRole(r.val)} className="peer sr-only" name="reg-role" type="radio" value={r.val} />
-                                   <div className="relative z-10 text-xs font-bold text-slate-500 dark:text-slate-400 peer-checked:text-primary transition-colors flex items-center justify-center gap-1">
-                                      <span className="material-symbols-outlined text-[16px]">{r.icon}</span>
-                                      {r.label}
+                             {!registerRole ? (
+                               <div className="flex flex-col gap-4 animate-fade-in-up">
+                                 <p className="text-center text-sm font-medium text-slate-500 dark:text-slate-400">Pilih tipe akun untuk mendaftar:</p>
+                                 <div className="grid grid-cols-2 gap-3">
+                                   {[
+                                     {val: 'siswa', label: 'Daftar Siswa', icon: 'school'},
+                                     {val: 'guru', label: 'Daftar Guru', icon: 'local_library'}
+                                   ].map((r) => (
+                                     <button type="button" key={r.val} onClick={() => setRegisterRole(r.val)} className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl hover:bg-primary/10 dark:hover:bg-primary/20 hover:border-primary/30 transition-all gap-2 group shadow-sm hover:shadow-md">
+                                        <span className="material-symbols-outlined text-3xl text-slate-400 dark:text-slate-500 group-hover:text-primary dark:group-hover:text-primary transition-colors">{r.icon}</span>
+                                        <span className="font-bold text-slate-700 dark:text-slate-200 group-hover:text-primary dark:group-hover:text-primary">{r.label}</span>
+                                     </button>
+                                   ))}
+                                 </div>
+                               </div>
+                             ) : (
+                               <div className="flex flex-col gap-4 animate-fade-in-up">
+                                 <div className="flex items-center justify-between mb-2 pb-3 border-b border-slate-100 dark:border-slate-700">
+                                     <div className="flex items-center gap-2 text-primary font-bold">
+                                         <span className="material-symbols-outlined">{registerRole === 'siswa' ? 'school' : 'local_library'}</span>
+                                         <span className="capitalize">Daftar {registerRole}</span>
+                                     </div>
+                                     <button type="button" onClick={() => setRegisterRole('')} className="text-xs font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg transition-colors">
+                                         <span className="material-symbols-outlined text-[14px]">arrow_back</span> Ganti
+                                     </button>
+                                 </div>
+
+                                 <div className="flex flex-col gap-1">
+                                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Nama Lengkap</label>
+                                   <input required value={regName} onChange={e => setRegName(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Nama Lengkap" type="text" />
+                                 </div>
+                                 
+                                 <div className="flex flex-col gap-1">
+                                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Username</label>
+                                   <input required value={regUsername} onChange={e => setRegUsername(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Username Unik" type="text" />
+                                 </div>
+
+                                 {registerRole === 'siswa' && (
+                                   <div className="flex flex-col gap-1 animate-fade-in-up">
+                                     <label className="text-xs font-bold text-slate-700 dark:text-slate-300">NISN</label>
+                                     <input required value={regNisn} onChange={e => setRegNisn(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="NISN Valid" type="text" />
                                    </div>
-                                   <div className="absolute inset-0 bg-white dark:bg-slate-700 rounded-lg shadow-sm opacity-0 peer-checked:opacity-100 scale-95 peer-checked:scale-100 transition-all -z-10"></div>
-                                 </label>
-                               ))}
-                             </div>
+                                 )}
 
-                             <div className="flex flex-col gap-1">
-                               <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Nama Lengkap</label>
-                               <input required value={regName} onChange={e => setRegName(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Nama Lengkap" type="text" />
-                             </div>
-                             
-                             <div className="flex flex-col gap-1">
-                               <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Username</label>
-                               <input required value={regUsername} onChange={e => setRegUsername(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Username Unik" type="text" />
-                             </div>
+                                 {registerRole === 'guru' && (
+                                   <div className="flex flex-col gap-1 animate-fade-in-up">
+                                     <label className="text-xs font-bold text-slate-700 dark:text-slate-300">NIP (Opsional)</label>
+                                     <input value={regNip} onChange={e => setRegNip(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Ketik '-' jika tidak ada" type="text" />
+                                   </div>
+                                 )}
 
-                             {registerRole === 'siswa' && (
-                               <div className="flex flex-col gap-1 animate-fade-in-up">
-                                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300">NISN</label>
-                                 <input required value={regNisn} onChange={e => setRegNisn(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="NISN Valid" type="text" />
-                               </div>
-                             )}
+                                 <div className="flex flex-col gap-1">
+                                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300">NPSN Sekolah</label>
+                                   <input required value={npsn} onChange={e => setNpsn(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="NPSN Sekolah" type="text" />
+                                 </div>
 
-                             {registerRole === 'guru' && (
-                               <div className="flex flex-col gap-1 animate-fade-in-up">
-                                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300">NIP (Opsional)</label>
-                                 <input value={regNip} onChange={e => setRegNip(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Ketik '-' jika tidak ada" type="text" />
-                               </div>
-                             )}
+                                 <div className="flex flex-col gap-1">
+                                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Password</label>
+                                   <div className="relative">
+                                     <input required value={regPassword} onChange={e => setRegPassword(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl py-2.5 pl-4 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Password kuat" type={showPassword ? "text" : "password"} />
+                                     <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
+                                       <span className="material-symbols-outlined text-[16px]">{showPassword ? 'visibility_off' : 'visibility'}</span>
+                                     </button>
+                                   </div>
+                                 </div>
 
-                             <div className="flex flex-col gap-1">
-                               <label className="text-xs font-bold text-slate-700 dark:text-slate-300">NPSN Sekolah</label>
-                               <input required value={npsn} onChange={e => setNpsn(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="NPSN Sekolah" type="text" />
-                             </div>
-
-                             <div className="flex flex-col gap-1">
-                               <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Password</label>
-                               <div className="relative">
-                                 <input required value={regPassword} onChange={e => setRegPassword(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 pl-4 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Password kuat" type={showPassword ? "text" : "password"} />
-                                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
-                                   <span className="material-symbols-outlined text-[16px]">{showPassword ? 'visibility_off' : 'visibility'}</span>
+                                 <button disabled={loading} className="w-full py-3 rounded-xl font-bold text-white bg-[#3ecf8e] hover:bg-[#3ecf8e]/90 transition-all shadow-md mt-2 flex justify-center items-center gap-2 disabled:opacity-80" type="submit">
+                                   {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <>Daftar <span className="material-symbols-outlined text-[18px]">arrow_forward</span></>}
                                  </button>
                                </div>
-                             </div>
-
-                             <button disabled={loading} className="w-full py-3 rounded-xl font-bold text-white bg-[#3ecf8e] hover:bg-[#3ecf8e]/90 transition-all shadow-md mt-2 flex justify-center items-center gap-2 disabled:opacity-80" type="submit">
-                               {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <>Daftar <span className="material-symbols-outlined text-[18px]">arrow_forward</span></>}
-                             </button>
+                             )}
                           </form>
                           
                           <p className="text-center text-xs font-bold text-slate-500 mt-6">
