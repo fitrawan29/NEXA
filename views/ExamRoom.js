@@ -1,4 +1,4 @@
-const ExamRoom = ({ user, jadwal, idLog, showMessage, onFinish, isDarkMode, setIsDarkMode }) => {
+﻿const ExamRoom = ({ user, jadwal, idLog, showMessage, onFinish, isDarkMode, setIsDarkMode }) => {
       const api = (action, p = {}) => {
         if (Array.isArray(p)) return fetchAPI(action, p.map(item => ({ ...item, npsn: user.npsn })));
         return fetchAPI(action, { ...p, npsn: user.npsn });
@@ -302,7 +302,7 @@ const ExamRoom = ({ user, jadwal, idLog, showMessage, onFinish, isDarkMode, setI
               <textarea rows={s.tipe_soal === 'URAIAN' ? 8 : 2} placeholder="Ketik jawaban Anda di sini..." value={currentAns} onChange={(e) => handleAnswerChange(s.id_soal, e.target.value, s.tipe_soal)} className="w-full pl-md pr-md py-sm bg-white dark:bg-slate-900 border border-outline-variant dark:border-slate-600 rounded-lg font-body-md text-body-md text-on-surface dark:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"></textarea>
             );
 
-          default: return <p className="text-error font-bold p-sm bg-error-container/20 rounded">⚠️ Tipe soal tidak didukung.</p>;
+          default: return <p className="text-error font-bold p-sm bg-error-container/20 rounded">âš ï¸ Tipe soal tidak didukung.</p>;
         }
       };
 
@@ -518,4 +518,5 @@ const ExamRoom = ({ user, jadwal, idLog, showMessage, onFinish, isDarkMode, setI
         </div>
       );
     };
+
 

@@ -369,3 +369,31 @@
           );
 
         switch (user.role) {
+          case 'super_admin': return <ErrorBoundary><SuperAdminView user={$user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></ErrorBoundary>;
+          case 'admin': return <ErrorBoundary><AdminView user={$user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></ErrorBoundary>;
+          case 'guru': return <ErrorBoundary><GuruView user={$user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></ErrorBoundary>;
+          case 'siswa': return <ErrorBoundary><SiswaView user={$user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></ErrorBoundary>;
+          default: return <div className="p-8 text-center text-red-600 font-bold bg-white h-screen">Role tidak valid!</div>;
+        }
+      };
+
+      return (
+        <React.Fragment>
+          {renderView()}
+          <Modal
+            isOpen={modal.isOpen}
+            title={modal.title}
+            message={modal.message}
+            type={modal.type}
+            onClose={() => setModal({ ...modal, isOpen: false })}
+          />
+        </React.Fragment>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
+    );
