@@ -9,37 +9,29 @@
       const [inputToken, setInputToken] = useState('');
       const [selectedJadwalUntukToken, setSelectedJadwalUntukToken] = useState(null);
       
-      const [activeTab, setActiveTab] = useState('ujian');
+      const [activeTab, setActiveTab] = useState('beranda');
       const [dataPengumuman, setDataPengumuman] = useState([]);
       const [dataRiwayat, setDataRiwayat] = useState([]);
       const [hasNotification, setHasNotification] = useState(false);
 
       useEffect(() => {
-        if (activeTab === 'pengumuman') {
-          loadPengumuman();
-        } else if (activeTab === 'riwayat') {
-          loadRiwayat();
-        }
-      }, [activeTab]);
+        loadPengumuman();
+        loadRiwayat();
+        loadJadwal();
+      }, []);
 
       const loadPengumuman = async () => {
-        setIsLoading(true);
         const res = await api('get_pengumuman', { role: 'siswa' });
         if (res.status === 'success') {
           setDataPengumuman(res.data);
           setHasNotification(false);
         }
-        setIsLoading(false);
       };
 
       const loadRiwayat = async () => {
-        setIsLoading(true);
         const res = await api('get_riwayat_ujian_siswa', { id_siswa: user.id_user });
         if (res.status === 'success') setDataRiwayat(res.data);
-        setIsLoading(false);
       };
-
-      useEffect(() => { loadJadwal(); }, []);
 
       const loadJadwal = async () => {
         setIsLoading(true);
@@ -53,7 +45,6 @@
           showMessage('Perhatian', 'Harap masukkan 6 digit token dari pengawas.', 'warning');
           return;
         }
-
         setIsLoading(true);
         const res = await api('mulai_ujian', {
           id_jadwal: j.id_jadwal,
@@ -61,7 +52,6 @@
           token: inputToken.toUpperCase()
         });
         setIsLoading(false);
-
         if (res.status === 'success') {
           setActiveExamData({ jadwal: j, idLog: res.id_log });
         } else {
@@ -89,208 +79,300 @@
       }
 
       return (
-        <div className="bg-background dark:bg-slate-900 text-on-background dark:text-slate-100 min-h-screen font-body-md text-body-md antialiased selection:bg-primary-container selection:text-on-primary-container flex flex-col transition-colors duration-500">
-          {/* TopNavBar */}
-          <nav className="bg-surface/90 dark:bg-slate-900/90 backdrop-blur-md fixed top-0 w-full z-50 flex justify-between items-center px-lg h-16 border-b border-outline-variant dark:border-slate-800 transition-colors duration-500">
-            <div className="flex items-center gap-xl">
-              <div className="flex items-center h-8">
-                <img src="stitch_assets/screen_3_logo.png" alt="NEXA Logo" className="h-full w-auto object-contain" />
-              </div>
-              <div className="hidden md:flex items-center h-full gap-lg">
-                <a onClick={() => setActiveTab('ujian')} className={`cursor-pointer h-16 flex items-center font-bold border-b-2 font-label-md text-label-md transition-colors ${activeTab === 'ujian' ? 'text-primary dark:text-primary-fixed border-primary dark:border-primary-fixed' : 'text-on-surface-variant border-transparent hover:text-primary'}`}>Portal Ujian</a>
-                <a onClick={() => setActiveTab('riwayat')} className={`cursor-pointer h-16 flex items-center font-bold border-b-2 font-label-md text-label-md transition-colors ${activeTab === 'riwayat' ? 'text-primary dark:text-primary-fixed border-primary dark:border-primary-fixed' : 'text-on-surface-variant border-transparent hover:text-primary'}`}>Riwayat Ujian</a>
-                <a onClick={() => setActiveTab('pengumuman')} className={`cursor-pointer h-16 flex items-center font-bold border-b-2 font-label-md text-label-md transition-colors ${activeTab === 'pengumuman' ? 'text-primary dark:text-primary-fixed border-primary dark:border-primary-fixed' : 'text-on-surface-variant border-transparent hover:text-primary'}`}>Pengumuman</a>
-              </div>
-            </div>
-            <div className="flex items-center gap-md">
-              <button onClick={() => setActiveTab('pengumuman')} className="w-10 h-10 flex items-center justify-center rounded-full text-secondary dark:text-slate-400 hover:bg-surface-container-highest dark:hover:bg-slate-800 transition-colors relative hidden sm:flex">
-                <span className="material-symbols-outlined">notifications</span>
-                {hasNotification && <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-slate-900"></span>}
-              </button>
-              <button onClick={() => setIsDarkMode(!isDarkMode)} className="w-9 h-9 rounded-full bg-surface-container-highest dark:bg-slate-800 border border-outline-variant dark:border-slate-700 flex items-center justify-center text-on-surface dark:text-white hover:bg-white dark:hover:bg-slate-700 transition-colors shadow-sm">
-                <span className="material-symbols-outlined text-[20px]">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
-              </button>
-              <div className="ml-sm flex items-center gap-sm cursor-pointer border-l pl-sm border-outline-variant dark:border-slate-700">
-                <div className="flex flex-col items-end">
-                  <span className="text-sm font-bold text-slate-700 dark:text-slate-200 hidden sm:block">{user.nama_lengkap}</span>
-                  <span className="text-[10px] text-slate-500 hidden sm:block uppercase font-bold tracking-wider">{user.id_user}</span>
-                </div>
-              </div>
-              <button onClick={onLogout} className="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant dark:text-slate-400 hover:bg-error-container/20 hover:text-error transition-colors cursor-pointer active:opacity-80" title="Logout">
-                <span className="material-symbols-outlined">logout</span>
-              </button>
-            </div>
-          </nav>
-
-          {/* Main Content Canvas */}
-          <main className="pt-[96px] px-md md:px-lg max-w-container-max mx-auto space-y-gutter pb-xl flex-1 w-full">
-            {activeTab === 'ujian' && (
-              <>
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-sm mb-lg">
+        <div className="bg-slate-50 dark:bg-slate-900 min-h-screen flex justify-center selection:bg-primary/20 selection:text-primary">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col h-screen">
+            
+            {/* Header / Top Section */}
+            <div className="bg-[#3ecf8e] rounded-b-[40px] px-6 pt-8 pb-20 relative text-white shadow-md z-0">
+              <div className="flex justify-between items-start">
+                <div className="flex items-center gap-3">
+                  <div className="w-14 h-14 bg-white/20 rounded-full border-2 border-white/50 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-white text-3xl">person</span>
+                  </div>
                   <div>
-                    <h1 className="font-headline-lg text-headline-lg text-on-surface dark:text-white flex items-center gap-2">
-                      <span className="material-symbols-outlined text-primary dark:text-primary-fixed text-[32px]">menu_book</span> Daftar Ujian Tersedia
-                    </h1>
-                    <p className="font-body-md text-body-md text-on-surface-variant dark:text-slate-400 mt-1">Pilih jadwal ujian dan masukkan token dari pengawas untuk memulai.</p>
-                  </div>
-                  <div className="flex gap-sm">
-                    <button onClick={loadJadwal} className="bg-primary text-on-primary py-sm px-md rounded-lg font-label-md text-label-md hover:bg-on-primary-fixed-variant transition-colors flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[18px]">refresh</span> Refresh Jadwal
-                    </button>
+                    <h2 className="font-bold text-lg leading-tight">SMPN 1 Yogyakarta</h2>
+                    <p className="text-sm font-medium opacity-90">{user.nama_lengkap}</p>
+                    <p className="text-xs opacity-80">N.I.S : {user.id_user}</p>
                   </div>
                 </div>
+                <button className="relative">
+                  <span className="material-symbols-outlined text-2xl">notifications</span>
+                  {hasNotification && <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 border-2 border-[#3ecf8e] rounded-full"></span>}
+                </button>
+              </div>
+            </div>
 
-                {isLoading ? <Loader text="Menyinkronkan jadwal..." /> : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {jadwal.map(j => (
-                  <div key={j.id_jadwal} className="group bg-white dark:bg-slate-800 border border-outline-variant dark:border-slate-700 rounded-xl p-6 hover:shadow-lg hover:-translate-y-1 hover:border-primary/30 transition-all duration-300 relative overflow-hidden flex flex-col">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 dark:bg-primary-fixed/5 rounded-full -translate-y-10 translate-x-10 group-hover:scale-110 transition-transform duration-500 pointer-events-none"></div>
-                    <div className={`absolute top-0 left-0 w-full h-1 ${j.status_siswa === 'SELESAI' ? 'bg-[#10B981]' : j.status_siswa === 'SEDANG KERJA' ? 'bg-[#D97706]' : 'bg-primary'}`}></div>
+            {/* Stats Cards (Overlapping) */}
+            <div className="px-6 -mt-12 relative z-10">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-4 grid grid-cols-3 gap-2">
+                <div className="flex flex-col items-center justify-center text-center">
+                  <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center mb-1">
+                    <span className="material-symbols-outlined text-green-500">calculate</span>
+                  </div>
+                  <span className="text-xl font-bold text-green-500">84</span>
+                  <span className="text-[10px] text-slate-500 font-medium">Matematika</span>
+                  <span className="text-[10px] text-slate-400">UAS</span>
+                </div>
+                <div className="flex flex-col items-center justify-center text-center border-x border-slate-100 dark:border-slate-700">
+                  <div className="w-10 h-10 bg-yellow-100 dark:bg-yellow-900/30 rounded-xl flex items-center justify-center mb-1">
+                    <span className="material-symbols-outlined text-yellow-500">menu_book</span>
+                  </div>
+                  <span className="text-xl font-bold text-yellow-500">60</span>
+                  <span className="text-[10px] text-slate-500 font-medium">B. Indonesia</span>
+                  <span className="text-[10px] text-slate-400">UTS</span>
+                </div>
+                <div className="flex flex-col items-center justify-center text-center">
+                  <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-xl flex items-center justify-center mb-1">
+                    <span className="material-symbols-outlined text-red-500">computer</span>
+                  </div>
+                  <span className="text-xl font-bold text-red-500">45</span>
+                  <span className="text-[10px] text-slate-500 font-medium">PAI</span>
+                  <span className="text-[10px] text-slate-400">Tugas</span>
+                </div>
+              </div>
+            </div>
 
-                    <h3 className="font-headline-sm text-headline-sm text-on-surface dark:text-white mb-2 pt-2 relative z-10">{j.nama_mapel}</h3>
-                    <div className="flex items-center gap-2 mb-4 relative z-10">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${j.status_siswa === 'SELESAI' ? 'bg-[#10B981]/10 text-[#10B981] dark:bg-[#10B981]/20 dark:text-[#81c995]' :
-                        j.status_siswa === 'SEDANG KERJA' ? 'bg-[#D97706]/10 text-[#D97706] dark:bg-[#D97706]/20 dark:text-[#fcd34d]' :
-                          'bg-surface-variant text-on-surface-variant dark:bg-slate-700 dark:text-slate-300'
-                        }`}>
-                        Status: {j.status_siswa}
-                      </span>
+            {/* Main Scrollable Content */}
+            <div className="flex-1 overflow-y-auto pb-24 hide-scrollbar">
+              
+              {activeTab === 'beranda' && (
+                <>
+                  {/* Jadwal Section */}
+                  <div className="px-6 mt-6">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Jadwal</h3>
+                      <button onClick={() => setActiveTab('jadwal')} className="text-sm font-medium text-primary hover:underline">Lihat semua</button>
                     </div>
-
-                    <div className="font-body-md text-body-md text-on-surface-variant dark:text-slate-300 mb-6 space-y-2 bg-surface-container-low dark:bg-slate-900/50 p-4 rounded-xl border border-outline-variant dark:border-slate-700 flex-1 relative z-10">
-                      <div className="flex justify-between items-center border-b border-outline-variant dark:border-slate-700 pb-2">
-                        <span className="font-medium flex items-center gap-1"><span className="material-symbols-outlined text-[16px]">schedule</span> Buka</span>
-                        <span className="font-bold text-on-surface dark:text-white">{new Date(j.waktu_mulai).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                      </div>
-                      <div className="flex justify-between items-center pt-1">
-                        <span className="font-medium flex items-center gap-1"><span className="material-symbols-outlined text-[16px]">timer_off</span> Tutup</span>
-                        <span className="font-bold text-error dark:text-error-container">{new Date(j.waktu_selesai).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                      </div>
-                    </div>
-
-                    {j.status_siswa !== 'SELESAI' ? (
-                      selectedJadwalUntukToken === j.id_jadwal ? (
-                        <div className="animate-fade-in-up bg-primary-fixed/30 dark:bg-primary/20 p-4 rounded-xl border border-primary-fixed-dim dark:border-primary/30 relative z-10">
-                          <input
-                            type="text"
-                            placeholder="6 DIGIT TOKEN"
-                            className="w-full text-center tracking-[0.3em] font-mono font-bold text-xl p-3 border border-primary/30 dark:border-primary/50 rounded-lg mb-3 focus:ring-2 focus:ring-primary outline-none uppercase bg-white dark:bg-slate-800 text-on-surface dark:text-white"
-                            value={inputToken}
-                            onChange={(e) => setInputToken(e.target.value)}
-                            maxLength={6}
-                          />
-                          <div className="flex gap-2">
-                            <button onClick={() => setSelectedJadwalUntukToken(null)} className="flex-1 py-2 bg-white dark:bg-slate-700 text-on-surface-variant dark:text-slate-300 rounded-lg font-label-md text-label-md hover:bg-surface-container-low dark:hover:bg-slate-600 border border-outline-variant dark:border-slate-600 transition-colors">Batal</button>
-                            <button onClick={() => handleMulaiUjian(j)} className="flex-1 py-2 bg-primary text-on-primary py-sm px-md rounded-lg font-label-md text-label-md hover:bg-on-primary-fixed-variant shadow-sm transition-transform active:scale-95">Masuk Ujian</button>
-                          </div>
-                        </div>
+                    
+                    <div className="space-y-3">
+                      {jadwal.length === 0 ? (
+                        <div className="text-center text-slate-500 text-sm py-4">Tidak ada jadwal aktif.</div>
                       ) : (
-                        <button
-                          onClick={() => setSelectedJadwalUntukToken(j.id_jadwal)}
-                          className={`w-full py-3 rounded-xl font-label-md text-label-md transition-all shadow-sm active:scale-95 border relative z-10 ${j.status_siswa === 'SEDANG KERJA' ? 'bg-[#D97706]/10 text-[#D97706] hover:bg-[#D97706]/20 border-[#D97706]/30 dark:bg-[#D97706]/20 dark:text-[#fcd34d] dark:hover:bg-[#D97706]/30' : 'bg-primary text-on-primary hover:bg-on-primary-fixed-variant border-transparent'
-                            }`}
-                        >
-                          {j.status_siswa === 'SEDANG KERJA' ? 'LANJUTKAN UJIAN' : 'MULAI KERJAKAN'}
-                        </button>
-                      )
-                    ) : (
-                      <div className="w-full py-3 bg-surface-container dark:bg-slate-800 text-on-surface-variant dark:text-slate-400 rounded-xl font-label-md text-label-md border border-outline-variant dark:border-slate-700 flex flex-col items-center relative z-10">
-                        <span>SUDAH DISELESAIKAN</span>
-                        <span className="text-[12px] font-normal mt-1 text-on-surface dark:text-slate-200 font-bold">Skor Objektif: {j.nilai_auto || 0}</span>
-                      </div>
-                    )}
-                  </div>
-                ))}
-                {jadwal.length === 0 && (
-                  <div className="col-span-full py-12 text-center font-body-md text-on-surface-variant">Tidak ada jadwal ujian saat ini.</div>
-                )}
-              </div>
-            )}
-              </>
-            )}
+                        jadwal.map((j, index) => {
+                          let statusBtnClass = "bg-primary text-white";
+                          let statusText = "Ambil";
+                          if (j.status_siswa === 'SELESAI') {
+                            statusBtnClass = "bg-slate-400 text-white cursor-not-allowed";
+                            statusText = "Selesai";
+                          } else if (j.status_siswa === 'SEDANG KERJA') {
+                            statusBtnClass = "bg-yellow-500 text-white";
+                            statusText = "Lanjutkan";
+                          } else {
+                            statusBtnClass = "bg-yellow-400 text-slate-800";
+                            statusText = "Ambil";
+                          }
+                          
+                          let iconClass = "text-primary bg-primary/10";
+                          let iconName = "computer";
+                          if (index % 3 === 1) { iconClass = "text-red-500 bg-red-500/10"; iconName = "menu_book"; }
+                          if (index % 3 === 2) { iconClass = "text-blue-500 bg-blue-500/10"; iconName = "language"; }
 
-            {activeTab === 'pengumuman' && (
-              <div className="animate-fade-in-up">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-sm mb-lg">
-                  <div>
-                    <h1 className="font-headline-lg text-headline-lg text-on-surface dark:text-white flex items-center gap-2">
-                      <span className="material-symbols-outlined text-primary dark:text-primary-fixed text-[32px]">campaign</span> Pengumuman
-                    </h1>
-                    <p className="font-body-md text-body-md text-on-surface-variant dark:text-slate-400 mt-1">Informasi dan pembaruan terbaru dari sekolah.</p>
-                  </div>
-                </div>
-                {isLoading ? <Loader text="Memuat pengumuman..." /> : (
-                  <div className="space-y-4 max-w-4xl">
-                    {dataPengumuman.map(p => (
-                      <div key={p.id_pengumuman} className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-outline-variant dark:border-slate-700 shadow-sm relative hover:shadow-md transition-shadow">
-                        <h4 className="font-bold text-on-surface dark:text-white text-xl mb-1">{p.judul}</h4>
-                        <p className="text-sm text-slate-500 mb-4">{new Date(p.created_at).toLocaleString('id-ID')} • <span className="uppercase text-primary font-bold text-xs bg-primary/10 px-2 py-0.5 rounded">Untuk {p.target_role}</span></p>
-                        <p className="text-on-surface-variant dark:text-slate-300 leading-relaxed whitespace-pre-line text-body-lg">{p.isi}</p>
-                      </div>
-                    ))}
-                    {dataPengumuman.length === 0 && (
-                      <div className="p-12 text-center bg-surface-container-low dark:bg-slate-800/50 rounded-2xl border border-dashed border-outline-variant dark:border-slate-700">
-                        <span className="material-symbols-outlined text-5xl text-slate-400 mb-3 block">notifications_paused</span>
-                        <p className="text-slate-500 font-medium text-lg">Belum ada pengumuman.</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {activeTab === 'riwayat' && (
-              <div className="animate-fade-in-up">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-sm mb-lg">
-                  <div>
-                    <h1 className="font-headline-lg text-headline-lg text-on-surface dark:text-white flex items-center gap-2">
-                      <span className="material-symbols-outlined text-primary dark:text-primary-fixed text-[32px]">history</span> Riwayat Ujian
-                    </h1>
-                    <p className="font-body-md text-body-md text-on-surface-variant dark:text-slate-400 mt-1">Daftar ujian yang telah Anda selesaikan beserta skornya.</p>
-                  </div>
-                </div>
-                {isLoading ? <Loader text="Memuat riwayat..." /> : (
-                  <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-xl overflow-hidden border border-slate-100 dark:border-slate-700">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left">
-                        <thead className="bg-slate-50 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600">
-                          <tr>
-                            <th className="p-4 font-bold text-slate-600 dark:text-slate-300">Waktu Pelaksanaan</th>
-                            <th className="p-4 font-bold text-slate-600 dark:text-slate-300">Mata Pelajaran</th>
-                            <th className="p-4 font-bold text-slate-600 dark:text-slate-300">Skor PG</th>
-                            <th className="p-4 font-bold text-slate-600 dark:text-slate-300">Skor Uraian</th>
-                            <th className="p-4 font-bold text-primary dark:text-primary-fixed">Total Skor</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                          {dataRiwayat.map(r => (
-                            <tr key={r.id_log} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                              <td className="p-4 font-mono text-sm text-slate-600 dark:text-slate-300">
-                                {new Date(r.waktu_mulai).toLocaleString('id-ID')}
-                              </td>
-                              <td className="p-4 font-bold text-slate-800 dark:text-slate-100">{r.nama_mapel}</td>
-                              <td className="p-4 text-slate-600 dark:text-slate-300">{r.nilai_auto}</td>
-                              <td className="p-4 text-slate-600 dark:text-slate-300">{r.nilai_uraian}</td>
-                              <td className="p-4 font-bold text-primary text-lg">{r.total_nilai}</td>
-                            </tr>
-                          ))}
-                          {dataRiwayat.length === 0 && (
-                            <tr>
-                              <td colSpan="5" className="p-8 text-center text-slate-500">Belum ada riwayat ujian yang diselesaikan.</td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
+                          return (
+                            <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${iconClass}`}>
+                                  <span className="material-symbols-outlined">{iconName}</span>
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <h4 className="font-bold text-slate-800 dark:text-slate-100 text-sm truncate">{j.nama_mapel}</h4>
+                                  <p className="text-xs text-slate-500 truncate">{new Date(j.waktu_mulai).toLocaleDateString('id-ID')}</p>
+                                </div>
+                              </div>
+                              <div className="flex flex-col items-end flex-shrink-0">
+                                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                                  {new Date(j.waktu_mulai).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {new Date(j.waktu_selesai).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                </span>
+                                
+                                {selectedJadwalUntukToken === j.id_jadwal ? (
+                                  <div className="flex items-center gap-1">
+                                    <input type="text" maxLength={6} value={inputToken} onChange={e => setInputToken(e.target.value)} placeholder="TOKEN" className="w-16 h-8 text-center text-xs font-bold border rounded bg-slate-50" />
+                                    <button onClick={() => handleMulaiUjian(j)} className="px-3 h-8 rounded-full text-xs font-bold bg-primary text-white">Go</button>
+                                  </div>
+                                ) : (
+                                  <button onClick={() => j.status_siswa !== 'SELESAI' && setSelectedJadwalUntukToken(j.id_jadwal)} disabled={j.status_siswa === 'SELESAI'} className={`px-4 py-1.5 rounded-full text-xs font-bold ${statusBtnClass}`}>
+                                    {statusText}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
                   </div>
-                )}
-              </div>
-            )}
-          </main>
+
+                  {/* Tanggapan Guru / Pengumuman Section */}
+                  <div className="px-6 mt-8 mb-6">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Tanggapan Guru</h3>
+                      <button onClick={() => setActiveTab('pengumuman')} className="text-sm font-medium text-primary hover:underline">Lihat semua</button>
+                    </div>
+                    <div className="space-y-3">
+                      {dataPengumuman.length === 0 ? (
+                        <div className="text-center text-slate-500 text-sm py-4">Tidak ada tanggapan/pengumuman.</div>
+                      ) : (
+                        dataPengumuman.slice(0, 2).map(p => (
+                          <div key={p.id_pengumuman} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-full bg-slate-200 overflow-hidden">
+                                  <img src={`https://ui-avatars.com/api/?name=${p.judul}&background=random`} alt="Avatar" />
+                                </div>
+                                <div>
+                                  <h4 className="font-bold text-xs text-slate-800 dark:text-slate-100">{p.judul}</h4>
+                                  <p className="text-[10px] text-slate-400">{new Date(p.created_at).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})} yang lalu</p>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between mt-2">
+                              <p className="text-xs text-slate-500 truncate max-w-[200px]">{p.isi}</p>
+                              <button className="px-4 py-1 bg-primary text-white text-xs font-bold rounded-full">Lihat</button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {activeTab === 'jadwal' && (
+                <div className="px-6 mt-6 animate-fade-in-up">
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Semua Jadwal Ujian</h3>
+                  {/* ... same list as beranda, but all ... */}
+                  <div className="space-y-3">
+                      {jadwal.length === 0 ? (
+                        <div className="text-center text-slate-500 text-sm py-4">Tidak ada jadwal aktif.</div>
+                      ) : (
+                        jadwal.map((j, index) => {
+                          let statusBtnClass = "bg-primary text-white";
+                          let statusText = "Ambil";
+                          if (j.status_siswa === 'SELESAI') {
+                            statusBtnClass = "bg-slate-400 text-white cursor-not-allowed";
+                            statusText = "Selesai";
+                          } else if (j.status_siswa === 'SEDANG KERJA') {
+                            statusBtnClass = "bg-yellow-500 text-white";
+                            statusText = "Lanjutkan";
+                          } else {
+                            statusBtnClass = "bg-yellow-400 text-slate-800";
+                            statusText = "Ambil";
+                          }
+                          
+                          let iconClass = "text-primary bg-primary/10";
+                          let iconName = "computer";
+                          if (index % 3 === 1) { iconClass = "text-red-500 bg-red-500/10"; iconName = "menu_book"; }
+                          if (index % 3 === 2) { iconClass = "text-blue-500 bg-blue-500/10"; iconName = "language"; }
+
+                          return (
+                            <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${iconClass}`}>
+                                  <span className="material-symbols-outlined">{iconName}</span>
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <h4 className="font-bold text-slate-800 dark:text-slate-100 text-sm truncate">{j.nama_mapel}</h4>
+                                  <p className="text-xs text-slate-500 truncate">{new Date(j.waktu_mulai).toLocaleDateString('id-ID')}</p>
+                                </div>
+                              </div>
+                              <div className="flex flex-col items-end flex-shrink-0">
+                                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                                  {new Date(j.waktu_mulai).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {new Date(j.waktu_selesai).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                </span>
+                                {selectedJadwalUntukToken === j.id_jadwal ? (
+                                  <div className="flex items-center gap-1">
+                                    <input type="text" maxLength={6} value={inputToken} onChange={e => setInputToken(e.target.value)} placeholder="TOKEN" className="w-16 h-8 text-center text-xs font-bold border rounded bg-slate-50" />
+                                    <button onClick={() => handleMulaiUjian(j)} className="px-3 h-8 rounded-full text-xs font-bold bg-primary text-white">Go</button>
+                                  </div>
+                                ) : (
+                                  <button onClick={() => j.status_siswa !== 'SELESAI' && setSelectedJadwalUntukToken(j.id_jadwal)} disabled={j.status_siswa === 'SELESAI'} className={`px-4 py-1.5 rounded-full text-xs font-bold ${statusBtnClass}`}>
+                                    {statusText}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                </div>
+              )}
+
+              {activeTab === 'nilai' && (
+                <div className="px-6 mt-6 animate-fade-in-up">
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Nilai & Riwayat Ujian</h3>
+                  <div className="space-y-3">
+                    {dataRiwayat.length === 0 ? (
+                       <div className="text-center text-slate-500 text-sm py-4">Belum ada nilai.</div>
+                    ) : (
+                      dataRiwayat.map(r => (
+                        <div key={r.id_log} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                           <div>
+                             <h4 className="font-bold text-slate-800 dark:text-slate-100 text-sm">{r.nama_mapel}</h4>
+                             <p className="text-xs text-slate-500">{new Date(r.waktu_mulai).toLocaleDateString('id-ID')}</p>
+                           </div>
+                           <div className="bg-green-100 text-green-700 font-bold px-3 py-1 rounded-lg text-lg">
+                             {r.total_nilai}
+                           </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'akun' && (
+                <div className="px-6 mt-6 animate-fade-in-up flex flex-col items-center">
+                   <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center mb-4">
+                     <span className="material-symbols-outlined text-4xl text-primary">person</span>
+                   </div>
+                   <h3 className="font-bold text-xl">{user.nama_lengkap}</h3>
+                   <p className="text-slate-500">{user.id_user}</p>
+                   
+                   <div className="w-full mt-8 space-y-3">
+                      <button onClick={() => setIsDarkMode(!isDarkMode)} className="w-full bg-white dark:bg-slate-800 p-4 rounded-2xl flex items-center justify-between shadow-sm">
+                        <div className="flex items-center gap-3">
+                          <span className="material-symbols-outlined text-slate-500">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
+                          <span className="font-bold text-slate-700 dark:text-slate-200">Mode Gelap</span>
+                        </div>
+                        <div className={`w-10 h-6 rounded-full flex items-center p-1 ${isDarkMode ? 'bg-primary' : 'bg-slate-300'}`}>
+                          <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform ${isDarkMode ? 'translate-x-4' : ''}`}></div>
+                        </div>
+                      </button>
+                      <button onClick={onLogout} className="w-full bg-red-50 dark:bg-red-900/20 p-4 rounded-2xl flex items-center gap-3 shadow-sm text-red-500">
+                        <span className="material-symbols-outlined">logout</span>
+                        <span className="font-bold">Keluar</span>
+                      </button>
+                   </div>
+                </div>
+              )}
+
+            </div>
+
+            {/* Bottom Navigation */}
+            <div className="absolute bottom-0 left-0 w-full bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 py-3 flex justify-between items-center rounded-t-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] z-50">
+              <button onClick={() => setActiveTab('beranda')} className={`flex flex-col items-center transition-colors ${activeTab === 'beranda' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
+                <span className="material-symbols-outlined">home</span>
+                <span className="text-[10px] font-bold mt-1">Beranda</span>
+              </button>
+              <button onClick={() => setActiveTab('nilai')} className={`flex flex-col items-center transition-colors ${activeTab === 'nilai' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
+                <span className="material-symbols-outlined">description</span>
+                <span className="text-[10px] font-bold mt-1">Nilai</span>
+              </button>
+              <button onClick={() => setActiveTab('jadwal')} className={`flex flex-col items-center transition-colors ${activeTab === 'jadwal' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
+                <span className="material-symbols-outlined">schedule</span>
+                <span className="text-[10px] font-bold mt-1">Jadwal</span>
+              </button>
+              <button onClick={() => setActiveTab('leaderboards')} className={`flex flex-col items-center transition-colors ${activeTab === 'leaderboards' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
+                <span className="material-symbols-outlined">emoji_events</span>
+                <span className="text-[10px] font-bold mt-1">Peringkat</span>
+              </button>
+              <button onClick={() => setActiveTab('akun')} className={`flex flex-col items-center transition-colors ${activeTab === 'akun' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
+                <span className="material-symbols-outlined">person</span>
+                <span className="text-[10px] font-bold mt-1">Akun</span>
+              </button>
+            </div>
+
+          </div>
         </div>
       );
     };
-
-    // ==========================================
-    // ROOT APP & LOGIN
-    // ==========================================

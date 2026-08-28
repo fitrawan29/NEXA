@@ -1,4 +1,4 @@
-    const SuperAdminView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) => {
+﻿    const SuperAdminView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) => {
       const [activeTab, setActiveTab] = useState('analytics');
       const [dataSekolah, setDataSekolah] = useState([]);
       const [dataAdmin, setDataAdmin] = useState([]);
@@ -169,252 +169,230 @@
       };
 
       return (
-        <div className="bg-background dark:bg-slate-900 text-on-background dark:text-slate-100 antialiased flex min-h-screen">
-          <nav className="bg-surface-container-low dark:bg-slate-900 w-64 border-r dark:border-slate-800 flex flex-col p-4 z-40 shadow-lg">
-            <div className="flex items-center space-x-sm mb-lg">
-              <h1 className="font-headline-sm font-bold text-primary flex items-center gap-2"><span className="material-symbols-outlined">admin_panel_settings</span> SUPER ADMIN</h1>
-            </div>
-            <div className="flex-1 space-y-2 mt-4">
-              <a onClick={() => setActiveTab('analytics')} className={`flex items-center space-x-2 px-4 py-3 rounded-xl font-bold cursor-pointer transition-colors ${activeTab === 'analytics' ? 'bg-primary text-white shadow-md' : 'hover:bg-slate-200 dark:hover:bg-slate-800'}`}>
-                <span className="material-symbols-outlined">monitoring</span><span>Dasbor Analitik</span>
-              </a>
-              <a onClick={() => setActiveTab('sekolah')} className={`flex items-center space-x-2 px-4 py-3 rounded-xl font-bold cursor-pointer transition-colors ${activeTab === 'sekolah' ? 'bg-primary text-white shadow-md' : 'hover:bg-slate-200 dark:hover:bg-slate-800'}`}>
-                <span className="material-symbols-outlined">account_balance</span><span>Data Sekolah</span>
-              </a>
-              <a onClick={() => setActiveTab('admin')} className={`flex items-center space-x-2 px-4 py-3 rounded-xl font-bold cursor-pointer transition-colors ${activeTab === 'admin' ? 'bg-primary text-white shadow-md' : 'hover:bg-slate-200 dark:hover:bg-slate-800'}`}>
-                <span className="material-symbols-outlined">shield_person</span><span>Data Admin Sekolah</span>
-              </a>
-              <a onClick={() => setActiveTab('pengumuman')} className={`flex items-center space-x-2 px-4 py-3 rounded-xl font-bold cursor-pointer transition-colors ${activeTab === 'pengumuman' ? 'bg-primary text-white shadow-md' : 'hover:bg-slate-200 dark:hover:bg-slate-800'}`}>
-                <span className="material-symbols-outlined">campaign</span><span>Pengumuman Global</span>
-              </a>
-              <a onClick={() => setActiveTab('log')} className={`flex items-center space-x-2 px-4 py-3 rounded-xl font-bold cursor-pointer transition-colors ${activeTab === 'log' ? 'bg-primary text-white shadow-md' : 'hover:bg-slate-200 dark:hover:bg-slate-800'}`}>
-                <span className="material-symbols-outlined">list_alt</span><span>Log Aktivitas</span>
-              </a>
-              <a onClick={() => setActiveTab('profil')} className={`flex items-center space-x-2 px-4 py-3 rounded-xl font-bold cursor-pointer transition-colors ${activeTab === 'profil' ? 'bg-primary text-white shadow-md' : 'hover:bg-slate-200 dark:hover:bg-slate-800'}`}>
-                <span className="material-symbols-outlined">manage_accounts</span><span>Profil / Password</span>
-              </a>
-            </div>
-            <div className="mt-auto space-y-2">
-              <button onClick={() => setIsDarkMode(!isDarkMode)} className="w-full text-left px-4 py-2 rounded-lg hover:bg-surface-variant dark:hover:bg-slate-800 flex items-center space-x-2">
-                <span className="material-symbols-outlined">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
-                <span>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
-              </button>
-              <button onClick={onLogout} className="w-full text-left px-4 py-2 rounded-lg hover:bg-error-container hover:text-on-error-container text-error flex items-center space-x-2">
-                <span className="material-symbols-outlined">logout</span><span>Keluar</span>
-              </button>
-            </div>
-          </nav>
-
-          <main className="flex-1 p-8 h-screen overflow-y-auto">
-            {activeTab === 'analytics' && (
-              <div>
-                <h2 className="text-3xl font-black text-slate-800 dark:text-white mb-8">Dasbor Analitik Resource</h2>
-                {isLoading ? <div className="flex justify-center p-12"><span className="material-symbols-outlined animate-spin text-4xl text-primary">autorenew</span></div> : (
-                  <>
-                  <div className="mb-6 bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-700 flex items-center justify-between">
-                    <div>
-                      <h3 className="font-bold text-xl text-slate-800 dark:text-white">Pengguna Aktif Saat Ini (Semua Sekolah)</h3>
-                      <p className="text-sm text-slate-500">Siswa yang sedang dalam status SEDANG KERJA ujian</p>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <span className="text-5xl font-black text-primary">{dataAnalytics.concurrentUsers || 0}</span>
-                      <span className="material-symbols-outlined text-4xl text-emerald-500 animate-pulse">wifi_tethering</span>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {(dataAnalytics.stats || []).map(stat => (
-                      <div key={stat.npsn} className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-700">
-                        <div className="flex justify-between items-start mb-4">
-                          <div>
-                            <h3 className="font-bold text-xl text-slate-800 dark:text-white">{stat.nama_sekolah}</h3>
-                            <p className="text-sm font-mono text-slate-500">NPSN: {stat.npsn}</p>
-                          </div>
-                          <span className="material-symbols-outlined text-primary text-3xl">domain</span>
-                        </div>
-                        <div className="space-y-3">
-                          <div className="flex justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-700/50">
-                            <span className="text-slate-600 dark:text-slate-300 font-medium">Siswa Aktif</span>
-                            <span className="font-bold text-primary">{stat.total_siswa}</span>
-                          </div>
-                          <div className="flex justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-700/50">
-                            <span className="text-slate-600 dark:text-slate-300 font-medium">Guru Aktif</span>
-                            <span className="font-bold text-primary">{stat.total_guru}</span>
-                          </div>
-                          <div className="flex justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-700/50">
-                            <span className="text-slate-600 dark:text-slate-300 font-medium">Total Soal</span>
-                            <span className="font-bold text-primary">{stat.total_soal}</span>
-                          </div>
-                        </div>
-                          
-                          {/* CSS Bar Chart */}
-                          <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-700">
-                            <h4 className="font-semibold text-sm mb-4 text-slate-700 dark:text-slate-300">Grafik Komparasi</h4>
-                            <div className="flex items-end gap-2 h-32 mt-2">
-                              <div className="flex flex-col items-center justify-end h-full w-1/3 group relative">
-                                 <div className="w-full bg-blue-500 rounded-t-md transition-all duration-500" style={{ height: `${Math.max(5, Math.min(100, (stat.total_siswa / Math.max(1, stat.total_siswa + stat.total_guru + stat.total_soal)) * 100))}%` }}></div>
-                                 <span className="text-xs mt-2 text-slate-500 font-medium">Siswa</span>
-                                 <div className="absolute -top-8 bg-slate-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none whitespace-nowrap shadow-lg">{stat.total_siswa} Siswa</div>
-                              </div>
-                              <div className="flex flex-col items-center justify-end h-full w-1/3 group relative">
-                                 <div className="w-full bg-emerald-500 rounded-t-md transition-all duration-500" style={{ height: `${Math.max(5, Math.min(100, (stat.total_guru / Math.max(1, stat.total_siswa + stat.total_guru + stat.total_soal)) * 100))}%` }}></div>
-                                 <span className="text-xs mt-2 text-slate-500 font-medium">Guru</span>
-                                 <div className="absolute -top-8 bg-slate-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none whitespace-nowrap shadow-lg">{stat.total_guru} Guru</div>
-                              </div>
-                              <div className="flex flex-col items-center justify-end h-full w-1/3 group relative">
-                                 <div className="w-full bg-amber-500 rounded-t-md transition-all duration-500" style={{ height: `${Math.max(5, Math.min(100, (stat.total_soal / Math.max(1, stat.total_siswa + stat.total_guru + stat.total_soal)) * 100))}%` }}></div>
-                                 <span className="text-xs mt-2 text-slate-500 font-medium">Soal</span>
-                                 <div className="absolute -top-8 bg-slate-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none whitespace-nowrap shadow-lg">{stat.total_soal} Soal</div>
-                              </div>
-                            </div>
-                          </div>
-
-                      </div>
-                    ))}
-                    {(dataAnalytics.stats || []).length === 0 && <div className="col-span-full p-8 text-center text-slate-500">Belum ada data sekolah.</div>}
-                  </div>
-                  </>
-                )}
-              </div>
-            )}
-
-            {(activeTab === 'sekolah' || activeTab === 'admin') && (
-              <>
-                <div className="flex justify-between items-center mb-8">
-                  <h2 className="text-3xl font-black text-slate-800 dark:text-white capitalize">Kelola {activeTab}</h2>
-                  <button onClick={() => setFormModal({ isOpen: true, type: activeTab, isEdit: false, editItem: null })} className="bg-primary text-white px-6 py-2.5 rounded-full font-bold shadow-md hover:bg-primary/90 hover:scale-105 transition-all flex items-center gap-2">
-                    <span className="material-symbols-outlined">add</span> Tambah {activeTab === 'sekolah' ? 'Sekolah' : 'Admin'}
-                  </button>
-                </div>
-
-
-            <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-xl overflow-hidden border border-slate-100 dark:border-slate-700">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead className="bg-slate-50 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600">
-                    {activeTab === 'sekolah' ? (
-                      <tr><th className="py-3 px-4 font-semibold text-sm font-bold text-slate-600 dark:text-slate-300">NPSN</th><th className="py-3 px-4 font-semibold text-sm font-bold text-slate-600 dark:text-slate-300">Nama Sekolah</th><th className="py-3 px-4 font-semibold text-sm font-bold text-slate-600 dark:text-slate-300 text-right">Aksi</th></tr>
-                    ) : (
-                      <tr><th className="py-3 px-4 font-semibold text-sm font-bold text-slate-600 dark:text-slate-300">Nama Admin</th><th className="py-3 px-4 font-semibold text-sm font-bold text-slate-600 dark:text-slate-300">Username</th><th className="py-3 px-4 font-semibold text-sm font-bold text-slate-600 dark:text-slate-300">Sekolah</th><th className="py-3 px-4 font-semibold text-sm font-bold text-slate-600 dark:text-slate-300 text-right">Aksi</th></tr>
-                    )}
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                    {isLoading ? <tr><td colSpan="4" className="p-8 text-center"><span className="material-symbols-outlined animate-spin text-4xl text-primary">autorenew</span></td></tr> : null}
-                    
-                    {!isLoading && activeTab === 'sekolah' && dataSekolah.map(s => (
-                      <tr key={s.npsn} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                        <td className="py-2 px-4 font-mono font-medium text-slate-700 dark:text-slate-300">{s.npsn}</td>
-                        <td className="py-2 px-4 font-bold text-slate-800 dark:text-slate-100">{s.nama_sekolah}</td>
-                        <td className="py-2 px-4 text-right">
-                          <button onClick={() => handleEdit('sekolah', s)} className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-2 rounded-lg transition-colors inline-flex items-center gap-1"><span className="material-symbols-outlined text-[20px]">edit</span></button>
-                          <button onClick={() => handleDelete('sekolah', s)} className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition-colors inline-flex items-center gap-1"><span className="material-symbols-outlined text-[20px]">delete</span></button>
-                        </td>
-                      </tr>
-                    ))}
-                    {!isLoading && activeTab === 'sekolah' && dataSekolah.length === 0 && <tr><td colSpan="3" className="p-8 text-center text-slate-500">Belum ada sekolah terdaftar.</td></tr>}
-
-                    {!isLoading && activeTab === 'admin' && dataAdmin.map(a => (
-                      <tr key={a.id_admin} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                        <td className="py-2 px-4 font-bold text-slate-800 dark:text-slate-100">{a.nama_lengkap}</td>
-                        <td className="py-2 px-4 text-slate-600 dark:text-slate-300 font-mono text-sm">{a.username}</td>
-                        <td className="py-2 px-4 text-slate-600 dark:text-slate-300">{a.sekolah?.nama_sekolah} (NPSN: {a.npsn})</td>
-                        <td className="py-2 px-4 text-right">
-                          <button onClick={() => handleEdit('admin', a)} className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-2 rounded-lg transition-colors inline-flex items-center gap-1"><span className="material-symbols-outlined text-[20px]">edit</span></button>
-                          <button onClick={() => handleDelete('admin', a)} className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition-colors inline-flex items-center gap-1"><span className="material-symbols-outlined text-[20px]">delete</span></button>
-                        </td>
-                      </tr>
-                    ))}
-                    {!isLoading && activeTab === 'admin' && dataAdmin.length === 0 && <tr><td colSpan="4" className="p-8 text-center text-slate-500">Belum ada admin terdaftar.</td></tr>}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            </>
-            )}
-
-            {activeTab === 'pengumuman' && (
-              <>
-                <div className="flex justify-between items-center mb-8">
-                  <h2 className="text-3xl font-black text-slate-800 dark:text-white capitalize">Pengumuman Global</h2>
-                  <button onClick={() => setFormModal({ isOpen: true, type: 'pengumuman', isEdit: false, editItem: null })} className="bg-primary text-white px-6 py-2.5 rounded-full font-bold shadow-md hover:bg-primary/90 hover:scale-105 transition-all flex items-center gap-2">
-                    <span className="material-symbols-outlined">add</span> Buat Pengumuman
-                  </button>
-                </div>
-                <div className="space-y-4">
-                  {isLoading ? <div className="flex justify-center p-12"><span className="material-symbols-outlined animate-spin text-4xl text-primary">autorenew</span></div> : null}
-                  {!isLoading && dataPengumuman.map(p => (
-                    <div key={p.id_pengumuman} className={`p-6 rounded-2xl border-l-4 shadow-sm bg-white dark:bg-slate-800 relative ${p.tipe === 'warning' ? 'border-amber-500' : p.tipe === 'success' ? 'border-emerald-500' : 'border-blue-500'}`}>
-                      <button onClick={() => handleDelete('pengumuman', p)} className="absolute top-4 right-4 text-red-500 hover:text-red-700 bg-red-50 dark:bg-red-500/10 p-1.5 rounded-lg transition-colors"><span className="material-symbols-outlined text-[18px]">delete</span></button>
-                      <h3 className="font-bold text-lg mb-1">{p.judul}</h3>
-                      <p className="text-slate-600 dark:text-slate-300 text-sm mb-2">{p.isi}</p>
-                      <span className="text-xs text-slate-400 font-mono">{new Date(p.created_at).toLocaleString('id-ID')}</span>
-                    </div>
-                  ))}
-                  {!isLoading && dataPengumuman.length === 0 && <div className="p-8 text-center text-slate-500">Belum ada pengumuman global.</div>}
-                </div>
-              </>
-            )}
-
-            {activeTab === 'log' && (
-              <>
-                <h2 className="text-3xl font-black text-slate-800 dark:text-white mb-8">Log Aktivitas Global</h2>
-                <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-xl overflow-hidden border border-slate-100 dark:border-slate-700">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                      <thead className="bg-slate-50 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600">
-                        <tr><th className="py-3 px-4 font-semibold text-sm font-bold text-slate-600 dark:text-slate-300">Waktu</th><th className="py-3 px-4 font-semibold text-sm font-bold text-slate-600 dark:text-slate-300">User / Role</th><th className="py-3 px-4 font-semibold text-sm font-bold text-slate-600 dark:text-slate-300">Aksi</th></tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                        {isLoading ? <tr><td colSpan="3" className="p-8 text-center"><span className="material-symbols-outlined animate-spin text-4xl text-primary">autorenew</span></td></tr> : null}
-                        {!isLoading && dataLog.map(l => (
-                          <tr key={l.id_log} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                            <td className="py-2 px-4 text-xs font-mono text-slate-500">{new Date(l.created_at).toLocaleString('id-ID')}</td>
-                            <td className="py-2 px-4 font-bold text-slate-800 dark:text-slate-100">{l.username} <span className="px-2 py-0.5 bg-slate-200 dark:bg-slate-700 rounded-full text-[10px] font-mono font-normal ml-2">{l.role}</span></td>
-                            <td className="py-2 px-4 text-slate-600 dark:text-slate-300 text-sm">{l.action}: {l.detail}</td>
-                          </tr>
-                        ))}
-                        {!isLoading && dataLog.length === 0 && <tr><td colSpan="3" className="p-8 text-center text-slate-500">Belum ada log.</td></tr>}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </>
-            )}
+        <div className="bg-slate-50 dark:bg-slate-900 min-h-screen flex justify-center selection:bg-primary/20 selection:text-primary">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col h-screen">
             
-            {activeTab === 'profil' && (
-              <div>
-                <h2 className="text-3xl font-black text-slate-800 dark:text-white mb-8">Profil / Password</h2>
-                <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-700 max-w-lg">
-                  <form onSubmit={async (e) => {
-                      e.preventDefault();
-                      const fd = new FormData(e.target);
-                      const payload = Object.fromEntries(fd.entries());
-                      if (payload.password !== payload.password_confirm) {
-                          alert("Password tidak cocok!");
-                          return;
-                      }
-                      const res = await fetchAPI('update_superadmin_password', { username: user?.username, password: payload.password });
-                      alert(res.message);
-                      if (res.status === 'success') e.target.reset();
-                  }}>
-                      <div className="mb-4">
-                          <label className="block text-sm font-medium mb-1 dark:text-slate-300">Username Super Admin</label>
-                          <input type="text" readOnly value={user?.username || ''} className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800" />
-                      </div>
-                      <div className="mb-4">
-                          <label className="block text-sm font-medium mb-1 dark:text-slate-300">Password Baru</label>
-                          <input type="password" name="password" required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" />
-                      </div>
-                      <div className="mb-6">
-                          <label className="block text-sm font-medium mb-1 dark:text-slate-300">Konfirmasi Password Baru</label>
-                          <input type="password" name="password_confirm" required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" />
-                      </div>
-                      <button type="submit" className="px-6 py-2 rounded-lg font-bold bg-primary text-white hover:bg-primary/90">Simpan Perubahan</button>
-                  </form>
+            {/* Header / Top Section */}
+            <div className="bg-[#3ecf8e] rounded-b-[40px] px-6 pt-8 pb-20 relative text-white shadow-md z-0">
+              <div className="flex justify-between items-start">
+                <div className="flex items-center gap-3">
+                  <div className="w-14 h-14 bg-white/20 rounded-full border-2 border-white/50 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-white text-3xl">verified_user</span>
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-lg leading-tight">Super Admin</h2>
+                    <p className="text-sm font-medium opacity-90">{user.nama_lengkap}</p>
+                    <p className="text-xs opacity-80">Developer</p>
+                  </div>
+                </div>
+                <button className="relative">
+                  <span className="material-symbols-outlined text-2xl">settings</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Stats Cards (Overlapping) */}
+            <div className="px-6 -mt-12 relative z-10">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-4 grid grid-cols-3 gap-2">
+                <div className="flex flex-col items-center justify-center text-center">
+                  <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center mb-1">
+                    <span className="material-symbols-outlined text-green-500">account_balance</span>
+                  </div>
+                  <span className="text-xl font-bold text-green-500">{dataSekolah.length}</span>
+                  <span className="text-[10px] text-slate-500 font-medium">Sekolah</span>
+                  <span className="text-[10px] text-slate-400">Total</span>
+                </div>
+                <div className="flex flex-col items-center justify-center text-center border-x border-slate-100 dark:border-slate-700">
+                  <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center mb-1">
+                    <span className="material-symbols-outlined text-blue-500">manage_accounts</span>
+                  </div>
+                  <span className="text-xl font-bold text-blue-500">{dataAdmin.length}</span>
+                  <span className="text-[10px] text-slate-500 font-medium">Admin</span>
+                  <span className="text-[10px] text-slate-400">Total</span>
+                </div>
+                <div className="flex flex-col items-center justify-center text-center">
+                  <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center mb-1">
+                    <span className="material-symbols-outlined text-purple-500">memory</span>
+                  </div>
+                  <span className="text-xl font-bold text-purple-500">{dataLog.length}</span>
+                  <span className="text-[10px] text-slate-500 font-medium">Logs</span>
+                  <span className="text-[10px] text-slate-400">Sistem</span>
                 </div>
               </div>
-            )}
+            </div>
+
+            {/* Main Scrollable Content */}
+            <div className="flex-1 overflow-y-auto pb-24 hide-scrollbar">
+              
+              {activeTab === 'analytics' && (
+                <div className="px-6 mt-6 animate-fade-in-up">
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Analytics & Logs</h3>
+                  <p className="text-sm text-slate-500 mb-6">Pantau aktivitas seluruh sistem secara ringkas. Untuk tampilan detail, gunakan versi desktop.</p>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                     <button onClick={() => setActiveTab('sekolah')} className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2">
+                        <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                          <span className="material-symbols-outlined text-green-500">account_balance</span>
+                        </div>
+                        <span className="font-bold text-sm">Sekolah</span>
+                     </button>
+                     <button onClick={() => setActiveTab('admin')} className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2">
+                        <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                          <span className="material-symbols-outlined text-blue-500">manage_accounts</span>
+                        </div>
+                        <span className="font-bold text-sm">Admin Sekolah</span>
+                     </button>
+                     <button onClick={() => setActiveTab('pengumuman')} className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2">
+                        <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center">
+                          <span className="material-symbols-outlined text-orange-500">campaign</span>
+                        </div>
+                        <span className="font-bold text-sm">Pengumuman</span>
+                     </button>
+                     <button onClick={() => setActiveTab('log')} className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2">
+                        <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
+                          <span className="material-symbols-outlined text-purple-500">memory</span>
+                        </div>
+                        <span className="font-bold text-sm">System Logs</span>
+                     </button>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'sekolah' && (
+                <div className="px-6 mt-6 animate-fade-in-up">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Data Sekolah</h3>
+                    <span className="text-sm font-medium text-primary bg-primary/10 px-2 py-1 rounded-lg">{dataSekolah.length} Sekolah</span>
+                  </div>
+                  <div className="space-y-3">
+                    {dataSekolah.slice(0, 10).map((s) => (
+                      <div key={s.npsn} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+                          <span className="material-symbols-outlined text-slate-500">account_balance</span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-bold text-sm truncate">{s.nama_sekolah}</h4>
+                          <p className="text-xs text-slate-500 truncate">NPSN: {s.npsn}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {dataSekolah.length > 10 && <div className="text-center text-xs text-slate-500 mt-2">Buka versi desktop untuk melihat semua data.</div>}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'admin' && (
+                <div className="px-6 mt-6 animate-fade-in-up">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Data Admin</h3>
+                    <span className="text-sm font-medium text-primary bg-primary/10 px-2 py-1 rounded-lg">{dataAdmin.length} Admin</span>
+                  </div>
+                  <div className="space-y-3">
+                    {dataAdmin.slice(0, 10).map((a) => (
+                      <div key={a.id_admin} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+                          <span className="material-symbols-outlined text-slate-500">manage_accounts</span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-bold text-sm truncate">{a.nama_lengkap}</h4>
+                          <p className="text-xs text-slate-500 truncate">ID: {a.id_admin} | NPSN: {a.npsn}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'pengumuman' && (
+                <div className="px-6 mt-6 animate-fade-in-up">
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Pengumuman Global</h3>
+                  <div className="space-y-3">
+                    {dataPengumuman.map((p) => (
+                      <div key={p.id_pengumuman} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100">
+                         <h4 className="font-bold text-sm">{p.judul}</h4>
+                         <p className="text-[10px] text-slate-400 mb-2">{new Date(p.created_at).toLocaleDateString('id-ID')}</p>
+                         <p className="text-xs text-slate-600 line-clamp-2">{p.isi}</p>
+                      </div>
+                    ))}
+                    {dataPengumuman.length === 0 && <div className="text-center text-sm text-slate-500">Tidak ada pengumuman.</div>}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'log' && (
+                <div className="px-6 mt-6 animate-fade-in-up">
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">System Logs</h3>
+                  <div className="space-y-3">
+                    {dataLog.slice(0,10).map((l) => (
+                      <div key={l.id_log} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100">
+                         <div className="flex justify-between">
+                            <span className="text-[10px] font-bold text-slate-500">{l.tipe_user}</span>
+                            <span className="text-[10px] text-slate-400">{new Date(l.created_at).toLocaleString('id-ID')}</span>
+                         </div>
+                         <p className="text-xs mt-1 text-slate-700">{l.aktivitas}</p>
+                      </div>
+                    ))}
+                    {dataLog.length === 0 && <div className="text-center text-sm text-slate-500">Tidak ada log.</div>}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'akun' && (
+                <div className="px-6 mt-6 animate-fade-in-up flex flex-col items-center">
+                   <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center mb-4">
+                     <span className="material-symbols-outlined text-4xl text-primary">verified_user</span>
+                   </div>
+                   <h3 className="font-bold text-xl">{user.nama_lengkap}</h3>
+                   <p className="text-slate-500">Developer / SuperAdmin</p>
+                   
+                   <div className="w-full mt-8 space-y-3">
+                      <button onClick={() => setIsDarkMode(!isDarkMode)} className="w-full bg-white dark:bg-slate-800 p-4 rounded-2xl flex items-center justify-between shadow-sm">
+                        <div className="flex items-center gap-3">
+                          <span className="material-symbols-outlined text-slate-500">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
+                          <span className="font-bold text-slate-700 dark:text-slate-200">Mode Gelap</span>
+                        </div>
+                        <div className={w-10 h-6 rounded-full flex items-center p-1 }>
+                          <div className={w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform }></div>
+                        </div>
+                      </button>
+                      <button onClick={onLogout} className="w-full bg-red-50 dark:bg-red-900/20 p-4 rounded-2xl flex items-center gap-3 shadow-sm text-red-500">
+                        <span className="material-symbols-outlined">logout</span>
+                        <span className="font-bold">Keluar</span>
+                      </button>
+                   </div>
+                </div>
+              )}
+
+            </div>
+
+            {/* Bottom Navigation */}
+            <div className="absolute bottom-0 left-0 w-full bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 py-3 flex justify-between items-center rounded-t-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] z-50">
+              <button onClick={() => setActiveTab('analytics')} className={lex flex-col items-center transition-colors }>
+                <span className="material-symbols-outlined">analytics</span>
+                <span className="text-[10px] font-bold mt-1">Analytics</span>
+              </button>
+              <button onClick={() => setActiveTab('sekolah')} className={lex flex-col items-center transition-colors }>
+                <span className="material-symbols-outlined">account_balance</span>
+                <span className="text-[10px] font-bold mt-1">Sekolah</span>
+              </button>
+              <button onClick={() => setActiveTab('admin')} className={lex flex-col items-center transition-colors }>
+                <span className="material-symbols-outlined">manage_accounts</span>
+                <span className="text-[10px] font-bold mt-1">Admin</span>
+              </button>
+              <button onClick={() => setActiveTab('pengumuman')} className={lex flex-col items-center transition-colors }>
+                <span className="material-symbols-outlined">campaign</span>
+                <span className="text-[10px] font-bold mt-1">Informasi</span>
+              </button>
+              <button onClick={() => setActiveTab('akun')} className={lex flex-col items-center transition-colors }>
+                <span className="material-symbols-outlined">person</span>
+                <span className="text-[10px] font-bold mt-1">Akun</span>
+              </button>
+            </div>
+            
             {renderFormModal()}
-          </main>
+          </div>
         </div>
       );
     };
+
+    export default SuperAdminView;

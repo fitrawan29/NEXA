@@ -1,4 +1,4 @@
-    const EmptyState = window.EmptyState;
+﻿    const EmptyState = window.EmptyState;
     const AdminView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
       const api = (action, p = {}) => {
         if (Array.isArray(p)) return fetchAPI(action, p.map(item => ({ ...item, npsn: user.npsn })));
@@ -549,423 +549,264 @@
       );
 
       return (
-        <div className="bg-background dark:bg-slate-900 text-on-background dark:text-slate-100 antialiased flex min-h-screen transition-colors duration-500">
-
-          {/* Mobile Overlay */}
-          {isSidebarOpen && <div className="fixed inset-0 bg-black/50 z-30 md:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
-
-          {/* SideNavBar */}
-          <nav className={`bg-surface-container-low dark:bg-slate-900 text-primary docked left-0 h-full w-64 border-r border-outline-variant dark:border-slate-800 flat fixed top-0 flex flex-col p-md z-40 transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
-            {/* Header */}
-            <div className="flex items-center space-x-sm mb-lg px-sm">
-              <img alt="NEXA Logo" className="w-10 h-10 rounded-full object-cover shadow-sm" src="stitch_assets/screen_3_logo.png" />
-              <div>
-                <h1 className="font-headline-sm text-headline-sm font-bold text-on-surface dark:text-white">NEXA</h1>
-                <p className="font-label-md text-label-md text-on-surface-variant dark:text-slate-400">Admin Panel</p>
+        <div className="bg-slate-50 dark:bg-slate-900 min-h-screen flex justify-center selection:bg-primary/20 selection:text-primary">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col h-screen">
+            
+            {/* Header / Top Section */}
+            <div className="bg-[#3ecf8e] rounded-b-[40px] px-6 pt-8 pb-20 relative text-white shadow-md z-0">
+              <div className="flex justify-between items-start">
+                <div className="flex items-center gap-3">
+                  <div className="w-14 h-14 bg-white/20 rounded-full border-2 border-white/50 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-white text-3xl">admin_panel_settings</span>
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-lg leading-tight">Admin Sekolah</h2>
+                    <p className="text-sm font-medium opacity-90">{user.nama_lengkap}</p>
+                    <p className="text-xs opacity-80">NPSN : {user.npsn}</p>
+                  </div>
+                </div>
+                <button className="relative">
+                  <span className="material-symbols-outlined text-2xl">notifications</span>
+                </button>
               </div>
             </div>
-            {/* Navigation Links */}
-            <div className="flex-1 space-y-2 mt-4">
-              <SidebarLink id="dashboard" icon="dashboard" label="Dashboard" />
-              <SidebarLink id="kelas" icon="meeting_room" label="Data Kelas" />
-              <SidebarLink id="siswa" icon="group" label="Data Siswa" />
-              <SidebarLink id="guru" icon="school" label="Data Guru" />
-              <SidebarLink id="mapel" icon="menu_book" label="Mata Pelajaran" />
-              <SidebarLink id="jadwal" icon="calendar_today" label="Kelola Jadwal" />
-              <SidebarLink id="monitoring" icon="monitor" label="Pantau Ujian" />
-              <SidebarLink id="hasil" icon="assignment_turned_in" label="Hasil Ujian" />
-              <div className="pt-2 pb-1"><div className="border-t border-outline-variant dark:border-slate-700"></div></div>
-              <SidebarLink id="pengumuman" icon="campaign" label="Pengumuman" />
-              <SidebarLink id="logs" icon="manage_history" label="Log Sistem" />
-            </div>
-          </nav>
 
-          {/* Main Content Area */}
-          <main className="flex-1 md:ml-64 w-full transition-all duration-500 min-h-screen flex flex-col">
-            
-            {/* Top Bar for User Actions */}
-            <div className="w-full flex justify-end items-center p-4 border-b border-outline-variant dark:border-slate-800 bg-surface dark:bg-slate-900 sticky top-0 z-20 gap-2">
-                 <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full text-on-surface-variant hover:bg-surface-variant dark:hover:bg-slate-800 transition-colors" title="Mode Tema">
-                   <span className="material-symbols-outlined">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
-                 </button>
-
-                 <button onClick={() => setActiveTab('pemberitahuan')} className="relative p-2 rounded-full text-on-surface-variant hover:bg-surface-variant dark:hover:bg-slate-800 transition-colors" title="Pemberitahuan">
-                   <span className="material-symbols-outlined">notifications</span>
-                   {hasNotification && <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-slate-900"></span>}
-                 </button>
-                 
-                 <div onClick={() => setProfileModalOpen(true)} className="flex items-center space-x-2 cursor-pointer p-1 pr-3 rounded-full hover:bg-surface-variant dark:hover:bg-slate-800 transition-colors" title="Profil Admin">
-                   {user.foto_profil ? (
-                     <img src={user.foto_profil} alt="Profile" className="w-8 h-8 rounded-full object-cover" />
-                   ) : (
-                     <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">{user.nama_lengkap.charAt(0)}</div>
-                   )}
-                   <div className="hidden sm:block text-left">
-                     <p className="text-sm font-medium text-on-surface dark:text-white leading-tight">{user.nama_lengkap}</p>
-                     <p className="text-xs text-on-surface-variant dark:text-slate-400 capitalize">{user.role}</p>
-                   </div>
-                 </div>
-
-                 <button onClick={onLogout} className="flex items-center space-x-1 p-2 rounded-lg text-error hover:bg-error/10 transition-colors" title="Keluar">
-                   <span className="material-symbols-outlined">logout</span>
-                 </button>
-            </div>
-
-            <div className="p-lg sm:p-xl md:p-gutter flex-1">
-            <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-xl gap-md">
-              <div className="flex items-center gap-3">
-                <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-2 bg-surface-variant/50 rounded-lg text-on-surface dark:text-white">
-                  <span className="material-symbols-outlined">menu</span>
-                </button>
-                <div>
-                  <h2 className="font-display-sm text-display-sm text-on-surface dark:text-white capitalize font-semibold mb-1">
-                    {activeTab === 'dashboard' ? 'Beranda' : activeTab === 'pemberitahuan' ? 'Pemberitahuan' : activeTab === 'kelas' ? 'Data Kelas' : activeTab === 'siswa' ? 'Data Siswa' : activeTab === 'guru' ? 'Data Guru' : activeTab === 'mapel' ? 'Mata Pelajaran' : activeTab === 'jadwal' ? 'Kelola Jadwal' : activeTab === 'monitoring' ? 'Monitoring Ujian' : 'Hasil Ujian'}
-                  </h2>
-                  <p className="text-body-md text-on-surface-variant dark:text-slate-400">Panel Manajemen Admin.</p>
+            {/* Stats Cards (Overlapping) */}
+            <div className="px-6 -mt-12 relative z-10">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-4 grid grid-cols-3 gap-2">
+                <div className="flex flex-col items-center justify-center text-center">
+                  <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center mb-1">
+                    <span className="material-symbols-outlined text-green-500">face</span>
+                  </div>
+                  <span className="text-xl font-bold text-green-500">{dataSiswa.length}</span>
+                  <span className="text-[10px] text-slate-500 font-medium">Siswa</span>
+                  <span className="text-[10px] text-slate-400">Total</span>
+                </div>
+                <div className="flex flex-col items-center justify-center text-center border-x border-slate-100 dark:border-slate-700">
+                  <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center mb-1">
+                    <span className="material-symbols-outlined text-blue-500">school</span>
+                  </div>
+                  <span className="text-xl font-bold text-blue-500">{dataGuru.length}</span>
+                  <span className="text-[10px] text-slate-500 font-medium">Guru</span>
+                  <span className="text-[10px] text-slate-400">Total</span>
+                </div>
+                <div className="flex flex-col items-center justify-center text-center">
+                  <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center mb-1">
+                    <span className="material-symbols-outlined text-purple-500">campaign</span>
+                  </div>
+                  <span className="text-xl font-bold text-purple-500">{dataPengumuman.length}</span>
+                  <span className="text-[10px] text-slate-500 font-medium">Pengumuman</span>
+                  <span className="text-[10px] text-slate-400">Aktif</span>
                 </div>
               </div>
+            </div>
 
-              {['kelas', 'siswa', 'guru', 'mapel', 'jadwal'].includes(activeTab) && (
-                <div className="flex flex-col sm:flex-row gap-2 mt-4 sm:mt-0">
-                  {activeTab !== 'kelas' && (
-                    <>
-                      {(activeTab === 'siswa' || activeTab === 'guru') && (
-                        <button onClick={() => exportDataToExcel(activeTab)} className="bg-surface-container-highest dark:bg-slate-700 text-on-surface-variant dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 px-md py-sm rounded-full font-label-md shadow-sm transition-all flex items-center justify-center gap-sm hover:-translate-y-0.5 whitespace-nowrap">
-                          <span className="material-symbols-outlined text-[20px]">file_download</span>
-                          Download Data
-                        </button>
-                      )}
-                      <button onClick={() => downloadTemplate(activeTab)} className="bg-surface-container-highest dark:bg-slate-700 text-on-surface-variant dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 px-md py-sm rounded-full font-label-md shadow-sm transition-all flex items-center justify-center gap-sm hover:-translate-y-0.5 whitespace-nowrap">
-                        <span className="material-symbols-outlined text-[20px]">download</span>
-                        Template
-                      </button>
-                      <button onClick={() => document.getElementById('file-upload').click()} className="bg-[#10B981] text-white hover:bg-[#059669] px-md py-sm rounded-full font-label-md shadow-sm transition-all flex items-center justify-center gap-sm hover:-translate-y-0.5 whitespace-nowrap">
-                        <span className="material-symbols-outlined text-[20px]">upload_file</span>
-                        Upload Excel
-                      </button>
-                      <input type="file" id="file-upload" accept=".xlsx, .xls, .csv" className="hidden" onChange={(e) => handleFileUpload(e, activeTab)} />
-                    </>
-                  )}
-                  <button onClick={() => openCreateModal(activeTab)} className="bg-primary text-on-primary hover:bg-primary/90 px-md py-sm rounded-full font-label-md shadow-sm transition-all flex items-center justify-center gap-sm hover:-translate-y-0.5 whitespace-nowrap">
-                    <span className="material-symbols-outlined text-[20px]">add</span>
-                    Tambah {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
-                  </button>
+            {/* Main Scrollable Content */}
+            <div className="flex-1 overflow-y-auto pb-24 hide-scrollbar">
+              
+              {activeTab === 'dashboard' && (
+                <div className="px-6 mt-6 animate-fade-in-up">
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Dashboard Admin</h3>
+                  <p className="text-sm text-slate-500 mb-6">Kelola data sekolah dengan mudah melalui menu di bawah ini. Untuk manajemen yang lebih kompleks, gunakan versi desktop.</p>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                     <button onClick={() => setActiveTab('siswa')} className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2">
+                        <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                          <span className="material-symbols-outlined text-green-500">face</span>
+                        </div>
+                        <span className="font-bold text-sm">Data Siswa</span>
+                     </button>
+                     <button onClick={() => setActiveTab('guru')} className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2">
+                        <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                          <span className="material-symbols-outlined text-blue-500">school</span>
+                        </div>
+                        <span className="font-bold text-sm">Data Guru</span>
+                     </button>
+                     <button onClick={() => setActiveTab('jadwal')} className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2">
+                        <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
+                          <span className="material-symbols-outlined text-purple-500">event_note</span>
+                        </div>
+                        <span className="font-bold text-sm">Jadwal Ujian</span>
+                     </button>
+                     <button onClick={() => setActiveTab('pengumuman')} className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2">
+                        <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center">
+                          <span className="material-symbols-outlined text-orange-500">campaign</span>
+                        </div>
+                        <span className="font-bold text-sm">Pengumuman</span>
+                     </button>
+                  </div>
                 </div>
               )}
-            </header>
 
-            {/* TAB CONTENT: DASHBOARD */}
-            {activeTab === 'dashboard' && (
-              <div className="space-y-xl animate-fade-in-up">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-md">
-                  {[
-                    { label: 'Total Siswa', value: dashboardData?.totalSiswa || 0, icon: 'group', color: 'text-primary', bg: 'bg-primary/10' },
-                    { label: 'Total Guru', value: dashboardData?.totalGuru || 0, icon: 'school', color: 'text-[#10B981]', bg: 'bg-[#10B981]/10' },
-                    { label: 'Total Ujian', value: dashboardData?.totalJadwal || 0, icon: 'description', color: 'text-[#F59E0B]', bg: 'bg-[#F59E0B]/10' },
-                    { label: 'Sesi Aktif', value: dashboardData?.totalSesiAktif || 0, icon: 'bolt', color: 'text-error', bg: 'bg-error/10' }
-                  ].map((kpi, idx) => (
-                    <div key={idx} className="bg-surface dark:bg-slate-800 p-md rounded-2xl border border-outline-variant dark:border-slate-700 shadow-sm relative overflow-hidden">
-                      <div className="flex items-center gap-md relative z-10">
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${kpi.bg} ${kpi.color}`}>
-                          <span className="material-symbols-outlined text-[28px]">{kpi.icon}</span>
-                        </div>
-                        <div>
-                          <p className="text-body-sm text-on-surface-variant dark:text-slate-400 font-medium">{kpi.label}</p>
-                          <p className="text-headline-sm font-bold text-on-surface dark:text-white leading-tight">{isLoading ? '...' : kpi.value}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-md mt-lg">
-                  <div className="bg-surface dark:bg-slate-800 p-lg rounded-2xl border border-outline-variant dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
-                    <h3 className="font-headline-sm text-on-surface dark:text-white mb-4 flex items-center gap-2">
-                      <span className="material-symbols-outlined text-primary">info</span> Informasi Aplikasi
-                    </h3>
-                    <p className="text-body-md text-on-surface-variant dark:text-slate-300 mb-4 leading-relaxed">
-                      NEXA adalah platform Computer Based Test (CBT) modern yang dirancang untuk memudahkan pelaksanaan asesmen dan ujian di lingkungan sekolah. Dilengkapi dengan antarmuka dinamis, sistem pengawasan real-time, dan auto-grading.
-                    </p>
-                    <ul className="space-y-2 text-sm text-on-surface-variant dark:text-slate-400">
-                      <li className="flex items-center gap-2"><span className="material-symbols-outlined text-green-500 text-[18px]">check_circle</span> Manajemen Data Massal (Siswa, Guru, Mapel, Jadwal)</li>
-                      <li className="flex items-center gap-2"><span className="material-symbols-outlined text-green-500 text-[18px]">check_circle</span> Pembuatan Token Ujian Dinamis</li>
-                      <li className="flex items-center gap-2"><span className="material-symbols-outlined text-green-500 text-[18px]">check_circle</span> Auto-grading (Pilihan Ganda)</li>
-                    </ul>
+              {activeTab === 'siswa' && (
+                <div className="px-6 mt-6 animate-fade-in-up">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Data Siswa</h3>
+                    <span className="text-sm font-medium text-primary bg-primary/10 px-2 py-1 rounded-lg">{dataSiswa.length} Siswa</span>
                   </div>
-
-                  <div className="bg-surface dark:bg-slate-800 p-lg rounded-2xl border border-outline-variant dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
-                    <h3 className="font-headline-sm text-on-surface dark:text-white mb-4 flex items-center gap-2">
-                      <span className="material-symbols-outlined text-primary">quick_reference_all</span> Panduan Cepat
-                    </h3>
-                    <ol className="space-y-3 text-sm text-on-surface-variant dark:text-slate-300 list-decimal list-inside">
-                      <li><strong>Persiapan Data:</strong> Unduh template, isi, lalu unggah data Siswa, Guru, dan Mapel secara massal.</li>
-                      <li><strong>Penjadwalan:</strong> Buat jadwal ujian di menu 'Kelola Jadwal' sesuai mapel dan pengawas.</li>
-                      <li><strong>Pengawasan:</strong> Guru pengawas meng-generate token ujian pada menu 'Pantau Ujian' saat hari H.</li>
-                      <li><strong>Hasil Evaluasi:</strong> Lihat rekapitulasi nilai pada menu 'Hasil Ujian' setelah ujian selesai.</li>
-                    </ol>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'pemberitahuan' && (
-              <div className="animate-fade-in-up">
-                <h2 className="text-3xl font-black text-slate-800 dark:text-white mb-6">Pemberitahuan Sistem</h2>
-                <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-xl p-8 border border-slate-100 dark:border-slate-700">
-                  <div className="flex flex-col items-center justify-center text-center space-y-4 text-slate-500 dark:text-slate-400 py-10">
-                    <span className="material-symbols-outlined text-6xl text-primary/50">notifications_active</span>
-                    <h3 className="text-xl font-bold text-slate-700 dark:text-slate-200">Belum Ada Pemberitahuan</h3>
-                    <p className="max-w-md">Saat ini tidak ada informasi atau pemberitahuan terbaru untuk Admin Sekolah. Semua informasi terkait sistem, pembaruan jadwal ujian, atau laporan sistem akan muncul di sini.</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* TAB CONTENT: DATA KELAS */}
-            {activeTab === 'kelas' && (
-              <div className="animate-fade-in-up">
-                {!selectedKelas ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-md">
-                    {dataKelas.map(kelasObj => (
-                      <div key={kelasObj.id_kelas} className="bg-surface dark:bg-slate-800 p-lg rounded-2xl border border-outline-variant dark:border-slate-700 shadow-sm relative transition-all hover:shadow-md hover:-translate-y-1 group">
-                        <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={(e) => { e.stopPropagation(); openEditModal('kelas', kelasObj); }} className="text-blue-500 hover:bg-blue-100 dark:hover:bg-slate-700 p-1.5 rounded-md transition-colors"><span className="material-symbols-outlined text-[18px]">edit</span></button>
-                          <button onClick={(e) => { e.stopPropagation(); handleDelete(kelasObj.id_kelas, 'kelas'); }} className="text-error hover:bg-error/10 dark:hover:bg-slate-700 p-1.5 rounded-md transition-colors"><span className="material-symbols-outlined text-[18px]">delete</span></button>
+                  <div className="space-y-3">
+                    {dataSiswa.slice(0, 10).map((s) => (
+                      <div key={s.id_siswa} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+                          <span className="material-symbols-outlined text-slate-500">person</span>
                         </div>
-                        <div onClick={() => setSelectedKelas(`${kelasObj.tingkat} ${kelasObj.kelas_paralel}`)} className="cursor-pointer h-full pt-2">
-                          <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-4"><span className="material-symbols-outlined">meeting_room</span></div>
-                          <h3 className="text-xl font-bold text-on-surface dark:text-white mb-1">Kelas {kelasObj.tingkat} {kelasObj.kelas_paralel}</h3>
-                          <p className="text-sm text-slate-500">{groupedClasses[`${kelasObj.tingkat} ${kelasObj.kelas_paralel}`]?.length || 0} Siswa</p>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-bold text-sm truncate">{s.nama_lengkap}</h4>
+                          <p className="text-xs text-slate-500 truncate">NIS: {s.id_siswa}</p>
                         </div>
                       </div>
                     ))}
-                    {dataKelas.length === 0 && !isLoading && <p className="text-slate-500">Belum ada data kelas. Silakan tambah kelas terlebih dahulu.</p>}
+                    {dataSiswa.length > 10 && <div className="text-center text-xs text-slate-500 mt-2">Buka versi desktop untuk melihat semua data.</div>}
                   </div>
-                ) : (
-                  <div>
-                    <button onClick={() => setSelectedKelas(null)} className="mb-4 flex items-center gap-2 text-primary hover:underline font-medium"><span className="material-symbols-outlined">arrow_back</span> Kembali ke Daftar Kelas</button>
-                    <div className="bg-surface dark:bg-slate-800 rounded-2xl border border-outline-variant dark:border-slate-700 overflow-hidden">
-                      <div className="p-4 border-b border-outline-variant dark:border-slate-700 font-bold">Data Siswa: Kelas {selectedKelas}</div>
-                      <div className="overflow-x-auto"><table className="w-full text-left whitespace-nowrap">
-                        <thead className="bg-surface-variant/30 dark:bg-slate-800/80">
-                          <tr><th className="py-3 px-4 font-semibold text-sm">ID</th><th className="py-3 px-4 font-semibold text-sm">Nama Lengkap</th><th className="py-3 px-4 font-semibold text-sm">Username</th></tr>
-                        </thead>
-                        <tbody>
-                          {groupedClasses[selectedKelas]?.length > 0 ? (
-                            groupedClasses[selectedKelas].map(s => (
-                              <tr key={s.id_siswa} className="border-t border-outline-variant/30 dark:border-slate-700">
-                                <td className="py-2 px-4">{s.id_siswa}</td><td className="py-2 px-4">{s.nama_lengkap}</td><td className="py-2 px-4">{s.username}</td>
-                              </tr>
-                            ))
-                          ) : (
-                            <tr><td colSpan="3" className="p-0"><EmptyState icon="group_off" title="Kelas Kosong" message="Belum ada siswa yang terdaftar di kelas ini." /></td></tr>
-                          )}
-                        </tbody>
-                      </table></div>
-                    </div>
+                </div>
+              )}
+
+              {activeTab === 'guru' && (
+                <div className="px-6 mt-6 animate-fade-in-up">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Data Guru</h3>
+                    <span className="text-sm font-medium text-primary bg-primary/10 px-2 py-1 rounded-lg">{dataGuru.length} Guru</span>
                   </div>
-                )}
-              </div>
-            )}
-
-            {/* TAB CONTENT: TABEL CRUD STANDARD */}
-            {['siswa', 'guru', 'mapel', 'jadwal'].includes(activeTab) && (
-              <div className="bg-surface dark:bg-slate-800 rounded-2xl border border-outline-variant dark:border-slate-700 shadow-sm overflow-hidden animate-fade-in-up overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[800px]">
-                  <thead className="bg-surface-variant/30 dark:bg-slate-800/80">
-                    <tr>
-                      {activeTab === 'siswa' && (<><th className="py-md px-md text-label-md font-semibold text-on-surface-variant dark:text-slate-400">ID Siswa</th><th className="py-md px-md font-semibold">Nama Lengkap</th><th className="py-md px-md font-semibold">Username</th><th className="py-md px-md font-semibold">Tingkat</th><th className="py-md px-md font-semibold">Paralel</th></>)}
-                      {activeTab === 'guru' && (<><th className="py-md px-md text-label-md font-semibold text-on-surface-variant dark:text-slate-400">ID Guru</th><th className="py-md px-md font-semibold">Nama Lengkap</th><th className="py-md px-md font-semibold">Username</th><th className="py-md px-md font-semibold">Mata Pelajaran</th></>)}
-                      {activeTab === 'mapel' && (<><th className="py-md px-md text-label-md font-semibold text-on-surface-variant dark:text-slate-400">ID Mapel</th><th className="py-md px-md font-semibold">Nama Mapel</th></>)}
-                      {activeTab === 'jadwal' && (<><th className="py-md px-md text-label-md font-semibold text-on-surface-variant dark:text-slate-400">ID Ujian</th><th className="py-md px-md font-semibold">Mapel</th><th className="py-md px-md font-semibold">Guru</th><th className="py-md px-md font-semibold">Waktu</th></>)}
-                      <th className="py-md px-md text-label-md font-semibold text-on-surface-variant dark:text-slate-400 text-right">Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-body-md divide-y divide-outline-variant/30 dark:divide-slate-700">
-                    {isLoading ? (<tr><td colSpan="6" className="py-xl text-center">Memuat data...</td></tr>) : (
-                      (activeTab === 'siswa' ? dataSiswa : activeTab === 'guru' ? dataGuru : activeTab === 'mapel' ? dataMapel : dataJadwal).length > 0 ? (
-                        (activeTab === 'siswa' ? dataSiswa : activeTab === 'guru' ? dataGuru : activeTab === 'mapel' ? dataMapel : dataJadwal).map((row) => (
-                          <tr key={row.id_jadwal || row.id_siswa || row.id_guru || row.id_mapel} className="hover:bg-surface-variant/20 dark:hover:bg-slate-800/50">
-                            {activeTab === 'siswa' && (<><td className="py-2 px-4">{row.id_siswa}</td><td className="py-2 px-4">{row.nama_lengkap}</td><td className="py-2 px-4">{row.username}</td><td className="py-2 px-4">{row.angkatan}</td><td className="py-2 px-4">{row.kelas_paralel}</td></>)}
-                            {activeTab === 'guru' && (<><td className="py-2 px-4">{row.id_guru}</td><td className="py-2 px-4">{row.nama_lengkap}</td><td className="py-2 px-4">{row.username}</td><td className="py-2 px-4 text-xs max-w-xs truncate">{row.mapels_list}</td></>)}
-                            {activeTab === 'mapel' && (<><td className="py-2 px-4">{row.id_mapel}</td><td className="py-2 px-4">{row.nama_mapel}</td></>)}
-                            {activeTab === 'jadwal' && (<><td className="py-2 px-4">{row.id_jadwal}</td><td className="py-2 px-4">{row.nama_mapel}</td><td className="py-2 px-4">{row.guru}</td><td className="py-2 px-4 text-sm">{new Date(row.waktu_mulai).toLocaleString('id-ID')} s.d {new Date(row.waktu_selesai).toLocaleString('id-ID')}</td></>)}
-                            <td className="py-2 px-4 text-right">
-                            {activeTab === 'siswa' && (
-                              <button onClick={() => handleResetLogin(row.id_siswa)} title="Reset Login Sesi" className="text-orange-500 hover:bg-orange-100 dark:hover:bg-slate-700 p-2 rounded-lg transition-colors mr-1">
-                                <span className="material-symbols-outlined text-[20px]">sync</span>
-                              </button>
-                            )}
-                            <button onClick={() => openEditModal(activeTab, row)} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded mr-2"><span className="material-symbols-outlined text-[20px]">edit</span></button>
-                              <button onClick={() => handleDelete(row.id_jadwal || row.id_siswa || row.id_guru || row.id_mapel, activeTab)} className="p-1.5 text-error hover:bg-error/20 rounded"><span className="material-symbols-outlined text-[20px]">delete</span></button>
-                            </td>
-                          </tr>
-                        ))
-                      ) : (<tr><td colSpan="6" className="py-xl text-center">Data kosong.</td></tr>)
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {/* TAB CONTENT: PENGUMUMAN & LOGS */}
-            {activeTab === 'pengumuman' && (
-              <div className="animate-fade-in-up">
-                <div className="bg-surface dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-outline-variant dark:border-slate-700 mb-6">
-                  <h3 className="font-bold text-lg mb-4 dark:text-white">Buat Pengumuman Baru</h3>
-                  <form onSubmit={async (e) => {
-                    e.preventDefault();
-                    const formData = new FormData(e.target);
-                    const payload = Object.fromEntries(formData.entries());
-                    const res = await api('create_pengumuman', payload);
-                    if (res.status === 'success') {
-                      alert('Pengumuman terkirim!');
-                      e.target.reset();
-                      fetchData('pengumuman');
-                      await api('create_audit_log', { username: user.username, role: 'admin', action: 'CREATE', target: `Pengumuman (${payload.judul})` });
-                    } else alert(res.message);
-                  }} className="space-y-4">
-                    <div>
-                      <input type="text" name="judul" required placeholder="Judul Pengumuman" className="w-full p-3 rounded-lg border dark:bg-slate-700 dark:border-slate-600 dark:text-white" />
-                    </div>
-                    <div>
-                      <textarea name="isi" required placeholder="Isi pesan pengumuman..." rows="3" className="w-full p-3 rounded-lg border dark:bg-slate-700 dark:border-slate-600 dark:text-white"></textarea>
-                    </div>
-                    <div className="flex gap-4 items-center justify-between">
-                      <select name="target_role" className="p-2 rounded border dark:bg-slate-700 dark:border-slate-600 dark:text-white" required>
-                        <option value="all">Semua (Guru & Siswa)</option>
-                        <option value="guru">Hanya Guru</option>
-                        <option value="siswa">Hanya Siswa</option>
-                      </select>
-                      <button type="submit" className="bg-primary text-white px-6 py-2 rounded-lg font-bold hover:bg-primary/90 flex gap-2 items-center"><span className="material-symbols-outlined">send</span> Kirim Broadcast</button>
-                    </div>
-                  </form>
+                  <div className="space-y-3">
+                    {dataGuru.slice(0, 10).map((g) => (
+                      <div key={g.id_guru} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+                          <span className="material-symbols-outlined text-slate-500">school</span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-bold text-sm truncate">{g.nama_lengkap}</h4>
+                          <p className="text-xs text-slate-500 truncate">NIP: {g.id_guru}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                
-                <h3 className="font-bold text-lg mb-4 dark:text-white">Riwayat Pengumuman</h3>
-                <div className="space-y-4">
-                  {dataPengumuman.map(p => (
-                    <div key={p.id_pengumuman} className="bg-surface dark:bg-slate-800 p-4 rounded-xl border border-outline-variant dark:border-slate-700 shadow-sm relative pr-12">
-                      <button onClick={() => handleDelete(p.id_pengumuman, 'pengumuman')} className="absolute top-4 right-4 text-error hover:bg-error/10 p-1.5 rounded"><span className="material-symbols-outlined">delete</span></button>
-                      <h4 className="font-bold text-on-surface dark:text-white">{p.judul}</h4>
-                      <p className="text-sm text-slate-500 mb-2">{new Date(p.created_at).toLocaleString('id-ID')} • Target: <span className="uppercase text-primary font-bold">{p.target_role}</span></p>
-                      <p className="text-on-surface-variant dark:text-slate-300">{p.isi}</p>
-                    </div>
-                  ))}
-                  {dataPengumuman.length === 0 && <p className="text-slate-500">Belum ada pengumuman.</p>}
-                </div>
-              </div>
-            )}
+              )}
 
-            {activeTab === 'logs' && (
-              <div className="animate-fade-in-up">
-                <div className="bg-surface dark:bg-slate-800 rounded-2xl border border-outline-variant dark:border-slate-700 overflow-hidden shadow-sm">
-                  <div className="overflow-x-auto"><table className="w-full text-left whitespace-nowrap">
-                    <thead className="bg-surface-variant/30 dark:bg-slate-800/80">
-                      <tr><th className="py-3 px-4 font-semibold text-sm">Waktu</th><th className="py-3 px-4 font-semibold text-sm">User</th><th className="py-3 px-4 font-semibold text-sm">Role</th><th className="py-3 px-4 font-semibold text-sm text-center">Action</th><th className="py-3 px-4 font-semibold text-sm">Target</th></tr>
-                    </thead>
-                    <tbody>
-                      {dataAudit.length > 0 ? dataAudit.map(log => (
-                        <tr key={log.id_audit} className="border-t border-outline-variant/30 dark:border-slate-700 hover:bg-surface-variant/10 dark:hover:bg-slate-800">
-                          <td className="py-2 px-4 text-sm text-slate-500">{new Date(log.created_at).toLocaleString('id-ID')}</td>
-                          <td className="py-2 px-4 font-bold">{log.username}</td>
-                          <td className="py-2 px-4 text-xs uppercase">{log.role}</td>
-                          <td className="py-2 px-4 text-center">
-                            <span className={`px-2 py-1 rounded text-xs font-bold ${log.action === 'CREATE' ? 'bg-green-100 text-green-700' : log.action === 'UPDATE' ? 'bg-blue-100 text-blue-700' : log.action === 'DELETE' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700'}`}>
-                              {log.action}
-                            </span>
-                          </td>
-                          <td className="py-2 px-4 text-sm">{log.target}</td>
-                        </tr>
-                      )) : <tr><td colSpan="5" className="p-6 text-center text-slate-500">Log sistem kosong.</td></tr>}
-                    </tbody>
-                  </table></div>
+              {activeTab === 'jadwal' && (
+                <div className="px-6 mt-6 animate-fade-in-up">
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Jadwal Ujian</h3>
+                  <div className="space-y-3">
+                    {dataJadwal.map((j) => (
+                      <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 flex flex-col gap-2">
+                         <div className="flex justify-between items-start">
+                           <h4 className="font-bold text-sm">{j.nama_mapel}</h4>
+                           <span className={px-2 py-0.5 rounded text-[10px] font-bold }>{j.status_ujian}</span>
+                         </div>
+                         <p className="text-xs text-slate-500">Token: <span className="font-mono font-bold text-slate-700">{j.token || '-'}</span></p>
+                      </div>
+                    ))}
+                    {dataJadwal.length === 0 && <div className="text-center text-sm text-slate-500">Tidak ada jadwal.</div>}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* TAB CONTENT: MONITORING & HASIL */}
-            {['monitoring', 'hasil'].includes(activeTab) && (
-              <div className="animate-fade-in-up">
-                <div className="flex gap-4 mb-6">
-                  <select onChange={(e) => setSelectedJadwal(e.target.value)} value={selectedJadwal || ''} className="p-2 border rounded-lg bg-surface dark:bg-slate-800 dark:border-slate-700 w-full max-w-md">
-                    <option value="">-- Pilih Jadwal Ujian --</option>
-                    {dataJadwal.map(j => <option key={j.id_jadwal} value={j.id_jadwal}>{j.id_jadwal} - {j.nama_mapel} ({j.guru})</option>)}
-                  </select>
-                  {activeTab === 'hasil' && selectedJadwal && (
-                    <div className="flex gap-2">
-                      <button onClick={exportToExcel} className="bg-[#10B981] hover:bg-[#059669] text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm">
-                        <span className="material-symbols-outlined">download</span> Export XLSX
+              {activeTab === 'pengumuman' && (
+                <div className="px-6 mt-6 animate-fade-in-up">
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Pengumuman Sekolah</h3>
+                  <div className="space-y-3">
+                    {dataPengumuman.map((p) => (
+                      <div key={p.id_pengumuman} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100">
+                         <h4 className="font-bold text-sm">{p.judul}</h4>
+                         <p className="text-[10px] text-slate-400 mb-2">{new Date(p.created_at).toLocaleDateString('id-ID')}</p>
+                         <p className="text-xs text-slate-600 line-clamp-2">{p.isi}</p>
+                      </div>
+                    ))}
+                    {dataPengumuman.length === 0 && <div className="text-center text-sm text-slate-500">Tidak ada pengumuman.</div>}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'akun' && (
+                <div className="px-6 mt-6 animate-fade-in-up flex flex-col items-center">
+                   <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center mb-4">
+                     <span className="material-symbols-outlined text-4xl text-primary">admin_panel_settings</span>
+                   </div>
+                   <h3 className="font-bold text-xl">{user.nama_lengkap}</h3>
+                   <p className="text-slate-500">{user.npsn}</p>
+                   
+                   <div className="w-full mt-8 space-y-3">
+                      <button onClick={() => setIsDarkMode(!isDarkMode)} className="w-full bg-white dark:bg-slate-800 p-4 rounded-2xl flex items-center justify-between shadow-sm">
+                        <div className="flex items-center gap-3">
+                          <span className="material-symbols-outlined text-slate-500">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
+                          <span className="font-bold text-slate-700 dark:text-slate-200">Mode Gelap</span>
+                        </div>
+                        <div className={w-10 h-6 rounded-full flex items-center p-1 }>
+                          <div className={w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform }></div>
+                        </div>
                       </button>
-                      <button onClick={openAnalisisSoal} className="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm">
-                        <span className="material-symbols-outlined">analytics</span> Analisis Soal
+                      <button onClick={onLogout} className="w-full bg-red-50 dark:bg-red-900/20 p-4 rounded-2xl flex items-center gap-3 shadow-sm text-red-500">
+                        <span className="material-symbols-outlined">logout</span>
+                        <span className="font-bold">Keluar</span>
                       </button>
-                    </div>
-                  )}
+                   </div>
                 </div>
+              )}
 
-                {selectedJadwal ? (
-                  <div className="bg-surface dark:bg-slate-800 rounded-2xl border border-outline-variant dark:border-slate-700 overflow-hidden overflow-x-auto shadow-sm">
-                    <table className="w-full text-left min-w-[800px]">
-                      <thead className="bg-surface-variant/30 dark:bg-slate-800/80">
-                        <tr>
-                          <th className="py-3 px-4 font-semibold text-sm">Siswa</th>
-                          {activeTab === 'hasil' && <th className="py-3 px-4 font-semibold text-sm">Kelas</th>}
-                          {activeTab === 'monitoring' && <th className="py-3 px-4 font-semibold text-sm">Status</th>}
-                          {activeTab === 'monitoring' && <th className="py-3 px-4 font-semibold text-sm text-center">Pelanggaran</th>}
-                          {activeTab === 'hasil' && <th className="py-3 px-4 font-semibold text-sm text-right">Nilai PG</th>}
-                          {activeTab === 'hasil' && <th className="py-3 px-4 font-semibold text-sm text-right">Nilai Uraian</th>}
-                          {activeTab === 'hasil' && <th className="py-3 px-4 font-semibold text-sm text-right">Total Nilai</th>}
-                          {activeTab === 'monitoring' && <th className="py-3 px-4 font-semibold text-sm text-right">Aksi</th>}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {dataLog.length > 0 ? dataLog.map(l => (
-                          <tr key={l.id_log} className="border-t border-outline-variant/30 dark:border-slate-700">
-                            <td className="py-2 px-4">
-                              <div className="font-bold">{l.nama_lengkap}</div>
-                              <div className="text-xs text-slate-500">{l.id_siswa}</div>
-                            </td>
-                            {activeTab === 'hasil' && <td className="py-2 px-4 text-sm">{l.angkatan} {l.kelas_paralel}</td>}
-                            {activeTab === 'monitoring' && (
-                              <td className="py-2 px-4">
-                                <span className={`px-2 py-1 rounded text-xs font-bold ${l.is_blocked ? 'bg-red-100 text-red-700' : l.status_ujian === 'SELESAI' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
-                                  {l.is_blocked ? 'DIBLOKIR' : l.status_ujian}
-                                </span>
-                              </td>
-                            )}
-                            {activeTab === 'monitoring' && <td className="py-2 px-4 text-center font-bold text-error">{l.pelanggaran || 0}</td>}
-
-                            {activeTab === 'hasil' && <td className="py-2 px-4 text-right font-medium">{l.nilai_auto}</td>}
-                            {activeTab === 'hasil' && <td className="py-2 px-4 text-right font-medium">{l.nilai_uraian}</td>}
-                            {activeTab === 'hasil' && <td className="py-2 px-4 text-right font-bold text-primary text-lg">{l.total_nilai}</td>}
-
-                            {activeTab === 'monitoring' && (
-                              <td className="py-2 px-4 text-right">
-                                {!l.is_blocked ? (
-                                  <button onClick={() => handleBlock(l.id_log)} className="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded text-xs font-bold">Blokir</button>
-                                ) : (
-                                  <button onClick={() => handleUnblock(l.id_log)} className="bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1 rounded text-xs font-bold">Buka Blokir</button>
-                                )}
-                              </td>
-                            )}
-                          </tr>
-                        )) : (
-                          <tr><td colSpan="8" className="p-8 text-center text-slate-500">Belum ada data log untuk jadwal ini.</td></tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="text-center p-12 bg-surface-variant/30 rounded-xl border border-dashed dark:border-slate-700">Silakan pilih jadwal ujian di atas.</div>
-                )}
-              </div>
-            )}
             </div>
-            {renderFormModal()}
-            {renderProfileModal()}
+
+            {/* Bottom Navigation */}
+            <div className="absolute bottom-0 left-0 w-full bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 py-3 flex justify-between items-center rounded-t-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] z-50">
+              <button onClick={() => setActiveTab('dashboard')} className={lex flex-col items-center transition-colors }>
+                <span className="material-symbols-outlined">dashboard</span>
+                <span className="text-[10px] font-bold mt-1">Dash</span>
+              </button>
+              <button onClick={() => setActiveTab('siswa')} className={lex flex-col items-center transition-colors }>
+                <span className="material-symbols-outlined">face</span>
+                <span className="text-[10px] font-bold mt-1">Siswa</span>
+              </button>
+              <button onClick={() => setActiveTab('guru')} className={lex flex-col items-center transition-colors }>
+                <span className="material-symbols-outlined">school</span>
+                <span className="text-[10px] font-bold mt-1">Guru</span>
+              </button>
+              <button onClick={() => setActiveTab('jadwal')} className={lex flex-col items-center transition-colors }>
+                <span className="material-symbols-outlined">event_note</span>
+                <span className="text-[10px] font-bold mt-1">Jadwal</span>
+              </button>
+              <button onClick={() => setActiveTab('akun')} className={lex flex-col items-center transition-colors }>
+                <span className="material-symbols-outlined">person</span>
+                <span className="text-[10px] font-bold mt-1">Akun</span>
+              </button>
+            </div>
+            
             {renderAnalisisModal()}
-          </main>
+            {renderProfileModal()}
+            
+            {formGuru.isOpen && (
+               <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
+                  <div className="bg-white rounded-xl p-6 w-full max-w-sm">
+                     <p className="text-center font-bold mb-4">Gunakan Desktop untuk fitur tambah data.</p>
+                     <button onClick={() => setFormGuru({isOpen:false})} className="w-full bg-slate-200 py-2 rounded-lg font-bold">Tutup</button>
+                  </div>
+               </div>
+            )}
+            {formSiswa.isOpen && (
+               <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
+                  <div className="bg-white rounded-xl p-6 w-full max-w-sm">
+                     <p className="text-center font-bold mb-4">Gunakan Desktop untuk fitur tambah data.</p>
+                     <button onClick={() => setFormSiswa({isOpen:false})} className="w-full bg-slate-200 py-2 rounded-lg font-bold">Tutup</button>
+                  </div>
+               </div>
+            )}
+            {formJadwal.isOpen && (
+               <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
+                  <div className="bg-white rounded-xl p-6 w-full max-w-sm">
+                     <p className="text-center font-bold mb-4">Gunakan Desktop untuk fitur tambah data.</p>
+                     <button onClick={() => setFormJadwal({isOpen:false})} className="w-full bg-slate-200 py-2 rounded-lg font-bold">Tutup</button>
+                  </div>
+               </div>
+            )}
+            {formPengumuman.isOpen && (
+               <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
+                  <div className="bg-white rounded-xl p-6 w-full max-w-sm">
+                     <p className="text-center font-bold mb-4">Gunakan Desktop untuk fitur tambah data.</p>
+                     <button onClick={() => setFormPengumuman({isOpen:false})} className="w-full bg-slate-200 py-2 rounded-lg font-bold">Tutup</button>
+                  </div>
+               </div>
+            )}
+          </div>
         </div>
       );
     };
+
+    export default AdminView;
