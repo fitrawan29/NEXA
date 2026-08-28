@@ -1,4 +1,4 @@
-    class ErrorBoundary extends React.Component { 
+﻿    class ErrorBoundary extends React.Component { 
       constructor(props) { super(props); this.state = { hasError: false, error: null }; } 
       static getDerivedStateFromError(error) { return { hasError: true, error }; } 
       componentDidCatch(error, errorInfo) { console.error('ErrorBoundary caught error', error, errorInfo); } 
@@ -20,12 +20,24 @@
       const [password, setPassword] = useState('');
       const [showPassword, setShowPassword] = useState(false);
       const [rememberMe, setRememberMe] = useState(false);
+      const [loginError, setLoginError] = useState('');
+      const [loginSuccess, setLoginSuccess] = useState(false);
+      const [isOnline, setIsOnline] = useState(navigator.onLine);
+      const [isDarkMode, setIsDarkMode] = useState(false);
+      const [capsLockActive, setCapsLockActive] = useState(false);
+
+      const [loginRole, setLoginRole] = useState('');
+      const [registerRole, setRegisterRole] = useState('');
+      const [regName, setRegName] = useState('');
+      const [regUsername, setRegUsername] = useState('');
+      const [regNip, setRegNip] = useState('');
+      const [regNisn, setRegNisn] = useState('');
+      const [regPassword, setRegPassword] = useState('');
 
       const quotes = [
         { text: "Pendidikan adalah senjata paling mematikan di dunia, karena dengan pendidikan, Anda dapat mengubah dunia.", author: "Nelson Mandela" },
         { text: "Hiduplah seolah engkau mati besok. Belajarlah seolah engkau hidup selamanya.", author: "Mahatma Gandhi" },
-        { text: "Pendidikan bukan sekadar mengisi wadah, melainkan menyalakan api.", author: "William Butler Yeats" },
-        { text: "Tujuan pendidikan itu untuk mempertajam kecerdasan, memperkukuh kemauan serta memperhalus perasaan.", author: "Tan Malaka" }
+        { text: "Pendidikan bukan sekadar mengisi wadah, melainkan menyalakan api.", author: "William Butler Yeats" },{ text: "Tujuan pendidikan itu untuk mempertajam kecerdasan, memperkukuh kemauan serta memperhalus perasaan.", author: "Tan Malaka" }
       ];
       const [quoteIndex, setQuoteIndex] = useState(0);
 
@@ -175,7 +187,7 @@
                       {!isRegistering ? (
                         <>
                           <div className="mb-6 text-center">
-                            <h3 className="font-bold text-xl text-slate-800 dark:text-white">Selamat Datang 👋</h3>
+                            <h3 className="font-bold text-xl text-slate-800 dark:text-white">Selamat Datang ðŸ‘‹</h3>
                             <p className="text-sm text-slate-500 mt-1">Silakan masuk untuk melanjutkan</p>
                           </div>
                           
@@ -411,3 +423,4 @@
         <App />
       </ErrorBoundary>
     );
+
