@@ -562,11 +562,12 @@
                   <div>
                     <h2 className="font-bold text-lg leading-tight">Admin Sekolah</h2>
                     <p className="text-sm font-medium opacity-90">{user.nama_lengkap}</p>
-                    <p className="text-xs opacity-80">NPSN : {user.npsn}</p>
+                    <p className="text-xs opacity-80">NPSN: {user.npsn}</p>
                   </div>
                 </div>
                 <button className="relative">
                   <span className="material-symbols-outlined text-2xl">notifications</span>
+                  <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
                 </button>
               </div>
             </div>
@@ -576,7 +577,7 @@
               <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-4 grid grid-cols-3 gap-2">
                 <div className="flex flex-col items-center justify-center text-center">
                   <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center mb-1">
-                    <span className="material-symbols-outlined text-green-500">face</span>
+                    <span className="material-symbols-outlined text-green-500">school</span>
                   </div>
                   <span className="text-xl font-bold text-green-500">{dataSiswa.length}</span>
                   <span className="text-[10px] text-slate-500 font-medium">Siswa</span>
@@ -584,7 +585,7 @@
                 </div>
                 <div className="flex flex-col items-center justify-center text-center border-x border-slate-100 dark:border-slate-700">
                   <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center mb-1">
-                    <span className="material-symbols-outlined text-blue-500">school</span>
+                    <span className="material-symbols-outlined text-blue-500">local_library</span>
                   </div>
                   <span className="text-xl font-bold text-blue-500">{dataGuru.length}</span>
                   <span className="text-[10px] text-slate-500 font-medium">Guru</span>
@@ -592,11 +593,11 @@
                 </div>
                 <div className="flex flex-col items-center justify-center text-center">
                   <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center mb-1">
-                    <span className="material-symbols-outlined text-purple-500">campaign</span>
+                    <span className="material-symbols-outlined text-purple-500">event_note</span>
                   </div>
-                  <span className="text-xl font-bold text-purple-500">{dataPengumuman.length}</span>
-                  <span className="text-[10px] text-slate-500 font-medium">Pengumuman</span>
-                  <span className="text-[10px] text-slate-400">Aktif</span>
+                  <span className="text-xl font-bold text-purple-500">{dataJadwal.length}</span>
+                  <span className="text-[10px] text-slate-500 font-medium">Jadwal</span>
+                  <span className="text-[10px] text-slate-400">Ujian</span>
                 </div>
               </div>
             </div>
@@ -606,21 +607,20 @@
               
               {activeTab === 'dashboard' && (
                 <div className="px-6 mt-6 animate-fade-in-up">
-                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Dashboard Admin</h3>
-                  <p className="text-sm text-slate-500 mb-6">Kelola data sekolah dengan mudah melalui menu di bawah ini. Untuk manajemen yang lebih kompleks, gunakan versi desktop.</p>
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Akses Cepat</h3>
                   
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-4 mb-8">
                      <button onClick={() => setActiveTab('siswa')} className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2">
                         <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-                          <span className="material-symbols-outlined text-green-500">face</span>
+                          <span className="material-symbols-outlined text-green-500">school</span>
                         </div>
-                        <span className="font-bold text-sm">Data Siswa</span>
+                        <span className="font-bold text-sm">Kelola Siswa</span>
                      </button>
                      <button onClick={() => setActiveTab('guru')} className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2">
                         <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-                          <span className="material-symbols-outlined text-blue-500">school</span>
+                          <span className="material-symbols-outlined text-blue-500">local_library</span>
                         </div>
-                        <span className="font-bold text-sm">Data Guru</span>
+                        <span className="font-bold text-sm">Kelola Guru</span>
                      </button>
                      <button onClick={() => setActiveTab('jadwal')} className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2">
                         <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
@@ -628,12 +628,27 @@
                         </div>
                         <span className="font-bold text-sm">Jadwal Ujian</span>
                      </button>
-                     <button onClick={() => setActiveTab('pengumuman')} className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2">
+                     <button onClick={() => setFormModal({ type: 'SEKOLAH' })} className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2">
                         <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center">
-                          <span className="material-symbols-outlined text-orange-500">campaign</span>
+                          <span className="material-symbols-outlined text-orange-500">account_balance</span>
                         </div>
-                        <span className="font-bold text-sm">Pengumuman</span>
+                        <span className="font-bold text-sm">Info Sekolah</span>
                      </button>
+                  </div>
+
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Jadwal Aktif</h3>
+                  <div className="space-y-3">
+                    {dataJadwal.filter(j => j.status_ujian === 'AKTIF').slice(0, 2).map((j) => (
+                      <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 border-l-4 border-l-primary flex items-center gap-3">
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-bold text-sm truncate">{j.nama_mapel}</h4>
+                          <p className="text-xs text-slate-500 truncate">{new Date(j.waktu_mulai).toLocaleDateString('id-ID')} | {j.token || 'Menunggu Token'}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {dataJadwal.filter(j => j.status_ujian === 'AKTIF').length === 0 && (
+                      <div className="text-center text-sm text-slate-500 py-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl">Tidak ada ujian aktif saat ini.</div>
+                    )}
                   </div>
                 </div>
               )}
@@ -646,13 +661,13 @@
                   </div>
                   <div className="space-y-3">
                     {dataSiswa.slice(0, 10).map((s) => (
-                      <div key={s.id_siswa} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
-                          <span className="material-symbols-outlined text-slate-500">person</span>
+                      <div key={s.id_user} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0">
+                          <span className="material-symbols-outlined text-green-500">school</span>
                         </div>
                         <div className="min-w-0 flex-1">
                           <h4 className="font-bold text-sm truncate">{s.nama_lengkap}</h4>
-                          <p className="text-xs text-slate-500 truncate">NIS: {s.id_siswa}</p>
+                          <p className="text-xs text-slate-500 truncate">NISN: {s.nisn} | Kls: {s.kelas || '-'}</p>
                         </div>
                       </div>
                     ))}
@@ -669,13 +684,13 @@
                   </div>
                   <div className="space-y-3">
                     {dataGuru.slice(0, 10).map((g) => (
-                      <div key={g.id_guru} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
-                          <span className="material-symbols-outlined text-slate-500">school</span>
+                      <div key={g.id_user} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
+                          <span className="material-symbols-outlined text-blue-500">local_library</span>
                         </div>
                         <div className="min-w-0 flex-1">
                           <h4 className="font-bold text-sm truncate">{g.nama_lengkap}</h4>
-                          <p className="text-xs text-slate-500 truncate">NIP: {g.id_guru}</p>
+                          <p className="text-xs text-slate-500 truncate">NIP: {g.nip || '-'}</p>
                         </div>
                       </div>
                     ))}
@@ -685,34 +700,20 @@
 
               {activeTab === 'jadwal' && (
                 <div className="px-6 mt-6 animate-fade-in-up">
-                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Jadwal Ujian</h3>
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Semua Jadwal Ujian</h3>
+                  </div>
                   <div className="space-y-3">
                     {dataJadwal.map((j) => (
-                      <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 flex flex-col gap-2">
+                      <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100">
                          <div className="flex justify-between items-start">
                            <h4 className="font-bold text-sm">{j.nama_mapel}</h4>
-                           <span className={px-2 py-0.5 rounded text-[10px] font-bold }>{j.status_ujian}</span>
+                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${j.status_ujian === 'AKTIF' ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-600'}`}>{j.status_ujian}</span>
                          </div>
                          <p className="text-xs text-slate-500">Token: <span className="font-mono font-bold text-slate-700">{j.token || '-'}</span></p>
                       </div>
                     ))}
                     {dataJadwal.length === 0 && <div className="text-center text-sm text-slate-500">Tidak ada jadwal.</div>}
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'pengumuman' && (
-                <div className="px-6 mt-6 animate-fade-in-up">
-                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Pengumuman Sekolah</h3>
-                  <div className="space-y-3">
-                    {dataPengumuman.map((p) => (
-                      <div key={p.id_pengumuman} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100">
-                         <h4 className="font-bold text-sm">{p.judul}</h4>
-                         <p className="text-[10px] text-slate-400 mb-2">{new Date(p.created_at).toLocaleDateString('id-ID')}</p>
-                         <p className="text-xs text-slate-600 line-clamp-2">{p.isi}</p>
-                      </div>
-                    ))}
-                    {dataPengumuman.length === 0 && <div className="text-center text-sm text-slate-500">Tidak ada pengumuman.</div>}
                   </div>
                 </div>
               )}
@@ -723,7 +724,7 @@
                      <span className="material-symbols-outlined text-4xl text-primary">admin_panel_settings</span>
                    </div>
                    <h3 className="font-bold text-xl">{user.nama_lengkap}</h3>
-                   <p className="text-slate-500">{user.npsn}</p>
+                   <p className="text-slate-500">Admin Sekolah | NPSN: {user.npsn}</p>
                    
                    <div className="w-full mt-8 space-y-3">
                       <button onClick={() => setIsDarkMode(!isDarkMode)} className="w-full bg-white dark:bg-slate-800 p-4 rounded-2xl flex items-center justify-between shadow-sm">
@@ -731,8 +732,8 @@
                           <span className="material-symbols-outlined text-slate-500">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
                           <span className="font-bold text-slate-700 dark:text-slate-200">Mode Gelap</span>
                         </div>
-                        <div className={w-10 h-6 rounded-full flex items-center p-1 }>
-                          <div className={w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform }></div>
+                        <div className={`w-10 h-6 rounded-full flex items-center p-1 ${isDarkMode ? 'bg-primary' : 'bg-slate-300'}`}>
+                          <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform ${isDarkMode ? 'translate-x-4' : ''}`}></div>
                         </div>
                       </button>
                       <button onClick={onLogout} className="w-full bg-red-50 dark:bg-red-900/20 p-4 rounded-2xl flex items-center gap-3 shadow-sm text-red-500">
@@ -747,63 +748,29 @@
 
             {/* Bottom Navigation */}
             <div className="absolute bottom-0 left-0 w-full bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 py-3 flex justify-between items-center rounded-t-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] z-50">
-              <button onClick={() => setActiveTab('dashboard')} className={lex flex-col items-center transition-colors }>
-                <span className="material-symbols-outlined">dashboard</span>
-                <span className="text-[10px] font-bold mt-1">Dash</span>
+              <button onClick={() => setActiveTab('dashboard')} className={`flex flex-col items-center transition-colors ${activeTab === 'dashboard' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
+                <span className="material-symbols-outlined">home</span>
+                <span className="text-[10px] font-bold mt-1">Beranda</span>
               </button>
-              <button onClick={() => setActiveTab('siswa')} className={lex flex-col items-center transition-colors }>
-                <span className="material-symbols-outlined">face</span>
+              <button onClick={() => setActiveTab('siswa')} className={`flex flex-col items-center transition-colors ${activeTab === 'siswa' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
+                <span className="material-symbols-outlined">school</span>
                 <span className="text-[10px] font-bold mt-1">Siswa</span>
               </button>
-              <button onClick={() => setActiveTab('guru')} className={lex flex-col items-center transition-colors }>
-                <span className="material-symbols-outlined">school</span>
+              <button onClick={() => setActiveTab('guru')} className={`flex flex-col items-center transition-colors ${activeTab === 'guru' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
+                <span className="material-symbols-outlined">local_library</span>
                 <span className="text-[10px] font-bold mt-1">Guru</span>
               </button>
-              <button onClick={() => setActiveTab('jadwal')} className={lex flex-col items-center transition-colors }>
+              <button onClick={() => setActiveTab('jadwal')} className={`flex flex-col items-center transition-colors ${activeTab === 'jadwal' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
                 <span className="material-symbols-outlined">event_note</span>
                 <span className="text-[10px] font-bold mt-1">Jadwal</span>
               </button>
-              <button onClick={() => setActiveTab('akun')} className={lex flex-col items-center transition-colors }>
+              <button onClick={() => setActiveTab('akun')} className={`flex flex-col items-center transition-colors ${activeTab === 'akun' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
                 <span className="material-symbols-outlined">person</span>
                 <span className="text-[10px] font-bold mt-1">Akun</span>
               </button>
             </div>
-            
-            {renderAnalisisModal()}
-            {renderProfileModal()}
-            
-            {formGuru.isOpen && (
-               <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
-                  <div className="bg-white rounded-xl p-6 w-full max-w-sm">
-                     <p className="text-center font-bold mb-4">Gunakan Desktop untuk fitur tambah data.</p>
-                     <button onClick={() => setFormGuru({isOpen:false})} className="w-full bg-slate-200 py-2 rounded-lg font-bold">Tutup</button>
-                  </div>
-               </div>
-            )}
-            {formSiswa.isOpen && (
-               <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
-                  <div className="bg-white rounded-xl p-6 w-full max-w-sm">
-                     <p className="text-center font-bold mb-4">Gunakan Desktop untuk fitur tambah data.</p>
-                     <button onClick={() => setFormSiswa({isOpen:false})} className="w-full bg-slate-200 py-2 rounded-lg font-bold">Tutup</button>
-                  </div>
-               </div>
-            )}
-            {formJadwal.isOpen && (
-               <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
-                  <div className="bg-white rounded-xl p-6 w-full max-w-sm">
-                     <p className="text-center font-bold mb-4">Gunakan Desktop untuk fitur tambah data.</p>
-                     <button onClick={() => setFormJadwal({isOpen:false})} className="w-full bg-slate-200 py-2 rounded-lg font-bold">Tutup</button>
-                  </div>
-               </div>
-            )}
-            {formPengumuman.isOpen && (
-               <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
-                  <div className="bg-white rounded-xl p-6 w-full max-w-sm">
-                     <p className="text-center font-bold mb-4">Gunakan Desktop untuk fitur tambah data.</p>
-                     <button onClick={() => setFormPengumuman({isOpen:false})} className="w-full bg-slate-200 py-2 rounded-lg font-bold">Tutup</button>
-                  </div>
-               </div>
-            )}
+
+            {renderFormModal()}
           </div>
         </div>
       );

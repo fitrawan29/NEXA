@@ -351,8 +351,8 @@
                           <span className="material-symbols-outlined text-slate-500">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
                           <span className="font-bold text-slate-700 dark:text-slate-200">Mode Gelap</span>
                         </div>
-                        <div className={w-10 h-6 rounded-full flex items-center p-1 }>
-                          <div className={w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform }></div>
+                        <div className={`w-10 h-6 rounded-full flex items-center p-1 ${isDarkMode ? 'bg-primary' : 'bg-slate-300'}`}>
+                          <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform ${isDarkMode ? 'translate-x-4' : ''}`}></div>
                         </div>
                       </button>
                       <button onClick={onLogout} className="w-full bg-red-50 dark:bg-red-900/20 p-4 rounded-2xl flex items-center gap-3 shadow-sm text-red-500">
@@ -367,23 +367,23 @@
 
             {/* Bottom Navigation */}
             <div className="absolute bottom-0 left-0 w-full bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 py-3 flex justify-between items-center rounded-t-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] z-50">
-              <button onClick={() => setActiveTab('analytics')} className={lex flex-col items-center transition-colors }>
+              <button onClick={() => setActiveTab('analytics')} className={`flex flex-col items-center transition-colors ${activeTab === 'analytics' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
                 <span className="material-symbols-outlined">analytics</span>
                 <span className="text-[10px] font-bold mt-1">Analytics</span>
               </button>
-              <button onClick={() => setActiveTab('sekolah')} className={lex flex-col items-center transition-colors }>
+              <button onClick={() => setActiveTab('sekolah')} className={`flex flex-col items-center transition-colors ${activeTab === 'sekolah' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
                 <span className="material-symbols-outlined">account_balance</span>
                 <span className="text-[10px] font-bold mt-1">Sekolah</span>
               </button>
-              <button onClick={() => setActiveTab('admin')} className={lex flex-col items-center transition-colors }>
+              <button onClick={() => setActiveTab('admin')} className={`flex flex-col items-center transition-colors ${activeTab === 'admin' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
                 <span className="material-symbols-outlined">manage_accounts</span>
                 <span className="text-[10px] font-bold mt-1">Admin</span>
               </button>
-              <button onClick={() => setActiveTab('pengumuman')} className={lex flex-col items-center transition-colors }>
+              <button onClick={() => setActiveTab('pengumuman')} className={`flex flex-col items-center transition-colors ${activeTab === 'pengumuman' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
                 <span className="material-symbols-outlined">campaign</span>
                 <span className="text-[10px] font-bold mt-1">Informasi</span>
               </button>
-              <button onClick={() => setActiveTab('akun')} className={lex flex-col items-center transition-colors }>
+              <button onClick={() => setActiveTab('akun')} className={`flex flex-col items-center transition-colors ${activeTab === 'akun' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
                 <span className="material-symbols-outlined">person</span>
                 <span className="text-[10px] font-bold mt-1">Akun</span>
               </button>

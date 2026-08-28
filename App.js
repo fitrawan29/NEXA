@@ -259,7 +259,7 @@
                                <button type="button" onClick={handleLupaPassword} className="font-bold text-primary">Lupa Password?</button>
                              </div>
 
-                             <button disabled={loading || loginSuccess} className={w-full py-3 rounded-xl font-bold text-white transition-all shadow-md mt-2 flex justify-center items-center gap-2 } type="submit">
+                             <button disabled={loading || loginSuccess} className={`w-full py-3 rounded-xl font-bold text-white transition-all shadow-md mt-2 flex justify-center items-center gap-2 ${loginSuccess ? 'bg-green-500' : 'bg-[#3ecf8e] hover:bg-[#3ecf8e]/90'}`} type="submit">
                                {loading ? (
                                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                                ) : loginSuccess ? (
@@ -351,10 +351,10 @@
                    
                    {/* Online Indicator & Footer */}
                    <div className="mt-8 flex flex-col items-center justify-center gap-2 pb-4">
-                     <div className={lex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold }>
-                        <span className={elative flex h-2 w-2}>
+                     <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold ${isOnline ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                        <span className={`relative flex h-2 w-2`}>
                           {isOnline && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>}
-                          <span className={elative inline-flex rounded-full h-2 w-2 }></span>
+                          <span className={`relative inline-flex rounded-full h-2 w-2 ${isOnline ? 'bg-green-500' : 'bg-red-500'}`}></span>
                         </span>
                         {isOnline ? 'Sistem Online' : 'Koneksi Offline'}
                      </div>
@@ -367,35 +367,5 @@
               </div>
             </div>
           );
-        }
 
         switch (user.role) {
-          case 'super_admin': return <ErrorBoundary><SuperAdminView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></ErrorBoundary>;
-          case 'admin': return <ErrorBoundary><AdminView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></ErrorBoundary>;
-          case 'guru': return <ErrorBoundary><GuruView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></ErrorBoundary>;
-          case 'siswa': return <ErrorBoundary><SiswaView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></ErrorBoundary>;
-          default: return <div className="p-8 text-center text-red-600 font-bold bg-white h-screen">Role tidak valid!</div>;
-        }
-      };
-
-      return (
-        <React.Fragment>
-          {renderView()}
-          <Modal
-            isOpen={modal.isOpen}
-            title={modal.title}
-            message={modal.message}
-            type={modal.type}
-            onClose={() => setModal({ ...modal, isOpen: false })}
-          />
-        </React.Fragment>
-      );
-    };
-
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(
-      <ErrorBoundary>
-        <App />
-      </ErrorBoundary>
-    );
-

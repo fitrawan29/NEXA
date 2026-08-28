@@ -400,17 +400,17 @@
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-3">
                   <div className="w-14 h-14 bg-white/20 rounded-full border-2 border-white/50 overflow-hidden flex-shrink-0 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-white text-3xl">school</span>
+                    <span className="material-symbols-outlined text-white text-3xl">local_library</span>
                   </div>
                   <div>
-                    <h2 className="font-bold text-lg leading-tight">Guru</h2>
+                    <h2 className="font-bold text-lg leading-tight">Portal Guru</h2>
                     <p className="text-sm font-medium opacity-90">{user.nama_lengkap}</p>
-                    <p className="text-xs opacity-80">NIP : {user.id_user}</p>
+                    <p className="text-xs opacity-80">NIP: {user.nip || '-'}</p>
                   </div>
                 </div>
                 <button className="relative">
                   <span className="material-symbols-outlined text-2xl">notifications</span>
-                  {hasNotification && <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 border-2 border-[#3ecf8e] rounded-full"></span>}
+                  <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
                 </button>
               </div>
             </div>
@@ -420,27 +420,27 @@
               <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-4 grid grid-cols-3 gap-2">
                 <div className="flex flex-col items-center justify-center text-center">
                   <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center mb-1">
-                    <span className="material-symbols-outlined text-green-500">groups</span>
+                    <span className="material-symbols-outlined text-green-500">event_note</span>
                   </div>
                   <span className="text-xl font-bold text-green-500">{dataJadwal.length}</span>
                   <span className="text-[10px] text-slate-500 font-medium">Jadwal</span>
-                  <span className="text-[10px] text-slate-400">Aktif</span>
+                  <span className="text-[10px] text-slate-400">Total</span>
                 </div>
                 <div className="flex flex-col items-center justify-center text-center border-x border-slate-100 dark:border-slate-700">
                   <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center mb-1">
-                    <span className="material-symbols-outlined text-blue-500">assignment</span>
+                    <span className="material-symbols-outlined text-blue-500">task_alt</span>
                   </div>
-                  <span className="text-xl font-bold text-blue-500">{dataMapel.length || 0}</span>
-                  <span className="text-[10px] text-slate-500 font-medium">Bank Soal</span>
-                  <span className="text-[10px] text-slate-400">Tersedia</span>
+                  <span className="text-xl font-bold text-blue-500">{dataJadwal.filter(j => j.status_ujian === 'SELESAI').length}</span>
+                  <span className="text-[10px] text-slate-500 font-medium">Selesai</span>
+                  <span className="text-[10px] text-slate-400">Ujian</span>
                 </div>
                 <div className="flex flex-col items-center justify-center text-center">
                   <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center mb-1">
                     <span className="material-symbols-outlined text-purple-500">analytics</span>
                   </div>
-                  <span className="text-xl font-bold text-purple-500">{dataLog.length || 0}</span>
-                  <span className="text-[10px] text-slate-500 font-medium">Hasil</span>
-                  <span className="text-[10px] text-slate-400">Ujian</span>
+                  <span className="text-xl font-bold text-purple-500">{(dataJadwal.reduce((acc, curr) => acc + (curr.peserta?.length || 0), 0) / (dataJadwal.length || 1)).toFixed(0)}</span>
+                  <span className="text-[10px] text-slate-500 font-medium">Avg</span>
+                  <span className="text-[10px] text-slate-400">Peserta</span>
                 </div>
               </div>
             </div>
@@ -451,142 +451,135 @@
               {activeTab === 'jadwal' && (
                 <div className="px-6 mt-6 animate-fade-in-up">
                   <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Jadwal Ujian</h3>
-                    <button onClick={fetchData} className="text-sm font-medium text-primary flex items-center gap-1"><span className="material-symbols-outlined text-[16px]">refresh</span> Refresh</button>
+                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Jadwal Mengawas</h3>
                   </div>
-                  <div className="space-y-3">
-                      {dataJadwal.length === 0 ? (
-                        <div className="text-center text-slate-500 text-sm py-4">Tidak ada jadwal ujian saat ini.</div>
-                      ) : (
-                        dataJadwal.map((j, index) => {
-                          let statusBtnClass = "bg-primary text-white";
-                          let statusText = "Aktif";
-                          if (j.status_ujian === 'SELESAI') {
-                            statusBtnClass = "bg-slate-400 text-white cursor-not-allowed";
-                            statusText = "Selesai";
-                          } else {
-                            statusBtnClass = "bg-green-500 text-white";
-                            statusText = "Aktif";
-                          }
-                          
-                          let iconClass = "text-primary bg-primary/10";
-                          let iconName = "computer";
-                          if (index % 3 === 1) { iconClass = "text-red-500 bg-red-500/10"; iconName = "menu_book"; }
-                          if (index % 3 === 2) { iconClass = "text-blue-500 bg-blue-500/10"; iconName = "language"; }
-
-                          return (
-                            <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center justify-between gap-3">
-                              <div className="flex items-center gap-3 flex-1 min-w-0">
-                                <div className={w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 }>
-                                  <span className="material-symbols-outlined">{iconName}</span>
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <h4 className="font-bold text-slate-800 dark:text-slate-100 text-sm truncate">{j.nama_mapel}</h4>
-                                  <p className="text-xs text-slate-500 truncate">{new Date(j.waktu_mulai).toLocaleDateString('id-ID')}</p>
-                                </div>
+                  <div className="space-y-4">
+                    {dataJadwal.map((j) => {
+                       const isSelesai = j.status_ujian === 'SELESAI';
+                       const isAktif = j.status_ujian === 'AKTIF';
+                       const iconName = isAktif ? 'play_circle' : isSelesai ? 'check_circle' : 'schedule';
+                       
+                       return (
+                          <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${isAktif ? 'bg-green-100 text-green-500' : isSelesai ? 'bg-slate-100 text-slate-400' : 'bg-orange-100 text-orange-500'}`}>
+                                <span className="material-symbols-outlined">{iconName}</span>
                               </div>
-                              <div className="flex flex-col items-end flex-shrink-0">
-                                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
-                                  {new Date(j.waktu_mulai).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {new Date(j.waktu_selesai).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                </span>
-                                <span className={px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider }>
-                                  {statusText}
-                                </span>
+                              <div className="min-w-0 flex-1">
+                                <h4 className={`font-bold text-sm truncate ${isSelesai ? 'text-slate-500' : 'text-slate-800 dark:text-slate-100'}`}>{j.nama_mapel}</h4>
+                                <p className="text-xs text-slate-500 truncate">{new Date(j.waktu_mulai).toLocaleDateString('id-ID')} - {j.kelas.join(', ')}</p>
                               </div>
                             </div>
-                          );
-                        })
-                      )}
+                            <div className="flex flex-col items-end gap-1">
+                               <span className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${isAktif ? 'bg-green-500 text-white shadow-md shadow-green-500/20' : isSelesai ? 'bg-slate-100 text-slate-500' : 'bg-orange-100 text-orange-600'}`}>
+                                 {j.status_ujian}
+                               </span>
+                               {j.token && <span className="text-[10px] font-mono text-slate-400 font-bold">#{j.token}</span>}
+                            </div>
+                          </div>
+                       );
+                    })}
+                    {dataJadwal.length === 0 && <div className="text-center text-sm text-slate-500 py-8">Belum ada jadwal mengawas.</div>}
                   </div>
                 </div>
               )}
 
               {activeTab === 'monitoring' && (
                 <div className="px-6 mt-6 animate-fade-in-up">
-                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Monitoring Ujian</h3>
-                  <p className="text-sm text-slate-500 mb-4">Gunakan versi desktop untuk memantau ujian secara detail.</p>
-                  <select className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 mb-4 text-sm font-bold text-slate-700" value={selectedJadwal || ''} onChange={(e) => setSelectedJadwal(e.target.value)}>
-                    <option value="">-- Pilih Jadwal --</option>
-                    {dataJadwal.map(j => (
-                      <option key={j.id_jadwal} value={j.id_jadwal}>{j.nama_mapel}</option>
-                    ))}
-                  </select>
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-2">Monitoring Ujian</h3>
+                  <p className="text-xs text-slate-500 mb-4">Pilih jadwal ujian aktif untuk memantau status siswa yang sedang mengerjakan ujian secara real-time.</p>
                   
-                  {selectedJadwal && (
-                     <div className="space-y-3">
-                        {dataLog.map((log) => (
-                          <div key={log.id_log} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                  <div className="space-y-4">
+                    {dataJadwal.filter(j => j.status_ujian === 'AKTIF').map((j) => (
+                       <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-primary/20 relative overflow-hidden">
+                          <div className="absolute top-0 left-0 w-1 h-full bg-primary"></div>
+                          <div className="flex justify-between items-start mb-4">
                             <div>
-                               <h4 className="font-bold text-sm">{log.siswa?.nama_lengkap}</h4>
-                               <p className="text-xs text-slate-500">{log.siswa?.id_siswa}</p>
+                              <h4 className="font-bold text-slate-800 dark:text-slate-100 text-base">{j.nama_mapel}</h4>
+                              <p className="text-xs text-slate-500">{j.kelas.join(', ')} | Token: <strong className="text-primary font-mono">{j.token}</strong></p>
                             </div>
-                            <div className={px-3 py-1 rounded-full text-[10px] font-bold uppercase }>
-                               {log.status}
+                            <div className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-primary/10 text-primary flex items-center gap-1`}>
+                              <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                              </span>
+                              LIVE
                             </div>
                           </div>
-                        ))}
-                        {dataLog.length === 0 && <div className="text-center text-sm text-slate-500">Belum ada siswa yang mengerjakan.</div>}
-                     </div>
-                  )}
+                          <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-3 flex justify-between items-center mb-4">
+                             <div className="text-center flex-1">
+                                <span className="block text-xl font-bold text-slate-700 dark:text-slate-200">{j.peserta?.length || 0}</span>
+                                <span className="text-[10px] text-slate-500">Total Peserta</span>
+                             </div>
+                             <div className="w-px h-8 bg-slate-200 dark:bg-slate-700"></div>
+                             <div className="text-center flex-1">
+                                <span className="block text-xl font-bold text-green-500">{j.peserta?.filter(p => p.status === 'SELESAI').length || 0}</span>
+                                <span className="text-[10px] text-slate-500">Selesai</span>
+                             </div>
+                          </div>
+                          <button onClick={() => setSelectedJadwal(j)} className="w-full py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 transition-colors flex justify-center items-center gap-1">
+                             Detail Monitoring <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                          </button>
+                       </div>
+                    ))}
+                    {dataJadwal.filter(j => j.status_ujian === 'AKTIF').length === 0 && (
+                      <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-900/50 rounded-2xl p-6 text-center">
+                        <span className="material-symbols-outlined text-orange-400 text-4xl mb-2">monitoring</span>
+                        <p className="text-sm font-bold text-orange-600 dark:text-orange-400">Tidak Ada Ujian Aktif</p>
+                        <p className="text-xs text-orange-500/80 mt-1">Ujian aktif akan otomatis muncul di sini untuk dimonitoring.</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
               {activeTab === 'hasil' && (
                 <div className="px-6 mt-6 animate-fade-in-up">
-                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Hasil Ujian</h3>
-                  <select className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 mb-4 text-sm font-bold text-slate-700" value={selectedJadwal || ''} onChange={(e) => setSelectedJadwal(e.target.value)}>
-                    <option value="">-- Pilih Jadwal --</option>
-                    {dataJadwal.map(j => (
-                      <option key={j.id_jadwal} value={j.id_jadwal}>{j.nama_mapel}</option>
-                    ))}
-                  </select>
-
-                  {selectedJadwal && (
-                     <div className="space-y-3">
-                        {dataLog.map((log) => (
-                          <div key={log.id_log} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex justify-between items-center">
-                            <div>
-                               <h4 className="font-bold text-sm">{log.siswa?.nama_lengkap}</h4>
-                               <p className="text-xs text-slate-500">{log.siswa?.id_siswa}</p>
-                            </div>
-                            <div className="font-bold text-lg text-primary">
-                               {log.total_nilai}
-                            </div>
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Hasil Evaluasi</h3>
+                  
+                  <div className="space-y-4">
+                    {dataJadwal.filter(j => j.status_ujian === 'SELESAI').map((j) => (
+                       <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700">
+                          <h4 className="font-bold text-sm mb-1">{j.nama_mapel}</h4>
+                          <p className="text-xs text-slate-500 mb-3">{new Date(j.waktu_mulai).toLocaleDateString('id-ID')} | Kelas: {j.kelas.join(', ')}</p>
+                          <div className="flex gap-2">
+                             <button onClick={() => { setSelectedJadwal(j); setActiveTab('monitoring'); }} className="flex-1 py-2 bg-primary/10 text-primary rounded-xl text-xs font-bold hover:bg-primary/20 transition-colors">
+                               Lihat Nilai
+                             </button>
+                             <button className="py-2 px-3 bg-slate-100 dark:bg-slate-700 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
+                               <span className="material-symbols-outlined text-[16px]">download</span>
+                             </button>
                           </div>
-                        ))}
-                        {dataLog.length === 0 && <div className="text-center text-sm text-slate-500">Belum ada hasil ujian.</div>}
-                     </div>
-                  )}
+                       </div>
+                    ))}
+                    {dataJadwal.filter(j => j.status_ujian === 'SELESAI').length === 0 && <div className="text-center text-sm text-slate-500 py-4">Belum ada hasil ujian.</div>}
+                  </div>
                 </div>
               )}
 
               {activeTab === 'bank_soal' && (
                 <div className="px-6 mt-6 animate-fade-in-up">
-                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Bank Soal</h3>
-                  <p className="text-sm text-slate-500 mb-4">Buka di desktop untuk mengelola Bank Soal secara lengkap.</p>
-                  <div className="space-y-3">
-                    {dataMapel.map((m, idx) => (
-                       <div key={m.id_mapel} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                            <span className="material-symbols-outlined text-blue-500">folder</span>
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-sm">{m.nama_mapel}</h4>
-                            <p className="text-xs text-slate-500">Mapel ID: {m.id_mapel}</p>
-                          </div>
-                       </div>
-                    ))}
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Bank Soal & Manajemen</h3>
+                  <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 text-center">
+                     <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                       <span className="material-symbols-outlined text-blue-500 text-3xl">desktop_windows</span>
+                     </div>
+                     <h4 className="font-bold text-slate-800 dark:text-slate-100 mb-2">Akses Terbatas</h4>
+                     <p className="text-xs text-slate-500 mb-4">Pembuatan, pengeditan bank soal, serta pengaturan ujian detail hanya dapat diakses melalui antarmuka Desktop/Laptop untuk pengalaman yang maksimal.</p>
+                     <div className="inline-block bg-slate-100 dark:bg-slate-900 px-4 py-2 rounded-xl text-xs font-mono font-bold text-slate-600 dark:text-slate-400">
+                       Buka nexa-cbt.com di PC Anda
+                     </div>
                   </div>
                 </div>
               )}
 
               {activeTab === 'akun' && (
                 <div className="px-6 mt-6 animate-fade-in-up flex flex-col items-center">
-                   <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center mb-4">
-                     <span className="material-symbols-outlined text-4xl text-primary">person</span>
+                   <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center mb-4 border-4 border-white dark:border-slate-800 shadow-md">
+                     <span className="material-symbols-outlined text-4xl text-primary">local_library</span>
                    </div>
                    <h3 className="font-bold text-xl">{user.nama_lengkap}</h3>
-                   <p className="text-slate-500">{user.id_user}</p>
+                   <p className="text-slate-500">Guru | NIP: {user.nip || '-'}</p>
                    
                    <div className="w-full mt-8 space-y-3">
                       <button onClick={() => setIsDarkMode(!isDarkMode)} className="w-full bg-white dark:bg-slate-800 p-4 rounded-2xl flex items-center justify-between shadow-sm">
@@ -594,8 +587,8 @@
                           <span className="material-symbols-outlined text-slate-500">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
                           <span className="font-bold text-slate-700 dark:text-slate-200">Mode Gelap</span>
                         </div>
-                        <div className={w-10 h-6 rounded-full flex items-center p-1 }>
-                          <div className={w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform }></div>
+                        <div className={`w-10 h-6 rounded-full flex items-center p-1 ${isDarkMode ? 'bg-primary' : 'bg-slate-300'}`}>
+                          <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform ${isDarkMode ? 'translate-x-4' : ''}`}></div>
                         </div>
                       </button>
                       <button onClick={onLogout} className="w-full bg-red-50 dark:bg-red-900/20 p-4 rounded-2xl flex items-center gap-3 shadow-sm text-red-500">
@@ -610,30 +603,79 @@
 
             {/* Bottom Navigation */}
             <div className="absolute bottom-0 left-0 w-full bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 py-3 flex justify-between items-center rounded-t-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] z-50">
-              <button onClick={() => setActiveTab('jadwal')} className={lex flex-col items-center transition-colors }>
-                <span className="material-symbols-outlined">schedule</span>
+              <button onClick={() => setActiveTab('jadwal')} className={`flex flex-col items-center transition-colors ${activeTab === 'jadwal' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
+                <span className="material-symbols-outlined">event_note</span>
                 <span className="text-[10px] font-bold mt-1">Jadwal</span>
               </button>
-              <button onClick={() => setActiveTab('monitoring')} className={lex flex-col items-center transition-colors }>
+              <button onClick={() => setActiveTab('monitoring')} className={`flex flex-col items-center transition-colors ${activeTab === 'monitoring' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
                 <span className="material-symbols-outlined">visibility</span>
-                <span className="text-[10px] font-bold mt-1">Monitor</span>
+                <span className="text-[10px] font-bold mt-1">Pantau</span>
               </button>
-              <button onClick={() => setActiveTab('hasil')} className={lex flex-col items-center transition-colors }>
-                <span className="material-symbols-outlined">assessment</span>
+              <button onClick={() => setActiveTab('hasil')} className={`flex flex-col items-center transition-colors ${activeTab === 'hasil' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
+                <span className="material-symbols-outlined">task</span>
                 <span className="text-[10px] font-bold mt-1">Hasil</span>
               </button>
-              <button onClick={() => setActiveTab('bank_soal')} className={lex flex-col items-center transition-colors }>
-                <span className="material-symbols-outlined">folder</span>
+              <button onClick={() => setActiveTab('bank_soal')} className={`flex flex-col items-center transition-colors ${activeTab === 'bank_soal' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
+                <span className="material-symbols-outlined">dataset</span>
                 <span className="text-[10px] font-bold mt-1">Soal</span>
               </button>
-              <button onClick={() => setActiveTab('akun')} className={lex flex-col items-center transition-colors }>
+              <button onClick={() => setActiveTab('akun')} className={`flex flex-col items-center transition-colors ${activeTab === 'akun' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
                 <span className="material-symbols-outlined">person</span>
                 <span className="text-[10px] font-bold mt-1">Akun</span>
               </button>
             </div>
+
+            {/* Monitoring Modal */}
+            {selectedJadwal && activeTab === 'monitoring' && (
+              <div className="absolute inset-0 z-[60] bg-white dark:bg-slate-900 flex flex-col h-full animate-fade-in-up">
+                 {/* Modal Header */}
+                 <div className="flex items-center gap-3 p-4 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-10">
+                    <button onClick={() => setSelectedJadwal(null)} className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-300">
+                      <span className="material-symbols-outlined">arrow_back</span>
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-sm truncate">{selectedJadwal.nama_mapel}</h3>
+                      <p className="text-xs text-slate-500">Pemantauan Peserta</p>
+                    </div>
+                 </div>
+                 
+                 {/* Modal Content */}
+                 <div className="flex-1 overflow-y-auto p-4 bg-slate-50 dark:bg-slate-900">
+                    <div className="flex justify-between items-center mb-4">
+                       <h4 className="font-bold text-sm">Status Peserta Ujian</h4>
+                       <span className="text-xs font-bold text-primary bg-primary/10 px-3 py-1 rounded-full">{selectedJadwal.peserta?.length || 0} Siswa</span>
+                    </div>
+                    
+                    <div className="space-y-3 pb-20">
+                      {selectedJadwal.peserta?.map((p, idx) => {
+                         const studentDetail = dataSiswa.find(s => s.id_user === p.id_siswa) || { nama_lengkap: 'Siswa ' + p.id_siswa, kelas: '-' };
+                         const isSelesai = p.status === 'SELESAI';
+                         const isAktif = p.status === 'AKTIF';
+                         const pBadge = isAktif ? 'bg-green-100 text-green-600' : isSelesai ? 'bg-blue-100 text-blue-600' : 'bg-slate-200 text-slate-600';
+                         
+                         return (
+                           <div key={idx} className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                 <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
+                                   <span className="material-symbols-outlined text-slate-400">person</span>
+                                 </div>
+                                 <div>
+                                    <h5 className="font-bold text-sm">{studentDetail.nama_lengkap}</h5>
+                                    <p className="text-[10px] text-slate-500">Nilai: <strong className="text-slate-700 dark:text-slate-300">{p.nilai !== null ? p.nilai : '-'}</strong> | Jawaban: {p.jawaban ? Object.keys(p.jawaban).length : 0}</p>
+                                 </div>
+                              </div>
+                              <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${pBadge}`}>{p.status}</span>
+                           </div>
+                         );
+                      })}
+                      {(!selectedJadwal.peserta || selectedJadwal.peserta.length === 0) && (
+                        <div className="text-center text-sm text-slate-500 py-8 bg-white dark:bg-slate-800 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">Belum ada peserta yang tergabung dalam ujian ini.</div>
+                      )}
+                    </div>
+                 </div>
+              </div>
+            )}
             
-            {renderPreviewModal()}
-            {renderAnalisisModal()}
           </div>
         </div>
       );
