@@ -331,15 +331,17 @@
   <script type="text/babel" src="views/ExamRoom.js"></script>
   <script type="text/babel" src="views/SiswaView.js"></script>
   <script type="text/babel" src="App.js"></script>
-
+  <!-- Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('service-worker.js').then(function (registration) {
           console.log('ServiceWorker registration successful with scope: ', registration.scope);
-        }, (err) => {
+        }, function (err) {
           console.log('ServiceWorker registration failed: ', err);
         });
       });
     }
   </script>
 </body>
-
 </html>
-
