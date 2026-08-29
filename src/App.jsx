@@ -1,5 +1,6 @@
 import { fetchAPI } from './api';
 import React, { useState, useEffect, useRef } from 'react';
+import nexaLogo from './assets/screen_3_logo.png';
 const AdminView = React.lazy(() => import('./views/AdminView'));
 const ExamRoom = React.lazy(() => import('./views/ExamRoom'));
 const GuruView = React.lazy(() => import('./views/GuruView'));
@@ -177,7 +178,7 @@ import Modal from './components/Modal';
                 {/* Header Section */}
                 <div className="bg-[#3ecf8e] rounded-b-[40px] px-6 pt-6 pb-16 relative text-white shadow-md z-0 flex flex-col items-center justify-center text-center">
                    <div className="w-16 h-16 bg-white shadow-lg rounded-2xl flex items-center justify-center p-2.5 mb-2 border border-white/20">
-                     <img alt="NEXA Logo" className="w-full h-full object-contain" src="/stitch_assets/screen_3_logo.png" />
+                     <img alt="NEXA Logo" className="w-full h-full object-contain" src={nexaLogo} />
                    </div>
                    <h2 className="text-2xl font-bold tracking-tight mb-0.5">NEXA CBT</h2>
                    <p className="text-xs font-medium opacity-90">{isRegistering ? 'Daftar Akun Baru' : 'Platform Ujian Modern'}</p>
