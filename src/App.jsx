@@ -1,3 +1,4 @@
+import { fetchAPI } from './api';
 import React, { useState, useEffect, useRef } from 'react';
 const AdminView = React.lazy(() => import('./views/AdminView'));
 const ExamRoom = React.lazy(() => import('./views/ExamRoom'));
@@ -427,3 +428,4 @@ import Modal from './components/Modal';
     };
 
     export default App;
+

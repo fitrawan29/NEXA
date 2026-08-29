@@ -1,3 +1,4 @@
+import { fetchAPI } from '../api.js';
 import React, { useState, useEffect, useRef } from 'react';
 ﻿const ExamRoom = ({ user, jadwal, idLog, showMessage, onFinish, isDarkMode, setIsDarkMode }) => {
       const api = (action, p = {}) => {
@@ -524,3 +525,4 @@ import React, { useState, useEffect, useRef } from 'react';
 
 
 export default ExamRoom;
+

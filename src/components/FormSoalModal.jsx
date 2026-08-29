@@ -1,3 +1,4 @@
+import ReactQuill from 'react-quill';
 import React, { useState, useEffect, useRef } from 'react';
     const FormSoalModal = ({ isOpen, data, narasiList = [], onClose, onSave }) => {
       if (!isOpen) return null;
@@ -206,3 +207,4 @@ import React, { useState, useEffect, useRef } from 'react';
     };
 
 export default FormSoalModal;
+

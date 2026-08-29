@@ -1,10 +1,11 @@
-    // Fungsi fetchAPI sebagai Router Supabase
+import { supabaseClient } from './config.js';
 
-    const generateId = (prefix) => `${prefix}-${crypto.randomUUID().split('-')[0].toUpperCase()}`;
+    // Fungsi fetchAPI sebagai Router Supabase
+    export const generateId = (prefix) => `${prefix}-${crypto.randomUUID().split('-')[0].toUpperCase()}`;
 
     // Note: Database uses `id_mapel` now, `id_jadwal` column in `soal_ujian` might still exist but `id_mapel` is what we use.
 
-    const fetchAPI = async (action, payload = {}) => {
+    export const fetchAPI = async (action, payload = {}) => {
       try {
         // ================= APPLICATION-LEVEL RLS =================
         // Menolak kueri jika npsn tidak disertakan untuk rute non-global
