@@ -175,113 +175,113 @@ import Modal from './components/Modal';
 
               <div className="w-full max-w-md bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col h-screen z-10">
                 {/* Header Section */}
-                <div className="bg-[#3ecf8e] rounded-b-[40px] px-6 pt-12 pb-24 relative text-white shadow-md z-0 flex flex-col items-center justify-center text-center">
-                   <div className="w-20 h-20 bg-white shadow-lg rounded-2xl flex items-center justify-center p-3 mb-4 border border-white/20">
+                <div className="bg-[#3ecf8e] rounded-b-[40px] px-6 pt-6 pb-16 relative text-white shadow-md z-0 flex flex-col items-center justify-center text-center">
+                   <div className="w-16 h-16 bg-white shadow-lg rounded-2xl flex items-center justify-center p-2.5 mb-2 border border-white/20">
                      <img alt="NEXA Logo" className="w-full h-full object-contain" src="/stitch_assets/screen_3_logo.png" />
                    </div>
-                   <h2 className="text-3xl font-bold tracking-tight mb-1">NEXA CBT</h2>
-                   <p className="text-sm font-medium opacity-90">{isRegistering ? 'Daftar Akun Baru' : 'Platform Ujian Modern'}</p>
+                   <h2 className="text-2xl font-bold tracking-tight mb-0.5">NEXA CBT</h2>
+                   <p className="text-xs font-medium opacity-90">{isRegistering ? 'Daftar Akun Baru' : 'Platform Ujian Modern'}</p>
                    
                    <div className="absolute top-4 right-4">
-                      <button type="button" onClick={() => setIsDarkMode(!isDarkMode)} className="w-9 h-9 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/30 transition-colors shadow-sm">
-                        <span className="material-symbols-outlined text-[20px]">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
+                      <button type="button" onClick={() => setIsDarkMode(!isDarkMode)} className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/30 transition-colors shadow-sm">
+                        <span className="material-symbols-outlined text-[18px]">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
                       </button>
                    </div>
                 </div>
 
                 {/* Main Content Pane (overlapping) */}
-                <div className="flex-1 overflow-y-auto px-6 -mt-16 pb-8 relative z-10 hide-scrollbar">
-                   <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-xl p-6 border border-slate-100 dark:border-slate-700 animate-fade-in-up">
+                <div className="flex-1 px-6 -mt-10 pb-4 relative z-10 hide-scrollbar flex flex-col justify-center">
+                   <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-xl p-5 border border-slate-100 dark:border-slate-700 animate-fade-in-up">
                       
                       {!isRegistering ? (
                         <>
-                          <div className="mb-6 text-center">
-                            <h3 className="font-bold text-xl text-slate-800 dark:text-white">Selamat Datang</h3>
-                            <p className="text-sm text-slate-500 mt-1">Silakan masuk untuk melanjutkan</p>
+                          <div className="mb-4 text-center">
+                            <h3 className="font-bold text-lg text-slate-800 dark:text-white">Selamat Datang</h3>
+                            <p className="text-xs text-slate-500 mt-0.5">Silakan masuk untuk melanjutkan</p>
                           </div>
                           
-                          <form onSubmit={onLoginSubmit} className="flex flex-col gap-4">
+                          <form onSubmit={onLoginSubmit} className="flex flex-col gap-3">
                              {!loginRole ? (
-                               <div className="flex flex-col gap-4 animate-fade-in-up">
-                                 <p className="text-center text-sm font-medium text-slate-500 dark:text-slate-400">Pilih akses masuk Anda:</p>
-                                 <div className="grid grid-cols-2 gap-3">
+                               <div className="flex flex-col gap-3 animate-fade-in-up">
+                                 <p className="text-center text-xs font-medium text-slate-500 dark:text-slate-400">Pilih akses masuk Anda:</p>
+                                 <div className="grid grid-cols-2 gap-2.5">
                                    {[
                                      {val: 'siswa', label: 'Siswa', icon: 'school'},
                                      {val: 'guru', label: 'Guru', icon: 'local_library'},
                                      {val: 'admin', label: 'Admin', icon: 'admin_panel_settings'},
                                      {val: 'super_admin', label: 'S-Admin', icon: 'shield_person'}
                                    ].map((r) => (
-                                     <button type="button" key={r.val} onClick={() => setLoginRole(r.val)} className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl hover:bg-primary/10 dark:hover:bg-primary/20 hover:border-primary/30 transition-all gap-2 group shadow-sm hover:shadow-md">
-                                        <span className="material-symbols-outlined text-3xl text-slate-400 dark:text-slate-500 group-hover:text-primary dark:group-hover:text-primary transition-colors">{r.icon}</span>
-                                        <span className="font-bold text-slate-700 dark:text-slate-200 group-hover:text-primary dark:group-hover:text-primary">{r.label}</span>
+                                     <button type="button" key={r.val} onClick={() => setLoginRole(r.val)} className="flex flex-col items-center justify-center p-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl hover:bg-primary/10 dark:hover:bg-primary/20 hover:border-primary/30 transition-all gap-1.5 group shadow-sm hover:shadow-md">
+                                        <span className="material-symbols-outlined text-2xl text-slate-400 dark:text-slate-500 group-hover:text-primary dark:group-hover:text-primary transition-colors">{r.icon}</span>
+                                        <span className="font-bold text-sm text-slate-700 dark:text-slate-200 group-hover:text-primary dark:group-hover:text-primary">{r.label}</span>
                                      </button>
                                    ))}
                                  </div>
                                </div>
                              ) : (
-                               <div className="flex flex-col gap-4 animate-fade-in-up">
-                                 <div className="flex items-center justify-between mb-2 pb-3 border-b border-slate-100 dark:border-slate-700">
-                                     <div className="flex items-center gap-2 text-primary font-bold">
-                                         <span className="material-symbols-outlined">{loginRole === 'siswa' ? 'school' : loginRole === 'guru' ? 'local_library' : loginRole === 'admin' ? 'admin_panel_settings' : 'shield_person'}</span>
+                               <div className="flex flex-col gap-3 animate-fade-in-up">
+                                 <div className="flex items-center justify-between mb-1 pb-2 border-b border-slate-100 dark:border-slate-700">
+                                     <div className="flex items-center gap-1.5 text-primary font-bold text-sm">
+                                         <span className="material-symbols-outlined text-[18px]">{loginRole === 'siswa' ? 'school' : loginRole === 'guru' ? 'local_library' : loginRole === 'admin' ? 'admin_panel_settings' : 'shield_person'}</span>
                                          <span className="capitalize">Masuk {loginRole.replace('_', ' ')}</span>
                                      </div>
-                                     <button type="button" onClick={() => setLoginRole('')} className="text-xs font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg transition-colors">
-                                         <span className="material-symbols-outlined text-[14px]">arrow_back</span> Ganti
+                                     <button type="button" onClick={() => setLoginRole('')} className="text-[10px] font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md transition-colors">
+                                         <span className="material-symbols-outlined text-[12px]">arrow_back</span> Ganti
                                      </button>
                                  </div>
 
                                  {loginError && (
-                                   <div className="bg-red-50 dark:bg-red-900/30 text-red-500 dark:text-red-400 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 border border-red-100 dark:border-red-900/50">
-                                     <span className="material-symbols-outlined text-[16px]">error</span>
+                                   <div className="bg-red-50 dark:bg-red-900/30 text-red-500 dark:text-red-400 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border border-red-100 dark:border-red-900/50">
+                                     <span className="material-symbols-outlined text-[14px]">error</span>
                                      {loginError}
                                    </div>
                                  )}
 
                                  {loginRole !== 'super_admin' && (
                                    <div className="flex flex-col gap-1">
-                                     <label className="text-xs font-bold text-slate-700 dark:text-slate-300">NPSN Sekolah</label>
+                                     <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">NPSN Sekolah</label>
                                      <div className="relative">
-                                       <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">account_balance</span>
-                                       <input required value={npsn} onChange={e => setNpsn(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl py-3 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Masukkan NPSN" type="text" />
+                                       <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 text-[18px]">account_balance</span>
+                                       <input required value={npsn} onChange={e => setNpsn(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl py-2 pl-9 pr-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Masukkan NPSN" type="text" />
                                      </div>
                                    </div>
                                  )}
 
                                  <div className="flex flex-col gap-1">
-                                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Username</label>
+                                   <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Username</label>
                                    <div className="relative">
-                                     <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">person</span>
-                                     <input ref={usernameInputRef} required value={username} onChange={e => setUsername(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl py-3 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder={loginRole === 'guru' ? 'Username / NIP' : loginRole === 'admin' ? 'Username' : 'Username / NISN'} type="text" />
+                                     <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 text-[18px]">person</span>
+                                     <input ref={usernameInputRef} required value={username} onChange={e => setUsername(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl py-2 pl-9 pr-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder={loginRole === 'guru' ? 'Username / NIP' : loginRole === 'admin' ? 'Username' : 'Username / NISN'} type="text" />
                                    </div>
                                  </div>
 
                                  <div className="flex flex-col gap-1">
-                                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex justify-between">
+                                   <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex justify-between">
                                      Password
-                                     {capsLockActive && <span className="text-red-500 dark:text-red-400 flex items-center gap-1"><span className="material-symbols-outlined text-[12px]">keyboard_capslock</span> Caps Lock</span>}
+                                     {capsLockActive && <span className="text-red-500 dark:text-red-400 flex items-center gap-1"><span className="material-symbols-outlined text-[10px]">keyboard_capslock</span> Caps Lock</span>}
                                    </label>
                                    <div className="relative">
-                                     <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">lock</span>
-                                     <input required value={password} onChange={e => setPassword(e.target.value)} onKeyUp={handlePasswordKeyUp} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl py-3 pl-10 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Masukkan Password" type={showPassword ? "text" : "password"} />
-                                     <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
-                                       <span className="material-symbols-outlined text-[18px]">{showPassword ? 'visibility_off' : 'visibility'}</span>
+                                     <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 text-[18px]">lock</span>
+                                     <input required value={password} onChange={e => setPassword(e.target.value)} onKeyUp={handlePasswordKeyUp} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl py-2 pl-9 pr-9 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Masukkan Password" type={showPassword ? "text" : "password"} />
+                                     <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
+                                       <span className="material-symbols-outlined text-[16px]">{showPassword ? 'visibility_off' : 'visibility'}</span>
                                      </button>
                                    </div>
                                  </div>
 
-                                 <div className="flex justify-between items-center text-xs mt-1">
-                                   <label className="flex items-center gap-2 cursor-pointer group">
-                                     <input type="checkbox" checked={rememberMe} onChange={() => setRememberMe(!rememberMe)} className="rounded text-primary border-slate-300 dark:border-slate-600 focus:ring-primary dark:bg-slate-800" />
+                                 <div className="flex justify-between items-center text-[10px] mt-0.5">
+                                   <label className="flex items-center gap-1.5 cursor-pointer group">
+                                     <input type="checkbox" checked={rememberMe} onChange={() => setRememberMe(!rememberMe)} className="rounded text-primary border-slate-300 dark:border-slate-600 focus:ring-primary dark:bg-slate-800 w-3 h-3" />
                                      <span className="font-bold text-slate-600 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200 transition-colors">Ingat Saya</span>
                                    </label>
                                    <button type="button" onClick={handleLupaPassword} className="font-bold text-primary hover:text-primary/80 transition-colors">Lupa Password?</button>
                                  </div>
 
-                                 <button disabled={loading || loginSuccess} className={`w-full py-3 rounded-xl font-bold text-white transition-all shadow-md mt-2 flex justify-center items-center gap-2 ${loginSuccess ? 'bg-green-500' : 'bg-[#3ecf8e] hover:bg-[#3ecf8e]/90 hover:shadow-lg'}`} type="submit">
+                                 <button disabled={loading || loginSuccess} className={`w-full py-2 rounded-xl font-bold text-white transition-all shadow-md mt-1 flex justify-center items-center gap-1.5 text-sm ${loginSuccess ? 'bg-green-500' : 'bg-[#3ecf8e] hover:bg-[#3ecf8e]/90 hover:shadow-lg'}`} type="submit">
                                    {loading ? (
-                                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                                    ) : loginSuccess ? (
-                                     <><span className="material-symbols-outlined">check_circle</span> Berhasil Masuk</>
+                                     <><span className="material-symbols-outlined text-[18px]">check_circle</span> Berhasil Masuk</>
                                    ) : (
                                      <>Masuk <span className="material-symbols-outlined text-[18px]">arrow_forward</span></>
                                    )}
