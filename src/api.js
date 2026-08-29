@@ -1,4 +1,5 @@
 import { supabaseClient } from './config.js';
+import React from 'react';
 
     // Fungsi fetchAPI sebagai Router Supabase
     export const generateId = (prefix) => `${prefix}-${crypto.randomUUID().split('-')[0].toUpperCase()}`;
