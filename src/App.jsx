@@ -32,7 +32,7 @@ import Modal from './components/Modal';
       const [loginError, setLoginError] = useState('');
       const [loginSuccess, setLoginSuccess] = useState(false);
       const [isOnline, setIsOnline] = useState(navigator.onLine);
-      const [isDarkMode, setIsDarkMode] = useState(false);
+      const [isDarkMode, setIsDarkMode] = useState(true);
       const [capsLockActive, setCapsLockActive] = useState(false);
 
       const [loginRole, setLoginRole] = useState('');
@@ -177,7 +177,7 @@ import Modal from './components/Modal';
                 {/* Header Section */}
                 <div className="bg-[#3ecf8e] rounded-b-[40px] px-6 pt-12 pb-24 relative text-white shadow-md z-0 flex flex-col items-center justify-center text-center">
                    <div className="w-20 h-20 bg-white shadow-lg rounded-2xl flex items-center justify-center p-3 mb-4 border border-white/20">
-                     <img alt="NEXA Logo" className="w-full h-full object-contain" src="stitch_assets/screen_3_logo.png" />
+                     <img alt="NEXA Logo" className="w-full h-full object-contain" src="/stitch_assets/screen_3_logo.png" />
                    </div>
                    <h2 className="text-3xl font-bold tracking-tight mb-1">NEXA CBT</h2>
                    <p className="text-sm font-medium opacity-90">{isRegistering ? 'Daftar Akun Baru' : 'Platform Ujian Modern'}</p>
@@ -196,7 +196,7 @@ import Modal from './components/Modal';
                       {!isRegistering ? (
                         <>
                           <div className="mb-6 text-center">
-                            <h3 className="font-bold text-xl text-slate-800 dark:text-white">Selamat Datang ðŸ‘‹</h3>
+                            <h3 className="font-bold text-xl text-slate-800 dark:text-white">Selamat Datang</h3>
                             <p className="text-sm text-slate-500 mt-1">Silakan masuk untuk melanjutkan</p>
                           </div>
                           
