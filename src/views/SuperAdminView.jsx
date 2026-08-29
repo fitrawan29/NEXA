@@ -1,5 +1,5 @@
 import { fetchAPI } from '../api.js';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 ﻿    const SuperAdminView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) => {
       const [activeTab, setActiveTab] = useState('analytics');
       const [dataSekolah, setDataSekolah] = useState([]);
