@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import AdminView from './views/AdminView';
-import ExamRoom from './views/ExamRoom';
-import GuruView from './views/GuruView';
-import SiswaView from './views/SiswaView';
-import SuperAdminView from './views/SuperAdminView';
+const AdminView = React.lazy(() => import('./views/AdminView'));
+const ExamRoom = React.lazy(() => import('./views/ExamRoom'));
+const GuruView = React.lazy(() => import('./views/GuruView'));
+const SiswaView = React.lazy(() => import('./views/SiswaView'));
+const SuperAdminView = React.lazy(() => import('./views/SuperAdminView'));
 import Modal from './components/Modal';
 
 ﻿    class ErrorBoundary extends React.Component { 
@@ -402,11 +402,12 @@ import Modal from './components/Modal';
 
         }
 
+        const suspenseFallback = <div className="h-screen w-full flex items-center justify-center bg-slate-50 dark:bg-slate-900 text-slate-500">Memuat...</div>;
         switch (user.role) {
-          case 'super_admin': return <ErrorBoundary><SuperAdminView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></ErrorBoundary>;
-          case 'admin': return <ErrorBoundary><AdminView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></ErrorBoundary>;
-          case 'guru': return <ErrorBoundary><GuruView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></ErrorBoundary>;
-          case 'siswa': return <ErrorBoundary><SiswaView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></ErrorBoundary>;
+          case 'super_admin': return <ErrorBoundary><React.Suspense fallback={suspenseFallback}><SuperAdminView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></React.Suspense></ErrorBoundary>;
+          case 'admin': return <ErrorBoundary><React.Suspense fallback={suspenseFallback}><AdminView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></React.Suspense></ErrorBoundary>;
+          case 'guru': return <ErrorBoundary><React.Suspense fallback={suspenseFallback}><GuruView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></React.Suspense></ErrorBoundary>;
+          case 'siswa': return <ErrorBoundary><React.Suspense fallback={suspenseFallback}><SiswaView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></React.Suspense></ErrorBoundary>;
           default: return <div className="p-8 text-center text-red-600 font-bold bg-white h-screen">Role tidak valid!</div>;
         }
       };
