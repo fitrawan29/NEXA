@@ -567,10 +567,21 @@ import React, { useState, useEffect, useRef } from 'react';
                     <p className="text-xs opacity-80">NPSN: {user.npsn}</p>
                   </div>
                 </div>
-                <button className="relative">
-                  <span className="material-symbols-outlined text-2xl">notifications</span>
-                  <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
-                </button>
+                <div className="flex items-center gap-1">
+                  <button type="button" onClick={() => setIsDarkMode(!isDarkMode)} className="relative p-1 rounded-full hover:bg-white/20 transition-colors" title="Mode Gelap/Terang">
+                    <span className="material-symbols-outlined text-2xl">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
+                  </button>
+                  <button className="relative p-1 rounded-full hover:bg-white/20 transition-colors" title="Pengaturan">
+                    <span className="material-symbols-outlined text-2xl">settings</span>
+                  </button>
+                  <button className="relative p-1 rounded-full hover:bg-white/20 transition-colors" title="Notifikasi">
+                    <span className="material-symbols-outlined text-2xl">notifications</span>
+                    <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
+                  </button>
+                  <button type="button" onClick={onLogout} className="relative p-1 rounded-full hover:bg-white/20 transition-colors text-white" title="Keluar">
+                    <span className="material-symbols-outlined text-2xl">logout</span>
+                  </button>
+                </div>>
               </div>
             </div>
 
@@ -729,19 +740,7 @@ import React, { useState, useEffect, useRef } from 'react';
                    <p className="text-slate-500">Admin Sekolah | NPSN: {user.npsn}</p>
                    
                    <div className="w-full mt-8 space-y-3">
-                      <button onClick={() => setIsDarkMode(!isDarkMode)} className="w-full bg-white dark:bg-slate-800 p-4 rounded-2xl flex items-center justify-between shadow-sm">
-                        <div className="flex items-center gap-3">
-                          <span className="material-symbols-outlined text-slate-500">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
-                          <span className="font-bold text-slate-700 dark:text-slate-200">Mode Gelap</span>
-                        </div>
-                        <div className={`w-10 h-6 rounded-full flex items-center p-1 ${isDarkMode ? 'bg-primary' : 'bg-slate-300'}`}>
-                          <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform ${isDarkMode ? 'translate-x-4' : ''}`}></div>
-                        </div>
-                      </button>
-                      <button onClick={onLogout} className="w-full bg-red-50 dark:bg-red-900/20 p-4 rounded-2xl flex items-center gap-3 shadow-sm text-red-500">
-                        <span className="material-symbols-outlined">logout</span>
-                        <span className="font-bold">Keluar</span>
-                      </button>
+                      {/* Tombol telah dipindah ke pojok kanan atas */}
                    </div>
                 </div>
               )}
