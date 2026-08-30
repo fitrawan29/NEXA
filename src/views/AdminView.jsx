@@ -819,7 +819,7 @@ import * as XLSX from 'xlsx';
                   </div>
                   <div className="space-y-3">
                     {dataSiswa.filter(s => 
-                      (s.nama_lengkap?.toLowerCase().includes(searchQuery.toLowerCase()) || s.nisn?.toLowerCase().includes(searchQuery.toLowerCase())) &&
+                      ((s.nama_lengkap || '').toLowerCase().includes(searchQuery.toLowerCase()) || (s.nisn || '').toLowerCase().includes(searchQuery.toLowerCase())) &&
                       (filterKelas === '' || s.kelas === filterKelas)
                     ).map((s) => (
                       <div key={s.id_user} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center gap-3 relative">
@@ -836,7 +836,7 @@ import * as XLSX from 'xlsx';
                         </div>
                       </div>
                     ))}
-                    {dataSiswa.filter(s => (s.nama_lengkap?.toLowerCase().includes(searchQuery.toLowerCase()) || s.nisn?.toLowerCase().includes(searchQuery.toLowerCase()))).length === 0 && <div className="text-center text-xs text-slate-500 mt-4">Data tidak ditemukan.</div>}
+                    {dataSiswa.filter(s => ((s.nama_lengkap || '').toLowerCase().includes(searchQuery.toLowerCase()) || (s.nisn || '').toLowerCase().includes(searchQuery.toLowerCase()))).length === 0 && <div className="text-center text-xs text-slate-500 mt-4">Data tidak ditemukan.</div>}
                   </div>
                   </div>
                   
@@ -871,7 +871,7 @@ import * as XLSX from 'xlsx';
                   </div>
                   <div className="space-y-3">
                     {dataGuru.filter(g => 
-                      (g.nama_lengkap?.toLowerCase().includes(searchQuery.toLowerCase()) || g.nip?.toLowerCase().includes(searchQuery.toLowerCase())) &&
+                      ((g.nama_lengkap || '').toLowerCase().includes(searchQuery.toLowerCase()) || (g.nip || '').toLowerCase().includes(searchQuery.toLowerCase())) &&
                       (filterMapel === '' || g.mapels_list.includes(filterMapel))
                     ).map((g) => (
                       <div key={g.id_user} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center gap-3">
@@ -889,7 +889,7 @@ import * as XLSX from 'xlsx';
                         </div>
                       </div>
                     ))}
-                    {dataGuru.filter(g => (g.nama_lengkap?.toLowerCase().includes(searchQuery.toLowerCase()) || g.nip?.toLowerCase().includes(searchQuery.toLowerCase()))).length === 0 && <div className="text-center text-xs text-slate-500 mt-4">Data tidak ditemukan.</div>}
+                    {dataGuru.filter(g => ((g.nama_lengkap || '').toLowerCase().includes(searchQuery.toLowerCase()) || (g.nip || '').toLowerCase().includes(searchQuery.toLowerCase()))).length === 0 && <div className="text-center text-xs text-slate-500 mt-4">Data tidak ditemukan.</div>}
                   </div>
                   </div>
 
