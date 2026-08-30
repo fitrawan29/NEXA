@@ -492,7 +492,7 @@ import React, { useState, useEffect, useRef } from 'react';
 
                 <div className="flex justify-end gap-2 mt-6">
                   <button type="button" onClick={() => setFormModal({ isOpen: false, type: '', data: null })} className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg dark:text-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600">Batal</button>
-                  <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg shadow-sm">Simpan</button>
+                  <button type="submit" className="px-4 py-2 text-sm font-medium bg-gradient-to-r from-primary to-secondary text-on-primary hover:from-primary/90 hover:to-secondary/90 rounded-lg shadow-sm">Simpan</button>
                 </div>
               </form>
             </div>
@@ -535,7 +535,7 @@ import React, { useState, useEffect, useRef } from 'react';
                 
                 <div className="flex justify-end space-x-2 pt-4">
                   <button type="button" onClick={() => setProfileModalOpen(false)} className="px-4 py-2 rounded-lg font-label-md text-on-surface-variant hover:bg-surface-variant">Batal</button>
-                  <button type="submit" className="px-4 py-2 rounded-lg font-label-md bg-primary text-on-primary hover:bg-primary/90">Simpan</button>
+                  <button type="submit" className="px-4 py-2 rounded-lg font-label-md bg-gradient-to-r from-primary to-secondary text-on-primary text-on-primary hover:from-primary/90 hover:to-secondary/90">Simpan</button>
                 </div>
               </form>
             </div>
@@ -551,7 +551,7 @@ import React, { useState, useEffect, useRef } from 'react';
       );
 
       return (
-        <div className="bg-slate-50 dark:bg-slate-900 min-h-screen flex justify-center selection:bg-primary/20 selection:text-primary">
+        <div className="bg-slate-50 dark:bg-slate-900 min-h-screen flex justify-center selection:bg-primary/30 selection:text-primary">
           <div className="w-full max-w-md bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col h-screen">
             
             {/* Header / Top Section */}

@@ -169,7 +169,7 @@ import Modal from './components/Modal';
           };
 
           return (
-            <div className="bg-slate-50 dark:bg-slate-900 min-h-screen flex justify-center selection:bg-primary/20 selection:text-primary relative">
+            <div className="bg-slate-50 dark:bg-slate-900 min-h-screen flex justify-center selection:bg-primary/30 selection:text-primary relative">
               
               {/* Background gradient effects */}
               <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-primary/20 to-transparent pointer-events-none"></div>
@@ -212,7 +212,7 @@ import Modal from './components/Modal';
                                      {val: 'admin', label: 'Admin', icon: 'admin_panel_settings'},
                                      {val: 'super_admin', label: 'S-Admin', icon: 'shield_person'}
                                    ].map((r) => (
-                                     <button type="button" key={r.val} onClick={() => setLoginRole(r.val)} className="flex flex-col items-center justify-center p-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl hover:bg-primary/10 dark:hover:bg-primary/20 hover:border-primary/30 transition-all gap-1.5 group shadow-sm hover:shadow-md">
+                                     <button type="button" key={r.val} onClick={() => setLoginRole(r.val)} className="flex flex-col items-center justify-center p-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl hover:from-primary hover:to-secondary/10 dark:hover:from-primary hover:to-secondary/20 hover:border-primary/30 transition-all gap-1.5 group shadow-sm hover:shadow-md">
                                         <span className="material-symbols-outlined text-2xl text-slate-400 dark:text-slate-500 group-hover:text-primary dark:group-hover:text-primary transition-colors">{r.icon}</span>
                                         <span className="font-bold text-sm text-slate-700 dark:text-slate-200 group-hover:text-primary dark:group-hover:text-primary">{r.label}</span>
                                      </button>
@@ -311,7 +311,7 @@ import Modal from './components/Modal';
                                      {val: 'siswa', label: 'Daftar Siswa', icon: 'school'},
                                      {val: 'guru', label: 'Daftar Guru', icon: 'local_library'}
                                    ].map((r) => (
-                                     <button type="button" key={r.val} onClick={() => setRegisterRole(r.val)} className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl hover:bg-primary/10 dark:hover:bg-primary/20 hover:border-primary/30 transition-all gap-2 group shadow-sm hover:shadow-md">
+                                     <button type="button" key={r.val} onClick={() => setRegisterRole(r.val)} className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl hover:from-primary hover:to-secondary/10 dark:hover:from-primary hover:to-secondary/20 hover:border-primary/30 transition-all gap-2 group shadow-sm hover:shadow-md">
                                         <span className="material-symbols-outlined text-3xl text-slate-400 dark:text-slate-500 group-hover:text-primary dark:group-hover:text-primary transition-colors">{r.icon}</span>
                                         <span className="font-bold text-slate-700 dark:text-slate-200 group-hover:text-primary dark:group-hover:text-primary">{r.label}</span>
                                      </button>

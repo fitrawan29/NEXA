@@ -19,7 +19,7 @@ const EmptyState = ({ icon, title, message, actionText, onAction }) => {
       <h3 className="text-xl font-bold text-on-surface dark:text-white mb-2">{title || 'Data Kosong'}</h3>
       <p className="text-slate-500 max-w-sm mb-6">{message || 'Belum ada data yang dapat ditampilkan di sini.'}</p>
       {actionText && onAction && (
-        <button onClick={onAction} className="px-6 py-2 bg-primary text-on-primary rounded-xl font-bold hover:bg-primary/90 transition-all flex items-center gap-2 shadow-sm hover:shadow-md hover:-translate-y-0.5">
+        <button onClick={onAction} className="px-6 py-2 bg-gradient-to-r from-primary to-secondary text-on-primary text-on-primary rounded-xl font-bold hover:from-primary/90 hover:to-secondary/90 transition-all flex items-center gap-2 shadow-sm hover:shadow-md hover:-translate-y-0.5">
           <span className="material-symbols-outlined text-[18px]">add</span> {actionText}
         </button>
       )}

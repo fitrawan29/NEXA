@@ -57,7 +57,7 @@ import React, { useState, useEffect, useRef } from 'react';
             <div className="font-bold">
               Total Persentase: <span className={`${hitungTotalPersentase() === 100 ? 'text-green-600' : 'text-red-600'}`}>{hitungTotalPersentase()}%</span>
             </div>
-            <button onClick={handleSave} className="bg-primary text-on-primary hover:bg-primary/90 px-6 py-2 rounded-lg font-bold flex items-center gap-2 shadow-sm transition-all">
+            <button onClick={handleSave} className="bg-gradient-to-r from-primary to-secondary text-on-primary text-on-primary hover:from-primary/90 hover:to-secondary/90 px-6 py-2 rounded-lg font-bold flex items-center gap-2 shadow-sm transition-all">
               <span className="material-symbols-outlined">save</span> Simpan Skema
             </button>
           </div>

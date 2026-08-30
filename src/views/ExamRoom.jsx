@@ -345,7 +345,7 @@ import React, { useState, useEffect, useRef } from 'react';
             let btnClass = "w-10 h-10 rounded-sm font-mono-label text-mono-label flex items-center justify-center cursor-pointer transition-all ";
 
             if (currentIndex === idx) {
-              btnClass += "bg-primary text-on-primary ring-2 ring-primary ring-offset-2 dark:ring-offset-slate-900";
+              btnClass += "bg-gradient-to-r from-primary to-secondary text-on-primary text-on-primary ring-2 ring-primary ring-offset-2 dark:ring-offset-slate-900";
             } else if (isFlagged) {
               btnClass += "bg-[#D97706] text-white"; // flagged color
             } else if (hasAnswered) {
@@ -395,7 +395,7 @@ import React, { useState, useEffect, useRef } from 'react';
             </div>
           )}
           {/* TopNavBar */}
-          <header className="fixed top-0 w-full z-50 flex justify-between items-center px-lg h-20 bg-primary dark:bg-slate-900 border-b border-transparent dark:border-slate-800 shadow-md">
+          <header className="fixed top-0 w-full z-50 flex justify-between items-center px-lg h-20 bg-gradient-to-r from-primary to-secondary text-on-primary dark:bg-slate-900 border-b border-transparent dark:border-slate-800 shadow-md">
             <div className="flex items-center gap-md">
               <img alt="NEXA Logo" className="h-10 w-auto object-contain hidden md:block bg-white p-1 rounded-full" src="stitch_assets/screen_3_logo.png" />
               <div className="font-headline-sm text-headline-sm text-on-primary font-bold md:hidden">NEXA</div>
@@ -479,7 +479,7 @@ import React, { useState, useEffect, useRef } from 'react';
                   <button
                     onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
                     disabled={currentIndex === 0}
-                    className="flex items-center justify-center p-3 md:px-lg md:py-sm border-2 border-primary dark:border-primary-fixed text-primary dark:text-primary-fixed font-body-md text-body-md font-semibold rounded hover:bg-primary-fixed dark:hover:bg-primary/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    className="flex items-center justify-center p-3 md:px-lg md:py-sm border-2 border-primary dark:border-primary-fixed text-primary dark:text-primary-fixed font-body-md text-body-md font-semibold rounded hover:from-primary hover:to-secondary-fixed dark:hover:from-primary hover:to-secondary/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                     <span className="material-symbols-outlined">arrow_back</span>
                     <span className="hidden sm:inline ml-2">Sebelumnya</span>
                   </button>
@@ -498,7 +498,7 @@ import React, { useState, useEffect, useRef } from 'react';
                   <button
                     onClick={() => setCurrentIndex(Math.min(soal.length - 1, currentIndex + 1))}
                     disabled={currentIndex === soal.length - 1}
-                    className="flex items-center justify-center p-3 md:px-lg md:py-sm bg-primary text-on-primary font-body-md text-body-md font-semibold rounded hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md">
+                    className="flex items-center justify-center p-3 md:px-lg md:py-sm bg-gradient-to-r from-primary to-secondary text-on-primary text-on-primary font-body-md text-body-md font-semibold rounded hover:from-primary/90 hover:to-secondary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md">
                     <span className="hidden sm:inline mr-2">Selanjutnya</span>
                     <span className="material-symbols-outlined">arrow_forward</span>
                   </button>

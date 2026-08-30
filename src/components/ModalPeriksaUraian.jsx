@@ -39,7 +39,7 @@ import React, { useState, useEffect, useRef } from 'react';
             </div>
             <div className="p-6 border-t dark:border-slate-700 flex justify-end gap-4">
               <button onClick={onClose} className="px-6 py-2 rounded-lg font-bold bg-surface-variant hover:bg-surface-variant/80">Tutup</button>
-              <button onClick={handleSave} className="px-6 py-2 rounded-lg font-bold bg-primary text-white hover:bg-primary/90">Simpan Nilai Uraian</button>
+              <button onClick={handleSave} className="px-6 py-2 rounded-lg font-bold bg-gradient-to-r from-primary to-secondary text-on-primary hover:from-primary/90 hover:to-secondary/90">Simpan Nilai Uraian</button>
             </div>
           </div>
         </div>

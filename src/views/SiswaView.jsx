@@ -81,7 +81,7 @@ import React, { useState, useEffect, useRef } from 'react';
       }
 
       return (
-        <div className="bg-slate-50 dark:bg-slate-900 min-h-screen flex justify-center selection:bg-primary/20 selection:text-primary">
+        <div className="bg-slate-50 dark:bg-slate-900 min-h-screen flex justify-center selection:bg-primary/30 selection:text-primary">
           <div className="w-full max-w-md bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col h-screen">
             
             {/* Header / Top Section */}
@@ -162,7 +162,7 @@ import React, { useState, useEffect, useRef } from 'react';
                         <div className="text-center text-slate-500 text-sm py-4">Tidak ada jadwal aktif.</div>
                       ) : (
                         jadwal.map((j, index) => {
-                          let statusBtnClass = "bg-primary text-white";
+                          let statusBtnClass = "bg-gradient-to-r from-primary to-secondary text-on-primary";
                           let statusText = "Ambil";
                           if (j.status_siswa === 'SELESAI') {
                             statusBtnClass = "bg-slate-400 text-white cursor-not-allowed";
@@ -199,7 +199,7 @@ import React, { useState, useEffect, useRef } from 'react';
                                 {selectedJadwalUntukToken === j.id_jadwal ? (
                                   <div className="flex items-center gap-1">
                                     <input type="text" maxLength={6} value={inputToken} onChange={e => setInputToken(e.target.value)} placeholder="TOKEN" className="w-16 h-8 text-center text-xs font-bold border rounded bg-slate-50" />
-                                    <button onClick={() => handleMulaiUjian(j)} className="px-3 h-8 rounded-full text-xs font-bold bg-primary text-white">Go</button>
+                                    <button onClick={() => handleMulaiUjian(j)} className="px-3 h-8 rounded-full text-xs font-bold bg-gradient-to-r from-primary to-secondary text-on-primary">Go</button>
                                   </div>
                                 ) : (
                                   <button onClick={() => j.status_siswa !== 'SELESAI' && setSelectedJadwalUntukToken(j.id_jadwal)} disabled={j.status_siswa === 'SELESAI'} className={`px-4 py-1.5 rounded-full text-xs font-bold ${statusBtnClass}`}>
@@ -239,7 +239,7 @@ import React, { useState, useEffect, useRef } from 'react';
                             </div>
                             <div className="flex items-center justify-between mt-2">
                               <p className="text-xs text-slate-500 truncate max-w-[200px]">{p.isi}</p>
-                              <button className="px-4 py-1 bg-primary text-white text-xs font-bold rounded-full">Lihat</button>
+                              <button className="px-4 py-1 bg-gradient-to-r from-primary to-secondary text-on-primary text-xs font-bold rounded-full">Lihat</button>
                             </div>
                           </div>
                         ))
@@ -258,7 +258,7 @@ import React, { useState, useEffect, useRef } from 'react';
                         <div className="text-center text-slate-500 text-sm py-4">Tidak ada jadwal aktif.</div>
                       ) : (
                         jadwal.map((j, index) => {
-                          let statusBtnClass = "bg-primary text-white";
+                          let statusBtnClass = "bg-gradient-to-r from-primary to-secondary text-on-primary";
                           let statusText = "Ambil";
                           if (j.status_siswa === 'SELESAI') {
                             statusBtnClass = "bg-slate-400 text-white cursor-not-allowed";
@@ -294,7 +294,7 @@ import React, { useState, useEffect, useRef } from 'react';
                                 {selectedJadwalUntukToken === j.id_jadwal ? (
                                   <div className="flex items-center gap-1">
                                     <input type="text" maxLength={6} value={inputToken} onChange={e => setInputToken(e.target.value)} placeholder="TOKEN" className="w-16 h-8 text-center text-xs font-bold border rounded bg-slate-50" />
-                                    <button onClick={() => handleMulaiUjian(j)} className="px-3 h-8 rounded-full text-xs font-bold bg-primary text-white">Go</button>
+                                    <button onClick={() => handleMulaiUjian(j)} className="px-3 h-8 rounded-full text-xs font-bold bg-gradient-to-r from-primary to-secondary text-on-primary">Go</button>
                                   </div>
                                 ) : (
                                   <button onClick={() => j.status_siswa !== 'SELESAI' && setSelectedJadwalUntukToken(j.id_jadwal)} disabled={j.status_siswa === 'SELESAI'} className={`px-4 py-1.5 rounded-full text-xs font-bold ${statusBtnClass}`}>

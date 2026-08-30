@@ -394,7 +394,7 @@ import React, { useState, useEffect, useRef } from 'react';
       };
 
       return (
-        <div className="bg-slate-50 dark:bg-slate-900 min-h-screen flex justify-center selection:bg-primary/20 selection:text-primary">
+        <div className="bg-slate-50 dark:bg-slate-900 min-h-screen flex justify-center selection:bg-primary/30 selection:text-primary">
           <div className="w-full max-w-md bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col h-screen">
             
             {/* Header / Top Section */}
@@ -505,7 +505,7 @@ import React, { useState, useEffect, useRef } from 'react';
                   <div className="space-y-4">
                     {dataJadwal.filter(j => j.status_ujian === 'AKTIF').map((j) => (
                        <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-primary/20 relative overflow-hidden">
-                          <div className="absolute top-0 left-0 w-1 h-full bg-primary"></div>
+                          <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-r from-primary to-secondary text-on-primary"></div>
                           <div className="flex justify-between items-start mb-4">
                             <div>
                               <h4 className="font-bold text-slate-800 dark:text-slate-100 text-base">{j.nama_mapel}</h4>
@@ -513,8 +513,8 @@ import React, { useState, useEffect, useRef } from 'react';
                             </div>
                             <div className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-primary/10 text-primary flex items-center gap-1`}>
                               <span className="relative flex h-2 w-2">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gradient-to-r from-primary to-secondary text-on-primary opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-gradient-to-r from-primary to-secondary text-on-primary"></span>
                               </span>
                               LIVE
                             </div>
@@ -556,7 +556,7 @@ import React, { useState, useEffect, useRef } from 'react';
                           <h4 className="font-bold text-sm mb-1">{j.nama_mapel}</h4>
                           <p className="text-xs text-slate-500 mb-3">{new Date(j.waktu_mulai).toLocaleDateString('id-ID')} | Kelas: {j.kelas.join(', ')}</p>
                           <div className="flex gap-2">
-                             <button onClick={() => { setSelectedJadwal(j); setActiveTab('monitoring'); }} className="flex-1 py-2 bg-primary/10 text-primary rounded-xl text-xs font-bold hover:bg-primary/20 transition-colors">
+                             <button onClick={() => { setSelectedJadwal(j); setActiveTab('monitoring'); }} className="flex-1 py-2 bg-primary/10 text-primary rounded-xl text-xs font-bold hover:from-primary hover:to-secondary/20 transition-colors">
                                Lihat Nilai
                              </button>
                              <button className="py-2 px-3 bg-slate-100 dark:bg-slate-700 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">

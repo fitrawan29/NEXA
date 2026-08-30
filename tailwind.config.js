@@ -8,9 +8,9 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: '#b5a0ff', // Pastel purple
-        secondary: '#ffb5e8', // Pastel pink
-        'on-primary': '#ffffff',
+        primary: '#a8e6cf', // Pastel mint green
+        secondary: '#88d8b0', // Slightly deeper pastel green for gradient
+        'on-primary': '#064e3b', // emerald-900 for high contrast text on pastel background
       },
       fontFamily: {
         sans: ['Nunito', 'sans-serif'],
