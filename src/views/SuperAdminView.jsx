@@ -8,6 +8,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
       const [dataPengumuman, setDataPengumuman] = useState([]);
       const [dataLog, setDataLog] = useState([]);
       const [isLoading, setIsLoading] = useState(false);
+      const [visibleCount, setVisibleCount] = useState(10);
       
       const [formModal, setFormModal] = useState({ isOpen: false, type: '', isEdit: false, editItem: null });
 
@@ -38,6 +39,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
       };
 
       useEffect(() => {
+        setVisibleCount(10);
         fetchData(activeTab);
       }, [activeTab]);
 
@@ -236,34 +238,55 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
               
               {activeTab === 'analytics' && (
                 <div className="px-6 mt-6 animate-fade-in-up">
-                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Analytics & Logs</h3>
-                  <p className="text-sm text-slate-500 mb-6">Pantau aktivitas seluruh sistem secara ringkas. Untuk tampilan detail, gunakan versi desktop.</p>
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Dashboard Analytics</h3>
+                  <p className="text-sm text-slate-500 mb-6">Ringkasan statistik dari seluruh sekolah yang terdaftar di sistem.</p>
                   
-                  <div className="grid grid-cols-2 gap-4">
-                     <button onClick={() => setActiveTab('sekolah')} className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2">
-                        <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-                          <span className="material-symbols-outlined text-green-500">account_balance</span>
+                  <div className="grid grid-cols-2 gap-4 mb-6">
+                     <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-4 rounded-2xl shadow-md text-white flex flex-col justify-between">
+                        <span className="material-symbols-outlined text-white/70 mb-2">public</span>
+                        <span className="text-3xl font-bold">{dataAnalytics.concurrentUsers || 0}</span>
+                        <span className="text-xs font-medium opacity-90">Ujian Aktif Saat Ini</span>
+                     </div>
+                     <div className="bg-gradient-to-br from-green-400 to-emerald-600 p-4 rounded-2xl shadow-md text-white flex flex-col justify-between">
+                        <span className="material-symbols-outlined text-white/70 mb-2">school</span>
+                        <span className="text-3xl font-bold">{dataAnalytics.stats?.reduce((acc, s) => acc + s.total_siswa, 0) || 0}</span>
+                        <span className="text-xs font-medium opacity-90">Total Siswa Terdaftar</span>
+                     </div>
+                     <div className="bg-gradient-to-br from-orange-400 to-red-500 p-4 rounded-2xl shadow-md text-white flex flex-col justify-between">
+                        <span className="material-symbols-outlined text-white/70 mb-2">badge</span>
+                        <span className="text-3xl font-bold">{dataAnalytics.stats?.reduce((acc, s) => acc + s.total_guru, 0) || 0}</span>
+                        <span className="text-xs font-medium opacity-90">Total Guru</span>
+                     </div>
+                     <div className="bg-gradient-to-br from-purple-500 to-fuchsia-600 p-4 rounded-2xl shadow-md text-white flex flex-col justify-between">
+                        <span className="material-symbols-outlined text-white/70 mb-2">quiz</span>
+                        <span className="text-3xl font-bold">{dataAnalytics.stats?.reduce((acc, s) => acc + s.total_soal, 0) || 0}</span>
+                        <span className="text-xs font-medium opacity-90">Total Soal Bank</span>
+                     </div>
+                  </div>
+
+                  <h4 className="font-bold text-sm text-slate-700 dark:text-slate-300 mb-3">Rincian per Sekolah</h4>
+                  <div className="space-y-3">
+                    {dataAnalytics.stats?.map((s, idx) => (
+                      <div key={idx} className="bg-white dark:bg-slate-800 rounded-xl p-3 border border-slate-100 dark:border-slate-700 flex justify-between items-center shadow-sm">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold truncate">{s.nama_sekolah}</p>
+                          <p className="text-[10px] text-slate-500">{s.npsn}</p>
                         </div>
-                        <span className="font-bold text-sm">Sekolah</span>
-                     </button>
-                     <button onClick={() => setActiveTab('admin')} className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2">
-                        <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-                          <span className="material-symbols-outlined text-blue-500">manage_accounts</span>
+                        <div className="flex gap-3 text-center ml-2">
+                           <div>
+                              <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{s.total_siswa}</p>
+                              <p className="text-[9px] text-slate-400">Siswa</p>
+                           </div>
+                           <div>
+                              <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{s.total_guru}</p>
+                              <p className="text-[9px] text-slate-400">Guru</p>
+                           </div>
                         </div>
-                        <span className="font-bold text-sm">Admin Sekolah</span>
-                     </button>
-                     <button onClick={() => setActiveTab('pengumuman')} className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2">
-                        <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center">
-                          <span className="material-symbols-outlined text-orange-500">campaign</span>
-                        </div>
-                        <span className="font-bold text-sm">Pengumuman</span>
-                     </button>
-                     <button onClick={() => setActiveTab('log')} className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2">
-                        <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
-                          <span className="material-symbols-outlined text-purple-500">memory</span>
-                        </div>
-                        <span className="font-bold text-sm">System Logs</span>
-                     </button>
+                      </div>
+                    ))}
+                    {(!dataAnalytics.stats || dataAnalytics.stats.length === 0) && (
+                      <p className="text-xs text-center text-slate-500">Belum ada data analitik.</p>
+                    )}
                   </div>
                 </div>
               )}
@@ -274,20 +297,40 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
                     <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Data Sekolah</h3>
                     <span className="text-sm font-medium text-primary bg-primary/10 px-2 py-1 rounded-lg">{dataSekolah.length} Sekolah</span>
                   </div>
-                  <div className="space-y-3">
-                    {dataSekolah.slice(0, 10).map((s) => (
-                      <div key={s.npsn} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
-                          <span className="material-symbols-outlined text-slate-500">account_balance</span>
+                  <div className="space-y-3 pb-20">
+                    {dataSekolah.slice(0, visibleCount).map((s) => (
+                      <div key={s.npsn} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
+                          <span className="material-symbols-outlined text-slate-500 dark:text-slate-300">account_balance</span>
                         </div>
                         <div className="min-w-0 flex-1">
                           <h4 className="font-bold text-sm truncate">{s.nama_sekolah}</h4>
                           <p className="text-xs text-slate-500 truncate">NPSN: {s.npsn}</p>
                         </div>
+                        <div className="flex gap-2">
+                          <button onClick={() => handleEdit(s, 'sekolah')} className="p-1 text-slate-400 hover:text-blue-500 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                            <span className="material-symbols-outlined text-[18px]">edit</span>
+                          </button>
+                          <button onClick={() => handleDelete(s.npsn, 'sekolah')} className="p-1 text-slate-400 hover:text-red-500 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                            <span className="material-symbols-outlined text-[18px]">delete</span>
+                          </button>
+                        </div>
                       </div>
                     ))}
-                    {dataSekolah.length > 10 && <div className="text-center text-xs text-slate-500 mt-2">Buka versi desktop untuk melihat semua data.</div>}
+                    {dataSekolah.length > visibleCount && (
+                      <button 
+                        onClick={() => setVisibleCount(v => v + 10)} 
+                        className="w-full py-3 mt-4 text-sm font-bold text-primary border border-primary/30 rounded-xl hover:bg-primary/5 transition-colors">
+                        Tampilkan Lebih Banyak
+                      </button>
+                    )}
                   </div>
+                  {/* FAB Tambah */}
+                  <button 
+                    onClick={() => setFormModal({ isOpen: true, type: 'sekolah', isEdit: false })}
+                    className="fixed bottom-24 right-6 w-14 h-14 bg-gradient-to-r from-primary to-secondary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform z-10">
+                    <span className="material-symbols-outlined text-3xl">add</span>
+                  </button>
                 </div>
               )}
 
@@ -297,52 +340,98 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
                     <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Data Admin</h3>
                     <span className="text-sm font-medium text-primary bg-primary/10 px-2 py-1 rounded-lg">{dataAdmin.length} Admin</span>
                   </div>
-                  <div className="space-y-3">
-                    {dataAdmin.slice(0, 10).map((a) => (
-                      <div key={a.id_admin} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
-                          <span className="material-symbols-outlined text-slate-500">manage_accounts</span>
+                  <div className="space-y-3 pb-20">
+                    {dataAdmin.slice(0, visibleCount).map((a) => (
+                      <div key={a.id_admin} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
+                          <span className="material-symbols-outlined text-slate-500 dark:text-slate-300">manage_accounts</span>
                         </div>
                         <div className="min-w-0 flex-1">
                           <h4 className="font-bold text-sm truncate">{a.nama_lengkap}</h4>
                           <p className="text-xs text-slate-500 truncate">ID: {a.id_admin} | NPSN: {a.npsn}</p>
                         </div>
+                        <div className="flex gap-2">
+                          <button onClick={() => handleEdit(a, 'admin')} className="p-1 text-slate-400 hover:text-blue-500 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                            <span className="material-symbols-outlined text-[18px]">edit</span>
+                          </button>
+                          <button onClick={() => handleDelete(a.id_admin, 'admin')} className="p-1 text-slate-400 hover:text-red-500 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                            <span className="material-symbols-outlined text-[18px]">delete</span>
+                          </button>
+                        </div>
                       </div>
                     ))}
+                    {dataAdmin.length > visibleCount && (
+                      <button 
+                        onClick={() => setVisibleCount(v => v + 10)} 
+                        className="w-full py-3 mt-4 text-sm font-bold text-primary border border-primary/30 rounded-xl hover:bg-primary/5 transition-colors">
+                        Tampilkan Lebih Banyak
+                      </button>
+                    )}
                   </div>
+                  {/* FAB Tambah */}
+                  <button 
+                    onClick={() => setFormModal({ isOpen: true, type: 'admin', isEdit: false })}
+                    className="fixed bottom-24 right-6 w-14 h-14 bg-gradient-to-r from-primary to-secondary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform z-10">
+                    <span className="material-symbols-outlined text-3xl">add</span>
+                  </button>
                 </div>
               )}
 
               {activeTab === 'pengumuman' && (
                 <div className="px-6 mt-6 animate-fade-in-up">
                   <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Pengumuman Global</h3>
-                  <div className="space-y-3">
-                    {dataPengumuman.map((p) => (
-                      <div key={p.id_pengumuman} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100">
-                         <h4 className="font-bold text-sm">{p.judul}</h4>
-                         <p className="text-[10px] text-slate-400 mb-2">{new Date(p.created_at).toLocaleDateString('id-ID')}</p>
-                         <p className="text-xs text-slate-600 line-clamp-2">{p.isi}</p>
+                  <div className="space-y-3 pb-20">
+                    {dataPengumuman.slice(0, visibleCount).map((p) => (
+                      <div key={p.id_pengumuman} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex justify-between items-start gap-3">
+                         <div className="flex-1">
+                           <h4 className="font-bold text-sm">{p.judul}</h4>
+                           <p className="text-[10px] text-slate-400 mb-2">{new Date(p.created_at).toLocaleDateString('id-ID')}</p>
+                           <p className="text-xs text-slate-600 line-clamp-2">{p.isi}</p>
+                         </div>
+                         <button onClick={() => handleDelete(p.id_pengumuman, 'pengumuman')} className="p-1 text-slate-400 hover:text-red-500 bg-slate-50 dark:bg-slate-700/50 rounded-lg shrink-0">
+                            <span className="material-symbols-outlined text-[18px]">delete</span>
+                         </button>
                       </div>
                     ))}
                     {dataPengumuman.length === 0 && <div className="text-center text-sm text-slate-500">Tidak ada pengumuman.</div>}
+                    {dataPengumuman.length > visibleCount && (
+                      <button 
+                        onClick={() => setVisibleCount(v => v + 10)} 
+                        className="w-full py-3 mt-4 text-sm font-bold text-primary border border-primary/30 rounded-xl hover:bg-primary/5 transition-colors">
+                        Tampilkan Lebih Banyak
+                      </button>
+                    )}
                   </div>
+                  {/* FAB Tambah */}
+                  <button 
+                    onClick={() => setFormModal({ isOpen: true, type: 'pengumuman', isEdit: false })}
+                    className="fixed bottom-24 right-6 w-14 h-14 bg-gradient-to-r from-primary to-secondary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform z-10">
+                    <span className="material-symbols-outlined text-3xl">add</span>
+                  </button>
                 </div>
               )}
 
               {activeTab === 'log' && (
                 <div className="px-6 mt-6 animate-fade-in-up">
                   <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">System Logs</h3>
-                  <div className="space-y-3">
-                    {dataLog.slice(0,10).map((l) => (
-                      <div key={l.id_log} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100">
+                  <div className="space-y-3 pb-20">
+                    {dataLog.slice(0, visibleCount).map((l) => (
+                      <div key={l.id_log} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700">
                          <div className="flex justify-between">
-                            <span className="text-[10px] font-bold text-slate-500">{l.tipe_user}</span>
+                            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">{l.tipe_user}</span>
                             <span className="text-[10px] text-slate-400">{new Date(l.created_at).toLocaleString('id-ID')}</span>
                          </div>
-                         <p className="text-xs mt-1 text-slate-700">{l.aktivitas}</p>
+                         <p className="text-xs mt-1 text-slate-700 dark:text-slate-300">{l.aktivitas}</p>
                       </div>
                     ))}
                     {dataLog.length === 0 && <div className="text-center text-sm text-slate-500">Tidak ada log.</div>}
+                    {dataLog.length > visibleCount && (
+                      <button 
+                        onClick={() => setVisibleCount(v => v + 10)} 
+                        className="w-full py-3 mt-4 text-sm font-bold text-primary border border-primary/30 rounded-xl hover:bg-primary/5 transition-colors">
+                        Tampilkan Lebih Banyak
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
