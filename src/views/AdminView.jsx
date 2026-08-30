@@ -796,8 +796,9 @@ import * as XLSX from 'xlsx';
               )}
 
               {activeTab === 'siswa' && (
-                <div className="px-6 mt-6 animate-fade-in-up">
-                  <div className="flex justify-between items-center mb-4">
+                <>
+                  <div className="px-6 mt-6 animate-fade-in-up">
+                    <div className="flex justify-between items-center mb-4">
                     <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Data Siswa</h3>
                     <span className="text-sm font-medium text-primary bg-primary/10 px-2 py-1 rounded-lg">{dataSiswa.length} Siswa</span>
                   </div>
@@ -837,17 +838,19 @@ import * as XLSX from 'xlsx';
                     ))}
                     {dataSiswa.filter(s => (s.nama_lengkap?.toLowerCase().includes(searchQuery.toLowerCase()) || s.nisn?.toLowerCase().includes(searchQuery.toLowerCase()))).length === 0 && <div className="text-center text-xs text-slate-500 mt-4">Data tidak ditemukan.</div>}
                   </div>
+                  </div>
                   
                   {/* Floating Action Button (Siswa) */}
                   <button onClick={() => openCreateModal('siswa')} className="absolute bottom-[76px] right-6 w-10 h-10 bg-gradient-to-tr from-primary to-secondary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-all active:scale-95 z-40">
                     <span className="material-symbols-outlined text-xl">add</span>
                   </button>
-                </div>
+                </>
               )}
 
               {activeTab === 'guru' && (
-                <div className="px-6 mt-6 animate-fade-in-up">
-                  <div className="flex justify-between items-center mb-4">
+                <>
+                  <div className="px-6 mt-6 animate-fade-in-up">
+                    <div className="flex justify-between items-center mb-4">
                     <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Data Guru</h3>
                     <span className="text-sm font-medium text-primary bg-primary/10 px-2 py-1 rounded-lg">{dataGuru.length} Guru</span>
                   </div>
@@ -888,17 +891,19 @@ import * as XLSX from 'xlsx';
                     ))}
                     {dataGuru.filter(g => (g.nama_lengkap?.toLowerCase().includes(searchQuery.toLowerCase()) || g.nip?.toLowerCase().includes(searchQuery.toLowerCase()))).length === 0 && <div className="text-center text-xs text-slate-500 mt-4">Data tidak ditemukan.</div>}
                   </div>
+                  </div>
 
                   {/* Floating Action Button (Guru) */}
                   <button onClick={() => openCreateModal('guru')} className="absolute bottom-[76px] right-6 w-10 h-10 bg-gradient-to-tr from-primary to-secondary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-all active:scale-95 z-40">
                     <span className="material-symbols-outlined text-xl">add</span>
                   </button>
-                </div>
+                </>
               )}
 
               {activeTab === 'jadwal' && (
-                <div className="px-6 mt-6 animate-fade-in-up">
-                  <div className="flex justify-between items-center mb-4">
+                <>
+                  <div className="px-6 mt-6 animate-fade-in-up">
+                    <div className="flex justify-between items-center mb-4">
                     <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Semua Jadwal Ujian</h3>
                   </div>
                   <div className="mb-4">
@@ -924,12 +929,13 @@ import * as XLSX from 'xlsx';
                     ))}
                     {dataJadwal.length === 0 && <div className="text-center text-sm text-slate-500">Tidak ada jadwal.</div>}
                   </div>
+                  </div>
 
                   {/* Floating Action Button (Jadwal) */}
                   <button onClick={() => openCreateModal('jadwal')} className="absolute bottom-[76px] right-6 w-10 h-10 bg-gradient-to-tr from-primary to-secondary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-all active:scale-95 z-40">
                     <span className="material-symbols-outlined text-xl">add</span>
                   </button>
-                </div>
+                </>
               )}
 
               {activeTab === 'akun' && (
