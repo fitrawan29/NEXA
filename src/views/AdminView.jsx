@@ -598,35 +598,10 @@ import React, { useState, useEffect, useRef } from 'react';
                     <p className="text-xs opacity-80">NPSN: {user.npsn}</p>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            {/* Stats Cards (Overlapping) */}
-            <div className="px-6 -mt-12 relative z-10">
-              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-4 grid grid-cols-3 gap-2">
-                <div className="flex flex-col items-center justify-center text-center">
-                  <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center mb-1">
-                    <span className="material-symbols-outlined text-green-500">school</span>
-                  </div>
-                  <span className="text-xl font-bold text-green-500">{dataSiswa.length}</span>
-                  <span className="text-[10px] text-slate-500 font-medium">Siswa</span>
-                  <span className="text-[10px] text-slate-400">Total</span>
-                </div>
-                <div className="flex flex-col items-center justify-center text-center border-x border-slate-100 dark:border-slate-700">
-                  <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center mb-1">
-                    <span className="material-symbols-outlined text-blue-500">local_library</span>
-                  </div>
-                  <span className="text-xl font-bold text-blue-500">{dataGuru.length}</span>
-                  <span className="text-[10px] text-slate-500 font-medium">Guru</span>
-                  <span className="text-[10px] text-slate-400">Total</span>
-                </div>
-                <div className="flex flex-col items-center justify-center text-center">
-                  <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center mb-1">
-                    <span className="material-symbols-outlined text-purple-500">event_note</span>
-                  </div>
-                  <span className="text-xl font-bold text-purple-500">{dataJadwal.length}</span>
-                  <span className="text-[10px] text-slate-500 font-medium">Jadwal</span>
-                  <span className="text-[10px] text-slate-400">Ujian</span>
+                <div className="flex items-center gap-1">
+                  <button type="button" onClick={() => setIsDarkMode(!isDarkMode)} className="relative p-1 rounded-full hover:bg-white/20 transition-colors text-white" title="Mode Gelap/Terang">
+                    <span className="material-symbols-outlined text-2xl">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -714,8 +689,8 @@ import React, { useState, useEffect, useRef } from 'react';
                   </div>
                   
                   {/* Floating Action Button (Siswa) */}
-                  <button onClick={() => openCreateModal('siswa')} className="absolute bottom-20 right-4 w-14 h-14 bg-gradient-to-tr from-primary to-secondary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-all active:scale-95 z-40">
-                    <span className="material-symbols-outlined text-3xl">add</span>
+                  <button onClick={() => openCreateModal('siswa')} className="absolute bottom-20 right-4 w-10 h-10 bg-gradient-to-tr from-primary to-secondary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-all active:scale-95 z-40">
+                    <span className="material-symbols-outlined text-xl">add</span>
                   </button>
                 </div>
               )}
@@ -752,8 +727,8 @@ import React, { useState, useEffect, useRef } from 'react';
                   </div>
 
                   {/* Floating Action Button (Guru) */}
-                  <button onClick={() => openCreateModal('guru')} className="absolute bottom-20 right-4 w-14 h-14 bg-gradient-to-tr from-primary to-secondary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-all active:scale-95 z-40">
-                    <span className="material-symbols-outlined text-3xl">add</span>
+                  <button onClick={() => openCreateModal('guru')} className="absolute bottom-20 right-4 w-10 h-10 bg-gradient-to-tr from-primary to-secondary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-all active:scale-95 z-40">
+                    <span className="material-symbols-outlined text-xl">add</span>
                   </button>
                 </div>
               )}
@@ -781,8 +756,8 @@ import React, { useState, useEffect, useRef } from 'react';
                   </div>
 
                   {/* Floating Action Button (Jadwal) */}
-                  <button onClick={() => openCreateModal('jadwal')} className="absolute bottom-20 right-4 w-14 h-14 bg-gradient-to-tr from-primary to-secondary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-all active:scale-95 z-40">
-                    <span className="material-symbols-outlined text-3xl">add</span>
+                  <button onClick={() => openCreateModal('jadwal')} className="absolute bottom-20 right-4 w-10 h-10 bg-gradient-to-tr from-primary to-secondary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-all active:scale-95 z-40">
+                    <span className="material-symbols-outlined text-xl">add</span>
                   </button>
                 </div>
               )}
@@ -813,15 +788,6 @@ import React, { useState, useEffect, useRef } from 'react';
                        <span className="material-symbols-outlined text-slate-400">chevron_right</span>
                      </button>
                      <div className="w-full h-px bg-slate-100 dark:bg-slate-800 my-2"></div>
-                     <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
-                       <div className="flex items-center gap-3">
-                         <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500"><span className="material-symbols-outlined">dark_mode</span></div>
-                         <div className="text-left"><h4 className="font-bold text-sm dark:text-white">Mode Gelap</h4><p className="text-xs text-slate-500">Tampilan redup</p></div>
-                       </div>
-                       <button onClick={() => setIsDarkMode(!isDarkMode)} className={`w-12 h-6 rounded-full flex items-center px-1 transition-colors ${isDarkMode ? 'bg-primary' : 'bg-slate-300'} `}>
-                         <div className={`w-4 h-4 rounded-full bg-white transition-transform ${isDarkMode ? 'translate-x-6' : ''}`}></div>
-                       </button>
-                     </div>
                      <button onClick={onLogout} className="w-full bg-red-50 dark:bg-red-900/20 p-4 rounded-2xl flex items-center justify-between border border-red-100 dark:border-red-900/30 shadow-sm active:scale-95 transition-all text-red-600">
                        <div className="flex items-center gap-3">
                          <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center"><span className="material-symbols-outlined">logout</span></div>
