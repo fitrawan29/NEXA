@@ -197,7 +197,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
                   <button type="button" onClick={onLogout} className="relative p-1 rounded-full hover:bg-white/20 transition-colors text-white" title="Keluar">
                     <span className="material-symbols-outlined text-2xl">logout</span>
                   </button>
-                </div>>
+                </div>
               </div>
             </div>
 

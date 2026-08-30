@@ -8,8 +8,9 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: '#3ecf8e',
-        secondary: '#2a9d8f'
+        primary: '#b5a0ff', // Pastel purple
+        secondary: '#ffb5e8', // Pastel pink
+        'on-primary': '#ffffff',
       },
       fontFamily: {
         sans: ['Nunito', 'sans-serif'],
