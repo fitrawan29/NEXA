@@ -9,6 +9,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
       const [dataLog, setDataLog] = useState([]);
       const [isLoading, setIsLoading] = useState(false);
       const [visibleCount, setVisibleCount] = useState(10);
+      const [fotoProfil, setFotoProfil] = useState(localStorage.getItem(`foto_${user.username}`) || '');
       
       const [formModal, setFormModal] = useState({ isOpen: false, type: '', isEdit: false, editItem: null });
 
@@ -181,8 +182,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-white/20 rounded-full border-2 border-white/50 overflow-hidden flex-shrink-0 flex items-center justify-center">
-                    {localStorage.getItem(`foto_${user.username}`) ? (
-                      <img src={localStorage.getItem(`foto_${user.username}`)} className="w-full h-full object-cover" />
+                    {fotoProfil ? (
+                      <img src={fotoProfil} className="w-full h-full object-cover" />
                     ) : (
                       <span className="material-symbols-outlined text-white text-3xl">verified_user</span>
                     )}
@@ -202,33 +203,33 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 
             {/* Main Scrollable Content */}
-            <div className="flex-1 overflow-y-auto pb-24 hide-scrollbar">
+            <div className="flex-1 overflow-y-auto pb-24 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               
               {activeTab === 'analytics' && (
                 <div className="px-6 mt-6 animate-fade-in-up">
-                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Dashboard Analytics</h3>
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Dasbor Statistik</h3>
                   <p className="text-sm text-slate-500 mb-6">Ringkasan statistik dari seluruh sekolah yang terdaftar di sistem.</p>
                   
-                  <div className="grid grid-cols-2 gap-4 mb-6">
-                     <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-4 rounded-2xl shadow-md text-white flex flex-col justify-between">
-                        <span className="material-symbols-outlined text-white/70 mb-2">public</span>
-                        <span className="text-3xl font-bold">{dataAnalytics.concurrentUsers || 0}</span>
-                        <span className="text-xs font-medium opacity-90">Ujian Aktif Saat Ini</span>
+                  <div className="grid grid-cols-2 gap-2 mb-6">
+                     <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-3 rounded-2xl shadow-sm text-white flex flex-col justify-between">
+                        <span className="material-symbols-outlined text-white/70 mb-1 text-lg">public</span>
+                        <span className="text-xl font-bold">{dataAnalytics.concurrentUsers || 0}</span>
+                        <span className="text-[10px] font-medium opacity-90 leading-tight">Ujian Aktif Saat Ini</span>
                      </div>
-                     <div className="bg-gradient-to-br from-green-400 to-emerald-600 p-4 rounded-2xl shadow-md text-white flex flex-col justify-between">
-                        <span className="material-symbols-outlined text-white/70 mb-2">school</span>
-                        <span className="text-3xl font-bold">{dataAnalytics.stats?.reduce((acc, s) => acc + s.total_siswa, 0) || 0}</span>
-                        <span className="text-xs font-medium opacity-90">Total Siswa Terdaftar</span>
+                     <div className="bg-gradient-to-br from-green-400 to-emerald-600 p-3 rounded-2xl shadow-sm text-white flex flex-col justify-between">
+                        <span className="material-symbols-outlined text-white/70 mb-1 text-lg">school</span>
+                        <span className="text-xl font-bold">{dataAnalytics.stats?.reduce((acc, s) => acc + s.total_siswa, 0) || 0}</span>
+                        <span className="text-[10px] font-medium opacity-90 leading-tight">Total Siswa Terdaftar</span>
                      </div>
-                     <div className="bg-gradient-to-br from-orange-400 to-red-500 p-4 rounded-2xl shadow-md text-white flex flex-col justify-between">
-                        <span className="material-symbols-outlined text-white/70 mb-2">badge</span>
-                        <span className="text-3xl font-bold">{dataAnalytics.stats?.reduce((acc, s) => acc + s.total_guru, 0) || 0}</span>
-                        <span className="text-xs font-medium opacity-90">Total Guru</span>
+                     <div className="bg-gradient-to-br from-orange-400 to-red-500 p-3 rounded-2xl shadow-sm text-white flex flex-col justify-between">
+                        <span className="material-symbols-outlined text-white/70 mb-1 text-lg">badge</span>
+                        <span className="text-xl font-bold">{dataAnalytics.stats?.reduce((acc, s) => acc + s.total_guru, 0) || 0}</span>
+                        <span className="text-[10px] font-medium opacity-90 leading-tight">Total Guru</span>
                      </div>
-                     <div className="bg-gradient-to-br from-purple-500 to-fuchsia-600 p-4 rounded-2xl shadow-md text-white flex flex-col justify-between">
-                        <span className="material-symbols-outlined text-white/70 mb-2">quiz</span>
-                        <span className="text-3xl font-bold">{dataAnalytics.stats?.reduce((acc, s) => acc + s.total_soal, 0) || 0}</span>
-                        <span className="text-xs font-medium opacity-90">Total Soal Bank</span>
+                     <div className="bg-gradient-to-br from-purple-500 to-fuchsia-600 p-3 rounded-2xl shadow-sm text-white flex flex-col justify-between">
+                        <span className="material-symbols-outlined text-white/70 mb-1 text-lg">quiz</span>
+                        <span className="text-xl font-bold">{dataAnalytics.stats?.reduce((acc, s) => acc + s.total_soal, 0) || 0}</span>
+                        <span className="text-[10px] font-medium opacity-90 leading-tight">Total Soal Bank</span>
                      </div>
                   </div>
 
@@ -409,8 +410,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
                    <div className="flex flex-col items-center">
                      <div className="relative group">
                        <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center mb-2 overflow-hidden border-2 border-primary/30">
-                         {localStorage.getItem(`foto_${user.username}`) ? (
-                            <img src={localStorage.getItem(`foto_${user.username}`)} className="w-full h-full object-cover" />
+                         {fotoProfil ? (
+                            <img src={fotoProfil} className="w-full h-full object-cover" />
                          ) : (
                             <span className="material-symbols-outlined text-4xl text-primary">person</span>
                          )}
@@ -420,9 +421,34 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
                             const file = e.target.files[0];
                             if(file) {
                                const reader = new FileReader();
-                               reader.onload = (e) => {
-                                  localStorage.setItem(`foto_${user.username}`, e.target.result);
-                                  window.location.reload();
+                               reader.onload = (event) => {
+                                  const img = new Image();
+                                  img.onload = () => {
+                                      const canvas = document.createElement('canvas');
+                                      const MAX_WIDTH = 200;
+                                      const MAX_HEIGHT = 200;
+                                      let width = img.width;
+                                      let height = img.height;
+
+                                      if (width > height) {
+                                        if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+                                      } else {
+                                        if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
+                                      }
+
+                                      canvas.width = width;
+                                      canvas.height = height;
+                                      const ctx = canvas.getContext('2d');
+                                      ctx.drawImage(img, 0, 0, width, height);
+                                      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                                      try {
+                                        localStorage.setItem(`foto_${user.username}`, dataUrl);
+                                        setFotoProfil(dataUrl);
+                                      } catch (err) {
+                                        showMessage('Error', 'Gagal menyimpan foto. File mungkin masih terlalu besar.', 'error');
+                                      }
+                                  };
+                                  img.src = event.target.result;
                                };
                                reader.readAsDataURL(file);
                             }
