@@ -839,7 +839,7 @@ import * as XLSX from 'xlsx';
                   </div>
                   
                   {/* Floating Action Button (Siswa) */}
-                  <button onClick={() => openCreateModal('siswa')} className="absolute bottom-[72px] right-4 w-10 h-10 bg-gradient-to-tr from-primary to-secondary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-all active:scale-95 z-40">
+                  <button onClick={() => openCreateModal('siswa')} className="absolute bottom-[76px] right-6 w-10 h-10 bg-gradient-to-tr from-primary to-secondary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-all active:scale-95 z-40">
                     <span className="material-symbols-outlined text-xl">add</span>
                   </button>
                 </div>
@@ -890,7 +890,7 @@ import * as XLSX from 'xlsx';
                   </div>
 
                   {/* Floating Action Button (Guru) */}
-                  <button onClick={() => openCreateModal('guru')} className="absolute bottom-[72px] right-4 w-10 h-10 bg-gradient-to-tr from-primary to-secondary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-all active:scale-95 z-40">
+                  <button onClick={() => openCreateModal('guru')} className="absolute bottom-[76px] right-6 w-10 h-10 bg-gradient-to-tr from-primary to-secondary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-all active:scale-95 z-40">
                     <span className="material-symbols-outlined text-xl">add</span>
                   </button>
                 </div>
@@ -926,7 +926,7 @@ import * as XLSX from 'xlsx';
                   </div>
 
                   {/* Floating Action Button (Jadwal) */}
-                  <button onClick={() => openCreateModal('jadwal')} className="absolute bottom-[72px] right-4 w-10 h-10 bg-gradient-to-tr from-primary to-secondary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-all active:scale-95 z-40">
+                  <button onClick={() => openCreateModal('jadwal')} className="absolute bottom-[76px] right-6 w-10 h-10 bg-gradient-to-tr from-primary to-secondary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-all active:scale-95 z-40">
                     <span className="material-symbols-outlined text-xl">add</span>
                   </button>
                 </div>
