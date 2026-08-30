@@ -214,11 +214,13 @@ import React from 'react';
 
           // ================= ADMIN DASHBOARD =================
           case 'get_admin_dashboard_data': {
-            const [siswaRes, guruRes, jadwalRes, aktifRes] = await Promise.all([
+            const [siswaRes, guruRes, jadwalRes, aktifRes, mapelRes, soalRes] = await Promise.all([
               supabaseClient.from('siswa').select('id_siswa', { count: 'exact' }).eq('npsn', payload.npsn),
               supabaseClient.from('guru').select('id_guru', { count: 'exact' }).eq('npsn', payload.npsn),
               supabaseClient.from('jadwal').select('id_jadwal', { count: 'exact' }).eq('npsn', payload.npsn),
-              supabaseClient.from('log_ujian').select('id_log, jadwal!inner(npsn)', { count: 'exact' }).eq('status_ujian', 'SEDANG KERJA').eq('jadwal.npsn', payload.npsn)
+              supabaseClient.from('log_ujian').select('id_log, jadwal!inner(npsn)', { count: 'exact' }).eq('status_ujian', 'SEDANG KERJA').eq('jadwal.npsn', payload.npsn),
+              supabaseClient.from('mata_pelajaran').select('id_mapel', { count: 'exact' }).eq('npsn', payload.npsn),
+              supabaseClient.from('bank_soal').select('id_soal', { count: 'exact' }).eq('npsn', payload.npsn)
             ]);
 
             const { data: jadwalAktifData } = await supabaseClient
@@ -234,6 +236,8 @@ import React from 'react';
                 totalGuru: guruRes.count || 0,
                 totalJadwal: jadwalRes.count || 0,
                 totalSesiAktif: aktifRes.count || 0,
+                totalMapel: mapelRes.count || 0,
+                totalSoal: soalRes.count || 0,
                 jadwalAktif: (jadwalAktifData || []).map(j => ({
                   id_jadwal: j.id_jadwal,
                   nama_mapel: j.mata_pelajaran ? j.mata_pelajaran.nama_mapel : 'Unknown',

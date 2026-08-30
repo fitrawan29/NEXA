@@ -611,33 +611,37 @@ import React, { useState, useEffect, useRef } from 'react';
               
               {activeTab === 'dashboard' && (
                 <div className="px-6 mt-6 animate-fade-in-up">
-                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Akses Cepat</h3>
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Statistik Sekolah</h3>
                   
                   <div className="grid grid-cols-2 gap-4 mb-8">
-                     <button onClick={() => setActiveTab('siswa')} className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2">
+                     <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2">
                         <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
                           <span className="material-symbols-outlined text-green-500">school</span>
                         </div>
-                        <span className="font-bold text-sm">Kelola Siswa</span>
-                     </button>
-                     <button onClick={() => setActiveTab('guru')} className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2">
+                        <span className="text-2xl font-bold text-slate-800 dark:text-slate-100">{dashboardData?.totalSiswa || 0}</span>
+                        <span className="font-medium text-xs text-slate-500">Total Siswa</span>
+                     </div>
+                     <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2">
                         <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
                           <span className="material-symbols-outlined text-blue-500">local_library</span>
                         </div>
-                        <span className="font-bold text-sm">Kelola Guru</span>
-                     </button>
-                     <button onClick={() => setActiveTab('jadwal')} className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2">
-                        <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
-                          <span className="material-symbols-outlined text-purple-500">event_note</span>
-                        </div>
-                        <span className="font-bold text-sm">Jadwal Ujian</span>
-                     </button>
-                     <button onClick={() => setFormModal({ type: 'SEKOLAH' })} className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2">
+                        <span className="text-2xl font-bold text-slate-800 dark:text-slate-100">{dashboardData?.totalGuru || 0}</span>
+                        <span className="font-medium text-xs text-slate-500">Total Guru</span>
+                     </div>
+                     <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2">
                         <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center">
-                          <span className="material-symbols-outlined text-orange-500">account_balance</span>
+                          <span className="material-symbols-outlined text-orange-500">menu_book</span>
                         </div>
-                        <span className="font-bold text-sm">Info Sekolah</span>
-                     </button>
+                        <span className="text-2xl font-bold text-slate-800 dark:text-slate-100">{dashboardData?.totalMapel || 0}</span>
+                        <span className="font-medium text-xs text-slate-500">Total Mapel</span>
+                     </div>
+                     <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2">
+                        <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
+                          <span className="material-symbols-outlined text-purple-500">quiz</span>
+                        </div>
+                        <span className="text-2xl font-bold text-slate-800 dark:text-slate-100">{dashboardData?.totalSoal || 0}</span>
+                        <span className="font-medium text-xs text-slate-500">Total Soal</span>
+                     </div>
                   </div>
 
                   <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Jadwal Aktif</h3>
