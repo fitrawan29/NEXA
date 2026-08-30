@@ -15,6 +15,33 @@ import React, { useState, useEffect, useRef } from 'react';
       const [isLoading, setIsLoading] = useState(false);
       const [hasNotification, setHasNotification] = useState(false);
       
+      const [fotoProfil, setFotoProfil] = useState(user.foto || '');
+      const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
+
+      const PRESET_AVATARS = [
+        'https://api.dicebear.com/7.x/bottts/svg?seed=Felix',
+        'https://api.dicebear.com/7.x/bottts/svg?seed=Aneka',
+        'https://api.dicebear.com/7.x/bottts/svg?seed=Mimi',
+        'https://api.dicebear.com/7.x/bottts/svg?seed=Buster',
+        'https://api.dicebear.com/7.x/bottts/svg?seed=Jasper',
+        'https://api.dicebear.com/7.x/bottts/svg?seed=Bandit',
+        'https://api.dicebear.com/7.x/bottts/svg?seed=Cali',
+        'https://api.dicebear.com/7.x/bottts/svg?seed=Gizmo',
+        'https://api.dicebear.com/7.x/bottts/svg?seed=Sammy'
+      ];
+
+      const handleAvatarSelect = async (avatarUrl) => {
+        setIsLoading(true);
+        const res = await api('update_guru', { id_guru: user.id_guru, npsn: user.npsn, foto: avatarUrl });
+        setIsLoading(false);
+        if (res.status === 'success') {
+          setFotoProfil(avatarUrl);
+          setIsAvatarModalOpen(false);
+        } else {
+          alert(res.message);
+        }
+      };
+      
       const [dataMapel, setDataMapel] = useState([]);
       const [selectedMapel, setSelectedMapel] = useState(null);
       const [dataSoal, setDataSoal] = useState([]);
@@ -402,7 +429,11 @@ import React, { useState, useEffect, useRef } from 'react';
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-3">
                   <div className="w-14 h-14 bg-white/20 rounded-full border-2 border-white/50 overflow-hidden flex-shrink-0 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-white text-3xl">local_library</span>
+                    {fotoProfil ? (
+                      <img src={fotoProfil} className="w-full h-full object-cover bg-white" />
+                    ) : (
+                      <span className="material-symbols-outlined text-white text-3xl">local_library</span>
+                    )}
                   </div>
                   <div>
                     <h2 className="font-bold text-lg leading-tight">Portal Guru</h2>
@@ -586,10 +617,19 @@ import React, { useState, useEffect, useRef } from 'react';
                 </div>
               )}
 
-              {activeTab === 'akun' && (
+               {activeTab === 'akun' && (
                 <div className="px-6 mt-6 animate-fade-in-up flex flex-col items-center">
-                   <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center mb-4 border-4 border-white dark:border-slate-800 shadow-md">
-                     <span className="material-symbols-outlined text-4xl text-primary">local_library</span>
+                   <div className="relative group cursor-pointer" onClick={() => setIsAvatarModalOpen(true)}>
+                     <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center mb-4 border-4 border-white dark:border-slate-800 shadow-md overflow-hidden">
+                       {fotoProfil ? (
+                         <img src={fotoProfil} className="w-full h-full object-cover bg-slate-50 dark:bg-slate-700" />
+                       ) : (
+                         <span className="material-symbols-outlined text-4xl text-primary">local_library</span>
+                       )}
+                     </div>
+                     <div className="absolute bottom-4 right-0 w-8 h-8 bg-white dark:bg-slate-700 rounded-full shadow flex items-center justify-center border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">
+                       <span className="material-symbols-outlined text-sm text-slate-600 dark:text-slate-300">edit</span>
+                     </div>
                    </div>
                    <h3 className="font-bold text-xl">{user.nama_lengkap}</h3>
                    <p className="text-slate-500">Guru | NIP: {user.nip || '-'}</p>
@@ -679,6 +719,30 @@ import React, { useState, useEffect, useRef } from 'react';
             
           </div>
         </div>
+
+        {/* Avatar Modal */}
+        {isAvatarModalOpen && (
+          <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-sm shadow-2xl p-6 relative border border-slate-100 dark:border-slate-700">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                   <h3 className="font-bold text-lg dark:text-white">Pilih Avatar</h3>
+                   <p className="text-xs text-slate-500">Pilih karakter untuk foto profil Anda</p>
+                </div>
+                <button onClick={() => setIsAvatarModalOpen(false)} className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
+                  <span className="material-symbols-outlined text-sm">close</span>
+                </button>
+              </div>
+              <div className="grid grid-cols-3 gap-3 mb-2">
+                {PRESET_AVATARS.map((avatar, idx) => (
+                  <button key={idx} onClick={() => handleAvatarSelect(avatar)} className={`w-full aspect-square rounded-2xl overflow-hidden border-2 transition-all ${fotoProfil === avatar ? 'border-primary ring-4 ring-primary/20 shadow-md scale-105 bg-white' : 'border-slate-100 dark:border-slate-700 hover:border-primary/50 bg-slate-50 dark:bg-slate-800'}`}>
+                    <img src={avatar} className="w-full h-full object-cover p-2" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       );
     };
 

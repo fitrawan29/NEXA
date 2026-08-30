@@ -353,12 +353,13 @@ import React from 'react';
               }
               return { status: 'error', message: res.error.message };
             }
-            // delete old guru_mapel
-            await supabaseClient.from('guru_mapel').delete().eq('id_guru', id_guru);
-            // insert new guru_mapel
-            if (mapels && mapels.length > 0) {
-              const mapelInserts = mapels.map(m => ({ id_guru, id_mapel: m }));
-              await supabaseClient.from('guru_mapel').insert(mapelInserts);
+            // update guru_mapel only if mapels is provided
+            if (mapels !== undefined) {
+              await supabaseClient.from('guru_mapel').delete().eq('id_guru', id_guru);
+              if (mapels.length > 0) {
+                const mapelInserts = mapels.map(m => ({ id_guru, id_mapel: m }));
+                await supabaseClient.from('guru_mapel').insert(mapelInserts);
+              }
             }
             return { status: 'success', message: 'Guru berhasil diperbarui' };
           }
