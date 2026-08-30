@@ -177,7 +177,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
           <div className="w-full max-w-md bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col h-screen">
             
             {/* Header / Top Section */}
-            <div className="bg-[#3ecf8e] rounded-b-[40px] px-6 pt-8 pb-20 relative text-white shadow-md z-0">
+            <div className="bg-[#3ecf8e] rounded-b-[40px] px-6 pt-8 pb-12 relative text-white shadow-md z-0">
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-3">
                   <div className="w-14 h-14 bg-white/20 rounded-full border-2 border-white/50 overflow-hidden flex-shrink-0 flex items-center justify-center">
@@ -193,45 +193,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
                   <button type="button" onClick={() => setIsDarkMode(!isDarkMode)} className="relative p-1 rounded-full hover:bg-white/20 transition-colors" title="Mode Gelap/Terang">
                     <span className="material-symbols-outlined text-2xl">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
                   </button>
-                  <button className="relative p-1 rounded-full hover:bg-white/20 transition-colors" title="Pengaturan">
-                    <span className="material-symbols-outlined text-2xl">settings</span>
-                  </button>
-                  <button type="button" onClick={onLogout} className="relative p-1 rounded-full hover:bg-white/20 transition-colors text-white" title="Keluar">
-                    <span className="material-symbols-outlined text-2xl">logout</span>
-                  </button>
                 </div>
               </div>
             </div>
 
-            {/* Stats Cards (Overlapping) */}
-            <div className="px-6 -mt-12 relative z-10">
-              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-4 grid grid-cols-3 gap-2">
-                <div className="flex flex-col items-center justify-center text-center">
-                  <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center mb-1">
-                    <span className="material-symbols-outlined text-green-500">account_balance</span>
-                  </div>
-                  <span className="text-xl font-bold text-green-500">{dataSekolah.length}</span>
-                  <span className="text-[10px] text-slate-500 font-medium">Sekolah</span>
-                  <span className="text-[10px] text-slate-400">Total</span>
-                </div>
-                <div className="flex flex-col items-center justify-center text-center border-x border-slate-100 dark:border-slate-700">
-                  <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center mb-1">
-                    <span className="material-symbols-outlined text-blue-500">manage_accounts</span>
-                  </div>
-                  <span className="text-xl font-bold text-blue-500">{dataAdmin.length}</span>
-                  <span className="text-[10px] text-slate-500 font-medium">Admin</span>
-                  <span className="text-[10px] text-slate-400">Total</span>
-                </div>
-                <div className="flex flex-col items-center justify-center text-center">
-                  <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center mb-1">
-                    <span className="material-symbols-outlined text-purple-500">memory</span>
-                  </div>
-                  <span className="text-xl font-bold text-purple-500">{dataLog.length}</span>
-                  <span className="text-[10px] text-slate-500 font-medium">Logs</span>
-                  <span className="text-[10px] text-slate-400">Sistem</span>
-                </div>
-              </div>
-            </div>
 
             {/* Main Scrollable Content */}
             <div className="flex-1 overflow-y-auto pb-24 hide-scrollbar">
@@ -328,8 +293,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
                   {/* FAB Tambah */}
                   <button 
                     onClick={() => setFormModal({ isOpen: true, type: 'sekolah', isEdit: false })}
-                    className="fixed bottom-24 right-6 w-14 h-14 bg-gradient-to-r from-primary to-secondary text-emerald-900 rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform z-10">
-                    <span className="material-symbols-outlined text-3xl">add</span>
+                    className="fixed bottom-20 right-4 w-10 h-10 bg-gradient-to-r from-primary to-secondary text-emerald-900 rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform z-10">
+                    <span className="material-symbols-outlined text-2xl">add</span>
                   </button>
                 </div>
               )}
@@ -371,8 +336,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
                   {/* FAB Tambah */}
                   <button 
                     onClick={() => setFormModal({ isOpen: true, type: 'admin', isEdit: false })}
-                    className="fixed bottom-24 right-6 w-14 h-14 bg-gradient-to-r from-primary to-secondary text-emerald-900 rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform z-10">
-                    <span className="material-symbols-outlined text-3xl">add</span>
+                    className="fixed bottom-20 right-4 w-10 h-10 bg-gradient-to-r from-primary to-secondary text-emerald-900 rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform z-10">
+                    <span className="material-symbols-outlined text-2xl">add</span>
                   </button>
                 </div>
               )}
@@ -405,8 +370,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
                   {/* FAB Tambah */}
                   <button 
                     onClick={() => setFormModal({ isOpen: true, type: 'pengumuman', isEdit: false })}
-                    className="fixed bottom-24 right-6 w-14 h-14 bg-gradient-to-r from-primary to-secondary text-emerald-900 rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform z-10">
-                    <span className="material-symbols-outlined text-3xl">add</span>
+                    className="fixed bottom-20 right-4 w-10 h-10 bg-gradient-to-r from-primary to-secondary text-emerald-900 rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform z-10">
+                    <span className="material-symbols-outlined text-2xl">add</span>
                   </button>
                 </div>
               )}
@@ -437,15 +402,57 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
               )}
 
               {activeTab === 'akun' && (
-                <div className="px-6 mt-6 animate-fade-in-up flex flex-col items-center">
-                   <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center mb-4">
-                     <span className="material-symbols-outlined text-4xl text-primary">verified_user</span>
+                <div className="px-6 mt-6 animate-fade-in-up pb-24">
+                   <div className="flex flex-col items-center">
+                     <div className="relative group">
+                       <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center mb-2 overflow-hidden border-2 border-primary/30">
+                         <span className="material-symbols-outlined text-4xl text-primary">person</span>
+                       </div>
+                       <button className="absolute bottom-2 right-0 w-8 h-8 bg-white dark:bg-slate-700 rounded-full shadow flex items-center justify-center border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">
+                         <span className="material-symbols-outlined text-sm text-slate-600 dark:text-slate-300">edit</span>
+                       </button>
+                     </div>
+                     <h3 className="font-bold text-xl dark:text-white">{user.nama_lengkap}</h3>
+                     <p className="text-slate-500 text-sm">Developer / SuperAdmin</p>
                    </div>
-                   <h3 className="font-bold text-xl">{user.nama_lengkap}</h3>
-                   <p className="text-slate-500">Developer / SuperAdmin</p>
                    
-                   <div className="w-full mt-8 space-y-3">
-                      {/* Tombol telah dipindah ke pojok kanan atas */}
+                   <div className="w-full mt-8 space-y-6">
+                      <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
+                        <h4 className="font-bold text-sm mb-3 dark:text-white flex items-center gap-2">
+                          <span className="material-symbols-outlined text-slate-400">lock</span> Ganti Password
+                        </h4>
+                        <div className="flex flex-col gap-2">
+                          <input type="password" placeholder="Password Baru" className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-primary" id="new_superadmin_password" />
+                          <button onClick={async () => {
+                            const pwd = document.getElementById('new_superadmin_password').value;
+                            if(!pwd) return showMessage('Info', 'Password tidak boleh kosong', 'info');
+                            const res = await fetchAPI('update_superadmin_password', { username: user.username, password: pwd });
+                            showMessage(res.status === 'success' ? 'Sukses' : 'Gagal', res.message, res.status);
+                            if(res.status === 'success') document.getElementById('new_superadmin_password').value = '';
+                          }} className="w-full py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-white font-bold rounded-xl text-sm transition-colors mt-1">Simpan Password</button>
+                        </div>
+                      </div>
+
+                      <div className="bg-red-50 dark:bg-red-900/10 p-4 rounded-2xl shadow-sm border border-red-100 dark:border-red-900/30">
+                        <h4 className="font-bold text-sm mb-1 text-red-600 dark:text-red-400 flex items-center gap-2">
+                          <span className="material-symbols-outlined">warning</span> Zona Bahaya
+                        </h4>
+                        <p className="text-[10px] text-red-500/80 mb-3">Tindakan ini akan menghapus permanen seluruh data (Sekolah, Admin, Guru, Siswa, Ujian).</p>
+                        <button onClick={() => {
+                          if(window.confirm('PERINGATAN KERAS! Apakah Anda yakin ingin mereset dan MENGHAPUS SEMUA DATA sistem?')) {
+                            fetchAPI('reset_all_data').then(res => {
+                              showMessage(res.status === 'success' ? 'Berhasil' : 'Gagal', res.message, res.status);
+                              if(res.status === 'success') window.location.reload();
+                            });
+                          }
+                        }} className="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-sm transition-colors shadow-sm">
+                          Reset Semua Data
+                        </button>
+                      </div>
+
+                      <button onClick={onLogout} className="w-full py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-sm transition-colors shadow-sm flex items-center justify-center gap-2">
+                        <span className="material-symbols-outlined">logout</span> Keluar Akun
+                      </button>
                    </div>
                 </div>
               )}

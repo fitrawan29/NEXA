@@ -10,7 +10,7 @@ import React from 'react';
       try {
         // ================= APPLICATION-LEVEL RLS =================
         // Menolak kueri jika npsn tidak disertakan untuk rute non-global
-        const globalRoutes = ['login', 'register', 'get_sekolah', 'update_admin_sekolah', 'tambah_admin_sekolah', 'get_analytics', 'update_admin_profil', 'hapus_sekolah', 'get_pengumuman_global', 'create_pengumuman_global', 'delete_pengumuman_global', 'get_log_aktivitas_global', 'create_log_aktivitas_global', 'update_sekolah_status'];
+        const globalRoutes = ['login', 'register', 'get_sekolah', 'create_sekolah', 'delete_sekolah', 'update_sekolah', 'get_admin_all', 'create_admin_sekolah', 'update_admin_sekolah', 'delete_admin_sekolah', 'get_analytics', 'update_admin_profil', 'get_pengumuman_global', 'create_pengumuman_global', 'delete_pengumuman_global', 'get_log_aktivitas_global', 'create_log_aktivitas_global', 'update_sekolah_status', 'update_superadmin_password', 'reset_all_data'];
         if (!globalRoutes.includes(action)) {
           if (Array.isArray(payload)) {
             if (payload.some(p => !p.npsn)) throw new Error("Security Violation: Akses ditolak. NPSN hilang pada bulk payload.");
@@ -953,6 +953,19 @@ import React from 'react';
             ({ error } = await supabaseClient.from('soal_ujian').insert(payload.data));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Soal berhasil diimport.' };
+          }
+
+          case 'update_superadmin_password': {
+            ({ error } = await supabaseClient.from('super_admin').update({ password: payload.password }).eq('username', payload.username));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Password super admin berhasil diubah.' };
+          }
+          case 'reset_all_data': {
+            const tables = ['log_aktivitas', 'siswa_jawaban', 'siswa_ujian', 'jadwal_ujian', 'soal_ujian', 'mata_pelajaran', 'guru_mapel', 'siswa', 'guru', 'admin', 'pengumuman', 'sekolah'];
+            for (let table of tables) {
+               await supabaseClient.from(table).delete().neq('created_at', '1970-01-01T00:00:00Z');
+            }
+            return { status: 'success', message: 'Semua data sistem berhasil dihapus secara permanen.' };
           }
 
           default:
