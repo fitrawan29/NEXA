@@ -80,6 +80,8 @@ import * as XLSX from 'xlsx';
         } else if (tab === 'guru') {
           const res = await api('get_guru', {});
           if (res.status === 'success') setDataGuru(res.data);
+          const resMapel = await api('get_all_mapel', {});
+          if (resMapel.status === 'success') setDataMapel(resMapel.data);
         } else if (tab === 'mapel') {
           const res = await api('get_all_mapel', {});
           if (res.status === 'success') setDataMapel(res.data);
@@ -95,6 +97,13 @@ import * as XLSX from 'xlsx';
         } else if (tab === 'jadwal' || tab === 'monitoring' || tab === 'hasil') {
           const res = await api('get_all_jadwal', {});
           if (res.status === 'success') setDataJadwal(res.data);
+          
+          const resMapel = await api('get_all_mapel', {});
+          if (resMapel.status === 'success') setDataMapel(resMapel.data);
+          const resKelas = await api('get_kelas', {});
+          if (resKelas.status === 'success') setDataKelas(resKelas.data);
+          const resGuru = await api('get_guru', {});
+          if (resGuru.status === 'success') setDataGuru(resGuru.data);
 
           if (selectedJadwal) {
             const endpoint = tab === 'hasil' ? 'get_hasil_ujian' : 'monitoring_ujian';
