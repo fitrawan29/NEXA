@@ -69,6 +69,9 @@ import * as XLSX from 'xlsx';
         if (tab === 'dashboard') {
           const res = await api('get_admin_dashboard_data', {});
           if (res.status === 'success') setDashboardData(res.data);
+          // Also fetch jadwal for dashboard display
+          const resJ = await api('get_all_jadwal', {});
+          if (resJ.status === 'success') setDataJadwal(resJ.data);
         } else if (tab === 'siswa' || tab === 'kelas') {
           const res = await api('get_siswa', {});
           if (res.status === 'success') setDataSiswa(res.data);
@@ -167,11 +170,19 @@ import * as XLSX from 'xlsx';
           delete payload.kelas_gabungan;
         }
 
-        // Handle Checkboxes for Jadwal
+        // Handle Checkboxes and Time for Jadwal
         if (formModal.type === 'jadwal') {
-          payload.browser_lockdown = formData.get('browser_lockdown') === 'on';
-          payload.acak_soal = formData.get('acak_soal') === 'on';
-          payload.acak_opsi = formData.get('acak_opsi') === 'on';
+          payload.browser_lockdown = true;
+          payload.acak_soal = true;
+          payload.acak_opsi = true;
+          
+          if (payload.tanggal && payload.waktu_mulai_time && payload.waktu_selesai_time) {
+            payload.waktu_mulai = `${payload.tanggal}T${payload.waktu_mulai_time}`;
+            payload.waktu_selesai = `${payload.tanggal}T${payload.waktu_selesai_time}`;
+            delete payload.tanggal;
+            delete payload.waktu_mulai_time;
+            delete payload.waktu_selesai_time;
+          }
         }
 
         const res = await api(endpoint, payload);
@@ -513,26 +524,12 @@ import * as XLSX from 'xlsx';
                   <>
                     {isEdit && <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">ID Ujian (Jadwal)</label><input name="id_jadwal" defaultValue={data?.id_jadwal || ''} readOnly={isEdit} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-400 bg-slate-100" /></div>}
                     <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Mata Pelajaran</label><select name="id_mapel" defaultValue={data?.id_mapel || ''} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white"><option value="">Pilih Mapel</option>{dataMapel.map(m => <option key={m.id_mapel} value={m.id_mapel}>{m.nama_mapel}</option>)}</select></div>
-                    <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Guru Pengawas</label><select name="id_guru" defaultValue={data?.id_guru || ''} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white"><option value="">Pilih Guru</option>{dataGuru.map(g => <option key={g.id_guru} value={g.id_guru}>{g.nama_lengkap}</option>)}</select></div>
+                    <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Guru Pengampu</label><select name="id_guru" defaultValue={data?.id_guru || ''} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white"><option value="">Pilih Guru</option>{dataGuru.map(g => <option key={g.id_guru} value={g.id_guru}>{g.nama_lengkap}</option>)}</select></div>
                     <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Tingkat Ujian</label><select name="kelas" defaultValue={data?.kelas || ''} className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white"><option value="">Semua Tingkat (Umum)</option>{Array.from(new Set(dataKelas.map(k => k.tingkat))).map(t => <option key={t} value={t}>Tingkat {t}</option>)}</select></div>
+                    <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Tanggal Ujian</label><input type="date" name="tanggal" defaultValue={data?.waktu_mulai ? new Date(data.waktu_mulai).toISOString().slice(0, 10) : ''} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
                     <div className="grid grid-cols-2 gap-2">
-                      <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Waktu Mulai</label><input type="datetime-local" name="waktu_mulai" defaultValue={data?.waktu_mulai ? new Date(data.waktu_mulai).toISOString().slice(0, 16) : ''} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
-                      <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Waktu Selesai</label><input type="datetime-local" name="waktu_selesai" defaultValue={data?.waktu_selesai ? new Date(data.waktu_selesai).toISOString().slice(0, 16) : ''} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
-                    </div>
-                    <div className="mt-4 border-t border-outline-variant dark:border-slate-700 pt-4">
-                      <label className="block text-sm font-bold mb-2 dark:text-slate-300 text-primary">Pengaturan Keamanan Ujian</label>
-                      <label className="flex items-center space-x-2 text-sm text-on-surface dark:text-slate-300 mb-2 cursor-pointer">
-                        <input type="checkbox" name="browser_lockdown" defaultChecked={data?.browser_lockdown} className="rounded text-primary focus:ring-primary w-4 h-4" />
-                        <span>Gunakan <strong>Browser Lockdown</strong> (Cegah ganti tab/aplikasi)</span>
-                      </label>
-                      <label className="flex items-center space-x-2 text-sm text-on-surface dark:text-slate-300 mb-2 cursor-pointer">
-                        <input type="checkbox" name="acak_soal" defaultChecked={data?.acak_soal} className="rounded text-primary focus:ring-primary w-4 h-4" />
-                        <span>Acak Urutan Soal</span>
-                      </label>
-                      <label className="flex items-center space-x-2 text-sm text-on-surface dark:text-slate-300 cursor-pointer">
-                        <input type="checkbox" name="acak_opsi" defaultChecked={data?.acak_opsi} className="rounded text-primary focus:ring-primary w-4 h-4" />
-                        <span>Acak Opsi Jawaban (A, B, C, D)</span>
-                      </label>
+                      <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Jam Mulai</label><input type="time" name="waktu_mulai_time" defaultValue={data?.waktu_mulai ? new Date(data.waktu_mulai).toISOString().slice(11, 16) : ''} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
+                      <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Jam Selesai</label><input type="time" name="waktu_selesai_time" defaultValue={data?.waktu_selesai ? new Date(data.waktu_selesai).toISOString().slice(11, 16) : ''} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
                     </div>
                   </>
                 )}
@@ -749,48 +746,49 @@ import * as XLSX from 'xlsx';
                 <div className="px-6 mt-6 animate-fade-in-up">
                   <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Statistik Sekolah</h3>
                   
-                  <div className="grid grid-cols-2 gap-4 mb-8">
-                     <button onClick={() => setActiveTab('siswa')} className="bg-white dark:bg-slate-800 p-3 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors active:scale-95 cursor-pointer">
-                        <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-                          <span className="material-symbols-outlined text-green-500 text-lg">school</span>
+                  <div className="grid grid-cols-4 gap-2 mb-8">
+                     <button onClick={() => setActiveTab('siswa')} className="bg-white dark:bg-slate-800 p-2 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-1 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors active:scale-95 cursor-pointer">
+                        <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                          <span className="material-symbols-outlined text-green-500 text-base">school</span>
                         </div>
-                        <span className="text-xl font-bold text-slate-800 dark:text-slate-100">{dashboardData?.totalSiswa || 0}</span>
-                        <span className="font-medium text-[10px] text-slate-500">Total Siswa</span>
+                        <span className="text-lg font-bold text-slate-800 dark:text-slate-100">{dashboardData?.totalSiswa || 0}</span>
+                        <span className="font-medium text-[9px] text-slate-500">Siswa</span>
                      </button>
-                     <button onClick={() => setActiveTab('guru')} className="bg-white dark:bg-slate-800 p-3 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors active:scale-95 cursor-pointer">
-                        <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-                          <span className="material-symbols-outlined text-blue-500 text-lg">local_library</span>
+                     <button onClick={() => setActiveTab('guru')} className="bg-white dark:bg-slate-800 p-2 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-1 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors active:scale-95 cursor-pointer">
+                        <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                          <span className="material-symbols-outlined text-blue-500 text-base">local_library</span>
                         </div>
-                        <span className="text-xl font-bold text-slate-800 dark:text-slate-100">{dashboardData?.totalGuru || 0}</span>
-                        <span className="font-medium text-[10px] text-slate-500">Total Guru</span>
+                        <span className="text-lg font-bold text-slate-800 dark:text-slate-100">{dashboardData?.totalGuru || 0}</span>
+                        <span className="font-medium text-[9px] text-slate-500">Guru</span>
                      </button>
-                     <button onClick={() => setActiveTab('mapel')} className="bg-white dark:bg-slate-800 p-3 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors active:scale-95 cursor-pointer">
-                        <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center">
-                          <span className="material-symbols-outlined text-orange-500 text-lg">menu_book</span>
+                     <button onClick={() => setActiveTab('mapel')} className="bg-white dark:bg-slate-800 p-2 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-1 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors active:scale-95 cursor-pointer">
+                        <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center">
+                          <span className="material-symbols-outlined text-orange-500 text-base">menu_book</span>
                         </div>
-                        <span className="text-xl font-bold text-slate-800 dark:text-slate-100">{dashboardData?.totalMapel || 0}</span>
-                        <span className="font-medium text-[10px] text-slate-500">Total Mapel</span>
+                        <span className="text-lg font-bold text-slate-800 dark:text-slate-100">{dashboardData?.totalMapel || 0}</span>
+                        <span className="font-medium text-[9px] text-slate-500">Mapel</span>
                      </button>
-                     <button onClick={() => setActiveTab('soal')} className="bg-white dark:bg-slate-800 p-3 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors active:scale-95 cursor-pointer">
-                        <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
-                          <span className="material-symbols-outlined text-purple-500 text-lg">quiz</span>
+                     <button onClick={() => setActiveTab('soal')} className="bg-white dark:bg-slate-800 p-2 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-1 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors active:scale-95 cursor-pointer">
+                        <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
+                          <span className="material-symbols-outlined text-purple-500 text-base">quiz</span>
                         </div>
-                        <span className="text-xl font-bold text-slate-800 dark:text-slate-100">{dashboardData?.totalSoal || 0}</span>
-                        <span className="font-medium text-[10px] text-slate-500">Total Soal</span>
+                        <span className="text-lg font-bold text-slate-800 dark:text-slate-100">{dashboardData?.totalSoal || 0}</span>
+                        <span className="font-medium text-[9px] text-slate-500">Soal</span>
                      </button>
                   </div>
 
                   <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Jadwal Aktif</h3>
                   <div className="space-y-3 pb-24">
-                    {(dashboardData?.jadwalAktif || []).map((j) => (
+                    {dataJadwal.filter(j => j.status_ujian === 'AKTIF').slice(0, 3).map((j) => (
                       <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 border-l-4 border-l-primary flex items-center gap-3">
                         <div className="min-w-0 flex-1">
                           <h4 className="font-bold text-sm truncate">{j.nama_mapel}</h4>
-                          <p className="text-xs text-slate-500 truncate">{new Date(j.waktu_mulai).toLocaleDateString('id-ID')} | {j.token || 'Menunggu Token'}</p>
+                          <p className="text-xs text-slate-500 mb-1">Guru Pengampu: {j.guru || '-'}</p>
+                          <p className="text-xs text-slate-500 truncate">{new Date(j.waktu_mulai).toLocaleString('id-ID')} | Token: {j.token || 'Menunggu Token'}</p>
                         </div>
                       </div>
                     ))}
-                    {(dashboardData?.jadwalAktif || []).length === 0 && (
+                    {dataJadwal.filter(j => j.status_ujian === 'AKTIF').length === 0 && (
                       <div className="text-center text-sm text-slate-500 py-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl">Tidak ada ujian aktif saat ini.</div>
                     )}
                   </div>
@@ -879,7 +877,8 @@ import * as XLSX from 'xlsx';
                         </div>
                         <div className="min-w-0 flex-1">
                           <h4 className="font-bold text-sm truncate dark:text-white">{g.nama_lengkap}</h4>
-                          <p className="text-xs text-slate-500 truncate">NIP: {g.nip || '-'}</p>
+                          <p className="text-[11px] text-slate-500 mb-1">NIP: {g.nip || '-'}</p>
+                          <p className="text-[10px] text-slate-400 truncate leading-tight">Mapel: {g.mapels_list || '-'}</p>
                         </div>
                         <div className="flex flex-col gap-1">
                           <button onClick={() => openEditModal('guru', g)} className="w-7 h-7 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center hover:bg-blue-100 transition-colors"><span className="material-symbols-outlined text-sm">edit</span></button>
@@ -915,6 +914,7 @@ import * as XLSX from 'xlsx';
                            <h4 className="font-bold text-sm dark:text-white">{j.nama_mapel}</h4>
                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${j.status_ujian === 'AKTIF' ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-600'}`}>{j.status_ujian}</span>
                          </div>
+                         <p className="text-xs text-slate-500 mb-1">Guru Pengampu: <span className="font-medium text-slate-700 dark:text-slate-300">{j.guru || '-'}</span></p>
                          <p className="text-xs text-slate-500 mb-2">Token: <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{j.token || '-'}</span></p>
                          <div className="flex justify-end gap-2 border-t border-slate-100 dark:border-slate-700 pt-2">
                            <button onClick={() => openEditModal('jadwal', j)} className="px-3 py-1 bg-blue-50 text-blue-600 rounded text-xs font-bold hover:bg-blue-100">Edit</button>
@@ -1082,6 +1082,7 @@ import * as XLSX from 'xlsx';
             {renderFormModal()}
             {renderImportModal()}
             {renderDeleteModal()}
+            {renderProfileModal()}
           </div>
         </div>
 
