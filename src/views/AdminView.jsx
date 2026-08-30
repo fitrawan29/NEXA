@@ -710,6 +710,8 @@ import * as XLSX from 'xlsx';
         </a>
       );
 
+      if (!user) return null;
+
       return (
         <>
         <div className="bg-slate-50 dark:bg-slate-900 min-h-screen flex justify-center selection:bg-primary/30 selection:text-primary">
@@ -748,39 +750,39 @@ import * as XLSX from 'xlsx';
                   <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Statistik Sekolah</h3>
                   
                   <div className="grid grid-cols-2 gap-4 mb-8">
-                     <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2">
-                        <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-                          <span className="material-symbols-outlined text-green-500">school</span>
+                     <button onClick={() => setActiveTab('siswa')} className="bg-white dark:bg-slate-800 p-3 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors active:scale-95 cursor-pointer">
+                        <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                          <span className="material-symbols-outlined text-green-500 text-lg">school</span>
                         </div>
-                        <span className="text-2xl font-bold text-slate-800 dark:text-slate-100">{dashboardData?.totalSiswa || 0}</span>
-                        <span className="font-medium text-xs text-slate-500">Total Siswa</span>
-                     </div>
-                     <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2">
-                        <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-                          <span className="material-symbols-outlined text-blue-500">local_library</span>
-                        </div>
-                        <span className="text-2xl font-bold text-slate-800 dark:text-slate-100">{dashboardData?.totalGuru || 0}</span>
-                        <span className="font-medium text-xs text-slate-500">Total Guru</span>
-                     </div>
-                     <button onClick={() => setActiveTab('mapel')} className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors active:scale-95 cursor-pointer">
-                        <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center">
-                          <span className="material-symbols-outlined text-orange-500">menu_book</span>
-                        </div>
-                        <span className="text-2xl font-bold text-slate-800 dark:text-slate-100">{dashboardData?.totalMapel || 0}</span>
-                        <span className="font-medium text-xs text-slate-500">Total Mapel</span>
+                        <span className="text-xl font-bold text-slate-800 dark:text-slate-100">{dashboardData?.totalSiswa || 0}</span>
+                        <span className="font-medium text-[10px] text-slate-500">Total Siswa</span>
                      </button>
-                     <button onClick={() => setActiveTab('soal')} className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors active:scale-95 cursor-pointer">
-                        <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
-                          <span className="material-symbols-outlined text-purple-500">quiz</span>
+                     <button onClick={() => setActiveTab('guru')} className="bg-white dark:bg-slate-800 p-3 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors active:scale-95 cursor-pointer">
+                        <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                          <span className="material-symbols-outlined text-blue-500 text-lg">local_library</span>
                         </div>
-                        <span className="text-2xl font-bold text-slate-800 dark:text-slate-100">{dashboardData?.totalSoal || 0}</span>
-                        <span className="font-medium text-xs text-slate-500">Total Soal</span>
+                        <span className="text-xl font-bold text-slate-800 dark:text-slate-100">{dashboardData?.totalGuru || 0}</span>
+                        <span className="font-medium text-[10px] text-slate-500">Total Guru</span>
+                     </button>
+                     <button onClick={() => setActiveTab('mapel')} className="bg-white dark:bg-slate-800 p-3 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors active:scale-95 cursor-pointer">
+                        <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center">
+                          <span className="material-symbols-outlined text-orange-500 text-lg">menu_book</span>
+                        </div>
+                        <span className="text-xl font-bold text-slate-800 dark:text-slate-100">{dashboardData?.totalMapel || 0}</span>
+                        <span className="font-medium text-[10px] text-slate-500">Total Mapel</span>
+                     </button>
+                     <button onClick={() => setActiveTab('soal')} className="bg-white dark:bg-slate-800 p-3 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors active:scale-95 cursor-pointer">
+                        <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
+                          <span className="material-symbols-outlined text-purple-500 text-lg">quiz</span>
+                        </div>
+                        <span className="text-xl font-bold text-slate-800 dark:text-slate-100">{dashboardData?.totalSoal || 0}</span>
+                        <span className="font-medium text-[10px] text-slate-500">Total Soal</span>
                      </button>
                   </div>
 
                   <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Jadwal Aktif</h3>
-                  <div className="space-y-3">
-                    {dataJadwal.filter(j => j.status_ujian === 'AKTIF').slice(0, 2).map((j) => (
+                  <div className="space-y-3 pb-24">
+                    {(dashboardData?.jadwalAktif || []).map((j) => (
                       <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 border-l-4 border-l-primary flex items-center gap-3">
                         <div className="min-w-0 flex-1">
                           <h4 className="font-bold text-sm truncate">{j.nama_mapel}</h4>
@@ -788,7 +790,7 @@ import * as XLSX from 'xlsx';
                         </div>
                       </div>
                     ))}
-                    {dataJadwal.filter(j => j.status_ujian === 'AKTIF').length === 0 && (
+                    {(dashboardData?.jadwalAktif || []).length === 0 && (
                       <div className="text-center text-sm text-slate-500 py-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl">Tidak ada ujian aktif saat ini.</div>
                     )}
                   </div>
@@ -839,7 +841,7 @@ import * as XLSX from 'xlsx';
                   </div>
                   
                   {/* Floating Action Button (Siswa) */}
-                  <button onClick={() => openCreateModal('siswa')} className="absolute bottom-20 right-4 w-10 h-10 bg-gradient-to-tr from-primary to-secondary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-all active:scale-95 z-40">
+                  <button onClick={() => openCreateModal('siswa')} className="absolute bottom-[72px] right-4 w-10 h-10 bg-gradient-to-tr from-primary to-secondary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-all active:scale-95 z-40">
                     <span className="material-symbols-outlined text-xl">add</span>
                   </button>
                 </div>
@@ -889,7 +891,7 @@ import * as XLSX from 'xlsx';
                   </div>
 
                   {/* Floating Action Button (Guru) */}
-                  <button onClick={() => openCreateModal('guru')} className="absolute bottom-20 right-4 w-10 h-10 bg-gradient-to-tr from-primary to-secondary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-all active:scale-95 z-40">
+                  <button onClick={() => openCreateModal('guru')} className="absolute bottom-[72px] right-4 w-10 h-10 bg-gradient-to-tr from-primary to-secondary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-all active:scale-95 z-40">
                     <span className="material-symbols-outlined text-xl">add</span>
                   </button>
                 </div>
@@ -924,7 +926,7 @@ import * as XLSX from 'xlsx';
                   </div>
 
                   {/* Floating Action Button (Jadwal) */}
-                  <button onClick={() => openCreateModal('jadwal')} className="absolute bottom-20 right-4 w-10 h-10 bg-gradient-to-tr from-primary to-secondary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-all active:scale-95 z-40">
+                  <button onClick={() => openCreateModal('jadwal')} className="absolute bottom-[72px] right-4 w-10 h-10 bg-gradient-to-tr from-primary to-secondary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-all active:scale-95 z-40">
                     <span className="material-symbols-outlined text-xl">add</span>
                   </button>
                 </div>

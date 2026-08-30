@@ -231,8 +231,9 @@ import React from 'react';
 
             const { data: jadwalAktifData } = await supabaseClient
               .from('jadwal')
-              .select('id_jadwal, waktu_mulai, waktu_selesai, guru(nama_lengkap), mata_pelajaran(nama_mapel)')
+              .select('id_jadwal, waktu_mulai, waktu_selesai, token, guru(nama_lengkap), mata_pelajaran(nama_mapel)')
               .eq('npsn', payload.npsn)
+              .eq('status_ujian', 'AKTIF')
               .limit(5);
 
             return {
@@ -249,7 +250,8 @@ import React from 'react';
                   nama_mapel: j.mata_pelajaran ? j.mata_pelajaran.nama_mapel : 'Unknown',
                   guru: j.guru ? j.guru.nama_lengkap : 'Unknown',
                   waktu_mulai: j.waktu_mulai,
-                  waktu_selesai: j.waktu_selesai
+                  waktu_selesai: j.waktu_selesai,
+                  token: j.token
                 }))
               }
             };
