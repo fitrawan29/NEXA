@@ -29,6 +29,32 @@ import React, { useState, useEffect, useRef } from 'react';
       // Modal State
       const [formModal, setFormModal] = useState({ isOpen: false, type: '', data: null });
       const [profileModalOpen, setProfileModalOpen] = useState(false);
+      const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
+      const [searchQuery, setSearchQuery] = useState('');
+
+      const PRESET_AVATARS = [
+        'https://api.dicebear.com/7.x/bottts/svg?seed=Felix',
+        'https://api.dicebear.com/7.x/bottts/svg?seed=Aneka',
+        'https://api.dicebear.com/7.x/bottts/svg?seed=Mimi',
+        'https://api.dicebear.com/7.x/bottts/svg?seed=Buster',
+        'https://api.dicebear.com/7.x/bottts/svg?seed=Jasper',
+        'https://api.dicebear.com/7.x/bottts/svg?seed=Bandit',
+        'https://api.dicebear.com/7.x/bottts/svg?seed=Cali',
+        'https://api.dicebear.com/7.x/bottts/svg?seed=Gizmo',
+        'https://api.dicebear.com/7.x/bottts/svg?seed=Sammy'
+      ];
+
+      const handleAvatarSelect = async (avatarUrl) => {
+        setIsLoading(true);
+        const res = await api('update_admin_profil', { id_admin: user.id_admin, foto_profil: avatarUrl });
+        setIsLoading(false);
+        if (res.status === 'success') {
+          setIsAvatarModalOpen(false);
+          onLogout(); // Force logout to refresh session data
+        } else {
+          alert(res.message);
+        }
+      };
 
       const fetchData = async (tab) => {
         setIsLoading(true);
@@ -661,8 +687,14 @@ import React, { useState, useEffect, useRef } from 'react';
                     <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Data Siswa</h3>
                     <span className="text-sm font-medium text-primary bg-primary/10 px-2 py-1 rounded-lg">{dataSiswa.length} Siswa</span>
                   </div>
+                  <div className="mb-4">
+                    <div className="relative">
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+                      <input type="text" placeholder="Cari nama atau NISN..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm dark:text-white" />
+                    </div>
+                  </div>
                   <div className="space-y-3">
-                    {dataSiswa.slice(0, 10).map((s) => (
+                    {dataSiswa.filter(s => (s.nama_lengkap?.toLowerCase().includes(searchQuery.toLowerCase()) || s.nisn?.toLowerCase().includes(searchQuery.toLowerCase()))).map((s) => (
                       <div key={s.id_user} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center gap-3 relative">
                         <div className="w-10 h-10 rounded-full bg-green-50 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
                           <span className="material-symbols-outlined text-green-500">school</span>
@@ -677,7 +709,7 @@ import React, { useState, useEffect, useRef } from 'react';
                         </div>
                       </div>
                     ))}
-                    {dataSiswa.length > 10 && <div className="text-center text-xs text-slate-500 mt-2">Buka versi desktop untuk melihat semua data.</div>}
+                    {dataSiswa.filter(s => (s.nama_lengkap?.toLowerCase().includes(searchQuery.toLowerCase()) || s.nisn?.toLowerCase().includes(searchQuery.toLowerCase()))).length === 0 && <div className="text-center text-xs text-slate-500 mt-4">Data tidak ditemukan.</div>}
                   </div>
                   
                   {/* Floating Action Button (Siswa) */}
@@ -693,8 +725,14 @@ import React, { useState, useEffect, useRef } from 'react';
                     <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Data Guru</h3>
                     <span className="text-sm font-medium text-primary bg-primary/10 px-2 py-1 rounded-lg">{dataGuru.length} Guru</span>
                   </div>
+                  <div className="mb-4">
+                    <div className="relative">
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+                      <input type="text" placeholder="Cari nama atau NIP..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm dark:text-white" />
+                    </div>
+                  </div>
                   <div className="space-y-3">
-                    {dataGuru.slice(0, 10).map((g) => (
+                    {dataGuru.filter(g => (g.nama_lengkap?.toLowerCase().includes(searchQuery.toLowerCase()) || g.nip?.toLowerCase().includes(searchQuery.toLowerCase()))).map((g) => (
                       <div key={g.id_user} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
                           <span className="material-symbols-outlined text-blue-500">local_library</span>
@@ -709,7 +747,7 @@ import React, { useState, useEffect, useRef } from 'react';
                         </div>
                       </div>
                     ))}
-                    {dataGuru.length > 10 && <div className="text-center text-xs text-slate-500 mt-2">Buka versi desktop untuk melihat semua data.</div>}
+                    {dataGuru.filter(g => (g.nama_lengkap?.toLowerCase().includes(searchQuery.toLowerCase()) || g.nip?.toLowerCase().includes(searchQuery.toLowerCase()))).length === 0 && <div className="text-center text-xs text-slate-500 mt-4">Data tidak ditemukan.</div>}
                   </div>
 
                   {/* Floating Action Button (Guru) */}
@@ -750,12 +788,17 @@ import React, { useState, useEffect, useRef } from 'react';
 
               {activeTab === 'akun' && (
                 <div className="px-6 mt-6 animate-fade-in-up flex flex-col items-center">
-                   <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center mb-4 overflow-hidden border-4 border-white dark:border-slate-800 shadow-sm">
-                     {user.foto_profil ? (
-                       <img src={user.foto_profil} alt="Profile" className="w-full h-full object-cover bg-white" />
-                     ) : (
-                       <span className="material-symbols-outlined text-4xl text-primary">admin_panel_settings</span>
-                     )}
+                   <div className="relative group cursor-pointer" onClick={() => setIsAvatarModalOpen(true)}>
+                     <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center mb-4 overflow-hidden border-4 border-white dark:border-slate-800 shadow-sm">
+                       {user.foto_profil ? (
+                         <img src={user.foto_profil} alt="Profile" className="w-full h-full object-cover bg-white" />
+                       ) : (
+                         <span className="material-symbols-outlined text-4xl text-primary">admin_panel_settings</span>
+                       )}
+                     </div>
+                     <div className="absolute bottom-4 right-0 w-8 h-8 bg-white dark:bg-slate-700 rounded-full shadow flex items-center justify-center border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">
+                       <span className="material-symbols-outlined text-sm text-slate-600 dark:text-slate-300">edit</span>
+                     </div>
                    </div>
                    <h3 className="font-bold text-xl dark:text-white">{user.nama_lengkap}</h3>
                    <p className="text-slate-500">Admin Sekolah | NPSN: {user.npsn}</p>
@@ -817,11 +860,32 @@ import React, { useState, useEffect, useRef } from 'react';
             {renderFormModal()}
           </div>
         </div>
+
+        {/* Avatar Modal */}
+        {isAvatarModalOpen && (
+          <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-sm shadow-2xl p-6 relative border border-slate-100 dark:border-slate-700">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                   <h3 className="font-bold text-lg dark:text-white">Pilih Avatar</h3>
+                   <p className="text-xs text-slate-500">Pilih karakter untuk foto profil Anda</p>
+                </div>
+                <button onClick={() => setIsAvatarModalOpen(false)} className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
+                  <span className="material-symbols-outlined text-sm">close</span>
+                </button>
+              </div>
+              <div className="grid grid-cols-3 gap-3 mb-2">
+                {PRESET_AVATARS.map((avatar, idx) => (
+                  <button key={idx} onClick={() => handleAvatarSelect(avatar)} className={`w-full aspect-square rounded-2xl overflow-hidden border-2 transition-all ${user.foto_profil === avatar ? 'border-primary ring-4 ring-primary/20 shadow-md scale-105 bg-white' : 'border-slate-100 dark:border-slate-700 hover:border-primary/50 bg-slate-50 dark:bg-slate-800'}`}>
+                    <img src={avatar} className="w-full h-full object-cover p-2" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+        </>
       );
     };
 
-
-
-
 export default AdminView;
-
