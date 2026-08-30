@@ -122,7 +122,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 
         return (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
-            <div className="bg-surface dark:bg-slate-800 rounded-2xl w-full max-w-md shadow-2xl p-6 relative border border-outline-variant/30 dark:border-slate-700">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md shadow-2xl p-6 relative border border-outline-variant/30 dark:border-slate-700">
               <h2 className="text-xl font-bold mb-4 text-on-surface dark:text-white capitalize">
                 {formModal.isEdit ? 'Edit' : 'Tambah'} {type}
               </h2>
@@ -177,16 +177,19 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
           <div className="w-full max-w-md bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col h-screen">
             
             {/* Header / Top Section */}
-            <div className="bg-[#3ecf8e] rounded-b-[40px] px-6 pt-8 pb-12 relative text-white shadow-md z-0">
-              <div className="flex justify-between items-start">
+            <div className="bg-[#3ecf8e] rounded-none px-6 pt-4 pb-4 relative text-white shadow-md z-0">
+              <div className="flex justify-between items-center">
                 <div className="flex items-center gap-3">
-                  <div className="w-14 h-14 bg-white/20 rounded-full border-2 border-white/50 overflow-hidden flex-shrink-0 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-white text-3xl">verified_user</span>
+                  <div className="w-12 h-12 bg-white/20 rounded-full border-2 border-white/50 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                    {localStorage.getItem(`foto_${user.username}`) ? (
+                      <img src={localStorage.getItem(`foto_${user.username}`)} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="material-symbols-outlined text-white text-3xl">verified_user</span>
+                    )}
                   </div>
                   <div>
                     <h2 className="font-bold text-lg leading-tight">Super Admin</h2>
                     <p className="text-sm font-medium opacity-90">{user.nama_lengkap}</p>
-                    <p className="text-xs opacity-80">Developer</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
@@ -273,10 +276,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
                           <p className="text-xs text-slate-500 truncate">NPSN: {s.npsn}</p>
                         </div>
                         <div className="flex gap-2">
-                          <button onClick={() => handleEdit(s, 'sekolah')} className="p-1 text-slate-400 hover:text-blue-500 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                          <button onClick={() => handleEdit('sekolah', s)} className="p-1 text-slate-400 hover:text-blue-500 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
                             <span className="material-symbols-outlined text-[18px]">edit</span>
                           </button>
-                          <button onClick={() => handleDelete(s.npsn, 'sekolah')} className="p-1 text-slate-400 hover:text-red-500 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                          <button onClick={() => handleDelete('sekolah', s)} className="p-1 text-slate-400 hover:text-red-500 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
                             <span className="material-symbols-outlined text-[18px]">delete</span>
                           </button>
                         </div>
@@ -316,10 +319,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
                           <p className="text-xs text-slate-500 truncate">ID: {a.id_admin} | NPSN: {a.npsn}</p>
                         </div>
                         <div className="flex gap-2">
-                          <button onClick={() => handleEdit(a, 'admin')} className="p-1 text-slate-400 hover:text-blue-500 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                          <button onClick={() => handleEdit('admin', a)} className="p-1 text-slate-400 hover:text-blue-500 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
                             <span className="material-symbols-outlined text-[18px]">edit</span>
                           </button>
-                          <button onClick={() => handleDelete(a.id_admin, 'admin')} className="p-1 text-slate-400 hover:text-red-500 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                          <button onClick={() => handleDelete('admin', a)} className="p-1 text-slate-400 hover:text-red-500 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
                             <span className="material-symbols-outlined text-[18px]">delete</span>
                           </button>
                         </div>
@@ -353,7 +356,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
                            <p className="text-[10px] text-slate-400 mb-2">{new Date(p.created_at).toLocaleDateString('id-ID')}</p>
                            <p className="text-xs text-slate-600 line-clamp-2">{p.isi}</p>
                          </div>
-                         <button onClick={() => handleDelete(p.id_pengumuman, 'pengumuman')} className="p-1 text-slate-400 hover:text-red-500 bg-slate-50 dark:bg-slate-700/50 rounded-lg shrink-0">
+                         <button onClick={() => handleDelete('pengumuman', p)} className="p-1 text-slate-400 hover:text-red-500 bg-slate-50 dark:bg-slate-700/50 rounded-lg shrink-0">
                             <span className="material-symbols-outlined text-[18px]">delete</span>
                          </button>
                       </div>
@@ -406,14 +409,29 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
                    <div className="flex flex-col items-center">
                      <div className="relative group">
                        <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center mb-2 overflow-hidden border-2 border-primary/30">
-                         <span className="material-symbols-outlined text-4xl text-primary">person</span>
+                         {localStorage.getItem(`foto_${user.username}`) ? (
+                            <img src={localStorage.getItem(`foto_${user.username}`)} className="w-full h-full object-cover" />
+                         ) : (
+                            <span className="material-symbols-outlined text-4xl text-primary">person</span>
+                         )}
                        </div>
-                       <button className="absolute bottom-2 right-0 w-8 h-8 bg-white dark:bg-slate-700 rounded-full shadow flex items-center justify-center border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">
+                       <label className="absolute bottom-2 right-0 w-8 h-8 bg-white dark:bg-slate-700 rounded-full shadow flex items-center justify-center border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors cursor-pointer">
+                         <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                            const file = e.target.files[0];
+                            if(file) {
+                               const reader = new FileReader();
+                               reader.onload = (e) => {
+                                  localStorage.setItem(`foto_${user.username}`, e.target.result);
+                                  window.location.reload();
+                               };
+                               reader.readAsDataURL(file);
+                            }
+                         }} />
                          <span className="material-symbols-outlined text-sm text-slate-600 dark:text-slate-300">edit</span>
-                       </button>
+                       </label>
                      </div>
                      <h3 className="font-bold text-xl dark:text-white">{user.nama_lengkap}</h3>
-                     <p className="text-slate-500 text-sm">Developer / SuperAdmin</p>
+                     <p className="text-slate-500 text-sm">SuperAdmin</p>
                    </div>
                    
                    <div className="w-full mt-8 space-y-6">
@@ -463,7 +481,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
             <div className="absolute bottom-0 left-0 w-full bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 py-3 flex justify-between items-center rounded-t-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] z-50">
               <button onClick={() => setActiveTab('analytics')} className={`flex flex-col items-center transition-colors ${activeTab === 'analytics' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
                 <span className="material-symbols-outlined">analytics</span>
-                <span className="text-[10px] font-bold mt-1">Analytics</span>
+                <span className="text-[10px] font-bold mt-1">Statistik</span>
               </button>
               <button onClick={() => setActiveTab('sekolah')} className={`flex flex-col items-center transition-colors ${activeTab === 'sekolah' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
                 <span className="material-symbols-outlined">account_balance</span>
