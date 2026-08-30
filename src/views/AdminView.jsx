@@ -269,7 +269,7 @@ import React, { useState, useEffect, useRef } from 'react';
         if (!isAnalisisModalOpen) return null;
         return (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
-            <div className="bg-surface dark:bg-slate-800 rounded-2xl w-full max-w-4xl shadow-2xl p-6 relative border border-outline-variant/30 dark:border-slate-700 max-h-[90vh] overflow-y-auto flex flex-col">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-4xl shadow-2xl p-6 relative border border-outline-variant/30 dark:border-slate-700 max-h-[90vh] overflow-y-auto flex flex-col">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-on-surface dark:text-white flex items-center gap-2"><span className="material-symbols-outlined text-primary">analytics</span> Analisis Butir Soal</h2>
                 <button onClick={() => setIsAnalisisModalOpen(false)} className="text-on-surface-variant hover:bg-surface-variant rounded-full p-1"><span className="material-symbols-outlined">close</span></button>
@@ -406,7 +406,7 @@ import React, { useState, useEffect, useRef } from 'react';
 
         return (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
-            <div className="bg-surface dark:bg-slate-800 rounded-2xl w-full max-w-md shadow-2xl p-6 relative border border-outline-variant/30 dark:border-slate-700 max-h-[90vh] overflow-y-auto">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md shadow-2xl p-6 relative border border-outline-variant/30 dark:border-slate-700 max-h-[90vh] overflow-y-auto">
               <h2 className="text-xl font-bold mb-4 text-on-surface dark:text-white capitalize">
                 {isEdit ? 'Edit Data' : 'Tambah Data'} {type}
               </h2>
@@ -504,7 +504,7 @@ import React, { useState, useEffect, useRef } from 'react';
         if (!profileModalOpen) return null;
         return (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
-            <div className="bg-surface dark:bg-slate-800 rounded-2xl w-full max-w-md shadow-2xl p-6 relative border border-outline-variant/30 dark:border-slate-700">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md shadow-2xl p-6 relative border border-outline-variant/30 dark:border-slate-700">
               <h2 className="text-xl font-bold mb-4 text-on-surface dark:text-white">Profil Admin</h2>
               <form onSubmit={async (e) => {
                 e.preventDefault();
@@ -555,32 +555,21 @@ import React, { useState, useEffect, useRef } from 'react';
           <div className="w-full max-w-md bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col h-screen">
             
             {/* Header / Top Section */}
-            <div className="bg-[#3ecf8e] rounded-b-[40px] px-6 pt-8 pb-20 relative text-white shadow-md z-0">
+            <div className="bg-[#3ecf8e] px-6 pt-6 pb-6 relative text-white shadow-md z-0">
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-3">
                   <div className="w-14 h-14 bg-white/20 rounded-full border-2 border-white/50 overflow-hidden flex-shrink-0 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-white text-3xl">admin_panel_settings</span>
+                    {user.foto_profil ? (
+                      <img src={user.foto_profil} alt="Profile" className="w-full h-full object-cover bg-white" />
+                    ) : (
+                      <span className="material-symbols-outlined text-white text-3xl">admin_panel_settings</span>
+                    )}
                   </div>
                   <div>
                     <h2 className="font-bold text-lg leading-tight">Admin Sekolah</h2>
                     <p className="text-sm font-medium opacity-90">{user.nama_lengkap}</p>
                     <p className="text-xs opacity-80">NPSN: {user.npsn}</p>
                   </div>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button type="button" onClick={() => setIsDarkMode(!isDarkMode)} className="relative p-1 rounded-full hover:bg-white/20 transition-colors" title="Mode Gelap/Terang">
-                    <span className="material-symbols-outlined text-2xl">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
-                  </button>
-                  <button className="relative p-1 rounded-full hover:bg-white/20 transition-colors" title="Pengaturan">
-                    <span className="material-symbols-outlined text-2xl">settings</span>
-                  </button>
-                  <button className="relative p-1 rounded-full hover:bg-white/20 transition-colors" title="Notifikasi">
-                    <span className="material-symbols-outlined text-2xl">notifications</span>
-                    <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
-                  </button>
-                  <button type="button" onClick={onLogout} className="relative p-1 rounded-full hover:bg-white/20 transition-colors text-white" title="Keluar">
-                    <span className="material-symbols-outlined text-2xl">logout</span>
-                  </button>
                 </div>
               </div>
             </div>
@@ -616,7 +605,7 @@ import React, { useState, useEffect, useRef } from 'react';
             </div>
 
             {/* Main Scrollable Content */}
-            <div className="flex-1 overflow-y-auto pb-24 hide-scrollbar">
+            <div className="flex-1 overflow-y-auto pb-24 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               
               {activeTab === 'dashboard' && (
                 <div className="px-6 mt-6 animate-fade-in-up">
@@ -674,18 +663,27 @@ import React, { useState, useEffect, useRef } from 'react';
                   </div>
                   <div className="space-y-3">
                     {dataSiswa.slice(0, 10).map((s) => (
-                      <div key={s.id_user} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0">
+                      <div key={s.id_user} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center gap-3 relative">
+                        <div className="w-10 h-10 rounded-full bg-green-50 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
                           <span className="material-symbols-outlined text-green-500">school</span>
                         </div>
                         <div className="min-w-0 flex-1">
-                          <h4 className="font-bold text-sm truncate">{s.nama_lengkap}</h4>
+                          <h4 className="font-bold text-sm truncate dark:text-white">{s.nama_lengkap}</h4>
                           <p className="text-xs text-slate-500 truncate">NISN: {s.nisn} | Kls: {s.kelas || '-'}</p>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <button onClick={() => openEditModal('siswa', s)} className="w-7 h-7 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center hover:bg-blue-100 transition-colors"><span className="material-symbols-outlined text-sm">edit</span></button>
+                          <button onClick={() => handleDelete(s.id_siswa, 'siswa')} className="w-7 h-7 rounded-full bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors"><span className="material-symbols-outlined text-sm">delete</span></button>
                         </div>
                       </div>
                     ))}
                     {dataSiswa.length > 10 && <div className="text-center text-xs text-slate-500 mt-2">Buka versi desktop untuk melihat semua data.</div>}
                   </div>
+                  
+                  {/* Floating Action Button (Siswa) */}
+                  <button onClick={() => openCreateModal('siswa')} className="absolute bottom-20 right-4 w-14 h-14 bg-gradient-to-tr from-primary to-secondary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-all active:scale-95 z-40">
+                    <span className="material-symbols-outlined text-3xl">add</span>
+                  </button>
                 </div>
               )}
 
@@ -697,17 +695,27 @@ import React, { useState, useEffect, useRef } from 'react';
                   </div>
                   <div className="space-y-3">
                     {dataGuru.slice(0, 10).map((g) => (
-                      <div key={g.id_user} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
+                      <div key={g.id_user} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
                           <span className="material-symbols-outlined text-blue-500">local_library</span>
                         </div>
                         <div className="min-w-0 flex-1">
-                          <h4 className="font-bold text-sm truncate">{g.nama_lengkap}</h4>
+                          <h4 className="font-bold text-sm truncate dark:text-white">{g.nama_lengkap}</h4>
                           <p className="text-xs text-slate-500 truncate">NIP: {g.nip || '-'}</p>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <button onClick={() => openEditModal('guru', g)} className="w-7 h-7 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center hover:bg-blue-100 transition-colors"><span className="material-symbols-outlined text-sm">edit</span></button>
+                          <button onClick={() => handleDelete(g.id_guru, 'guru')} className="w-7 h-7 rounded-full bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors"><span className="material-symbols-outlined text-sm">delete</span></button>
                         </div>
                       </div>
                     ))}
+                    {dataGuru.length > 10 && <div className="text-center text-xs text-slate-500 mt-2">Buka versi desktop untuk melihat semua data.</div>}
                   </div>
+
+                  {/* Floating Action Button (Guru) */}
+                  <button onClick={() => openCreateModal('guru')} className="absolute bottom-20 right-4 w-14 h-14 bg-gradient-to-tr from-primary to-secondary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-all active:scale-95 z-40">
+                    <span className="material-symbols-outlined text-3xl">add</span>
+                  </button>
                 </div>
               )}
 
@@ -718,29 +726,64 @@ import React, { useState, useEffect, useRef } from 'react';
                   </div>
                   <div className="space-y-3">
                     {dataJadwal.map((j) => (
-                      <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100">
+                      <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700">
                          <div className="flex justify-between items-start">
-                           <h4 className="font-bold text-sm">{j.nama_mapel}</h4>
+                           <h4 className="font-bold text-sm dark:text-white">{j.nama_mapel}</h4>
                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${j.status_ujian === 'AKTIF' ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-600'}`}>{j.status_ujian}</span>
                          </div>
-                         <p className="text-xs text-slate-500">Token: <span className="font-mono font-bold text-slate-700">{j.token || '-'}</span></p>
+                         <p className="text-xs text-slate-500 mb-2">Token: <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{j.token || '-'}</span></p>
+                         <div className="flex justify-end gap-2 border-t border-slate-100 dark:border-slate-700 pt-2">
+                           <button onClick={() => openEditModal('jadwal', j)} className="px-3 py-1 bg-blue-50 text-blue-600 rounded text-xs font-bold hover:bg-blue-100">Edit</button>
+                           <button onClick={() => handleDelete(j.id_jadwal, 'jadwal')} className="px-3 py-1 bg-red-50 text-red-600 rounded text-xs font-bold hover:bg-red-100">Hapus</button>
+                         </div>
                       </div>
                     ))}
                     {dataJadwal.length === 0 && <div className="text-center text-sm text-slate-500">Tidak ada jadwal.</div>}
                   </div>
+
+                  {/* Floating Action Button (Jadwal) */}
+                  <button onClick={() => openCreateModal('jadwal')} className="absolute bottom-20 right-4 w-14 h-14 bg-gradient-to-tr from-primary to-secondary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:shadow-xl transition-all active:scale-95 z-40">
+                    <span className="material-symbols-outlined text-3xl">add</span>
+                  </button>
                 </div>
               )}
 
               {activeTab === 'akun' && (
                 <div className="px-6 mt-6 animate-fade-in-up flex flex-col items-center">
-                   <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center mb-4">
-                     <span className="material-symbols-outlined text-4xl text-primary">admin_panel_settings</span>
+                   <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center mb-4 overflow-hidden border-4 border-white dark:border-slate-800 shadow-sm">
+                     {user.foto_profil ? (
+                       <img src={user.foto_profil} alt="Profile" className="w-full h-full object-cover bg-white" />
+                     ) : (
+                       <span className="material-symbols-outlined text-4xl text-primary">admin_panel_settings</span>
+                     )}
                    </div>
-                   <h3 className="font-bold text-xl">{user.nama_lengkap}</h3>
+                   <h3 className="font-bold text-xl dark:text-white">{user.nama_lengkap}</h3>
                    <p className="text-slate-500">Admin Sekolah | NPSN: {user.npsn}</p>
                    
                    <div className="w-full mt-8 space-y-3">
-                      {/* Tombol telah dipindah ke pojok kanan atas */}
+                     <button onClick={() => setProfileModalOpen(true)} className="w-full bg-white dark:bg-slate-800 p-4 rounded-2xl flex items-center justify-between border border-slate-100 dark:border-slate-700 shadow-sm active:scale-95 transition-all">
+                       <div className="flex items-center gap-3">
+                         <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-500"><span className="material-symbols-outlined">person</span></div>
+                         <div className="text-left"><h4 className="font-bold text-sm dark:text-white">Edit Profil</h4><p className="text-xs text-slate-500">Ubah foto dan password</p></div>
+                       </div>
+                       <span className="material-symbols-outlined text-slate-400">chevron_right</span>
+                     </button>
+                     <div className="w-full h-px bg-slate-100 dark:bg-slate-800 my-2"></div>
+                     <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
+                       <div className="flex items-center gap-3">
+                         <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500"><span className="material-symbols-outlined">dark_mode</span></div>
+                         <div className="text-left"><h4 className="font-bold text-sm dark:text-white">Mode Gelap</h4><p className="text-xs text-slate-500">Tampilan redup</p></div>
+                       </div>
+                       <button onClick={() => setIsDarkMode(!isDarkMode)} className={`w-12 h-6 rounded-full flex items-center px-1 transition-colors ${isDarkMode ? 'bg-primary' : 'bg-slate-300'} `}>
+                         <div className={`w-4 h-4 rounded-full bg-white transition-transform ${isDarkMode ? 'translate-x-6' : ''}`}></div>
+                       </button>
+                     </div>
+                     <button onClick={onLogout} className="w-full bg-red-50 dark:bg-red-900/20 p-4 rounded-2xl flex items-center justify-between border border-red-100 dark:border-red-900/30 shadow-sm active:scale-95 transition-all text-red-600">
+                       <div className="flex items-center gap-3">
+                         <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center"><span className="material-symbols-outlined">logout</span></div>
+                         <div className="text-left"><h4 className="font-bold text-sm">Keluar</h4><p className="text-xs opacity-70">Akhiri sesi Anda</p></div>
+                       </div>
+                     </button>
                    </div>
                 </div>
               )}
