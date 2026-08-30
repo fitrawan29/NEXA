@@ -1,5 +1,6 @@
 import { fetchAPI } from '../api.js';
 import React, { useState, useEffect, useRef } from 'react';
+import * as XLSX from 'xlsx';
 ﻿    const EmptyState = window.EmptyState;
     const AdminView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
       const api = (action, p = {}) => {
@@ -17,6 +18,7 @@ import React, { useState, useEffect, useRef } from 'react';
       const [dataKelas, setDataKelas] = useState([]);
       const [dataLog, setDataLog] = useState([]); // monitoring / hasil
       const [dataAudit, setDataAudit] = useState([]);
+      const [dataSoal, setDataSoal] = useState([]);
       const [dataPengumuman, setDataPengumuman] = useState([]);
       const [dataAnalisis, setDataAnalisis] = useState([]);
       const [isAnalisisModalOpen, setIsAnalisisModalOpen] = useState(false);
@@ -31,6 +33,12 @@ import React, { useState, useEffect, useRef } from 'react';
       const [profileModalOpen, setProfileModalOpen] = useState(false);
       const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
       const [searchQuery, setSearchQuery] = useState('');
+      const [isSubmitting, setIsSubmitting] = useState(false);
+      const [deleteModal, setDeleteModal] = useState({ isOpen: false, type: '', id: null, item: null });
+      const [importModal, setImportModal] = useState({ isOpen: false, type: '' });
+      const [filterKelas, setFilterKelas] = useState('');
+      const [filterMapel, setFilterMapel] = useState('');
+      const [confirmText, setConfirmText] = useState('');
 
       const PRESET_AVATARS = [
         'https://api.dicebear.com/7.x/bottts/svg?seed=Felix',
@@ -75,6 +83,9 @@ import React, { useState, useEffect, useRef } from 'react';
         } else if (tab === 'logs') {
           const res = await api('get_audit_log', {});
           if (res.status === 'success') setDataAudit(res.data);
+        } else if (tab === 'soal') {
+          const res = await api('get_bank_soal_admin', {});
+          if (res.status === 'success') setDataSoal(res.data);
         } else if (tab === 'pengumuman') {
           const res = await api('get_pengumuman', { role: 'admin' });
           if (res.status === 'success') setDataPengumuman(res.data);
@@ -97,17 +108,25 @@ import React, { useState, useEffect, useRef } from 'react';
         fetchData(activeTab);
       }, [activeTab, selectedJadwal]);
 
-      const handleDelete = async (id, type) => {
-        if (!confirm(`Hapus data ${type} ini?`)) return;
-        let endpoint = `delete_${type}`;
+      const handleDeleteClick = (id, type, item) => {
+        setDeleteModal({ isOpen: true, type, id, item });
+      };
+
+      const confirmDelete = async () => {
+        setIsSubmitting(true);
+        let endpoint = `delete_${deleteModal.type}`;
         let payload = {};
-        payload[`id_${type}`] = id;
+        payload[`id_${deleteModal.type}`] = deleteModal.id;
 
         const res = await api(endpoint, payload);
+        setIsSubmitting(false);
         if (res.status === 'success') {
-          await api('create_audit_log', { username: user.username, role: 'admin', action: 'DELETE', target: `${type} (${id})` });
+          await api('create_audit_log', { username: user.username, role: 'admin', action: 'DELETE', target: `${deleteModal.type} (${deleteModal.id})` });
+          setDeleteModal({ isOpen: false, type: '', id: null, item: null });
           fetchData(activeTab);
-        } else alert(res.message);
+        } else {
+          alert(res.message);
+        }
       };
 
       
@@ -123,6 +142,7 @@ import React, { useState, useEffect, useRef } from 'react';
       
       const handleSaveForm = async (e) => {
         e.preventDefault();
+        setIsSubmitting(true);
         const formData = new FormData(e.target);
         let payload = Object.fromEntries(formData.entries());
         const isEdit = formModal.data != null;
@@ -155,6 +175,7 @@ import React, { useState, useEffect, useRef } from 'react';
         }
 
         const res = await api(endpoint, payload);
+        setIsSubmitting(false);
         if (res.status === 'success') {
           await api('create_audit_log', { username: user.username, role: 'admin', action: isEdit ? 'UPDATE' : 'CREATE', target: `${formModal.type} (${payload[`id_${formModal.type}`] || 'Baru'})` });
           setFormModal({ isOpen: false, type: '', data: null });
@@ -569,6 +590,119 @@ import React, { useState, useEffect, useRef } from 'react';
         );
       };
 
+      const renderDeleteModal = () => {
+        if (!deleteModal.isOpen) return null;
+        return (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl animate-slide-up relative p-6 border border-slate-100 dark:border-slate-800">
+               <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">Konfirmasi Hapus</h3>
+               <p className="text-sm text-slate-500 mb-4">Apakah Anda yakin ingin menghapus data ini? Ketik <strong>HAPUS</strong> untuk mengonfirmasi.</p>
+               <input 
+                 type="text" 
+                 placeholder="Ketik HAPUS" 
+                 value={confirmText} 
+                 onChange={(e) => setConfirmText(e.target.value)} 
+                 className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 mb-6 dark:text-white"
+               />
+               <div className="flex gap-3 justify-end">
+                 <button type="button" onClick={() => {setDeleteModal({isOpen:false, type:'', id:null, item:null}); setConfirmText('');}} className="px-4 py-2 rounded-lg font-bold text-sm text-slate-500 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700">Batal</button>
+                 <button type="button" onClick={() => { confirmDelete(); setConfirmText(''); }} disabled={confirmText !== 'HAPUS' || isSubmitting} className="px-4 py-2 rounded-lg font-bold text-sm text-white bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                   {isSubmitting ? 'Menghapus...' : 'Hapus Data'}
+                 </button>
+               </div>
+            </div>
+          </div>
+        );
+      };
+
+      const handleDownloadTemplate = () => {
+        let headers = [];
+        let filename = '';
+        if (importModal.type === 'siswa') {
+          headers = ['nama_lengkap', 'nisn', 'password', 'kelas', 'angkatan', 'kelas_paralel', 'jenis_kelamin'];
+          filename = 'Template_Siswa.xlsx';
+        } else if (importModal.type === 'guru') {
+          headers = ['nama_lengkap', 'nip', 'username', 'password', 'role'];
+          filename = 'Template_Guru.xlsx';
+        }
+        
+        const ws = XLSX.utils.aoa_to_sheet([headers]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Template');
+        XLSX.writeFile(wb, filename);
+      };
+
+      const handleImportFile = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        setIsSubmitting(true);
+
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+          try {
+            const bstr = evt.target.result;
+            const wb = XLSX.read(bstr, { type: 'binary' });
+            const wsname = wb.SheetNames[0];
+            const ws = wb.Sheets[wsname];
+            const data = XLSX.utils.sheet_to_json(ws);
+            
+            if (data.length === 0) {
+              alert('File kosong atau format salah.');
+              setIsSubmitting(false);
+              return;
+            }
+
+            const endpoint = importModal.type === 'siswa' ? 'create_siswa_bulk' : 'create_guru_bulk';
+            const res = await api(endpoint, data);
+            
+            if (res.status === 'success') {
+              alert(`Berhasil mengimpor ${data.length} data ${importModal.type}`);
+              await api('create_audit_log', { username: user.username, role: 'admin', action: 'IMPORT', target: `${importModal.type} (${data.length} data)` });
+              setImportModal({ isOpen: false, type: '' });
+              fetchData(activeTab);
+            } else {
+              alert(res.message);
+            }
+          } catch (error) {
+            console.error(error);
+            alert('Gagal memproses file Excel.');
+          } finally {
+            setIsSubmitting(false);
+          }
+        };
+        reader.readAsBinaryString(file);
+      };
+
+      const renderImportModal = () => {
+        if (!importModal.isOpen) return null;
+        return (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl animate-slide-up relative p-6 border border-slate-100 dark:border-slate-800">
+               <div className="flex justify-between items-center mb-4">
+                 <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Import Data {importModal.type === 'siswa' ? 'Siswa' : 'Guru'}</h3>
+                 <button onClick={() => setImportModal({isOpen:false, type:''})} className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700">
+                   <span className="material-symbols-outlined text-sm">close</span>
+                 </button>
+               </div>
+               
+               <p className="text-sm text-slate-500 mb-4">Pastikan format kolom sesuai dengan template. Klik tombol di bawah untuk mengunduh template.</p>
+               
+               <button onClick={handleDownloadTemplate} className="w-full flex items-center justify-center gap-2 bg-blue-50 text-blue-600 font-bold py-3 px-4 rounded-xl mb-4 hover:bg-blue-100 transition-colors">
+                 <span className="material-symbols-outlined">download</span> Download Template
+               </button>
+
+               <div className="relative w-full">
+                 <input type="file" accept=".xlsx, .xls" onChange={handleImportFile} disabled={isSubmitting} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed" />
+                 <div className={`w-full flex flex-col items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl py-8 ${isSubmitting ? 'bg-slate-50 dark:bg-slate-800' : 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800'} transition-colors`}>
+                   <span className="material-symbols-outlined text-4xl text-slate-400 mb-2">upload_file</span>
+                   <span className="text-sm font-bold text-slate-600 dark:text-slate-300">{isSubmitting ? 'Memproses...' : 'Pilih atau Tarik File Excel'}</span>
+                 </div>
+               </div>
+            </div>
+          </div>
+        );
+      };
+
       const SidebarLink = ({ id, icon, label }) => (
         <a onClick={(e) => { e.preventDefault(); setActiveTab(id); setIsSidebarOpen(false); }} className={`flex items-center space-x-sm px-md py-sm rounded-lg font-label-md text-label-md duration-200 ease-in-out cursor-pointer ${activeTab === id ? 'bg-primary-container dark:bg-primary/20 text-on-primary-container dark:text-primary-fixed shadow-sm' : 'text-on-surface-variant dark:text-slate-400 hover:bg-surface-container-highest dark:hover:bg-slate-800 transition-colors'}`}>
           <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>{icon}</span>
@@ -628,20 +762,20 @@ import React, { useState, useEffect, useRef } from 'react';
                         <span className="text-2xl font-bold text-slate-800 dark:text-slate-100">{dashboardData?.totalGuru || 0}</span>
                         <span className="font-medium text-xs text-slate-500">Total Guru</span>
                      </div>
-                     <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2">
+                     <button onClick={() => setActiveTab('mapel')} className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors active:scale-95 cursor-pointer">
                         <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center">
                           <span className="material-symbols-outlined text-orange-500">menu_book</span>
                         </div>
                         <span className="text-2xl font-bold text-slate-800 dark:text-slate-100">{dashboardData?.totalMapel || 0}</span>
                         <span className="font-medium text-xs text-slate-500">Total Mapel</span>
-                     </div>
-                     <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2">
+                     </button>
+                     <button onClick={() => setActiveTab('soal')} className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors active:scale-95 cursor-pointer">
                         <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
                           <span className="material-symbols-outlined text-purple-500">quiz</span>
                         </div>
                         <span className="text-2xl font-bold text-slate-800 dark:text-slate-100">{dashboardData?.totalSoal || 0}</span>
                         <span className="font-medium text-xs text-slate-500">Total Soal</span>
-                     </div>
+                     </button>
                   </div>
 
                   <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Jadwal Aktif</h3>
@@ -667,14 +801,26 @@ import React, { useState, useEffect, useRef } from 'react';
                     <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Data Siswa</h3>
                     <span className="text-sm font-medium text-primary bg-primary/10 px-2 py-1 rounded-lg">{dataSiswa.length} Siswa</span>
                   </div>
-                  <div className="mb-4">
+                  <div className="mb-4 flex flex-col gap-2">
                     <div className="relative">
                       <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
                       <input type="text" placeholder="Cari nama atau NISN..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm dark:text-white" />
                     </div>
+                    <div className="flex gap-2">
+                      <select value={filterKelas} onChange={(e) => setFilterKelas(e.target.value)} className="flex-1 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 dark:text-white">
+                        <option value="">Semua Kelas</option>
+                        {[...new Set(dataSiswa.map(s => s.kelas).filter(Boolean))].map(k => <option key={k} value={k}>{k}</option>)}
+                      </select>
+                      <button onClick={() => setImportModal({isOpen: true, type: 'siswa'})} className="flex items-center justify-center gap-1 bg-blue-50 text-blue-600 px-3 py-2 rounded-xl text-sm font-bold hover:bg-blue-100 transition-colors" title="Import Excel">
+                        <span className="material-symbols-outlined text-sm">upload_file</span>
+                      </button>
+                    </div>
                   </div>
                   <div className="space-y-3">
-                    {dataSiswa.filter(s => (s.nama_lengkap?.toLowerCase().includes(searchQuery.toLowerCase()) || s.nisn?.toLowerCase().includes(searchQuery.toLowerCase()))).map((s) => (
+                    {dataSiswa.filter(s => 
+                      (s.nama_lengkap?.toLowerCase().includes(searchQuery.toLowerCase()) || s.nisn?.toLowerCase().includes(searchQuery.toLowerCase())) &&
+                      (filterKelas === '' || s.kelas === filterKelas)
+                    ).map((s) => (
                       <div key={s.id_user} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center gap-3 relative">
                         <div className="w-10 h-10 rounded-full bg-green-50 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
                           <span className="material-symbols-outlined text-green-500">school</span>
@@ -685,7 +831,7 @@ import React, { useState, useEffect, useRef } from 'react';
                         </div>
                         <div className="flex flex-col gap-1">
                           <button onClick={() => openEditModal('siswa', s)} className="w-7 h-7 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center hover:bg-blue-100 transition-colors"><span className="material-symbols-outlined text-sm">edit</span></button>
-                          <button onClick={() => handleDelete(s.id_siswa, 'siswa')} className="w-7 h-7 rounded-full bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors"><span className="material-symbols-outlined text-sm">delete</span></button>
+                          <button onClick={() => handleDeleteClick(s.id_siswa, 'siswa', s)} className="w-7 h-7 rounded-full bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors"><span className="material-symbols-outlined text-sm">delete</span></button>
                         </div>
                       </div>
                     ))}
@@ -705,14 +851,26 @@ import React, { useState, useEffect, useRef } from 'react';
                     <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Data Guru</h3>
                     <span className="text-sm font-medium text-primary bg-primary/10 px-2 py-1 rounded-lg">{dataGuru.length} Guru</span>
                   </div>
-                  <div className="mb-4">
+                  <div className="mb-4 flex flex-col gap-2">
                     <div className="relative">
                       <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
                       <input type="text" placeholder="Cari nama atau NIP..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm dark:text-white" />
                     </div>
+                    <div className="flex gap-2">
+                      <select value={filterMapel} onChange={(e) => setFilterMapel(e.target.value)} className="flex-1 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 dark:text-white">
+                        <option value="">Semua Mapel</option>
+                        {dataMapel.map(m => <option key={m.id_mapel} value={m.nama_mapel}>{m.nama_mapel}</option>)}
+                      </select>
+                      <button onClick={() => setImportModal({isOpen: true, type: 'guru'})} className="flex items-center justify-center gap-1 bg-blue-50 text-blue-600 px-3 py-2 rounded-xl text-sm font-bold hover:bg-blue-100 transition-colors" title="Import Excel">
+                        <span className="material-symbols-outlined text-sm">upload_file</span>
+                      </button>
+                    </div>
                   </div>
                   <div className="space-y-3">
-                    {dataGuru.filter(g => (g.nama_lengkap?.toLowerCase().includes(searchQuery.toLowerCase()) || g.nip?.toLowerCase().includes(searchQuery.toLowerCase()))).map((g) => (
+                    {dataGuru.filter(g => 
+                      (g.nama_lengkap?.toLowerCase().includes(searchQuery.toLowerCase()) || g.nip?.toLowerCase().includes(searchQuery.toLowerCase())) &&
+                      (filterMapel === '' || g.mapels_list.includes(filterMapel))
+                    ).map((g) => (
                       <div key={g.id_user} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
                           <span className="material-symbols-outlined text-blue-500">local_library</span>
@@ -723,7 +881,7 @@ import React, { useState, useEffect, useRef } from 'react';
                         </div>
                         <div className="flex flex-col gap-1">
                           <button onClick={() => openEditModal('guru', g)} className="w-7 h-7 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center hover:bg-blue-100 transition-colors"><span className="material-symbols-outlined text-sm">edit</span></button>
-                          <button onClick={() => handleDelete(g.id_guru, 'guru')} className="w-7 h-7 rounded-full bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors"><span className="material-symbols-outlined text-sm">delete</span></button>
+                          <button onClick={() => handleDeleteClick(g.id_guru, 'guru', g)} className="w-7 h-7 rounded-full bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors"><span className="material-symbols-outlined text-sm">delete</span></button>
                         </div>
                       </div>
                     ))}
@@ -742,8 +900,14 @@ import React, { useState, useEffect, useRef } from 'react';
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Semua Jadwal Ujian</h3>
                   </div>
+                  <div className="mb-4">
+                    <select value={filterMapel} onChange={(e) => setFilterMapel(e.target.value)} className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 dark:text-white">
+                      <option value="">Semua Mapel</option>
+                      {dataMapel.map(m => <option key={m.id_mapel} value={m.nama_mapel}>{m.nama_mapel}</option>)}
+                    </select>
+                  </div>
                   <div className="space-y-3">
-                    {dataJadwal.map((j) => (
+                    {dataJadwal.filter(j => filterMapel === '' || j.nama_mapel === filterMapel).map((j) => (
                       <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700">
                          <div className="flex justify-between items-start">
                            <h4 className="font-bold text-sm dark:text-white">{j.nama_mapel}</h4>
@@ -752,7 +916,7 @@ import React, { useState, useEffect, useRef } from 'react';
                          <p className="text-xs text-slate-500 mb-2">Token: <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{j.token || '-'}</span></p>
                          <div className="flex justify-end gap-2 border-t border-slate-100 dark:border-slate-700 pt-2">
                            <button onClick={() => openEditModal('jadwal', j)} className="px-3 py-1 bg-blue-50 text-blue-600 rounded text-xs font-bold hover:bg-blue-100">Edit</button>
-                           <button onClick={() => handleDelete(j.id_jadwal, 'jadwal')} className="px-3 py-1 bg-red-50 text-red-600 rounded text-xs font-bold hover:bg-red-100">Hapus</button>
+                           <button onClick={() => handleDeleteClick(j.id_jadwal, 'jadwal', j)} className="px-3 py-1 bg-red-50 text-red-600 rounded text-xs font-bold hover:bg-red-100">Hapus</button>
                          </div>
                       </div>
                     ))}
@@ -791,6 +955,13 @@ import React, { useState, useEffect, useRef } from 'react';
                        </div>
                        <span className="material-symbols-outlined text-slate-400">chevron_right</span>
                      </button>
+                     <button onClick={() => setActiveTab('logs')} className="w-full bg-white dark:bg-slate-800 p-4 rounded-2xl flex items-center justify-between border border-slate-100 dark:border-slate-700 shadow-sm active:scale-95 transition-all">
+                       <div className="flex items-center gap-3">
+                         <div className="w-10 h-10 rounded-full bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center text-amber-500"><span className="material-symbols-outlined">history</span></div>
+                         <div className="text-left"><h4 className="font-bold text-sm dark:text-white">Log Aktivitas</h4><p className="text-xs text-slate-500">Riwayat aksi pada sistem</p></div>
+                       </div>
+                       <span className="material-symbols-outlined text-slate-400">chevron_right</span>
+                     </button>
                      <div className="w-full h-px bg-slate-100 dark:bg-slate-800 my-2"></div>
                      <button onClick={onLogout} className="w-full bg-red-50 dark:bg-red-900/20 p-4 rounded-2xl flex items-center justify-between border border-red-100 dark:border-red-900/30 shadow-sm active:scale-95 transition-all text-red-600">
                        <div className="flex items-center gap-3">
@@ -802,6 +973,84 @@ import React, { useState, useEffect, useRef } from 'react';
                 </div>
               )}
 
+            {activeTab === 'mapel' && (
+              <div className="px-6 mt-6 animate-fade-in-up">
+                <div className="flex justify-between items-center mb-4">
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setActiveTab('dashboard')} className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700">
+                      <span className="material-symbols-outlined text-sm">arrow_back</span>
+                    </button>
+                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Mata Pelajaran</h3>
+                  </div>
+                  <span className="text-sm font-medium text-orange-600 bg-orange-100 px-2 py-1 rounded-lg">{dataMapel.length} Mapel</span>
+                </div>
+                <div className="space-y-3 pb-24">
+                  {dataMapel.map((m) => (
+                    <div key={m.id_mapel} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-orange-50 dark:bg-orange-900/30 flex items-center justify-center flex-shrink-0">
+                        <span className="material-symbols-outlined text-orange-500">menu_book</span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-bold text-sm truncate dark:text-white">{m.nama_mapel}</h4>
+                      </div>
+                    </div>
+                  ))}
+                  {dataMapel.length === 0 && <div className="text-center text-xs text-slate-500 mt-4">Belum ada mata pelajaran.</div>}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'soal' && (
+              <div className="px-6 mt-6 animate-fade-in-up">
+                <div className="flex justify-between items-center mb-4">
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setActiveTab('dashboard')} className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700">
+                      <span className="material-symbols-outlined text-sm">arrow_back</span>
+                    </button>
+                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Bank Soal (Preview)</h3>
+                  </div>
+                  <span className="text-sm font-medium text-purple-600 bg-purple-100 px-2 py-1 rounded-lg">{dataSoal.length} Soal</span>
+                </div>
+                <div className="space-y-3 pb-24">
+                  {dataSoal.map((s) => (
+                    <div key={s.id_soal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700">
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="text-xs font-bold text-purple-500">{s.mata_pelajaran?.nama_mapel}</span>
+                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{s.tipe_soal}</span>
+                      </div>
+                      <div className="text-sm text-slate-700 dark:text-slate-300 line-clamp-2" dangerouslySetInnerHTML={{ __html: s.pertanyaan }}></div>
+                    </div>
+                  ))}
+                  {dataSoal.length === 0 && <div className="text-center text-xs text-slate-500 mt-4">Belum ada soal di bank soal.</div>}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'logs' && (
+              <div className="px-6 mt-6 animate-fade-in-up flex flex-col h-full">
+                <div className="flex items-center gap-2 mb-4">
+                  <button onClick={() => setActiveTab('akun')} className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700">
+                    <span className="material-symbols-outlined text-sm">arrow_back</span>
+                  </button>
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Log Aktivitas</h3>
+                </div>
+                <div className="flex-1 overflow-y-auto pb-24 space-y-3">
+                  {dataAudit.map((log) => (
+                    <div key={log.id_audit} className="bg-white dark:bg-slate-800 rounded-2xl p-3 shadow-sm border border-slate-100 dark:border-slate-700 flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0 mt-1">
+                        <span className="material-symbols-outlined text-amber-500 text-sm">history</span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs text-slate-500 mb-1">{new Date(log.created_at).toLocaleString('id-ID')}</p>
+                        <h4 className="font-bold text-sm dark:text-white truncate">[{log.action}] {log.username} ({log.role})</h4>
+                        <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">{log.target}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {dataAudit.length === 0 && <div className="text-center text-xs text-slate-500 mt-4">Tidak ada log aktivitas.</div>}
+                </div>
+              </div>
+            )}
             </div>
 
             {/* Bottom Navigation */}
@@ -829,6 +1078,8 @@ import React, { useState, useEffect, useRef } from 'react';
             </div>
 
             {renderFormModal()}
+            {renderImportModal()}
+            {renderDeleteModal()}
           </div>
         </div>
 

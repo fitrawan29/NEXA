@@ -213,6 +213,12 @@ import React from 'react';
           }
 
           // ================= ADMIN DASHBOARD =================
+          case 'get_bank_soal_admin': {
+            const { data, error } = await supabaseClient.from('soal').select('*, mata_pelajaran(nama_mapel)').eq('npsn', payload.npsn).order('created_at', { ascending: false });
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', data };
+          }
+          
           case 'get_admin_dashboard_data': {
             const [siswaRes, guruRes, jadwalRes, aktifRes, mapelRes, soalRes] = await Promise.all([
               supabaseClient.from('siswa').select('id_siswa', { count: 'exact' }).eq('npsn', payload.npsn),
@@ -256,6 +262,9 @@ import React from 'react';
             return { status: 'success', data };
           }
           case 'create_siswa': {
+            const { data: existingSiswa } = await supabaseClient.from('siswa').select('id_siswa').eq('nisn', payload.nisn).maybeSingle();
+            if (existingSiswa) return { status: 'error', message: 'Siswa dengan NISN ini sudah terdaftar.' };
+
             if (!payload.id_siswa) payload.id_siswa = generateId('S');
             ({ error } = await supabaseClient.from('siswa').insert([payload]));
             if (error) return { status: 'error', message: error.message };
@@ -269,6 +278,12 @@ import React from 'react';
           }
           case 'update_siswa': {
             const { id_siswa, npsn, ...updates } = payload; // Extract npsn so it's not updated unintentionally
+            
+            if (updates.nisn) {
+              const { data: existingSiswa } = await supabaseClient.from('siswa').select('id_siswa').eq('nisn', updates.nisn).neq('id_siswa', id_siswa).maybeSingle();
+              if (existingSiswa) return { status: 'error', message: 'Siswa dengan NISN ini sudah terdaftar pada pengguna lain.' };
+            }
+
             ({ error } = await supabaseClient.from('siswa').update(updates).eq('id_siswa', id_siswa).eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Siswa berhasil diperbarui' };
@@ -322,6 +337,9 @@ import React from 'react';
             return { status: 'success', data: processedData };
           }
           case 'create_guru': {
+            const { data: existingGuru } = await supabaseClient.from('guru').select('id_guru').eq('nip', payload.nip).maybeSingle();
+            if (existingGuru && payload.nip) return { status: 'error', message: 'Guru dengan NIP ini sudah terdaftar.' };
+
             if (!payload.id_guru) payload.id_guru = generateId('G');
             const { mapels, ...guruData } = payload;
             const res = await supabaseClient.from('guru').insert([guruData]).select();
@@ -350,6 +368,12 @@ import React from 'react';
           }
           case 'update_guru': {
             const { id_guru, mapels, npsn, ...updates } = payload;
+
+            if (updates.nip) {
+              const { data: existingGuru } = await supabaseClient.from('guru').select('id_guru').eq('nip', updates.nip).neq('id_guru', id_guru).maybeSingle();
+              if (existingGuru) return { status: 'error', message: 'Guru dengan NIP ini sudah terdaftar pada pengguna lain.' };
+            }
+
             const res = await supabaseClient.from('guru').update(updates).eq('id_guru', id_guru).eq('npsn', payload.npsn);
             if (res.error) {
               if (res.error.message.includes('guru_username_key')) {
