@@ -577,6 +577,7 @@ import React, { useState, useEffect, useRef } from 'react';
       );
 
       return (
+        <>
         <div className="bg-slate-50 dark:bg-slate-900 min-h-screen flex justify-center selection:bg-primary/30 selection:text-primary">
           <div className="w-full max-w-md bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col h-screen">
             
