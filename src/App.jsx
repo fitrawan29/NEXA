@@ -33,7 +33,7 @@ import Modal from './components/Modal';
       const [loginError, setLoginError] = useState('');
       const [loginSuccess, setLoginSuccess] = useState(false);
       const [isOnline, setIsOnline] = useState(navigator.onLine);
-      const [isDarkMode, setIsDarkMode] = useState(true);
+      const [isDarkMode, setIsDarkMode] = useState(false);
       const [capsLockActive, setCapsLockActive] = useState(false);
 
       const [loginRole, setLoginRole] = useState('');

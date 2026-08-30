@@ -297,7 +297,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
                     <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Data Sekolah</h3>
                     <span className="text-sm font-medium text-primary bg-primary/10 px-2 py-1 rounded-lg">{dataSekolah.length} Sekolah</span>
                   </div>
-                  <div className="space-y-3 pb-20">
+                  <div className="space-y-3 pb-32">
                     {dataSekolah.slice(0, visibleCount).map((s) => (
                       <div key={s.npsn} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
@@ -328,7 +328,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
                   {/* FAB Tambah */}
                   <button 
                     onClick={() => setFormModal({ isOpen: true, type: 'sekolah', isEdit: false })}
-                    className="fixed bottom-24 right-6 w-14 h-14 bg-gradient-to-r from-primary to-secondary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform z-10">
+                    className="fixed bottom-24 right-6 w-14 h-14 bg-gradient-to-r from-primary to-secondary text-emerald-900 rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform z-10">
                     <span className="material-symbols-outlined text-3xl">add</span>
                   </button>
                 </div>
@@ -340,7 +340,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
                     <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Data Admin</h3>
                     <span className="text-sm font-medium text-primary bg-primary/10 px-2 py-1 rounded-lg">{dataAdmin.length} Admin</span>
                   </div>
-                  <div className="space-y-3 pb-20">
+                  <div className="space-y-3 pb-32">
                     {dataAdmin.slice(0, visibleCount).map((a) => (
                       <div key={a.id_admin} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
@@ -371,7 +371,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
                   {/* FAB Tambah */}
                   <button 
                     onClick={() => setFormModal({ isOpen: true, type: 'admin', isEdit: false })}
-                    className="fixed bottom-24 right-6 w-14 h-14 bg-gradient-to-r from-primary to-secondary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform z-10">
+                    className="fixed bottom-24 right-6 w-14 h-14 bg-gradient-to-r from-primary to-secondary text-emerald-900 rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform z-10">
                     <span className="material-symbols-outlined text-3xl">add</span>
                   </button>
                 </div>
@@ -380,7 +380,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
               {activeTab === 'pengumuman' && (
                 <div className="px-6 mt-6 animate-fade-in-up">
                   <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Pengumuman Global</h3>
-                  <div className="space-y-3 pb-20">
+                  <div className="space-y-3 pb-32">
                     {dataPengumuman.slice(0, visibleCount).map((p) => (
                       <div key={p.id_pengumuman} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex justify-between items-start gap-3">
                          <div className="flex-1">
@@ -405,7 +405,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
                   {/* FAB Tambah */}
                   <button 
                     onClick={() => setFormModal({ isOpen: true, type: 'pengumuman', isEdit: false })}
-                    className="fixed bottom-24 right-6 w-14 h-14 bg-gradient-to-r from-primary to-secondary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform z-10">
+                    className="fixed bottom-24 right-6 w-14 h-14 bg-gradient-to-r from-primary to-secondary text-emerald-900 rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform z-10">
                     <span className="material-symbols-outlined text-3xl">add</span>
                   </button>
                 </div>
@@ -414,7 +414,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
               {activeTab === 'log' && (
                 <div className="px-6 mt-6 animate-fade-in-up">
                   <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">System Logs</h3>
-                  <div className="space-y-3 pb-20">
+                  <div className="space-y-3 pb-32">
                     {dataLog.slice(0, visibleCount).map((l) => (
                       <div key={l.id_log} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700">
                          <div className="flex justify-between">
