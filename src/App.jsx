@@ -169,12 +169,12 @@ import Modal from './components/Modal';
           };
 
           return (
-            <div className="bg-slate-50 dark:bg-slate-900 min-h-screen flex justify-center selection:bg-primary/30 selection:text-primary relative">
+            <div className="bg-slate-50 dark:bg-slate-900 min-h-screen flex justify-center md:items-center md:p-6 selection:bg-primary/30 selection:text-primary relative">
               
               {/* Background gradient effects */}
               <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-primary/20 to-transparent pointer-events-none"></div>
 
-              <div className="w-full max-w-md bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col h-screen z-10">
+              <div className="w-full max-w-md bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col min-h-screen md:min-h-0 md:h-auto md:rounded-[40px] z-10 md:border border-slate-100 dark:border-slate-800">
                 {/* Header Section */}
                 <div className="bg-[#3ecf8e] rounded-b-[40px] px-6 pt-6 pb-16 relative text-white shadow-md z-0 flex flex-col items-center justify-center text-center">
                    <div className="w-16 h-16 bg-white shadow-lg rounded-2xl flex items-center justify-center p-2.5 mb-2 border border-white/20">
