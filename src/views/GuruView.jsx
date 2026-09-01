@@ -139,9 +139,6 @@ import React, { useState, useEffect, useRef } from 'react';
         reader.readAsBinaryString(file);
       };
 
-      const renderPreviewModal = () => {
-        if (!isPreviewOpen) return null;
-        
       const handleForceStop = async (id_log) => {
         if (!confirm('Anda yakin ingin menghentikan ujian peserta ini secara paksa?')) return;
         setIsLoading(true);
@@ -203,6 +200,9 @@ import React, { useState, useEffect, useRef } from 'react';
            </div>
          );
       };
+      const renderPreviewModal = () => {
+        if (!isPreviewOpen) return null;
+        
 
   return (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
