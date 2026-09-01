@@ -1,4 +1,4 @@
-import { fetchAPI } from '../api.js';
+import { fetchAPI, getTrueNow } from '../api.js';
 import React, { useState, useEffect, useRef } from 'react';
 ﻿    const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
       const api = (action, p = {}) => {
@@ -236,7 +236,7 @@ import React, { useState, useEffect, useRef } from 'react';
       const handleUpdateStatusUjian = async (id_jadwal, status_baru) => {
         setIsLoading(true);
         let updates = {};
-        const now = new Date();
+        const now = await getTrueNow();
         if (status_baru === 'AKTIF') {
           updates.waktu_mulai = new Date(now.getTime() - 60000).toISOString();
           const jadwal = dataJadwal.find(j => j.id_jadwal === id_jadwal);

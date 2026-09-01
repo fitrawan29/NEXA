@@ -4,6 +4,25 @@ import React from 'react';
     // Fungsi fetchAPI sebagai Router Supabase
     export const generateId = (prefix) => `${prefix}-${crypto.randomUUID().split('-')[0].toUpperCase()}`;
 
+    let timeOffset = 0;
+    let syncPromise = null;
+    export const getTrueNow = async () => {
+      if (!syncPromise) {
+        syncPromise = (async () => {
+          try {
+            const res = await fetch('https://worldtimeapi.org/api/timezone/Etc/UTC');
+            if (!res.ok) throw new Error('API down');
+            const data = await res.json();
+            timeOffset = new Date(data.datetime).getTime() - Date.now();
+          } catch (error) {
+            console.warn('Failed to sync network time, using local time.', error);
+          }
+        })();
+      }
+      await syncPromise;
+      return new Date(Date.now() + timeOffset);
+    };
+
     // Note: Database uses `id_mapel` now, `id_jadwal` column in `soal_ujian` might still exist but `id_mapel` is what we use.
 
     export const fetchAPI = async (action, payload = {}) => {
@@ -454,7 +473,7 @@ import React from 'react';
           case 'get_all_jadwal': {
             ({ data, error } = await supabaseClient.from('jadwal').select('*, guru(nama_lengkap), mata_pelajaran(nama_mapel)').eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
-            const now = new Date();
+            const now = await getTrueNow();
             return {
               status: 'success',
               data: data.map(j => {
@@ -527,7 +546,7 @@ import React from 'react';
             if (payload.id_guru) q = q.eq('id_guru', payload.id_guru);
             ({ data, error } = await q);
             if (error) return { status: 'error', message: error.message };
-            const now = new Date();
+            const now = await getTrueNow();
             return {
               status: 'success',
               data: data.map(j => {

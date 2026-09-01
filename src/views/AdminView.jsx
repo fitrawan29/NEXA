@@ -1,4 +1,4 @@
-import { fetchAPI } from '../api.js';
+import { fetchAPI, getTrueNow } from '../api.js';
 import React, { useState, useEffect, useRef } from 'react';
 import * as XLSX from 'xlsx';
 ﻿    const EmptyState = window.EmptyState;
@@ -154,7 +154,7 @@ import * as XLSX from 'xlsx';
       const handleUpdateStatusUjian = async (id_jadwal, status_baru) => {
         setIsSubmitting(true);
         let updates = {};
-        const now = new Date();
+        const now = await getTrueNow();
         if (status_baru === 'AKTIF') {
           updates.waktu_mulai = new Date(now.getTime() - 60000).toISOString(); // 1 minute ago
           const jadwal = dataJadwal.find(j => j.id_jadwal === id_jadwal);
