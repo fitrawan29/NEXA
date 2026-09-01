@@ -233,6 +233,17 @@ import React, { useState, useEffect, useRef } from 'react';
         }
       }, [dataSoal, activeTab, bankSoalPage, selectedMapel, modalUraian.isOpen, formSoal.isOpen, isAnalisisModalOpen]);
 
+      const handleUpdateStatusUjian = async (id_jadwal, status_baru) => {
+        setIsLoading(true);
+        const res = await api('update_jadwal', { id_jadwal, status_ujian: status_baru });
+        setIsLoading(false);
+        if (res.status === 'success') {
+          fetchData();
+        } else {
+          alert(res.message);
+        }
+      };
+
       const handleGenerateToken = async (id) => {
         const res = await api('get_token', { id_jadwal: id });
         if (res.status === 'success') {
@@ -505,7 +516,7 @@ import React, { useState, useEffect, useRef } from 'react';
                        const iconName = isAktif ? 'play_circle' : isSelesai ? 'check_circle' : 'schedule';
                        
                        return (
-                          <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center justify-between gap-3">
+                          <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col md:flex-row items-center justify-between gap-3">
                             <div className="flex items-center gap-3 flex-1 min-w-0">
                               <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${isAktif ? 'bg-green-100 text-green-500' : isSelesai ? 'bg-slate-100 text-slate-400' : 'bg-orange-100 text-orange-500'}`}>
                                 <span className="material-symbols-outlined">{iconName}</span>
@@ -515,11 +526,18 @@ import React, { useState, useEffect, useRef } from 'react';
                                 <p className="text-xs text-slate-500 truncate">{new Date(j.waktu_mulai).toLocaleDateString('id-ID')} - {j.kelas.join(', ')}</p>
                               </div>
                             </div>
-                            <div className="flex flex-col items-end gap-1">
-                               <span className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${isAktif ? 'bg-green-500 text-white shadow-md shadow-green-500/20' : isSelesai ? 'bg-slate-100 text-slate-500' : 'bg-orange-100 text-orange-600'}`}>
-                                 {j.status_ujian}
-                               </span>
-                               {j.token && <span className="text-[10px] font-mono text-slate-400 font-bold">#{j.token}</span>}
+                            <div className="flex flex-col items-end gap-2 mt-3 md:mt-0">
+                               <div className="flex gap-2">
+                                 {j.status_ujian !== 'AKTIF' && j.status_ujian !== 'SELESAI' && <button onClick={() => handleUpdateStatusUjian(j.id_jadwal, 'AKTIF')} className="px-3 py-1 bg-green-50 text-green-600 rounded text-xs font-bold hover:bg-green-100">Mulai Ujian</button>}
+                                 {j.status_ujian === 'AKTIF' && <button onClick={() => handleUpdateStatusUjian(j.id_jadwal, 'SELESAI')} className="px-3 py-1 bg-slate-100 text-slate-600 rounded text-xs font-bold hover:bg-slate-200">Akhiri Ujian</button>}
+                                 {j.status_ujian === 'SELESAI' && <button onClick={() => handleUpdateStatusUjian(j.id_jadwal, 'BELUM MULAI')} className="px-3 py-1 bg-orange-50 text-orange-600 rounded text-xs font-bold hover:bg-orange-100">Reset Status</button>}
+                               </div>
+                               <div className="flex items-center gap-2">
+                                 <span className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${isAktif ? 'bg-green-500 text-white shadow-md shadow-green-500/20' : isSelesai ? 'bg-slate-100 text-slate-500' : 'bg-orange-100 text-orange-600'}`}>
+                                   {j.status_ujian}
+                                 </span>
+                                 {j.token && <span className="text-[10px] font-mono text-slate-400 font-bold">#{j.token}</span>}
+                               </div>
                             </div>
                           </div>
                        );

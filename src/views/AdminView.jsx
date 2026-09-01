@@ -141,7 +141,6 @@ import * as XLSX from 'xlsx';
         }
       };
 
-      
       const handleResetLogin = async (id_siswa) => {
         if (!confirm('Reset sesi login siswa ini?')) return;
         const res = await fetchAPI('reset_login_siswa', { id_siswa, npsn: user.npsn });
@@ -151,7 +150,17 @@ import * as XLSX from 'xlsx';
           alert(res.message);
         }
       };
-      
+
+      const handleUpdateStatusUjian = async (id_jadwal, status_baru) => {
+        setIsSubmitting(true);
+        const res = await api('update_jadwal', { id_jadwal, status_ujian: status_baru });
+        setIsSubmitting(false);
+        if (res.status === 'success') {
+          fetchData(activeTab);
+        } else {
+          alert(res.message);
+        }
+      };
       const handleSaveForm = async (e) => {
         e.preventDefault();
         setIsSubmitting(true);
@@ -930,7 +939,10 @@ import * as XLSX from 'xlsx';
                          </div>
                          <p className="text-xs text-slate-500 mb-1">Guru Pengampu: <span className="font-medium text-slate-700 dark:text-slate-300">{j.guru || '-'}</span></p>
                          <p className="text-xs text-slate-500 mb-2">Token: <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{j.token || '-'}</span></p>
-                         <div className="flex justify-end gap-2 border-t border-slate-100 dark:border-slate-700 pt-2">
+                         <div className="flex justify-end gap-2 border-t border-slate-100 dark:border-slate-700 pt-2 flex-wrap">
+                           {j.status_ujian !== 'AKTIF' && j.status_ujian !== 'SELESAI' && <button onClick={() => handleUpdateStatusUjian(j.id_jadwal, 'AKTIF')} className="px-3 py-1 bg-green-50 text-green-600 rounded text-xs font-bold hover:bg-green-100">Mulai Ujian</button>}
+                           {j.status_ujian === 'AKTIF' && <button onClick={() => handleUpdateStatusUjian(j.id_jadwal, 'SELESAI')} className="px-3 py-1 bg-slate-100 text-slate-600 rounded text-xs font-bold hover:bg-slate-200">Akhiri Ujian</button>}
+                           {j.status_ujian === 'SELESAI' && <button onClick={() => handleUpdateStatusUjian(j.id_jadwal, 'BELUM MULAI')} className="px-3 py-1 bg-orange-50 text-orange-600 rounded text-xs font-bold hover:bg-orange-100">Reset Status</button>}
                            <button onClick={() => openEditModal('jadwal', j)} className="px-3 py-1 bg-blue-50 text-blue-600 rounded text-xs font-bold hover:bg-blue-100">Edit</button>
                            <button onClick={() => handleDeleteClick(j.id_jadwal, 'jadwal', j)} className="px-3 py-1 bg-red-50 text-red-600 rounded text-xs font-bold hover:bg-red-100">Hapus</button>
                          </div>
