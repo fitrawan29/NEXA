@@ -455,13 +455,29 @@ import React from 'react';
           case 'get_all_jadwal': {
             ({ data, error } = await supabaseClient.from('jadwal').select('*, guru(nama_lengkap), mata_pelajaran(nama_mapel)').eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
+            const now = new Date();
             return {
               status: 'success',
-              data: data.map(j => ({
-                ...j,
-                guru: j.guru ? j.guru.nama_lengkap : 'Unknown',
-                nama_mapel: j.mata_pelajaran ? j.mata_pelajaran.nama_mapel : 'Unknown'
-              }))
+              data: data.map(j => {
+                let currentStatus = j.status_ujian;
+                if (j.waktu_mulai && j.waktu_selesai) {
+                  const mulai = new Date(j.waktu_mulai);
+                  const selesai = new Date(j.waktu_selesai);
+                  if (now >= mulai && now <= selesai) {
+                    currentStatus = 'AKTIF';
+                  } else if (now > selesai) {
+                    currentStatus = 'SELESAI';
+                  } else {
+                    currentStatus = 'BELUM MULAI';
+                  }
+                }
+                return {
+                  ...j,
+                  status_ujian: currentStatus,
+                  guru: j.guru ? j.guru.nama_lengkap : 'Unknown',
+                  nama_mapel: j.mata_pelajaran ? j.mata_pelajaran.nama_mapel : 'Unknown'
+                };
+              })
             };
           }
 
@@ -514,9 +530,28 @@ import React from 'react';
             if (payload.id_guru) q = q.eq('id_guru', payload.id_guru);
             ({ data, error } = await q);
             if (error) return { status: 'error', message: error.message };
+            const now = new Date();
             return {
               status: 'success',
-              data: data.map(j => ({ ...j, nama_mapel: j.mata_pelajaran ? j.mata_pelajaran.nama_mapel : 'Unknown' }))
+              data: data.map(j => {
+                let currentStatus = j.status_ujian;
+                if (j.waktu_mulai && j.waktu_selesai) {
+                  const mulai = new Date(j.waktu_mulai);
+                  const selesai = new Date(j.waktu_selesai);
+                  if (now >= mulai && now <= selesai) {
+                    currentStatus = 'AKTIF';
+                  } else if (now > selesai) {
+                    currentStatus = 'SELESAI';
+                  } else {
+                    currentStatus = 'BELUM MULAI';
+                  }
+                }
+                return {
+                  ...j,
+                  status_ujian: currentStatus,
+                  nama_mapel: j.mata_pelajaran ? j.mata_pelajaran.nama_mapel : 'Unknown'
+                };
+              })
             };
           }
 
