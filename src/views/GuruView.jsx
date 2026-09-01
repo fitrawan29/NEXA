@@ -1,4 +1,4 @@
-﻿import { fetchAPI, getTrueNow } from '../api.js';
+import { fetchAPI, getTrueNow } from '../api.js';
 import React, { useState, useEffect, useRef } from 'react';
     const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
       const api = (action, p = {}) => {
@@ -536,7 +536,7 @@ import React, { useState, useEffect, useRef } from 'react';
           <div className="w-full md:max-w-3xl lg:max-w-5xl xl:max-w-6xl mx-auto bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col h-screen">
             
             {/* Header / Top Section */}
-            <div className="bg-[#3ecf8e] rounded-b-[40px] px-6 pt-8 pb-20 relative text-white shadow-md z-0">
+            <div className="bg-[#3ecf8e] px-6 pt-6 pb-6 relative text-white shadow-md z-0">
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-3">
                   <div className="w-14 h-14 bg-white/20 rounded-full border-2 border-white/50 overflow-hidden flex-shrink-0 flex items-center justify-center">
@@ -949,6 +949,86 @@ import React, { useState, useEffect, useRef } from 'react';
             </div>
           </div>
         )}
+        {renderAnalisisModal && typeof renderAnalisisModal === 'function' ? renderAnalisisModal() : null}
+        {renderResetModal && typeof renderResetModal === 'function' ? renderResetModal() : null}
+        {preFormSoal.isOpen && (
+        <div className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl w-full max-w-sm shadow-xl">
+            <h3 className="font-bold text-lg mb-4">Pilih Kelas & Mapel</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold mb-1">Kelas</label>
+                <select value={preFormSoal.target_kelas} onChange={(e) => setPreFormSoal({...preFormSoal, target_kelas: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-3 rounded-xl">
+                  <option value="">Pilih Kelas</option>
+                  <option value="10">Kelas 10</option>
+                  <option value="11">Kelas 11</option>
+                  <option value="12">Kelas 12</option>
+                  <option value="Umum">Umum</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-bold mb-1">Mata Pelajaran</label>
+                <select value={preFormSoal.id_mapel} onChange={(e) => setPreFormSoal({...preFormSoal, id_mapel: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-3 rounded-xl">
+                  <option value="">Pilih Mapel</option>
+                  {dataMapel.map(m => <option key={m.id_mapel} value={m.id_mapel}>{m.nama_mapel}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-2 mt-6">
+              <button onClick={() => setPreFormSoal({ isOpen: false, id_mapel: '', target_kelas: '' })} className="flex-1 py-3 text-slate-500 font-bold hover:bg-slate-100 rounded-xl">Batal</button>
+              <button onClick={() => {
+                if(!preFormSoal.id_mapel || !preFormSoal.target_kelas) return alert('Pilih kelas dan mapel!');
+                setPreFormSoal({ isOpen: false, id_mapel: '', target_kelas: '' });
+                setFormSoal({ isOpen: true, data: null, id_mapel: preFormSoal.id_mapel });
+              }} className="flex-1 py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary-dark">Lanjut</button>
+            </div>
+          </div>
+        </div>
+        )}
+        {skemaModal.isOpen && (
+        <div className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
+            <h3 className="font-bold text-lg mb-4">Pengaturan Skema Penilaian</h3>
+            <p className="text-sm text-slate-500 mb-4">Pengaturan ini akan dipisahkan dari tabel soal dan digunakan saat kalkulasi nilai akhir.</p>
+            <div className="space-y-4">
+               <div>
+                 <label className="block text-sm font-bold mb-1">Mata Pelajaran</label>
+                 <select value={skemaModal.id_mapel} onChange={(e) => setSkemaModal({...skemaModal, id_mapel: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-3 rounded-xl">
+                   {dataMapel.map(m => <option key={m.id_mapel} value={m.id_mapel}>{m.nama_mapel}</option>)}
+                 </select>
+               </div>
+               
+               <div className="grid grid-cols-2 gap-3">
+                 <div>
+                   <label className="block text-xs font-bold text-slate-500 mb-1">Bobot PG (%)</label>
+                   <input type="number" value={skemaPenilaian.PG || 40} onChange={e => setSkemaPenilaian({...skemaPenilaian, PG: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2 rounded-lg" />
+                 </div>
+                 <div>
+                   <label className="block text-xs font-bold text-slate-500 mb-1">Bobot PGK (%)</label>
+                   <input type="number" value={skemaPenilaian.PGK || 30} onChange={e => setSkemaPenilaian({...skemaPenilaian, PGK: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2 rounded-lg" />
+                 </div>
+                 <div>
+                   <label className="block text-xs font-bold text-slate-500 mb-1">Bobot Benar/Salah (%)</label>
+                   <input type="number" value={skemaPenilaian.BS || 10} onChange={e => setSkemaPenilaian({...skemaPenilaian, BS: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2 rounded-lg" />
+                 </div>
+                 <div>
+                   <label className="block text-xs font-bold text-slate-500 mb-1">Bobot Menjodohkan (%)</label>
+                   <input type="number" value={skemaPenilaian.JODOH || 10} onChange={e => setSkemaPenilaian({...skemaPenilaian, JODOH: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2 rounded-lg" />
+                 </div>
+                 <div>
+                   <label className="block text-xs font-bold text-slate-500 mb-1">Bobot Uraian (%)</label>
+                   <input type="number" value={skemaPenilaian.URAIAN || 10} onChange={e => setSkemaPenilaian({...skemaPenilaian, URAIAN: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2 rounded-lg" />
+                 </div>
+               </div>
+            </div>
+            <div className="flex gap-2 mt-6">
+              <button onClick={() => setSkemaModal({ isOpen: false, id_mapel: null })} className="flex-1 py-3 text-slate-500 font-bold hover:bg-slate-100 rounded-xl">Batal</button>
+              <button onClick={handleSaveSkema} className="flex-1 py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary-dark">Simpan Skema</button>
+            </div>
+          </div>
+        </div>
+        )}
+        <FormSoalModal isOpen={formSoal.isOpen} data={formSoal.data} narasiList={[]} onClose={() => setFormSoal({ isOpen: false, data: null, id_mapel: '' })} onSave={handleSaveSoal} />
         </>
       );
     };
