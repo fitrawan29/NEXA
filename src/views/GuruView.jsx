@@ -540,7 +540,7 @@ import React, { useState, useEffect, useRef } from 'react';
                               </div>
                               <div className="min-w-0 flex-1">
                                 <h4 className={`font-bold text-sm truncate ${isSelesai ? 'text-slate-500' : 'text-slate-800 dark:text-slate-100'}`}>{j.nama_mapel}</h4>
-                                <p className="text-xs text-slate-500 truncate">{new Date(j.waktu_mulai).toLocaleDateString('id-ID')} - {j.kelas.join(', ')}</p>
+                                <p className="text-xs text-slate-500 truncate">{new Date(j.waktu_mulai).toLocaleDateString('id-ID')} - {j.target_kelas ? `Tingkat ${j.target_kelas}` : 'Umum'}</p>
                               </div>
                             </div>
                             <div className="flex flex-col items-end gap-2 mt-3 md:mt-0">
@@ -576,7 +576,7 @@ import React, { useState, useEffect, useRef } from 'react';
                           <div className="flex justify-between items-start mb-4">
                             <div>
                               <h4 className="font-bold text-slate-800 dark:text-slate-100 text-base">{j.nama_mapel}</h4>
-                              <p className="text-xs text-slate-500">{j.kelas.join(', ')} | Token: <strong className="text-primary font-mono">{j.token}</strong></p>
+                              <p className="text-xs text-slate-500">{j.target_kelas ? `Tingkat ${j.target_kelas}` : 'Umum'} | Token: <strong className="text-primary font-mono">{j.token}</strong></p>
                             </div>
                             <div className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-primary/10 text-primary flex items-center gap-1`}>
                               <span className="relative flex h-2 w-2">
@@ -621,7 +621,7 @@ import React, { useState, useEffect, useRef } from 'react';
                     {dataJadwal.filter(j => j.status_ujian === 'SELESAI').map((j) => (
                        <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700">
                           <h4 className="font-bold text-sm mb-1">{j.nama_mapel}</h4>
-                          <p className="text-xs text-slate-500 mb-3">{new Date(j.waktu_mulai).toLocaleDateString('id-ID')} | Kelas: {j.kelas.join(', ')}</p>
+                          <p className="text-xs text-slate-500 mb-3">{new Date(j.waktu_mulai).toLocaleDateString('id-ID')} | Kelas: {j.target_kelas ? `Tingkat ${j.target_kelas}` : 'Umum'}</p>
                           <div className="flex gap-2">
                              <button onClick={() => { setSelectedJadwal(j); setActiveTab('monitoring'); }} className="flex-1 py-2 bg-primary/10 text-primary rounded-xl text-xs font-bold hover:from-primary hover:to-secondary/20 transition-colors">
                                Lihat Nilai
