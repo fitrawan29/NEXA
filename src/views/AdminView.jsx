@@ -812,22 +812,74 @@ import * as XLSX from 'xlsx';
                      </button>
                   </div>
 
-                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Jadwal Aktif</h3>
-                  <div className="space-y-3 pb-24">
-                    {dataJadwal.filter(j => j.status_ujian === 'AKTIF').slice(0, 3).map((j) => (
-                      <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 border-l-4 border-l-primary flex items-center gap-3">
-                        <div className="min-w-0 flex-1">
-                          <h4 className="font-bold text-sm truncate">{j.nama_mapel}</h4>
-                          <p className="text-xs text-slate-500 mb-1">Guru Pengampu: {j.guru || '-'}</p>
-                          <p className="text-xs text-slate-500 truncate">{new Date(j.waktu_mulai).toLocaleString('id-ID')} | Token: {j.token || 'Menunggu Token'}</p>
-                        </div>
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Jadwal Ujian</h3>
+                  <div className="space-y-6 pb-24">
+                    {/* Jadwal Aktif */}
+                    <div>
+                      <h4 className="font-semibold text-primary mb-2 flex items-center gap-2 text-sm">
+                        <span className="material-symbols-outlined text-[18px]">play_circle</span>
+                        Sedang Berlangsung
+                      </h4>
+                      <div className="space-y-3">
+                        {dataJadwal.filter(j => j.status_ujian === 'AKTIF').map((j) => (
+                          <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 border-l-4 border-l-primary flex items-center gap-3">
+                            <div className="min-w-0 flex-1">
+                              <h4 className="font-bold text-sm truncate dark:text-white">{j.nama_mapel}</h4>
+                              <p className="text-xs text-slate-500 mb-1">Guru Pengampu: {j.guru || '-'}</p>
+                              <p className="text-xs text-slate-500 truncate">{new Date(j.waktu_mulai).toLocaleString('id-ID', { hour: '2-digit', minute: '2-digit' })} - {new Date(j.waktu_selesai).toLocaleString('id-ID', { hour: '2-digit', minute: '2-digit' })} | Token: <strong className="text-primary">{j.token || 'Menunggu Token'}</strong></p>
+                            </div>
+                          </div>
+                        ))}
+                        {dataJadwal.filter(j => j.status_ujian === 'AKTIF').length === 0 && (
+                          <div className="text-center text-sm text-slate-500 py-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700">Tidak ada ujian yang sedang berlangsung.</div>
+                        )}
                       </div>
-                    ))}
-                    {dataJadwal.filter(j => j.status_ujian === 'AKTIF').length === 0 && (
-                      <div className="text-center text-sm text-slate-500 py-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl">Tidak ada ujian aktif saat ini.</div>
-                    )}
+                    </div>
+
+                    {/* Jadwal Akan Datang */}
+                    <div>
+                      <h4 className="font-semibold text-orange-500 mb-2 flex items-center gap-2 text-sm">
+                        <span className="material-symbols-outlined text-[18px]">schedule</span>
+                        Akan Datang
+                      </h4>
+                      <div className="space-y-3">
+                        {dataJadwal.filter(j => j.status_ujian === 'BELUM MULAI').map((j) => (
+                          <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 border-l-4 border-l-orange-500 flex items-center gap-3 opacity-90">
+                            <div className="min-w-0 flex-1">
+                              <h4 className="font-bold text-sm truncate dark:text-white">{j.nama_mapel}</h4>
+                              <p className="text-xs text-slate-500 mb-1">Guru Pengampu: {j.guru || '-'}</p>
+                              <p className="text-xs text-slate-500 truncate">{new Date(j.waktu_mulai).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}</p>
+                            </div>
+                          </div>
+                        ))}
+                        {dataJadwal.filter(j => j.status_ujian === 'BELUM MULAI').length === 0 && (
+                          <div className="text-center text-sm text-slate-500 py-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700">Tidak ada jadwal mendatang.</div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Jadwal Selesai */}
+                    <div>
+                      <h4 className="font-semibold text-green-500 mb-2 flex items-center gap-2 text-sm">
+                        <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                        Sebelumnya (Selesai)
+                      </h4>
+                      <div className="space-y-3">
+                        {dataJadwal.filter(j => j.status_ujian === 'SELESAI').slice(0, 5).map((j) => (
+                          <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 border-l-4 border-l-green-500 flex items-center gap-3 opacity-60">
+                            <div className="min-w-0 flex-1">
+                              <h4 className="font-bold text-sm truncate dark:text-white">{j.nama_mapel}</h4>
+                              <p className="text-xs text-slate-500 mb-1">Guru Pengampu: {j.guru || '-'}</p>
+                              <p className="text-xs text-slate-500 truncate">Selesai: {new Date(j.waktu_selesai).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}</p>
+                            </div>
+                          </div>
+                        ))}
+                        {dataJadwal.filter(j => j.status_ujian === 'SELESAI').length === 0 && (
+                          <div className="text-center text-sm text-slate-500 py-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700">Belum ada ujian yang diselesaikan.</div>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
               )}
 
               {activeTab === 'siswa' && (
@@ -1032,12 +1084,18 @@ import * as XLSX from 'xlsx';
                 </div>
                 <div className="space-y-3 pb-24">
                   {dataMapel.map((m) => (
-                    <div key={m.id_mapel} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-orange-50 dark:bg-orange-900/30 flex items-center justify-center flex-shrink-0">
-                        <span className="material-symbols-outlined text-orange-500">menu_book</span>
+                    <div key={m.id_mapel} onClick={() => { setActiveTab('soal'); setFilterMapel(m.nama_mapel); fetchData('soal'); }} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center justify-between gap-3 cursor-pointer hover:border-primary/50 transition-colors">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-full bg-orange-50 dark:bg-orange-900/30 flex items-center justify-center flex-shrink-0">
+                          <span className="material-symbols-outlined text-orange-500">menu_book</span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-bold text-sm truncate dark:text-white">{m.nama_mapel}</h4>
+                        </div>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <h4 className="font-bold text-sm truncate dark:text-white">{m.nama_mapel}</h4>
+                      <div className="flex flex-col items-end">
+                        <span className="text-lg font-bold text-slate-800 dark:text-slate-100">{m.jumlah_soal || 0}</span>
+                        <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">Soal</span>
                       </div>
                     </div>
                   ))}
@@ -1057,17 +1115,55 @@ import * as XLSX from 'xlsx';
                   </div>
                   <span className="text-sm font-medium text-purple-600 bg-purple-100 px-2 py-1 rounded-lg">{dataSoal.length} Soal</span>
                 </div>
+                <div className="mb-4">
+                  <select value={filterMapel} onChange={(e) => setFilterMapel(e.target.value)} className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 dark:text-white">
+                    <option value="">Semua Mata Pelajaran</option>
+                    {dataMapel.map(m => <option key={m.id_mapel} value={m.nama_mapel}>{m.nama_mapel}</option>)}
+                  </select>
+                </div>
                 <div className="space-y-3 pb-24">
-                  {dataSoal.map((s) => (
+                  {dataSoal.filter(s => filterMapel ? s.mata_pelajaran?.nama_mapel === filterMapel : true).map((s) => (
                     <div key={s.id_soal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700">
                       <div className="flex justify-between items-start mb-2">
                         <span className="text-xs font-bold text-purple-500">{s.mata_pelajaran?.nama_mapel}</span>
                         <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{s.tipe_soal}</span>
                       </div>
-                      <div className="text-sm text-slate-700 dark:text-slate-300 line-clamp-2" dangerouslySetInnerHTML={{ __html: s.pertanyaan }}></div>
+                      <div className="text-sm text-slate-700 dark:text-slate-300 mb-2" dangerouslySetInnerHTML={{ __html: s.pertanyaan }}></div>
+                      
+                      {/* Opsi Jawaban (hanya untuk Pilihan Ganda) */}
+                      {s.tipe_soal === 'Pilihan Ganda' && (
+                        <div className="mt-3 space-y-2 text-sm">
+                          {['A', 'B', 'C', 'D', 'E'].map(opt => {
+                            if (!s[`opsi_${opt.toLowerCase()}`]) return null;
+                            const isCorrect = s.jawaban_benar === opt;
+                            return (
+                              <div key={opt} className={`flex items-start gap-2 p-2 rounded-lg border ${isCorrect ? 'border-green-500 bg-green-50 dark:bg-green-900/20' : 'border-slate-100 dark:border-slate-700'}`}>
+                                <span className={`font-bold ${isCorrect ? 'text-green-600' : 'text-slate-500'}`}>{opt}.</span>
+                                <div className="flex-1 text-slate-700 dark:text-slate-300" dangerouslySetInnerHTML={{ __html: s[`opsi_${opt.toLowerCase()}`] }} />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      
+                      <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
+                        {s.jawaban_benar ? (
+                          <div className="text-xs font-semibold text-green-600 flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                            Kunci Jawaban: {s.jawaban_benar}
+                          </div>
+                        ) : (
+                          <div className="text-xs font-semibold text-orange-500 flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[14px]">warning</span>
+                            Kunci Jawaban Belum Diatur
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))}
-                  {dataSoal.length === 0 && <div className="text-center text-xs text-slate-500 mt-4">Belum ada soal di bank soal.</div>}
+                  {dataSoal.filter(s => filterMapel ? s.mata_pelajaran?.nama_mapel === filterMapel : true).length === 0 && (
+                    <div className="text-center text-xs text-slate-500 mt-4">Belum ada soal untuk mata pelajaran ini.</div>
+                  )}
                 </div>
               </div>
             )}

@@ -23,6 +23,23 @@ import React from 'react';
       return new Date(Date.now() + timeOffset);
     };
 
+    const generateComplexToken = (idJadwal) => {
+      const suffix = idJadwal ? idJadwal.substring(idJadwal.length - 2).toUpperCase() : 'XX';
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      const nums = '0123456789';
+      let randomPart = '';
+      randomPart += chars.charAt(Math.floor(Math.random() * chars.length));
+      randomPart += nums.charAt(Math.floor(Math.random() * nums.length));
+      for (let i = 0; i < 2; i++) {
+        const all = chars + nums;
+        randomPart += all.charAt(Math.floor(Math.random() * all.length));
+      }
+      const arr = randomPart.split('');
+      arr.sort(() => Math.random() - 0.5);
+      return suffix + arr.join('');
+    };
+
+
     // Note: Database uses `id_mapel` now, `id_jadwal` column in `soal_ujian` might still exist but `id_mapel` is what we use.
 
     const processJadwalData = async (data, now) => {
@@ -43,9 +60,7 @@ import React from 'react';
         
         if (currentStatus === 'AKTIF') {
             if (!tokenAktif || (now.getTime() - lastUpdate > 480000)) { 
-                const suffix = j.id_jadwal ? j.id_jadwal.substring(j.id_jadwal.length - 2).toUpperCase() : 'XX';
-                const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase();
-                tokenAktif = `${suffix}${randomPart}`;
+                tokenAktif = generateComplexToken(j.id_jadwal);
                 
                 await supabaseClient.from('jadwal').update({
                    token_aktif: tokenAktif,
@@ -469,9 +484,16 @@ import React from 'react';
 
           // MATA PELAJARAN
           case 'get_all_mapel': {
-            ({ data, error } = await supabaseClient.from('mata_pelajaran').select('*').eq('npsn', payload.npsn));
-            if (error) return { status: 'error', message: error.message };
-            return { status: 'success', data };
+            const { data: mapelData, error: mapelErr } = await supabaseClient.from('mata_pelajaran').select('*').eq('npsn', payload.npsn);
+            if (mapelErr) return { status: 'error', message: mapelErr.message };
+            
+            const { data: soalData } = await supabaseClient.from('soal').select('id_mapel').eq('npsn', payload.npsn);
+            
+            const processedData = (mapelData || []).map(m => {
+              const jumlah_soal = (soalData || []).filter(s => s.id_mapel === m.id_mapel).length;
+              return { ...m, jumlah_soal };
+            });
+            return { status: 'success', data: processedData };
           }
           case 'create_mapel': {
             if (!payload.id_mapel) payload.id_mapel = generateId('M');
@@ -682,9 +704,7 @@ import React from 'react';
             let nowTime = await getTrueNow();
 
             if (nowTime.getTime() - lastUpdate > 480000 || !token) {
-              const suffix = payload.id_jadwal ? payload.id_jadwal.substring(payload.id_jadwal.length - 2).toUpperCase() : 'XX';
-              const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase();
-              token = `${suffix}${randomPart}`;
+              token = generateComplexToken(payload.id_jadwal);
               await supabaseClient.from('jadwal').update({
                 token_aktif: token,
                 last_update_token: nowTime.toISOString()
