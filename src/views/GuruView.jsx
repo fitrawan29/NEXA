@@ -44,6 +44,7 @@ import FormSoalModal from '../components/FormSoalModal.jsx';
       };
       
       const [dataMapel, setDataMapel] = useState([]);
+      const [dataKelas, setDataKelas] = useState([]);
     const [dataDashboard, setDataDashboard] = useState({ totalJadwal: 0, totalSelesai: 0, rataNilai: 0 });
     const [dataAudit, setDataAudit] = useState([]);
       const [selectedMapel, setSelectedMapel] = useState(null);
@@ -728,7 +729,7 @@ import FormSoalModal from '../components/FormSoalModal.jsx';
                              <span className={`text-[10px] font-bold px-2 py-1 rounded-md bg-slate-100 text-slate-600`}>{s.tipe_soal || s.tipe}</span>
                              <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                <button onClick={() => setFormSoal({ isOpen: true, data: s, id_mapel: s.id_mapel })} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100"><span className="material-symbols-outlined text-[16px]">edit</span></button>
-                               <button onClick={() => handleDeleteSoal(s.id_soal)} className="p-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100"><span className="material-symbols-outlined text-[16px]">delete</span></button>
+                               <button onClick={() => deleteSoal(s.id_soal)} className="p-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100"><span className="material-symbols-outlined text-[16px]">delete</span></button>
                              </div>
                            </div>
                            <p className="text-sm text-slate-700 dark:text-slate-300 line-clamp-3 mb-2" dangerouslySetInnerHTML={{__html: s.pertanyaan}}></p>
@@ -1024,7 +1025,7 @@ import FormSoalModal from '../components/FormSoalModal.jsx';
             </div>
             <div className="flex gap-2 mt-6">
               <button onClick={() => setSkemaModal({ isOpen: false, id_mapel: null })} className="flex-1 py-3 text-slate-500 font-bold hover:bg-slate-100 rounded-xl">Batal</button>
-              <button onClick={handleSaveSkema} className="flex-1 py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary-dark">Simpan Skema</button>
+              <button onClick={() => saveSkema(skemaPenilaian)} className="flex-1 py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary-dark">Simpan Skema</button>
             </div>
           </div>
         </div>

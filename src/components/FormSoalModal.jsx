@@ -79,7 +79,7 @@ import React, { useState, useEffect, useRef } from 'react';
 
       return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="bg-surface dark:bg-slate-800 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl">
             <div className="p-6 border-b dark:border-slate-700 flex justify-between items-center">
               <h2 className="text-2xl font-bold">{data ? 'Edit Soal' : 'Tambah Soal'}</h2>
               <button onClick={onClose} className="text-slate-500 hover:text-slate-800"><span className="material-symbols-outlined">close</span></button>
@@ -87,7 +87,7 @@ import React, { useState, useEffect, useRef } from 'react';
             <div className="p-6 overflow-y-auto flex-1 space-y-4">
               <div>
                 <label className="block text-sm font-bold mb-1">Tipe Soal</label>
-                <select value={tipe} onChange={(e) => setTipe(e.target.value)} disabled={!!data} className="w-full p-2 border rounded bg-surface dark:bg-slate-900">
+                <select value={tipe} onChange={(e) => setTipe(e.target.value)} disabled={!!data} className="w-full p-2 border rounded bg-white dark:bg-slate-900">
                   <option value="PG">Pilihan Ganda (PG)</option>
                   <option value="PGK">Pilihan Ganda Kompleks (PGK)</option>
                   <option value="BS">Benar / Salah (BS)</option>
@@ -98,7 +98,7 @@ import React, { useState, useEffect, useRef } from 'react';
               </div>
               <div>
                 <label className="block text-sm font-bold mb-1">Pilih Narasi / Stimulus Bersama (Opsional)</label>
-                <select value={idNarasi} onChange={(e) => setIdNarasi(e.target.value)} className="w-full p-2 border rounded bg-surface dark:bg-slate-900">
+                <select value={idNarasi} onChange={(e) => setIdNarasi(e.target.value)} className="w-full p-2 border rounded bg-white dark:bg-slate-900">
                   <option value="">-- Tanpa Narasi Bersama --</option>
                   {narasiList.map(n => (
                     <option key={n.id_soal} value={n.id_soal}>ID: {n.id_soal} - {n.pertanyaan.substring(0, 50)}...</option>
@@ -108,18 +108,18 @@ import React, { useState, useEffect, useRef } from 'react';
               </div>
               <div>
                 <label className="block text-sm font-bold mb-1">Pertanyaan / Instruksi Spesifik</label>
-                <div className="bg-surface dark:bg-slate-900 border rounded text-on-surface dark:text-white">
+                <div className="bg-white dark:bg-slate-900 border rounded text-slate-800 dark:text-white">
                   <ReactQuill theme="snow" value={pertanyaan} onChange={setPertanyaan} className="h-32 mb-12" />
                 </div>
               </div>
               <div>
                 <label className="block text-sm font-bold mb-1">Gambar (Opsional)</label>
-                <input type="file" accept="image/*" onChange={handleImageUpload} className="w-full p-2 border rounded bg-surface dark:bg-slate-900" />
+                <input type="file" accept="image/*" onChange={handleImageUpload} className="w-full p-2 border rounded bg-white dark:bg-slate-900" />
                 {gambar && <img src={gambar} alt="Preview" className="mt-2 max-h-32 rounded border" />}
               </div>
               <div>
                 <label className="block text-sm font-bold mb-1">Bobot Nilai</label>
-                <input type="number" value={bobot} onChange={(e) => setBobot(e.target.value)} className="w-full p-2 border rounded bg-surface dark:bg-slate-900" min="1" />
+                <input type="number" value={bobot} onChange={(e) => setBobot(e.target.value)} className="w-full p-2 border rounded bg-white dark:bg-slate-900" min="1" />
               </div>
 
               {/* PG / PGK */}
@@ -136,7 +136,7 @@ import React, { useState, useEffect, useRef } from 'react';
                           else setKunciPGK(kunciPGK.filter(i => i !== idx));
                         }} />
                       )}
-                      <input type="text" value={o} onChange={(e) => { const newOpsi = [...opsiPG]; newOpsi[idx] = e.target.value; setOpsiPG(newOpsi); }} className="flex-1 p-2 border rounded bg-surface dark:bg-slate-900" placeholder={`Opsi ${String.fromCharCode(65+idx)}`} />
+                      <input type="text" value={o} onChange={(e) => { const newOpsi = [...opsiPG]; newOpsi[idx] = e.target.value; setOpsiPG(newOpsi); }} className="flex-1 p-2 border rounded bg-white dark:bg-slate-900" placeholder={`Opsi ${String.fromCharCode(65+idx)}`} />
                     </div>
                   ))}
                 </div>
@@ -146,7 +146,7 @@ import React, { useState, useEffect, useRef } from 'react';
               {tipe === 'BS' && (
                 <div>
                   <label className="block text-sm font-bold mb-1">Kunci Jawaban</label>
-                  <select value={kunciBS} onChange={(e) => setKunciBS(e.target.value)} className="w-full p-2 border rounded bg-surface dark:bg-slate-900">
+                  <select value={kunciBS} onChange={(e) => setKunciBS(e.target.value)} className="w-full p-2 border rounded bg-white dark:bg-slate-900">
                     <option value="Benar">Benar</option>
                     <option value="Salah">Salah</option>
                   </select>
@@ -160,14 +160,14 @@ import React, { useState, useEffect, useRef } from 'react';
                     <div className="flex-1">
                       <label className="block text-sm font-bold mb-1">Premis (Bagian A)</label>
                       {premis.map((p, idx) => (
-                        <input key={idx} type="text" value={p} onChange={(e) => { const newP = [...premis]; newP[idx] = e.target.value; setPremis(newP); }} className="w-full p-2 border rounded mb-2 bg-surface dark:bg-slate-900" />
+                        <input key={idx} type="text" value={p} onChange={(e) => { const newP = [...premis]; newP[idx] = e.target.value; setPremis(newP); }} className="w-full p-2 border rounded mb-2 bg-white dark:bg-slate-900" />
                       ))}
                       <button onClick={() => setPremis([...premis, ''])} className="text-sm text-primary">+ Tambah Premis</button>
                     </div>
                     <div className="flex-1">
                       <label className="block text-sm font-bold mb-1">Respon (Bagian B)</label>
                       {respon.map((r, idx) => (
-                        <input key={idx} type="text" value={r} onChange={(e) => { const newR = [...respon]; newR[idx] = e.target.value; setRespon(newR); }} className="w-full p-2 border rounded mb-2 bg-surface dark:bg-slate-900" />
+                        <input key={idx} type="text" value={r} onChange={(e) => { const newR = [...respon]; newR[idx] = e.target.value; setRespon(newR); }} className="w-full p-2 border rounded mb-2 bg-white dark:bg-slate-900" />
                       ))}
                       <button onClick={() => setRespon([...respon, ''])} className="text-sm text-primary">+ Tambah Respon</button>
                     </div>
@@ -178,7 +178,7 @@ import React, { useState, useEffect, useRef } from 'react';
                       <div key={idx} className="flex gap-2 items-center mb-2">
                         <span className="flex-1">{p}</span>
                         <span>&rarr;</span>
-                        <select value={kunciJodoh[p] || ''} onChange={(e) => setKunciJodoh({...kunciJodoh, [p]: e.target.value})} className="flex-1 p-2 border rounded bg-surface dark:bg-slate-900">
+                        <select value={kunciJodoh[p] || ''} onChange={(e) => setKunciJodoh({...kunciJodoh, [p]: e.target.value})} className="flex-1 p-2 border rounded bg-white dark:bg-slate-900">
                           <option value="">Pilih Respon...</option>
                           {respon.map((r, i) => r && <option key={i} value={r}>{r}</option>)}
                         </select>
@@ -192,13 +192,13 @@ import React, { useState, useEffect, useRef } from 'react';
               {tipe === 'ISIAN' && (
                 <div>
                   <label className="block text-sm font-bold mb-1">Kunci Jawaban Isian</label>
-                  <input type="text" value={kunciIsian} onChange={(e) => setKunciIsian(e.target.value)} className="w-full p-2 border rounded bg-surface dark:bg-slate-900" />
+                  <input type="text" value={kunciIsian} onChange={(e) => setKunciIsian(e.target.value)} className="w-full p-2 border rounded bg-white dark:bg-slate-900" />
                 </div>
               )}
 
             </div>
             <div className="p-6 border-t dark:border-slate-700 flex justify-end gap-4">
-              <button onClick={onClose} className="px-6 py-2 rounded-lg font-bold bg-surface-variant text-on-surface hover:bg-surface-variant/80">Batal</button>
+              <button onClick={onClose} className="px-6 py-2 rounded-lg font-bold bg-white-variant text-slate-800 hover:bg-white-variant/80">Batal</button>
               <button onClick={handleSave} className="px-6 py-2 rounded-lg font-bold bg-gradient-to-r from-primary to-secondary text-on-primary text-on-primary hover:from-primary/90 hover:to-secondary/90">Simpan Soal</button>
             </div>
           </div>
