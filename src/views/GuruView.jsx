@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
         if (Array.isArray(p)) return fetchAPI(action, p.map(item => ({ ...item, npsn: user.npsn })));
         return fetchAPI(action, { ...p, npsn: user.npsn });
       };
-      const [activeTab, setActiveTab] = useState('jadwal');
+      const [activeTab, setActiveTab] = useState('beranda');
       const [dataJadwal, setDataJadwal] = useState([]);
       const [selectedJadwal, setSelectedJadwal] = useState(null);
       const [dataLog, setDataLog] = useState([]);
@@ -43,6 +43,8 @@ import React, { useState, useEffect, useRef } from 'react';
       };
       
       const [dataMapel, setDataMapel] = useState([]);
+    const [dataDashboard, setDataDashboard] = useState({ totalJadwal: 0, totalSelesai: 0, rataNilai: 0 });
+    const [dataAudit, setDataAudit] = useState([]);
       const [selectedMapel, setSelectedMapel] = useState(null);
       const [dataSoal, setDataSoal] = useState([]);
       const [formSoal, setFormSoal] = useState({ isOpen: false, data: null });
@@ -190,7 +192,11 @@ import React, { useState, useEffect, useRef } from 'react';
 
       const fetchData = async () => {
         setIsLoading(true);
-        if (activeTab === 'jadwal') {
+        
+        if (activeTab === 'beranda') {
+          const res = await api('get_guru_dashboard_data', { id_guru: guruId });
+          if (res.status === 'success') setDataDashboard(res.data);
+        } else if (activeTab === 'jadwal') {
           const res = await api('get_jadwal_pengawas', { id_guru: guruId });
           if (res.status === 'success') setDataJadwal(res.data);
         } else if (activeTab === 'pengumuman') {
@@ -204,6 +210,10 @@ import React, { useState, useEffect, useRef } from 'react';
             const logRes = await api(endpoint, { id_jadwal: selectedJadwal });
             if (logRes.status === 'success') setDataLog(logRes.data);
           }
+        
+        } else if (activeTab === 'logs') {
+          const res = await api('get_audit_log', { filterGuru: guruId });
+          if (res.status === 'success') setDataAudit(res.data);
         } else if (activeTab === 'bank_soal') {
           const res = await api('get_mapel_guru', { id_guru: guruId });
           if (res.status === 'success') setDataMapel(res.data);
@@ -474,16 +484,7 @@ import React, { useState, useEffect, useRef } from 'react';
                   <button type="button" onClick={() => setIsDarkMode(!isDarkMode)} className="relative p-1 rounded-full hover:bg-white/20 transition-colors" title="Mode Gelap/Terang">
                     <span className="material-symbols-outlined text-2xl">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
                   </button>
-                  <button className="relative p-1 rounded-full hover:bg-white/20 transition-colors" title="Pengaturan">
-                    <span className="material-symbols-outlined text-2xl">settings</span>
-                  </button>
-                  <button className="relative p-1 rounded-full hover:bg-white/20 transition-colors" title="Notifikasi">
-                    <span className="material-symbols-outlined text-2xl">notifications</span>
-                    <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
-                  </button>
-                  <button type="button" onClick={onLogout} className="relative p-1 rounded-full hover:bg-white/20 transition-colors text-white" title="Keluar">
-                    <span className="material-symbols-outlined text-2xl">logout</span>
-                  </button>
+                  
                 </div>
               </div>
             </div>
@@ -521,6 +522,44 @@ import React, { useState, useEffect, useRef } from 'react';
             {/* Main Scrollable Content */}
             <div className="flex-1 overflow-y-auto pb-24 hide-scrollbar">
               
+              
+              {activeTab === 'beranda' && (
+                <div className="px-6 mt-6 animate-fade-in-up">
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Dashboard Guru</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                    <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-500">
+                        <span className="material-symbols-outlined text-2xl">event_note</span>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500 font-medium mb-1">Total Jadwal</p>
+                        <h4 className="text-2xl font-bold dark:text-white">{dataDashboard.totalJadwal}</h4>
+                      </div>
+                    </div>
+                    <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-green-50 dark:bg-green-900/30 flex items-center justify-center text-green-500">
+                        <span className="material-symbols-outlined text-2xl">task_alt</span>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500 font-medium mb-1">Selesai Ujian</p>
+                        <h4 className="text-2xl font-bold dark:text-white">{dataDashboard.totalSelesai} <span className="text-sm font-normal text-slate-400">Siswa</span></h4>
+                      </div>
+                    </div>
+                    <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-900/30 flex items-center justify-center text-purple-500">
+                        <span className="material-symbols-outlined text-2xl">monitoring</span>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500 font-medium mb-1">Rata-rata Nilai</p>
+                        <h4 className="text-2xl font-bold dark:text-white">{dataDashboard.rataNilai}</h4>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {activeTab === 'jadwal' && (
                 <div className="px-6 mt-6 animate-fade-in-up">
                   <div className="flex justify-between items-center mb-4">
@@ -639,47 +678,141 @@ import React, { useState, useEffect, useRef } from 'react';
 
               {activeTab === 'bank_soal' && (
                 <div className="px-6 mt-6 animate-fade-in-up">
-                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Bank Soal & Manajemen</h3>
-                  <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 text-center">
-                     <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                       <span className="material-symbols-outlined text-blue-500 text-3xl">desktop_windows</span>
-                     </div>
-                     <h4 className="font-bold text-slate-800 dark:text-slate-100 mb-2">Akses Terbatas</h4>
-                     <p className="text-xs text-slate-500 mb-4">Pembuatan, pengeditan bank soal, serta pengaturan ujian detail hanya dapat diakses melalui antarmuka Desktop/Laptop untuk pengalaman yang maksimal.</p>
-                     <div className="inline-block bg-slate-100 dark:bg-slate-900 px-4 py-2 rounded-xl text-xs font-mono font-bold text-slate-600 dark:text-slate-400">
-                       Buka nexa-cbt.com di PC Anda
-                     </div>
+                  <div className="flex justify-between items-center mb-4">
+                      <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Bank Soal</h3>
+                      <button onClick={() => setFormSoal({ isOpen: true, data: null })} className="bg-primary text-white p-2 rounded-xl hover:bg-primary-dark transition-colors flex items-center justify-center">
+                        <span className="material-symbols-outlined text-xl">add</span>
+                      </button>
+                    </div>
+                    
+                    <div className="flex gap-2 mb-4 overflow-x-auto hide-scrollbar pb-2">
+                       <button onClick={() => setSelectedMapel('all')} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${selectedMapel === 'all' ? 'bg-primary text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'}`}>Semua Mapel</button>
+                       {dataMapel.map(m => (
+                          <button key={m.id_mapel} onClick={() => setSelectedMapel(m.id_mapel)} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${selectedMapel === m.id_mapel ? 'bg-primary text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'}`}>{m.nama_mapel}</button>
+                       ))}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 pb-24">
+                       {dataSoal.length === 0 ? (
+                         <div className="col-span-full py-10 text-center text-slate-500">
+                           <span className="material-symbols-outlined text-4xl mb-2 opacity-50">inventory_2</span>
+                           <p className="text-sm">Belum ada soal untuk mata pelajaran ini</p>
+                         </div>
+                       ) : (
+                         dataSoal.map((s, idx) => (
+                           <div key={s.id_soal} className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden group">
+                             <div className="flex justify-between items-start mb-2">
+                               <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${s.tipe === 'PG' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>{s.tipe === 'PG' ? 'Pilihan Ganda' : 'Uraian'}</span>
+                               <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                 <button onClick={() => setFormSoal({ isOpen: true, data: s })} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100"><span className="material-symbols-outlined text-[16px]">edit</span></button>
+                                 <button onClick={() => handleDeleteSoal(s.id_soal)} className="p-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100"><span className="material-symbols-outlined text-[16px]">delete</span></button>
+                               </div>
+                             </div>
+                             <p className="text-sm text-slate-700 dark:text-slate-300 line-clamp-3 mb-2">{s.pertanyaan?.replace(/<[^>]*>?/gm, '')}</p>
+                             <div className="text-xs text-slate-500 flex justify-between items-center border-t border-slate-100 dark:border-slate-700 pt-2 mt-2">
+                               <span className="truncate max-w-[150px]">{s.mata_pelajaran?.nama_mapel}</span>
+                               <span>No. {(bankSoalPage - 1) * 20 + idx + 1}</span>
+                             </div>
+                           </div>
+                         ))
+                       )}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+
 
                {activeTab === 'akun' && (
-                <div className="px-6 mt-6 animate-fade-in-up flex flex-col items-center">
-                   <div className="relative group cursor-pointer" onClick={() => setIsAvatarModalOpen(true)}>
-                     <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center mb-4 border-4 border-white dark:border-slate-800 shadow-md overflow-hidden">
-                       {fotoProfil ? (
-                         <img src={fotoProfil} className="w-full h-full object-cover bg-slate-50 dark:bg-slate-700" />
-                       ) : (
-                         <span className="material-symbols-outlined text-4xl text-primary">local_library</span>
-                       )}
+                  <div className="px-6 mt-6 animate-fade-in-up flex flex-col items-center pb-24">
+                     <div className="relative group cursor-pointer mb-4" onClick={() => setIsAvatarModalOpen(true)}>
+                       <div className="w-24 h-24 rounded-full bg-slate-200 border-4 border-white shadow-lg overflow-hidden">
+                         {fotoProfil ? <img src={fotoProfil} className="w-full h-full object-cover" /> : <span className="material-symbols-outlined text-4xl text-slate-400 w-full h-full flex items-center justify-center">person</span>}
+                       </div>
+                       <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                         <span className="material-symbols-outlined text-white">photo_camera</span>
+                       </div>
                      </div>
-                     <div className="absolute bottom-4 right-0 w-8 h-8 bg-white dark:bg-slate-700 rounded-full shadow flex items-center justify-center border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">
-                       <span className="material-symbols-outlined text-sm text-slate-600 dark:text-slate-300">edit</span>
+                     <h3 className="font-bold text-xl text-slate-800 dark:text-white mb-1">{user.nama_lengkap}</h3>
+                     <p className="text-sm text-slate-500 mb-6 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full">{user.nip || 'Guru'}</p>
+
+                     <div className="w-full max-w-md flex flex-col gap-3">
+                       <button onClick={() => setShowProfileModal(true)} className="w-full bg-white dark:bg-slate-800 p-4 rounded-2xl flex items-center justify-between border border-slate-100 dark:border-slate-700 shadow-sm active:scale-95 transition-all">
+                         <div className="flex items-center gap-3">
+                           <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-500"><span className="material-symbols-outlined">person</span></div>
+                           <div className="text-left"><h4 className="font-bold text-sm dark:text-white">Edit Profil</h4><p className="text-xs text-slate-500">Ubah foto dan password</p></div>
+                         </div>
+                         <span className="material-symbols-outlined text-slate-400">chevron_right</span>
+                       </button>
+
+                       <button onClick={() => setActiveTab('logs')} className="w-full bg-white dark:bg-slate-800 p-4 rounded-2xl flex items-center justify-between border border-slate-100 dark:border-slate-700 shadow-sm active:scale-95 transition-all">
+                         <div className="flex items-center gap-3">
+                           <div className="w-10 h-10 rounded-full bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center text-amber-500"><span className="material-symbols-outlined">history</span></div>
+                           <div className="text-left"><h4 className="font-bold text-sm dark:text-white">Log Aktivitas</h4><p className="text-xs text-slate-500">Riwayat aksi pada sistem</p></div>
+                         </div>
+                         <span className="material-symbols-outlined text-slate-400">chevron_right</span>
+                       </button>
                      </div>
-                   </div>
-                   <h3 className="font-bold text-xl">{user.nama_lengkap}</h3>
-                   <p className="text-slate-500">Guru | NIP: {user.nip || '-'}</p>
-                   
-                   <div className="w-full mt-8 space-y-3">
-                      {/* Tombol telah dipindah ke pojok kanan atas */}
-                   </div>
-                </div>
-              )}
+
+                     <div className="w-full max-w-md mt-6">
+                        <button onClick={onLogout} className="w-full bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 p-4 rounded-2xl flex items-center justify-center gap-2 font-bold shadow-sm active:scale-95 transition-all border border-red-100 dark:border-red-900/30">
+                          <span className="material-symbols-outlined">logout</span>
+                          Keluar dari Akun
+                        </button>
+                     </div>
+                  </div>
+                )}
+
+                {activeTab === 'logs' && (
+                  <div className="px-6 mt-6 animate-fade-in-up pb-24">
+                    <div className="flex justify-between items-center mb-6">
+                      <div className="flex items-center gap-3">
+                        <button onClick={() => setActiveTab('akun')} className="p-2 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl hover:bg-slate-50 transition-colors">
+                          <span className="material-symbols-outlined text-slate-600 dark:text-slate-300">arrow_back</span>
+                        </button>
+                        <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Log Aktivitas</h3>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden shadow-sm">
+                      {dataAudit.length === 0 ? (
+                        <div className="p-8 text-center text-slate-500 flex flex-col items-center">
+                          <span className="material-symbols-outlined text-4xl mb-2 opacity-50">history_toggle_off</span>
+                          <p>Belum ada aktivitas yang dicatat.</p>
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-slate-100 dark:divide-slate-700/50 max-h-[60vh] overflow-y-auto">
+                          {dataAudit.map((log) => (
+                            <div key={log.id_audit} className="p-4 flex gap-4 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors">
+                              <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center flex-shrink-0 text-slate-500">
+                                <span className="material-symbols-outlined text-[20px]">
+                                  {log.aksi.toLowerCase().includes('login') ? 'login' :
+                                   log.aksi.toLowerCase().includes('hapus') ? 'delete' :
+                                   log.aksi.toLowerCase().includes('ubah') ? 'edit' :
+                                   log.aksi.toLowerCase().includes('tambah') ? 'add_circle' : 'info'}
+                                </span>
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{log.aksi}</p>
+                                <p className="text-xs text-slate-500 mt-1 line-clamp-2">{log.keterangan}</p>
+                                <p className="text-[10px] text-slate-400 mt-1">{new Date(log.created_at).toLocaleString('id-ID')}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
 
             </div>
 
             {/* Bottom Navigation */}
             <div className="absolute bottom-0 left-0 w-full bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 md:px-12 py-3 flex justify-between md:justify-center md:gap-16 items-center rounded-t-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] z-50">
+              
+              <button onClick={() => setActiveTab('beranda')} className={`flex flex-col items-center transition-colors ${activeTab === 'beranda' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
+                  <span className="material-symbols-outlined">dashboard</span>
+                  <span className="text-[10px] font-bold mt-1">Beranda</span>
+              </button>
               <button onClick={() => setActiveTab('jadwal')} className={`flex flex-col items-center transition-colors ${activeTab === 'jadwal' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
                 <span className="material-symbols-outlined">event_note</span>
                 <span className="text-[10px] font-bold mt-1">Jadwal</span>

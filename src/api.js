@@ -603,6 +603,39 @@ import React from 'react';
             return { status: 'success', message: 'Profil berhasil diperbarui.' };
           }
 
+          case 'get_guru_dashboard_data': {
+            const { data: jadwalData, error: jadwalError } = await supabaseClient
+              .from('jadwal')
+              .select('id_jadwal')
+              .eq('npsn', payload.npsn)
+              .eq('id_guru', payload.id_guru);
+            if (jadwalError) return { status: 'error', message: jadwalError.message };
+
+            const jadwalIds = jadwalData.map(j => j.id_jadwal);
+            if (jadwalIds.length === 0) {
+              return { status: 'success', data: { totalJadwal: 0, totalSelesai: 0, rataNilai: 0 } };
+            }
+
+            const { data: logData, error: logError } = await supabaseClient
+              .from('log_ujian')
+              .select('nilai_total')
+              .in('id_jadwal', jadwalIds)
+              .eq('status_ujian', 'SELESAI');
+            
+            if (logError) return { status: 'error', message: logError.message };
+
+            const totalSelesai = logData.length;
+            const rataNilai = totalSelesai > 0 ? (logData.reduce((sum, log) => sum + (log.nilai_total || 0), 0) / totalSelesai).toFixed(1) : 0;
+
+            return {
+              status: 'success',
+              data: {
+                totalJadwal: jadwalIds.length,
+                totalSelesai,
+                rataNilai
+              }
+            };
+          }
           case 'get_jadwal_pengawas': {
             let q = supabaseClient.from('jadwal').select('*, mata_pelajaran(nama_mapel)').eq('npsn', payload.npsn);
             if (payload.id_guru) q = q.eq('id_guru', payload.id_guru);
