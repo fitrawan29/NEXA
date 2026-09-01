@@ -478,7 +478,10 @@ import React from 'react';
           }
           case 'delete_guru': {
             ({ error } = await supabaseClient.from('guru').delete().eq('id_guru', payload.id_guru).eq('npsn', payload.npsn));
-            if (error) return { status: 'error', message: error.message };
+            if (error) {
+              if (error.code === '23503') return { status: 'error', message: 'Gagal: Guru ini tidak dapat dihapus karena masih terhubung dengan Mata Pelajaran atau Jadwal Ujian.' };
+              return { status: 'error', message: error.message };
+            }
             return { status: 'success', message: 'Guru berhasil dihapus' };
           }
 
@@ -515,7 +518,10 @@ import React from 'react';
           }
           case 'delete_mapel': {
             ({ error } = await supabaseClient.from('mata_pelajaran').delete().eq('id_mapel', payload.id_mapel).eq('npsn', payload.npsn));
-            if (error) return { status: 'error', message: error.message };
+            if (error) {
+              if (error.code === '23503') return { status: 'error', message: 'Gagal: Mata Pelajaran ini tidak dapat dihapus karena masih memiliki Bank Soal atau Jadwal Ujian yang aktif.' };
+              return { status: 'error', message: error.message };
+            }
             return { status: 'success', message: 'Mata pelajaran berhasil dihapus' };
           }
 
