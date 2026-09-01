@@ -285,7 +285,10 @@ import React, { useState, useEffect, useRef } from 'react';
           if (res.status === 'success') setDataAudit(res.data);
         } else if (activeTab === 'bank_soal') {
           const res = await api('get_mapel_guru', { id_guru: guruId });
-          if (res.status === 'success') setDataMapel(res.data);
+          if (res.status === 'success') {
+            setDataMapel(res.data);
+            if (!selectedMapel && res.data.length > 0) setSelectedMapel(res.data[0].id_mapel);
+          }
           
           if (selectedMapel) {
             const soalRes = await api('get_soal_by_mapel', { id_mapel: selectedMapel });
@@ -558,36 +561,6 @@ import React, { useState, useEffect, useRef } from 'react';
               </div>
             </div>
 
-            {/* Stats Cards (Overlapping) */}
-            <div className="px-6 -mt-12 relative z-10">
-              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-4 grid grid-cols-3 gap-2">
-                <div className="flex flex-col items-center justify-center text-center">
-                  <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center mb-1">
-                    <span className="material-symbols-outlined text-green-500">event_note</span>
-                  </div>
-                  <span className="text-xl font-bold text-green-500">{dataJadwal.length}</span>
-                  <span className="text-[10px] text-slate-500 font-medium">Jadwal</span>
-                  <span className="text-[10px] text-slate-400">Total</span>
-                </div>
-                <div className="flex flex-col items-center justify-center text-center border-x border-slate-100 dark:border-slate-700">
-                  <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center mb-1">
-                    <span className="material-symbols-outlined text-blue-500">task_alt</span>
-                  </div>
-                  <span className="text-xl font-bold text-blue-500">{dataJadwal.filter(j => j.status_ujian === 'SELESAI').length}</span>
-                  <span className="text-[10px] text-slate-500 font-medium">Selesai</span>
-                  <span className="text-[10px] text-slate-400">Ujian</span>
-                </div>
-                <div className="flex flex-col items-center justify-center text-center">
-                  <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center mb-1">
-                    <span className="material-symbols-outlined text-purple-500">analytics</span>
-                  </div>
-                  <span className="text-xl font-bold text-purple-500">{(dataJadwal.reduce((acc, curr) => acc + (curr.peserta?.length || 0), 0) / (dataJadwal.length || 1)).toFixed(0)}</span>
-                  <span className="text-[10px] text-slate-500 font-medium">Avg</span>
-                  <span className="text-[10px] text-slate-400">Peserta</span>
-                </div>
-              </div>
-            </div>
-
             {/* Main Scrollable Content */}
             <div className="flex-1 overflow-y-auto pb-24 hide-scrollbar">
               
@@ -736,7 +709,6 @@ import React, { useState, useEffect, useRef } from 'react';
                   </div>
                   
                   <div className="flex gap-2 mb-4 overflow-x-auto hide-scrollbar pb-2">
-                     <button onClick={() => setSelectedMapel('all')} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${selectedMapel === 'all' ? 'bg-primary text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'}`}>Semua Mapel</button>
                      {dataMapel.map(m => (
                         <button key={m.id_mapel} onClick={() => setSelectedMapel(m.id_mapel)} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${selectedMapel === m.id_mapel ? 'bg-primary text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'}`}>{m.nama_mapel}</button>
                      ))}
@@ -801,7 +773,16 @@ import React, { useState, useEffect, useRef } from 'react';
                          <span className="material-symbols-outlined text-slate-400">chevron_right</span>
                        </button>
 
-                       <button onClick={() => setSkemaModal({ isOpen: true, id_mapel: dataMapel.length > 0 ? dataMapel[0].id_mapel : null })} className="w-full bg-white dark:bg-slate-800 p-4 rounded-2xl flex items-center justify-between border border-slate-100 dark:border-slate-700 shadow-sm active:scale-95 transition-all">
+                       <button onClick={() => {
+                          const initialMapel = dataMapel.length > 0 ? dataMapel[0].id_mapel : null;
+                          let skemaRecord = dataSoal.find(s => s.id_mapel === initialMapel && s.tipe_soal === 'SKEMA_PENILAIAN');
+                          let initialSkema = { PG: 40, PGK: 30, BS: 10, JODOH: 10, URAIAN: 10 };
+                          if(skemaRecord && skemaRecord.pertanyaan) {
+                            try { initialSkema = JSON.parse(skemaRecord.pertanyaan); } catch(e){}
+                          }
+                          setSkemaPenilaian(initialSkema);
+                          setSkemaModal({ isOpen: true, id_mapel: initialMapel });
+                        }} className="w-full bg-white dark:bg-slate-800 p-4 rounded-2xl flex items-center justify-between border border-slate-100 dark:border-slate-700 shadow-sm active:scale-95 transition-all">
                          <div className="flex items-center gap-3">
                            <div className="w-10 h-10 rounded-full bg-green-50 dark:bg-green-900/30 flex items-center justify-center text-green-500"><span className="material-symbols-outlined">grading</span></div>
                            <div className="text-left"><h4 className="font-bold text-sm dark:text-white">Skema Penilaian Khusus</h4><p className="text-xs text-slate-500">Atur bobot tipe soal</p></div>
