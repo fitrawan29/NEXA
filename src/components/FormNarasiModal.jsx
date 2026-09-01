@@ -1,62 +1,56 @@
+import React, { useState, useEffect } from 'react';
 import ReactQuill from 'react-quill';
-import React, { useState, useEffect, useRef } from 'react';
-    const FormNarasiModal = ({ isOpen, data, onClose, onSave }) => {
-      if (!isOpen) return null;
-      const [pertanyaan, setPertanyaan] = useState(data ? data.pertanyaan : '');
-      const [gambar, setGambar] = useState(data ? data.gambar : null);
 
-      const handleImageUpload = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = (upload) => {
-            setGambar(upload.target.result);
-          };
-          reader.readAsDataURL(file);
-        }
-      };
+const FormNarasiModal = ({ isOpen, data, onClose, onSave }) => {
+  const modules = {
+    toolbar: [
+      [{ 'header': [1, 2, false] }],
+      ['bold', 'italic', 'underline', 'strike', 'blockquote'],
+      [{'list': 'ordered'}, {'list': 'bullet'}, {'indent': '-1'}, {'indent': '+1'}],
+      ['link', 'image', 'formula'],
+      ['clean']
+    ],
+  };
 
-      const handleSave = () => {
-        if (!pertanyaan && !gambar) return alert('Teks narasi atau gambar tidak boleh kosong.');
-        let payload = {
-          id_soal: data ? data.id_soal : 'NARASI-' + Math.random().toString(36).substr(2, 6).toUpperCase(),
-          tipe_soal: 'NARASI',
-          pertanyaan: pertanyaan,
-          gambar: gambar,
-          bobot: 0 // narasi does not have points
-        };
-        onSave(payload);
-      };
+  if (!isOpen) return null;
+  const [pertanyaan, setPertanyaan] = useState(data ? data.pertanyaan : '');
+  
+  const handleSave = () => {
+    if (!pertanyaan.trim()) return alert('Isi wacana/narasi tidak boleh kosong.');
+    onSave({
+      tipe_soal: 'NARASI',
+      pertanyaan: pertanyaan,
+      bobot: 0,
+      kunci_jawaban: '-',
+      opsi: '[]',
+      gambar: null,
+      id_narasi: null
+    });
+  };
 
-      return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="bg-surface dark:bg-slate-800 rounded-2xl w-full max-w-2xl flex flex-col shadow-2xl">
-            <div className="p-6 border-b dark:border-slate-700 flex justify-between items-center">
-              <h2 className="text-2xl font-bold">{data ? 'Edit Narasi' : 'Tambah Narasi'}</h2>
-              <button onClick={onClose} className="text-slate-500 hover:text-slate-800"><span className="material-symbols-outlined">close</span></button>
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl">
+        <div className="p-6 border-b dark:border-slate-700 flex justify-between items-center">
+          <h2 className="text-2xl font-bold">{data ? 'Edit Wacana' : 'Tambah Wacana'}</h2>
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-800"><span className="material-symbols-outlined">close</span></button>
+        </div>
+        <div className="p-6 overflow-y-auto flex-1 space-y-4">
+          <div>
+            <label className="block text-sm font-bold mb-1">Isi Wacana / Narasi</label>
+            <div className="bg-white dark:bg-slate-900 border rounded text-slate-800 dark:text-white">
+              <ReactQuill theme="snow" value={pertanyaan} onChange={setPertanyaan} modules={modules} className="h-64 mb-12" />
             </div>
-            <div className="p-6 space-y-4">
-              <p className="text-sm text-slate-500 mb-2">Narasi atau teks stimulus bersama dapat digunakan sebagai referensi untuk beberapa soal sekaligus (misalnya, satu wacana untuk soal 1-5).</p>
-              <div>
-                <label className="block text-sm font-bold mb-1">Teks Narasi</label>
-                <div className="bg-surface dark:bg-slate-900 border rounded text-on-surface dark:text-white">
-                  <ReactQuill theme="snow" value={pertanyaan} onChange={setPertanyaan} className="h-40 mb-12" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-bold mb-1">Gambar Pendukung (Opsional)</label>
-                <input type="file" accept="image/*" onChange={handleImageUpload} className="w-full p-2 border rounded bg-surface dark:bg-slate-900" />
-                {gambar && <img src={gambar} alt="Preview Narasi" className="mt-2 max-h-40 rounded border" />}
-              </div>
-            </div>
-            <div className="p-6 border-t dark:border-slate-700 flex justify-end gap-4">
-              <button onClick={onClose} className="px-6 py-2 rounded-lg font-bold bg-surface-variant text-on-surface hover:bg-surface-variant/80">Batal</button>
-              <button onClick={handleSave} className="px-6 py-2 rounded-lg font-bold bg-gradient-to-r from-primary to-secondary text-on-primary text-on-primary hover:from-primary/90 hover:to-secondary/90">Simpan Narasi</button>
-            </div>
+            <p className="text-xs text-slate-500 mt-2">Wacana ini tidak akan dinilai (bobot 0) dan akan muncul sebagai stimulus/bacaan bersama bagi soal-soal yang terhubung kepadanya.</p>
           </div>
         </div>
-      );
-    };
+        <div className="p-6 border-t dark:border-slate-700 flex justify-end gap-4">
+          <button onClick={onClose} className="px-6 py-2 rounded-lg font-bold bg-slate-100 text-slate-800 hover:bg-slate-200">Batal</button>
+          <button onClick={handleSave} className="px-6 py-2 rounded-lg font-bold bg-gradient-to-r from-primary to-secondary text-on-primary hover:opacity-90">Simpan Wacana</button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default FormNarasiModal;
-

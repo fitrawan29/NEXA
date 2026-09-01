@@ -1,6 +1,15 @@
 import ReactQuill from 'react-quill';
 import React, { useState, useEffect, useRef } from 'react';
     const FormSoalModal = ({ isOpen, data, narasiList = [], onClose, onSave }) => {
+      const modules = {
+        toolbar: [
+          [{ 'header': [1, 2, false] }],
+          ['bold', 'italic', 'underline', 'strike', 'blockquote'],
+          [{'list': 'ordered'}, {'list': 'bullet'}, {'indent': '-1'}, {'indent': '+1'}],
+          ['link', 'image', 'formula'],
+          ['clean']
+        ],
+      };
       if (!isOpen) return null;
       const savedDraft = !data ? window.safeJSONParse(localStorage.getItem('formSoalDraft'), {}) : {};
       const [tipe, setTipe] = useState(data ? data.tipe_soal : (savedDraft.tipe || 'PG'));
@@ -109,7 +118,7 @@ import React, { useState, useEffect, useRef } from 'react';
               <div>
                 <label className="block text-sm font-bold mb-1">Pertanyaan / Instruksi Spesifik</label>
                 <div className="bg-white dark:bg-slate-900 border rounded text-slate-800 dark:text-white">
-                  <ReactQuill theme="snow" value={pertanyaan} onChange={setPertanyaan} className="h-32 mb-12" />
+                  <ReactQuill theme="snow" value={pertanyaan} onChange={setPertanyaan} modules={modules} className="h-32 mb-12" />
                 </div>
               </div>
               <div>

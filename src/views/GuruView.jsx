@@ -1,6 +1,7 @@
 import { fetchAPI, getTrueNow } from '../api.js';
 import React, { useState, useEffect, useRef } from 'react';
 import FormSoalModal from '../components/FormSoalModal.jsx';
+import FormNarasiModal from '../components/FormNarasiModal.jsx';
     const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
       const api = (action, p = {}) => {
         if (Array.isArray(p)) return fetchAPI(action, p.map(item => ({ ...item, npsn: user.npsn })));
@@ -927,6 +928,33 @@ import FormSoalModal from '../components/FormSoalModal.jsx';
             
           </div>
         </div>
+
+        
+        {/* Profile Edit Modal */}
+        {showProfileModal && (
+          <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-sm shadow-2xl p-6 relative border border-slate-100 dark:border-slate-700">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h3 className="font-bold text-lg dark:text-white">Edit Profil</h3>
+                  <p className="text-xs text-slate-500">Ubah profil akun Anda</p>
+                </div>
+                <button onClick={() => setShowProfileModal(false)} className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
+                  <span className="material-symbols-outlined text-sm">close</span>
+                </button>
+              </div>
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Password Baru</label>
+                  <input type="password" placeholder="Kosongkan jika tidak ingin diubah" value={profileForm.password} onChange={(e) => setProfileForm({...profileForm, password: e.target.value})} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary/20 outline-none transition-all dark:text-white" />
+                </div>
+              </div>
+              <button onClick={handleProfileUpdate} disabled={profileLoading} className="w-full bg-primary hover:bg-primary-dark text-white font-bold py-3 rounded-xl transition-colors disabled:opacity-50">
+                {profileLoading ? 'Menyimpan...' : 'Simpan Perubahan'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Avatar Modal */}
         {isAvatarModalOpen && (
