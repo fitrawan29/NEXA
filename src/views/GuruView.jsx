@@ -1,11 +1,11 @@
-import { fetchAPI, getTrueNow } from '../api.js';
+﻿import { fetchAPI, getTrueNow } from '../api.js';
 import React, { useState, useEffect, useRef } from 'react';
-﻿    const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
+    const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
       const api = (action, p = {}) => {
         if (Array.isArray(p)) return fetchAPI(action, p.map(item => ({ ...item, npsn: user.npsn })));
         return fetchAPI(action, { ...p, npsn: user.npsn });
       };
-      const [activeTab, setActiveTab] = useState('beranda');
+      const [activeTab, setActiveTab] = useState('jadwal');
       const [dataJadwal, setDataJadwal] = useState([]);
       const [selectedJadwal, setSelectedJadwal] = useState(null);
       const [dataLog, setDataLog] = useState([]);
@@ -47,7 +47,16 @@ import React, { useState, useEffect, useRef } from 'react';
     const [dataAudit, setDataAudit] = useState([]);
       const [selectedMapel, setSelectedMapel] = useState(null);
       const [dataSoal, setDataSoal] = useState([]);
-      const [formSoal, setFormSoal] = useState({ isOpen: false, data: null });
+      
+      const [resetModal, setResetModal] = useState(null);
+      const [monitoringPage, setMonitoringPage] = useState(1);
+      const [filterMapelHasil, setFilterMapelHasil] = useState('');
+      const [filterKelasHasil, setFilterKelasHasil] = useState('');
+      const [skemaModal, setSkemaModal] = useState({ isOpen: false, id_mapel: null });
+      const [skemaPenilaian, setSkemaPenilaian] = useState([]);
+      const [preFormSoal, setPreFormSoal] = useState({ isOpen: false, id_mapel: '', target_kelas: '' });
+      const [formSoal, setFormSoal] = useState({ isOpen: false, data: null, id_mapel: '' });
+
       const [formNarasi, setFormNarasi] = useState({ isOpen: false, data: null });
       const [soalSubTab, setSoalSubTab] = useState('soal');
       const [bankSoalPage, setBankSoalPage] = useState(1);
@@ -132,7 +141,70 @@ import React, { useState, useEffect, useRef } from 'react';
 
       const renderPreviewModal = () => {
         if (!isPreviewOpen) return null;
-        return (
+        
+      const handleForceStop = async (id_log) => {
+        if (!confirm('Anda yakin ingin menghentikan ujian peserta ini secara paksa?')) return;
+        setIsLoading(true);
+        const res = await api('force_stop_ujian', { id_log });
+        if (res.status === 'success') fetchData();
+        setIsLoading(false);
+      };
+
+      const handleResetJawaban = async (id_siswa, resetType) => {
+        setIsLoading(true);
+        const res = await api(resetType === 'total' ? 'reset_sesi_siswa' : 'reset_login_siswa', { id_siswa, npsn: user.npsn });
+        if (res.status === 'success') {
+          alert('Berhasil mereset akun peserta.');
+          fetchData();
+        } else {
+          alert('Gagal: ' + res.message);
+        }
+        setIsLoading(false);
+        setResetModal(null);
+      };
+
+      const handleSaveSoal = async (soalData) => {
+        setIsLoading(true);
+        let endpoint = formSoal.data ? 'update_soal_mapel' : 'create_soal_mapel';
+        let payload = {
+          ...soalData,
+          npsn: user.npsn,
+          id_mapel: formSoal.id_mapel,
+        };
+        if (formSoal.data) {
+          payload.id_soal = formSoal.data.id_soal;
+        } else {
+          payload.id_soal = 'SOAL-' + Math.random().toString(36).substr(2, 9);
+        }
+        
+        const res = await api(endpoint, payload);
+        setIsLoading(false);
+        if (res.status === 'success') {
+          setFormSoal({ isOpen: false, data: null, id_mapel: '' });
+          fetchData(); // refresh bank soal
+        } else {
+          alert('Gagal menyimpan soal: ' + res.message);
+        }
+      };
+      
+      const renderResetModal = () => {
+         if (!resetModal) return null;
+         return (
+           <div className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4">
+             <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl w-full max-w-sm shadow-xl">
+               <h3 className="font-bold text-lg mb-2">Pilih Metode Reset</h3>
+               <p className="text-sm text-slate-500 mb-6">Pilih "Reset Login" jika siswa hanya terkeluar dari aplikasi. Pilih "Reset Total" untuk mengulang seluruh sesi dan menghapus jawaban siswa.</p>
+               <div className="flex flex-col gap-3">
+                 <button onClick={() => handleResetJawaban(resetModal.id_siswa, 'login')} className="w-full py-3 bg-blue-50 text-blue-600 rounded-xl font-bold hover:bg-blue-100 transition-colors">Reset Login Saja</button>
+                 <button onClick={() => handleResetJawaban(resetModal.id_siswa, 'total')} className="w-full py-3 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-colors">Reset Total (Hapus Jawaban)</button>
+                 <button onClick={() => setResetModal(null)} className="w-full py-3 mt-2 text-slate-500 font-bold hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl">Batal</button>
+               </div>
+             </div>
+           </div>
+         );
+      };
+
+  return (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
             <div className="bg-surface dark:bg-slate-800 rounded-2xl w-full max-w-4xl h-[90vh] shadow-2xl flex flex-col overflow-hidden border border-outline-variant/30 dark:border-slate-700">
               <div className="p-4 border-b border-outline-variant dark:border-slate-700 flex justify-between items-center bg-surface-variant/30 dark:bg-slate-800/80">
@@ -193,10 +265,7 @@ import React, { useState, useEffect, useRef } from 'react';
       const fetchData = async () => {
         setIsLoading(true);
         
-        if (activeTab === 'beranda') {
-          const res = await api('get_guru_dashboard_data', { id_guru: guruId });
-          if (res.status === 'success') setDataDashboard(res.data);
-        } else if (activeTab === 'jadwal') {
+        if (activeTab === 'jadwal') {
           const res = await api('get_jadwal_pengawas', { id_guru: guruId });
           if (res.status === 'success') setDataJadwal(res.data);
         } else if (activeTab === 'pengumuman') {
@@ -523,43 +592,6 @@ import React, { useState, useEffect, useRef } from 'react';
             <div className="flex-1 overflow-y-auto pb-24 hide-scrollbar">
               
               
-              {activeTab === 'beranda' && (
-                <div className="px-6 mt-6 animate-fade-in-up">
-                  <div className="flex justify-between items-center mb-6">
-                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Dashboard Guru</h3>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                    <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-500">
-                        <span className="material-symbols-outlined text-2xl">event_note</span>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500 font-medium mb-1">Total Jadwal</p>
-                        <h4 className="text-2xl font-bold dark:text-white">{dataDashboard.totalJadwal}</h4>
-                      </div>
-                    </div>
-                    <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-xl bg-green-50 dark:bg-green-900/30 flex items-center justify-center text-green-500">
-                        <span className="material-symbols-outlined text-2xl">task_alt</span>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500 font-medium mb-1">Selesai Ujian</p>
-                        <h4 className="text-2xl font-bold dark:text-white">{dataDashboard.totalSelesai} <span className="text-sm font-normal text-slate-400">Siswa</span></h4>
-                      </div>
-                    </div>
-                    <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-900/30 flex items-center justify-center text-purple-500">
-                        <span className="material-symbols-outlined text-2xl">monitoring</span>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500 font-medium mb-1">Rata-rata Nilai</p>
-                        <h4 className="text-2xl font-bold dark:text-white">{dataDashboard.rataNilai}</h4>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {activeTab === 'jadwal' && (
                 <div className="px-6 mt-6 animate-fade-in-up">
                   <div className="flex justify-between items-center mb-4">
@@ -653,26 +685,44 @@ import React, { useState, useEffect, useRef } from 'react';
               )}
 
               {activeTab === 'hasil' && (
-                <div className="px-6 mt-6 animate-fade-in-up">
+                <div className="px-6 mt-6 animate-fade-in-up pb-24">
                   <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Hasil Evaluasi</h3>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {dataJadwal.filter(j => j.status_ujian === 'SELESAI').map((j) => (
-                       <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700">
-                          <h4 className="font-bold text-sm mb-1">{j.nama_mapel}</h4>
-                          <p className="text-xs text-slate-500 mb-3">{new Date(j.waktu_mulai).toLocaleDateString('id-ID')} | Kelas: {j.target_kelas ? `Tingkat ${j.target_kelas}` : 'Umum'}</p>
-                          <div className="flex gap-2">
-                             <button onClick={() => { setSelectedJadwal(j); setActiveTab('monitoring'); }} className="flex-1 py-2 bg-primary/10 text-primary rounded-xl text-xs font-bold hover:from-primary hover:to-secondary/20 transition-colors">
-                               Lihat Nilai
-                             </button>
-                             <button className="py-2 px-3 bg-slate-100 dark:bg-slate-700 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
-                               <span className="material-symbols-outlined text-[16px]">download</span>
-                             </button>
-                          </div>
-                       </div>
-                    ))}
-                    {dataJadwal.filter(j => j.status_ujian === 'SELESAI').length === 0 && <div className="text-center text-sm text-slate-500 py-4">Belum ada hasil ujian.</div>}
+                  <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 mb-6 flex flex-col md:flex-row gap-4">
+                     <select value={filterKelasHasil} onChange={(e) => setFilterKelasHasil(e.target.value)} className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2 rounded-xl text-sm outline-none">
+                       <option value="">-- Pilih Kelas --</option>
+                       <option value="10">Kelas 10</option>
+                       <option value="11">Kelas 11</option>
+                       <option value="12">Kelas 12</option>
+                       <option value="Umum">Umum</option>
+                     </select>
+                     <select value={filterMapelHasil} onChange={(e) => setFilterMapelHasil(e.target.value)} className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2 rounded-xl text-sm outline-none">
+                       <option value="">-- Pilih Mapel --</option>
+                       {dataMapel.map(m => <option key={m.id_mapel} value={m.nama_mapel}>{m.nama_mapel}</option>)}
+                     </select>
                   </div>
+
+                  {!filterKelasHasil || !filterMapelHasil ? (
+                    <div className="text-center text-slate-500 py-10">Silakan pilih Kelas dan Mata Pelajaran terlebih dahulu.</div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                      {dataJadwal.filter(j => j.status_ujian === 'SELESAI' && j.nama_mapel === filterMapelHasil && (j.target_kelas === filterKelasHasil || (!j.target_kelas && filterKelasHasil === 'Umum'))).map((j) => (
+                         <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700">
+                            <h4 className="font-bold text-sm mb-1">{j.nama_mapel}</h4>
+                            <p className="text-xs text-slate-500 mb-3">{new Date(j.waktu_mulai).toLocaleDateString('id-ID')} | Kelas: {j.target_kelas || 'Umum'}</p>
+                            <div className="flex gap-2">
+                               <button onClick={() => { setSelectedJadwal(j); setActiveTab('monitoring'); }} className="flex-1 py-2 bg-primary/10 text-primary rounded-xl text-xs font-bold hover:bg-primary/20 transition-colors">
+                                 Lihat Nilai
+                               </button>
+                               <button onClick={() => openAnalisisSoal(j.id_jadwal, j.id_mapel)} className="flex-1 py-2 bg-purple-50 text-purple-600 rounded-xl text-xs font-bold hover:bg-purple-100 transition-colors">
+                                 Analisis Butir
+                               </button>
+                            </div>
+                         </div>
+                      ))}
+                      {dataJadwal.filter(j => j.status_ujian === 'SELESAI' && j.nama_mapel === filterMapelHasil && (j.target_kelas === filterKelasHasil || (!j.target_kelas && filterKelasHasil === 'Umum'))).length === 0 && <div className="col-span-full text-center text-sm text-slate-500 py-4">Belum ada hasil ujian untuk filter tersebut.</div>}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -680,45 +730,45 @@ import React, { useState, useEffect, useRef } from 'react';
                 <div className="px-6 mt-6 animate-fade-in-up">
                   <div className="flex justify-between items-center mb-4">
                       <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Bank Soal</h3>
-                      <button onClick={() => setFormSoal({ isOpen: true, data: null })} className="bg-primary text-white p-2 rounded-xl hover:bg-primary-dark transition-colors flex items-center justify-center">
+                      <button onClick={() => setPreFormSoal({ isOpen: true, id_mapel: '', target_kelas: '' })} className="bg-primary text-white p-2 rounded-xl hover:bg-primary-dark transition-colors flex items-center justify-center">
                         <span className="material-symbols-outlined text-xl">add</span>
                       </button>
-                    </div>
-                    
-                    <div className="flex gap-2 mb-4 overflow-x-auto hide-scrollbar pb-2">
-                       <button onClick={() => setSelectedMapel('all')} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${selectedMapel === 'all' ? 'bg-primary text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'}`}>Semua Mapel</button>
-                       {dataMapel.map(m => (
-                          <button key={m.id_mapel} onClick={() => setSelectedMapel(m.id_mapel)} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${selectedMapel === m.id_mapel ? 'bg-primary text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'}`}>{m.nama_mapel}</button>
-                       ))}
-                    </div>
+                  </div>
+                  
+                  <div className="flex gap-2 mb-4 overflow-x-auto hide-scrollbar pb-2">
+                     <button onClick={() => setSelectedMapel('all')} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${selectedMapel === 'all' ? 'bg-primary text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'}`}>Semua Mapel</button>
+                     {dataMapel.map(m => (
+                        <button key={m.id_mapel} onClick={() => setSelectedMapel(m.id_mapel)} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${selectedMapel === m.id_mapel ? 'bg-primary text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'}`}>{m.nama_mapel}</button>
+                     ))}
+                  </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 pb-24">
-                       {dataSoal.length === 0 ? (
-                         <div className="col-span-full py-10 text-center text-slate-500">
-                           <span className="material-symbols-outlined text-4xl mb-2 opacity-50">inventory_2</span>
-                           <p className="text-sm">Belum ada soal untuk mata pelajaran ini</p>
-                         </div>
-                       ) : (
-                         dataSoal.map((s, idx) => (
-                           <div key={s.id_soal} className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden group">
-                             <div className="flex justify-between items-start mb-2">
-                               <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${s.tipe === 'PG' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>{s.tipe === 'PG' ? 'Pilihan Ganda' : 'Uraian'}</span>
-                               <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                                 <button onClick={() => setFormSoal({ isOpen: true, data: s })} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100"><span className="material-symbols-outlined text-[16px]">edit</span></button>
-                                 <button onClick={() => handleDeleteSoal(s.id_soal)} className="p-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100"><span className="material-symbols-outlined text-[16px]">delete</span></button>
-                               </div>
-                             </div>
-                             <p className="text-sm text-slate-700 dark:text-slate-300 line-clamp-3 mb-2">{s.pertanyaan?.replace(/<[^>]*>?/gm, '')}</p>
-                             <div className="text-xs text-slate-500 flex justify-between items-center border-t border-slate-100 dark:border-slate-700 pt-2 mt-2">
-                               <span className="truncate max-w-[150px]">{s.mata_pelajaran?.nama_mapel}</span>
-                               <span>No. {(bankSoalPage - 1) * 20 + idx + 1}</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 pb-24">
+                     {dataSoal.length === 0 ? (
+                       <div className="col-span-full py-10 text-center text-slate-500">
+                         <span className="material-symbols-outlined text-4xl mb-2 opacity-50">inventory_2</span>
+                         <p className="text-sm">Belum ada soal untuk mata pelajaran ini</p>
+                       </div>
+                     ) : (
+                       dataSoal.map((s, idx) => (
+                         <div key={s.id_soal} className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden group">
+                           <div className="flex justify-between items-start mb-2">
+                             <span className={`text-[10px] font-bold px-2 py-1 rounded-md bg-slate-100 text-slate-600`}>{s.tipe_soal || s.tipe}</span>
+                             <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                               <button onClick={() => setFormSoal({ isOpen: true, data: s, id_mapel: s.id_mapel })} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100"><span className="material-symbols-outlined text-[16px]">edit</span></button>
+                               <button onClick={() => handleDeleteSoal(s.id_soal)} className="p-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100"><span className="material-symbols-outlined text-[16px]">delete</span></button>
                              </div>
                            </div>
-                         ))
-                       )}
-                    </div>
+                           <p className="text-sm text-slate-700 dark:text-slate-300 line-clamp-3 mb-2" dangerouslySetInnerHTML={{__html: s.pertanyaan}}></p>
+                           <div className="text-xs text-slate-500 flex justify-between items-center border-t border-slate-100 dark:border-slate-700 pt-2 mt-2">
+                             <span className="truncate max-w-[150px]">{s.mata_pelajaran?.nama_mapel}</span>
+                             <span>No. {(bankSoalPage - 1) * 20 + idx + 1}</span>
+                           </div>
+                         </div>
+                       ))
+                     )}
                   </div>
-                )}
+                </div>
+              )}
 
 
                {activeTab === 'akun' && (
@@ -747,6 +797,14 @@ import React, { useState, useEffect, useRef } from 'react';
                          <div className="flex items-center gap-3">
                            <div className="w-10 h-10 rounded-full bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center text-amber-500"><span className="material-symbols-outlined">history</span></div>
                            <div className="text-left"><h4 className="font-bold text-sm dark:text-white">Log Aktivitas</h4><p className="text-xs text-slate-500">Riwayat aksi pada sistem</p></div>
+                         </div>
+                         <span className="material-symbols-outlined text-slate-400">chevron_right</span>
+                       </button>
+
+                       <button onClick={() => setSkemaModal({ isOpen: true, id_mapel: dataMapel.length > 0 ? dataMapel[0].id_mapel : null })} className="w-full bg-white dark:bg-slate-800 p-4 rounded-2xl flex items-center justify-between border border-slate-100 dark:border-slate-700 shadow-sm active:scale-95 transition-all">
+                         <div className="flex items-center gap-3">
+                           <div className="w-10 h-10 rounded-full bg-green-50 dark:bg-green-900/30 flex items-center justify-center text-green-500"><span className="material-symbols-outlined">grading</span></div>
+                           <div className="text-left"><h4 className="font-bold text-sm dark:text-white">Skema Penilaian Khusus</h4><p className="text-xs text-slate-500">Atur bobot tipe soal</p></div>
                          </div>
                          <span className="material-symbols-outlined text-slate-400">chevron_right</span>
                        </button>
@@ -809,10 +867,7 @@ import React, { useState, useEffect, useRef } from 'react';
             {/* Bottom Navigation */}
             <div className="absolute bottom-0 left-0 w-full bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 md:px-12 py-3 flex justify-between md:justify-center md:gap-16 items-center rounded-t-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] z-50">
               
-              <button onClick={() => setActiveTab('beranda')} className={`flex flex-col items-center transition-colors ${activeTab === 'beranda' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
-                  <span className="material-symbols-outlined">dashboard</span>
-                  <span className="text-[10px] font-bold mt-1">Beranda</span>
-              </button>
+              
               <button onClick={() => setActiveTab('jadwal')} className={`flex flex-col items-center transition-colors ${activeTab === 'jadwal' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
                 <span className="material-symbols-outlined">event_note</span>
                 <span className="text-[10px] font-bold mt-1">Jadwal</span>
@@ -838,50 +893,51 @@ import React, { useState, useEffect, useRef } from 'react';
             {/* Monitoring Modal */}
             {selectedJadwal && activeTab === 'monitoring' && (
               <div className="absolute inset-0 z-[60] bg-white dark:bg-slate-900 flex flex-col h-full animate-fade-in-up">
-                 {/* Modal Header */}
                  <div className="flex items-center gap-3 p-4 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-10">
                     <button onClick={() => setSelectedJadwal(null)} className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-300">
                       <span className="material-symbols-outlined">arrow_back</span>
                     </button>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-bold text-sm truncate">{selectedJadwal.nama_mapel}</h3>
-                      <p className="text-xs text-slate-500">Pemantauan Peserta</p>
+                      <p className="text-xs text-slate-500">Token Ujian: <span className="font-bold text-primary">{selectedJadwal.token}</span></p>
                     </div>
                  </div>
                  
-                 {/* Modal Content */}
-                 <div className="flex-1 overflow-y-auto p-4 bg-slate-50 dark:bg-slate-900">
+                 <div className="flex-1 overflow-y-auto p-4 bg-slate-50 dark:bg-slate-900 pb-24">
                     <div className="flex justify-between items-center mb-4">
-                       <h4 className="font-bold text-sm">Status Peserta Ujian</h4>
-                       <span className="text-xs font-bold text-primary bg-primary/10 px-3 py-1 rounded-full">{selectedJadwal.peserta?.length || 0} Siswa</span>
+                       <h4 className="font-bold text-sm">Peserta Ujian ({dataLog.length})</h4>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 pb-20">
-                      {selectedJadwal.peserta?.map((p, idx) => {
-                         const studentDetail = dataSiswa.find(s => s.id_user === p.id_siswa) || { nama_lengkap: 'Siswa ' + p.id_siswa, kelas: '-' };
-                         const isSelesai = p.status === 'SELESAI';
-                         const isAktif = p.status === 'AKTIF';
-                         const pBadge = isAktif ? 'bg-green-100 text-green-600' : isSelesai ? 'bg-blue-100 text-blue-600' : 'bg-slate-200 text-slate-600';
-                         
-                         return (
-                           <div key={idx} className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                 <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-                                   <span className="material-symbols-outlined text-slate-400">person</span>
-                                 </div>
-                                 <div>
-                                    <h5 className="font-bold text-sm">{studentDetail.nama_lengkap}</h5>
-                                    <p className="text-[10px] text-slate-500">Nilai: <strong className="text-slate-700 dark:text-slate-300">{p.nilai !== null ? p.nilai : '-'}</strong> | Jawaban: {p.jawaban ? Object.keys(p.jawaban).length : 0}</p>
-                                 </div>
-                              </div>
-                              <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${pBadge}`}>{p.status}</span>
+                    <div className="space-y-3">
+                       {dataLog.length === 0 ? (
+                         <div className="text-center text-slate-500 py-10">Belum ada siswa yang sedang mengerjakan.</div>
+                       ) : (
+                         dataLog.slice((monitoringPage - 1) * 20, monitoringPage * 20).map((log) => (
+                           <div key={log.id_log} className="bg-white dark:bg-slate-800 rounded-xl p-4 flex flex-col md:flex-row justify-between md:items-center gap-3 shadow-sm border border-slate-100 dark:border-slate-700">
+                             <div className="flex items-center gap-3">
+                               <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 font-bold uppercase">{log.siswa?.nama_lengkap?.substring(0,2)}</div>
+                               <div>
+                                 <h5 className="font-bold text-sm dark:text-white">{log.siswa?.nama_lengkap}</h5>
+                                 <p className="text-[10px] text-slate-500">Mulai: {new Date(log.waktu_mulai).toLocaleTimeString('id-ID')} | Status: <span className={`font-bold ${log.status_ujian === 'SELESAI' ? 'text-green-500' : 'text-blue-500'}`}>{log.status_ujian}</span></p>
+                               </div>
+                             </div>
+                             {log.status_ujian === 'SEDANG KERJA' && (
+                               <div className="flex gap-2 mt-3 md:mt-0">
+                                 <button onClick={() => setResetModal({ id_log: log.id_log, id_siswa: log.id_siswa })} className="px-3 py-1.5 bg-orange-50 text-orange-600 rounded-lg text-xs font-bold hover:bg-orange-100 transition-colors flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">restart_alt</span> Reset</button>
+                                 <button onClick={() => handleForceStop(log.id_log)} className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100 transition-colors flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">stop_circle</span> Stop Paksa</button>
+                               </div>
+                             )}
                            </div>
-                         );
-                      })}
-                      {(!selectedJadwal.peserta || selectedJadwal.peserta.length === 0) && (
-                        <div className="text-center text-sm text-slate-500 py-8 bg-white dark:bg-slate-800 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">Belum ada peserta yang tergabung dalam ujian ini.</div>
-                      )}
+                         ))
+                       )}
                     </div>
+                    {dataLog.length > 20 && (
+                      <div className="flex justify-center mt-6 gap-2">
+                        <button disabled={monitoringPage === 1} onClick={() => setMonitoringPage(monitoringPage - 1)} className="p-2 bg-white rounded-lg border border-slate-200 disabled:opacity-50"><span className="material-symbols-outlined">chevron_left</span></button>
+                        <span className="px-4 py-2 font-bold text-sm">{monitoringPage} / {Math.ceil(dataLog.length / 20)}</span>
+                        <button disabled={monitoringPage === Math.ceil(dataLog.length / 20)} onClick={() => setMonitoringPage(monitoringPage + 1)} className="p-2 bg-white rounded-lg border border-slate-200 disabled:opacity-50"><span className="material-symbols-outlined">chevron_right</span></button>
+                      </div>
+                    )}
                  </div>
               </div>
             )}
@@ -917,6 +973,8 @@ import React, { useState, useEffect, useRef } from 'react';
     };
 
 export default GuruView;
+
+
 
 
 

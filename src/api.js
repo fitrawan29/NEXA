@@ -1109,6 +1109,11 @@ import React from 'react';
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Sesi siswa berhasil direset.' };
           }
+          case 'force_stop_ujian': {
+            ({ error } = await supabaseClient.from('log_ujian').update({ status_ujian: 'SELESAI', waktu_selesai: new Date().toISOString() }).eq('id_log', payload.id_log));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Ujian berhasil dihentikan paksa.' };
+          }
           case 'import_soal_bulk': {
             ({ error } = await supabaseClient.from('soal_ujian').insert(payload.data));
             if (error) return { status: 'error', message: error.message };
