@@ -6,6 +6,7 @@ import React, { useState, useEffect, useRef } from 'react';
         return fetchAPI(action, { ...p, npsn: user.npsn });
       };
       const [soal, setSoal] = useState([]);
+      const [narasiMap, setNarasiMap] = useState({});
       const [jawabanSiswa, setJawabanSiswa] = useState(() => {
         const saved = localStorage.getItem(`nexa_ans_${idLog}`);
         return saved ? window.safeJSONParse(saved, {}) : {};
@@ -112,7 +113,7 @@ import React, { useState, useEffect, useRef } from 'react';
 
 
       const fetchSoal = async () => {
-        const res = await api('get_soal_by_mapel', { id_mapel: jadwal.id_mapel });
+        const res = await api('get_soal_ujian', { id_jadwal: jadwal.id_jadwal });
         if (res.status === 'success') {
           let parsedSoal = res.data.map(s => {
             let parsedOpsi = null;
@@ -136,6 +137,7 @@ import React, { useState, useEffect, useRef } from 'react';
           }
 
           setSoal(parsedSoal);
+          if (res.narasiMap) setNarasiMap(res.narasiMap);
         }
         setIsLoading(false);
       };
