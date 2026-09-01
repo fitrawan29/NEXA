@@ -25,6 +25,53 @@ import React from 'react';
 
     // Note: Database uses `id_mapel` now, `id_jadwal` column in `soal_ujian` might still exist but `id_mapel` is what we use.
 
+    const processJadwalData = async (data, now) => {
+      return await Promise.all(data.map(async (j) => {
+        let currentStatus = 'BELUM MULAI';
+        if (j.waktu_mulai && j.waktu_selesai) {
+          const mulai = new Date(j.waktu_mulai);
+          const selesai = new Date(j.waktu_selesai);
+          if (now >= mulai && now <= selesai) {
+            currentStatus = 'AKTIF';
+          } else if (now > selesai) {
+            currentStatus = 'SELESAI';
+          }
+        }
+        
+        let tokenAktif = j.token_aktif;
+        let lastUpdate = j.last_update_token ? new Date(j.last_update_token).getTime() : 0;
+        
+        if (currentStatus === 'AKTIF') {
+            if (!tokenAktif || (now.getTime() - lastUpdate > 480000)) { 
+                const suffix = j.id_jadwal ? j.id_jadwal.substring(j.id_jadwal.length - 2).toUpperCase() : 'XX';
+                const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase();
+                tokenAktif = `${suffix}${randomPart}`;
+                
+                await supabaseClient.from('jadwal').update({
+                   token_aktif: tokenAktif,
+                   last_update_token: now.toISOString()
+                }).eq('id_jadwal', j.id_jadwal);
+            }
+        } else {
+            if (tokenAktif) {
+                tokenAktif = null;
+                await supabaseClient.from('jadwal').update({
+                   token_aktif: null,
+                   last_update_token: null
+                }).eq('id_jadwal', j.id_jadwal);
+            }
+        }
+
+        return {
+          ...j,
+          status_ujian: currentStatus,
+          token: tokenAktif,
+          guru: j.guru ? j.guru.nama_lengkap : 'Unknown',
+          nama_mapel: j.mata_pelajaran ? j.mata_pelajaran.nama_mapel : 'Unknown'
+        };
+      }));
+    };
+
     export const fetchAPI = async (action, payload = {}) => {
       try {
         // ================= APPLICATION-LEVEL RLS =================
@@ -248,11 +295,14 @@ import React from 'react';
               supabaseClient.from('bank_soal').select('id_soal', { count: 'exact' }).eq('npsn', payload.npsn)
             ]);
 
-            const { data: jadwalAktifData } = await supabaseClient
+            const { data: allJadwalData } = await supabaseClient
               .from('jadwal')
-              .select('id_jadwal, waktu_mulai, waktu_selesai, token, guru(nama_lengkap), mata_pelajaran(nama_mapel)')
-              .eq('npsn', payload.npsn)
-              .limit(5);
+              .select('*, guru(nama_lengkap), mata_pelajaran(nama_mapel)')
+              .eq('npsn', payload.npsn);
+            
+            const now = await getTrueNow();
+            const processedJadwal = await processJadwalData(allJadwalData || [], now);
+            const jadwalAktifList = processedJadwal.filter(j => j.status_ujian === 'AKTIF').slice(0, 5);
 
             return {
               status: 'success',
@@ -263,10 +313,10 @@ import React from 'react';
                 totalSesiAktif: aktifRes.count || 0,
                 totalMapel: mapelRes.count || 0,
                 totalSoal: soalRes.count || 0,
-                jadwalAktif: (jadwalAktifData || []).map(j => ({
+                jadwalAktif: jadwalAktifList.map(j => ({
                   id_jadwal: j.id_jadwal,
-                  nama_mapel: j.mata_pelajaran ? j.mata_pelajaran.nama_mapel : 'Unknown',
-                  guru: j.guru ? j.guru.nama_lengkap : 'Unknown',
+                  nama_mapel: j.nama_mapel,
+                  guru: j.guru,
                   waktu_mulai: j.waktu_mulai,
                   waktu_selesai: j.waktu_selesai,
                   token: j.token
@@ -474,26 +524,10 @@ import React from 'react';
             ({ data, error } = await supabaseClient.from('jadwal').select('*, guru(nama_lengkap), mata_pelajaran(nama_mapel)').eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
             const now = await getTrueNow();
+            const processedData = await processJadwalData(data, now);
             return {
               status: 'success',
-              data: data.map(j => {
-                let currentStatus = 'BELUM MULAI';
-                if (j.waktu_mulai && j.waktu_selesai) {
-                  const mulai = new Date(j.waktu_mulai);
-                  const selesai = new Date(j.waktu_selesai);
-                  if (now >= mulai && now <= selesai) {
-                    currentStatus = 'AKTIF';
-                  } else if (now > selesai) {
-                    currentStatus = 'SELESAI';
-                  }
-                }
-                return {
-                  ...j,
-                  status_ujian: currentStatus,
-                  guru: j.guru ? j.guru.nama_lengkap : 'Unknown',
-                  nama_mapel: j.mata_pelajaran ? j.mata_pelajaran.nama_mapel : 'Unknown'
-                };
-              })
+              data: processedData
             };
           }
 
@@ -547,25 +581,10 @@ import React from 'react';
             ({ data, error } = await q);
             if (error) return { status: 'error', message: error.message };
             const now = await getTrueNow();
+            const processedData = await processJadwalData(data, now);
             return {
               status: 'success',
-              data: data.map(j => {
-                let currentStatus = 'BELUM MULAI';
-                if (j.waktu_mulai && j.waktu_selesai) {
-                  const mulai = new Date(j.waktu_mulai);
-                  const selesai = new Date(j.waktu_selesai);
-                  if (now >= mulai && now <= selesai) {
-                    currentStatus = 'AKTIF';
-                  } else if (now > selesai) {
-                    currentStatus = 'SELESAI';
-                  }
-                }
-                return {
-                  ...j,
-                  status_ujian: currentStatus,
-                  nama_mapel: j.mata_pelajaran ? j.mata_pelajaran.nama_mapel : 'Unknown'
-                };
-              })
+              data: processedData
             };
           }
 
@@ -660,13 +679,15 @@ import React from 'react';
 
             let token = data.token_aktif;
             let lastUpdate = data.last_update_token ? new Date(data.last_update_token).getTime() : 0;
-            let now = new Date().getTime();
+            let nowTime = await getTrueNow();
 
-            if (now - lastUpdate > 300000 || !token) {
-              token = Math.random().toString(36).substring(2, 8).toUpperCase();
+            if (nowTime.getTime() - lastUpdate > 480000 || !token) {
+              const suffix = payload.id_jadwal ? payload.id_jadwal.substring(payload.id_jadwal.length - 2).toUpperCase() : 'XX';
+              const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase();
+              token = `${suffix}${randomPart}`;
               await supabaseClient.from('jadwal').update({
                 token_aktif: token,
-                last_update_token: new Date().toISOString()
+                last_update_token: nowTime.toISOString()
               }).eq('id_jadwal', payload.id_jadwal);
             }
             return { status: 'success', token };
