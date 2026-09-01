@@ -153,7 +153,24 @@ import * as XLSX from 'xlsx';
 
       const handleUpdateStatusUjian = async (id_jadwal, status_baru) => {
         setIsSubmitting(true);
-        const res = await api('update_jadwal', { id_jadwal, status_ujian: status_baru });
+        let updates = {};
+        const now = new Date();
+        if (status_baru === 'AKTIF') {
+          updates.waktu_mulai = new Date(now.getTime() - 60000).toISOString(); // 1 minute ago
+          const jadwal = dataJadwal.find(j => j.id_jadwal === id_jadwal);
+          if (jadwal && new Date(jadwal.waktu_selesai) > now) {
+            updates.waktu_selesai = jadwal.waktu_selesai;
+          } else {
+            updates.waktu_selesai = new Date(now.getTime() + 2 * 60 * 60 * 1000).toISOString();
+          }
+        } else if (status_baru === 'SELESAI') {
+          updates.waktu_selesai = new Date(now.getTime() - 60000).toISOString();
+        } else if (status_baru === 'BELUM MULAI') {
+          updates.waktu_mulai = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+          updates.waktu_selesai = new Date(now.getTime() + 26 * 60 * 60 * 1000).toISOString();
+        }
+        
+        const res = await api('update_jadwal', { id_jadwal, ...updates });
         setIsSubmitting(false);
         if (res.status === 'success') {
           fetchData(activeTab);
