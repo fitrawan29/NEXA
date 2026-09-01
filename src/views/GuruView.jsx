@@ -1,5 +1,6 @@
 import { fetchAPI, getTrueNow } from '../api.js';
 import React, { useState, useEffect, useRef } from 'react';
+import FormSoalModal from '../components/FormSoalModal.jsx';
     const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
       const api = (action, p = {}) => {
         if (Array.isArray(p)) return fetchAPI(action, p.map(item => ({ ...item, npsn: user.npsn })));
