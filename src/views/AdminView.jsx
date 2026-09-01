@@ -508,7 +508,7 @@ import * as XLSX from 'xlsx';
               <h2 className="text-xl font-bold mb-4 text-on-surface dark:text-white capitalize">
                 {isEdit ? 'Edit Data' : 'Tambah Data'} {type}
               </h2>
-              <form onSubmit={handleSaveForm} className="space-y-4">
+              <form onSubmit={handleSaveForm} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {type === 'kelas' && (
                   <>
                     {isEdit && <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">ID Kelas</label><input name="id_kelas" defaultValue={data?.id_kelas || ''} readOnly={isEdit} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800" /></div>}
@@ -605,7 +605,7 @@ import * as XLSX from 'xlsx';
                 } else {
                   alert(res.message);
                 }
-              }} className="space-y-4">
+              }} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 <div className="flex items-center justify-center mb-4">
                   {user.foto_profil ? (
                     <img src={user.foto_profil} alt="Profile" className="w-20 h-20 rounded-full object-cover border-4 border-primary/20" />
@@ -752,7 +752,7 @@ import * as XLSX from 'xlsx';
       return (
         <>
         <div className="bg-slate-50 dark:bg-slate-900 min-h-screen flex justify-center selection:bg-primary/30 selection:text-primary">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col h-screen">
+          <div className="w-full md:max-w-3xl lg:max-w-5xl xl:max-w-6xl mx-auto bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col h-screen">
             
             {/* Header / Top Section */}
             <div className="bg-[#3ecf8e] px-6 pt-6 pb-6 relative text-white shadow-md z-0">
@@ -825,7 +825,7 @@ import * as XLSX from 'xlsx';
                         <span className="material-symbols-outlined text-[18px]">play_circle</span>
                         Sedang Berlangsung
                       </h4>
-                      <div className="space-y-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                         {dataJadwal.filter(j => j.status_ujian === 'AKTIF').map((j) => (
                           <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 border-l-4 border-l-primary flex items-center gap-3">
                             <div className="min-w-0 flex-1">
@@ -847,7 +847,7 @@ import * as XLSX from 'xlsx';
                         <span className="material-symbols-outlined text-[18px]">schedule</span>
                         Akan Datang
                       </h4>
-                      <div className="space-y-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                         {dataJadwal.filter(j => j.status_ujian === 'BELUM MULAI').map((j) => (
                           <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 border-l-4 border-l-orange-500 flex items-center gap-3 opacity-90">
                             <div className="min-w-0 flex-1">
@@ -869,7 +869,7 @@ import * as XLSX from 'xlsx';
                         <span className="material-symbols-outlined text-[18px]">check_circle</span>
                         Sebelumnya (Selesai)
                       </h4>
-                      <div className="space-y-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                         {dataJadwal.filter(j => j.status_ujian === 'SELESAI').slice(0, 5).map((j) => (
                           <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 border-l-4 border-l-green-500 flex items-center gap-3 opacity-60">
                             <div className="min-w-0 flex-1">
@@ -910,7 +910,7 @@ import * as XLSX from 'xlsx';
                       </button>
                     </div>
                   </div>
-                  <div className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                     {dataSiswa.filter(s => 
                       ((s.nama_lengkap || '').toLowerCase().includes(searchQuery.toLowerCase()) || (s.nisn || '').toLowerCase().includes(searchQuery.toLowerCase())) &&
                       (filterKelas === '' || s.kelas === filterKelas)
@@ -962,7 +962,7 @@ import * as XLSX from 'xlsx';
                       </button>
                     </div>
                   </div>
-                  <div className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                     {dataGuru.filter(g => 
                       ((g.nama_lengkap || '').toLowerCase().includes(searchQuery.toLowerCase()) || (g.nip || '').toLowerCase().includes(searchQuery.toLowerCase())) &&
                       (filterMapel === '' || g.mapels_list.includes(filterMapel))
@@ -1005,7 +1005,7 @@ import * as XLSX from 'xlsx';
                       {dataMapel.map(m => <option key={m.id_mapel} value={m.nama_mapel}>{m.nama_mapel}</option>)}
                     </select>
                   </div>
-                  <div className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                     {dataJadwal.filter(j => filterMapel === '' || j.nama_mapel === filterMapel).map((j) => (
                       <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700">
                          <div className="flex justify-between items-start">
@@ -1055,7 +1055,7 @@ import * as XLSX from 'xlsx';
                        <span className="text-xs font-bold text-primary bg-primary/10 px-3 py-1 rounded-full">{dataLog.length} Siswa Terdaftar</span>
                     </div>
                     
-                    <div className="space-y-3 pb-20">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 pb-20">
                       {dataLog.map((p, idx) => {
                          const isSelesai = p.status_ujian === 'SELESAI';
                          const isAktif = p.status_ujian === 'AKTIF';
@@ -1101,7 +1101,7 @@ import * as XLSX from 'xlsx';
                   </div>
                   
                   <div className="flex-1 overflow-y-auto p-4 bg-slate-50 dark:bg-slate-900">
-                    <div className="space-y-3 pb-20">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 pb-20">
                       {dataLog.map((l, idx) => (
                         <div key={idx} className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
                            <div className="flex justify-between items-start mb-2">
@@ -1178,7 +1178,7 @@ import * as XLSX from 'xlsx';
                   </div>
                   <span className="text-sm font-medium text-orange-600 bg-orange-100 px-2 py-1 rounded-lg">{dataMapel.length} Mapel</span>
                 </div>
-                <div className="space-y-3 pb-24">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 pb-24">
                   {dataMapel.map((m) => (
                     <div key={m.id_mapel} onClick={() => { setActiveTab('soal'); setFilterMapel(m.nama_mapel); fetchData('soal'); }} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center justify-between gap-3 cursor-pointer hover:border-primary/50 transition-colors">
                       <div className="flex items-center gap-3 min-w-0">
@@ -1217,7 +1217,7 @@ import * as XLSX from 'xlsx';
                     {dataMapel.map(m => <option key={m.id_mapel} value={m.nama_mapel}>{m.nama_mapel}</option>)}
                   </select>
                 </div>
-                <div className="space-y-3 pb-24">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 pb-24">
                   {dataSoal.filter(s => filterMapel ? s.mata_pelajaran?.nama_mapel === filterMapel : true).map((s) => (
                     <div key={s.id_soal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700">
                       <div className="flex justify-between items-start mb-2">
@@ -1297,7 +1297,7 @@ import * as XLSX from 'xlsx';
             </div>
 
             {/* Bottom Navigation */}
-            <div className="absolute bottom-0 left-0 w-full bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 py-3 flex justify-between items-center rounded-t-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] z-50">
+            <div className="absolute bottom-0 left-0 w-full bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 md:px-12 py-3 flex justify-between md:justify-center md:gap-16 items-center rounded-t-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] z-50">
               <button onClick={() => setActiveTab('dashboard')} className={`flex flex-col items-center transition-colors ${activeTab === 'dashboard' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
                 <span className="material-symbols-outlined">home</span>
                 <span className="text-[10px] font-bold mt-1">Beranda</span>
@@ -1355,3 +1355,6 @@ import * as XLSX from 'xlsx';
     };
 
 export default AdminView;
+
+
+

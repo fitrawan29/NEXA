@@ -451,7 +451,7 @@ import React, { useState, useEffect, useRef } from 'react';
       return (
         <>
         <div className="bg-slate-50 dark:bg-slate-900 min-h-screen flex justify-center selection:bg-primary/30 selection:text-primary">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col h-screen">
+          <div className="w-full md:max-w-3xl lg:max-w-5xl xl:max-w-6xl mx-auto bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col h-screen">
             
             {/* Header / Top Section */}
             <div className="bg-[#3ecf8e] rounded-b-[40px] px-6 pt-8 pb-20 relative text-white shadow-md z-0">
@@ -526,7 +526,7 @@ import React, { useState, useEffect, useRef } from 'react';
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Jadwal Mengawas</h3>
                   </div>
-                  <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                     {dataJadwal.map((j) => {
                        const isSelesai = j.status_ujian === 'SELESAI';
                        const isAktif = j.status_ujian === 'AKTIF';
@@ -569,7 +569,7 @@ import React, { useState, useEffect, useRef } from 'react';
                   <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-2">Monitoring Ujian</h3>
                   <p className="text-xs text-slate-500 mb-4">Pilih jadwal ujian aktif untuk memantau status siswa yang sedang mengerjakan ujian secara real-time.</p>
                   
-                  <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                     {dataJadwal.filter(j => j.status_ujian === 'AKTIF').map((j) => (
                        <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-primary/20 relative overflow-hidden">
                           <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-r from-primary to-secondary text-on-primary"></div>
@@ -617,7 +617,7 @@ import React, { useState, useEffect, useRef } from 'react';
                 <div className="px-6 mt-6 animate-fade-in-up">
                   <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Hasil Evaluasi</h3>
                   
-                  <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                     {dataJadwal.filter(j => j.status_ujian === 'SELESAI').map((j) => (
                        <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700">
                           <h4 className="font-bold text-sm mb-1">{j.nama_mapel}</h4>
@@ -679,7 +679,7 @@ import React, { useState, useEffect, useRef } from 'react';
             </div>
 
             {/* Bottom Navigation */}
-            <div className="absolute bottom-0 left-0 w-full bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 py-3 flex justify-between items-center rounded-t-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] z-50">
+            <div className="absolute bottom-0 left-0 w-full bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 md:px-12 py-3 flex justify-between md:justify-center md:gap-16 items-center rounded-t-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] z-50">
               <button onClick={() => setActiveTab('jadwal')} className={`flex flex-col items-center transition-colors ${activeTab === 'jadwal' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
                 <span className="material-symbols-outlined">event_note</span>
                 <span className="text-[10px] font-bold mt-1">Jadwal</span>
@@ -723,7 +723,7 @@ import React, { useState, useEffect, useRef } from 'react';
                        <span className="text-xs font-bold text-primary bg-primary/10 px-3 py-1 rounded-full">{selectedJadwal.peserta?.length || 0} Siswa</span>
                     </div>
                     
-                    <div className="space-y-3 pb-20">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 pb-20">
                       {selectedJadwal.peserta?.map((p, idx) => {
                          const studentDetail = dataSiswa.find(s => s.id_user === p.id_siswa) || { nama_lengkap: 'Siswa ' + p.id_siswa, kelas: '-' };
                          const isSelesai = p.status === 'SELESAI';
@@ -784,3 +784,6 @@ import React, { useState, useEffect, useRef } from 'react';
     };
 
 export default GuruView;
+
+
+

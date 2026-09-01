@@ -127,7 +127,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
               <h2 className="text-xl font-bold mb-4 text-on-surface dark:text-white capitalize">
                 {formModal.isEdit ? 'Edit' : 'Tambah'} {type}
               </h2>
-              <form onSubmit={handleSaveForm} className="space-y-4">
+              <form onSubmit={handleSaveForm} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {type === 'sekolah' && (
                   <>
                     <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">NPSN</label><input name="npsn" defaultValue={formModal.editItem?.npsn} readOnly={formModal.isEdit} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
@@ -175,7 +175,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 
       return (
         <div className="bg-slate-50 dark:bg-slate-900 min-h-screen flex justify-center selection:bg-primary/30 selection:text-primary">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col h-screen">
+          <div className="w-full md:max-w-3xl lg:max-w-5xl xl:max-w-6xl mx-auto bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col h-screen">
             
             {/* Header / Top Section */}
             <div className="bg-[#3ecf8e] rounded-none px-6 pt-4 pb-4 relative text-white shadow-md z-0">
@@ -234,7 +234,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
                   </div>
 
                   <h4 className="font-bold text-sm text-slate-700 dark:text-slate-300 mb-3">Rincian per Sekolah</h4>
-                  <div className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                     {dataAnalytics.stats?.map((s, idx) => (
                       <div key={idx} className="bg-white dark:bg-slate-800 rounded-xl p-3 border border-slate-100 dark:border-slate-700 flex justify-between items-center shadow-sm">
                         <div className="min-w-0 flex-1">
@@ -504,7 +504,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
             </div>
 
             {/* Bottom Navigation */}
-            <div className="absolute bottom-0 left-0 w-full bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 py-3 flex justify-between items-center rounded-t-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] z-50">
+            <div className="absolute bottom-0 left-0 w-full bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 md:px-12 py-3 flex justify-between md:justify-center md:gap-16 items-center rounded-t-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] z-50">
               <button onClick={() => setActiveTab('analytics')} className={`flex flex-col items-center transition-colors ${activeTab === 'analytics' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
                 <span className="material-symbols-outlined">analytics</span>
                 <span className="text-[10px] font-bold mt-1">Statistik</span>
@@ -537,4 +537,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 
 export default SuperAdminView;
+
+
+
 

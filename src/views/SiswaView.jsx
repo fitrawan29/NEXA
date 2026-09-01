@@ -82,7 +82,7 @@ import React, { useState, useEffect, useRef } from 'react';
 
       return (
         <div className="bg-slate-50 dark:bg-slate-900 min-h-screen flex justify-center selection:bg-primary/30 selection:text-primary">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col h-screen">
+          <div className="w-full md:max-w-3xl lg:max-w-5xl xl:max-w-6xl mx-auto bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col h-screen">
             
             {/* Header / Top Section */}
             <div className="bg-[#3ecf8e] rounded-b-[40px] px-6 pt-8 pb-20 relative text-white shadow-md z-0">
@@ -157,7 +157,7 @@ import React, { useState, useEffect, useRef } from 'react';
                       <button onClick={() => setActiveTab('jadwal')} className="text-sm font-medium text-primary hover:underline">Lihat semua</button>
                     </div>
                     
-                    <div className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                       {jadwal.length === 0 ? (
                         <div className="text-center text-slate-500 text-sm py-4">Tidak ada jadwal aktif.</div>
                       ) : (
@@ -220,7 +220,7 @@ import React, { useState, useEffect, useRef } from 'react';
                       <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Tanggapan Guru</h3>
                       <button onClick={() => setActiveTab('pengumuman')} className="text-sm font-medium text-primary hover:underline">Lihat semua</button>
                     </div>
-                    <div className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                       {dataPengumuman.length === 0 ? (
                         <div className="text-center text-slate-500 text-sm py-4">Tidak ada tanggapan/pengumuman.</div>
                       ) : (
@@ -253,7 +253,7 @@ import React, { useState, useEffect, useRef } from 'react';
                 <div className="px-6 mt-6 animate-fade-in-up">
                   <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Semua Jadwal Ujian</h3>
                   {/* ... same list as beranda, but all ... */}
-                  <div className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                       {jadwal.length === 0 ? (
                         <div className="text-center text-slate-500 text-sm py-4">Tidak ada jadwal aktif.</div>
                       ) : (
@@ -313,7 +313,7 @@ import React, { useState, useEffect, useRef } from 'react';
               {activeTab === 'nilai' && (
                 <div className="px-6 mt-6 animate-fade-in-up">
                   <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Nilai & Riwayat Ujian</h3>
-                  <div className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                     {dataRiwayat.length === 0 ? (
                        <div className="text-center text-slate-500 text-sm py-4">Belum ada nilai.</div>
                     ) : (
@@ -350,7 +350,7 @@ import React, { useState, useEffect, useRef } from 'react';
             </div>
 
             {/* Bottom Navigation */}
-            <div className="absolute bottom-0 left-0 w-full bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 py-3 flex justify-between items-center rounded-t-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] z-50">
+            <div className="absolute bottom-0 left-0 w-full bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 md:px-12 py-3 flex justify-between md:justify-center md:gap-16 items-center rounded-t-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] z-50">
               <button onClick={() => setActiveTab('beranda')} className={`flex flex-col items-center transition-colors ${activeTab === 'beranda' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
                 <span className="material-symbols-outlined">home</span>
                 <span className="text-[10px] font-bold mt-1">Beranda</span>
@@ -381,4 +381,7 @@ import React, { useState, useEffect, useRef } from 'react';
 
 
 export default SiswaView;
+
+
+
 
