@@ -70,6 +70,59 @@ import FormNarasiModal from '../components/FormNarasiModal.jsx';
       const fileInputRef = React.useRef(null);
       const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
+      const downloadTemplateSoal = () => {
+        const templateData = [
+          {
+            tipe_soal: 'PG',
+            pertanyaan: 'Siapakah penemu mesin uap?',
+            opsi_A: 'James Watt',
+            opsi_B: 'Isaac Newton',
+            opsi_C: 'Albert Einstein',
+            opsi_D: 'Thomas Edison',
+            opsi_E: 'Nikola Tesla',
+            kunci_jawaban: 'A',
+            bobot: 10
+          },
+          {
+            tipe_soal: 'PGK',
+            pertanyaan: 'Manakah di bawah ini yang merupakan bilangan genap? (Jawaban lebih dari satu)',
+            opsi_A: '2',
+            opsi_B: '3',
+            opsi_C: '4',
+            opsi_D: '7',
+            opsi_E: '8',
+            kunci_jawaban: 'A,C,E',
+            bobot: 10
+          },
+          {
+            tipe_soal: 'BS',
+            pertanyaan: 'Ibukota negara Indonesia adalah Jakarta.',
+            opsi_A: '',
+            opsi_B: '',
+            opsi_C: '',
+            opsi_D: '',
+            opsi_E: '',
+            kunci_jawaban: 'Benar',
+            bobot: 5
+          },
+          {
+            tipe_soal: 'URAIAN',
+            pertanyaan: 'Jelaskan mengapa langit berwarna biru!',
+            opsi_A: '',
+            opsi_B: '',
+            opsi_C: '',
+            opsi_D: '',
+            opsi_E: '',
+            kunci_jawaban: '-',
+            bobot: 20
+          }
+        ];
+        const ws = XLSX.utils.json_to_sheet(templateData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Template_Soal");
+        XLSX.writeFile(wb, "Template_Soal_NEXA.xlsx");
+      };
+
       const handleImportExcel = (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -794,7 +847,16 @@ import FormNarasiModal from '../components/FormNarasiModal.jsx';
                               <p className="text-xs text-slate-500">{dataSoal.length} Soal tersedia di bank soal</p>
                             </div>
                           </div>
-                          <div className="flex gap-2">
+                          <div className="flex gap-2 flex-wrap justify-end">
+                            <input type="file" ref={fileInputRef} onChange={handleImportExcel} accept=".xlsx, .xls" className="hidden" />
+                            <button onClick={downloadTemplateSoal} className="bg-slate-100 text-slate-600 px-3 py-2 rounded-xl hover:bg-slate-200 transition-colors flex items-center gap-1 text-xs font-bold" title="Unduh Template Excel">
+                              <span className="material-symbols-outlined text-[18px]">download</span>
+                              <span className="hidden md:inline">Template</span>
+                            </button>
+                            <button onClick={() => fileInputRef.current?.click()} className="bg-emerald-50 text-emerald-600 px-3 py-2 rounded-xl hover:bg-emerald-100 transition-colors flex items-center gap-1 text-xs font-bold" title="Import via Excel">
+                              <span className="material-symbols-outlined text-[18px]">upload_file</span>
+                              <span className="hidden md:inline">Import Excel</span>
+                            </button>
                             <button onClick={() => setFormNarasi({ isOpen: true, data: null })} className="bg-amber-50 text-amber-600 px-3 py-2 rounded-xl hover:bg-amber-100 transition-colors flex items-center gap-1 text-xs font-bold" title="Tulis Wacana / Narasi Baru">
                               <span className="material-symbols-outlined text-[18px]">article</span>
                               <span>Tambah Narasi</span>
