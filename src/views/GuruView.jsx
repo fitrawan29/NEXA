@@ -7,7 +7,7 @@ import FormNarasiModal from '../components/FormNarasiModal.jsx';
         if (Array.isArray(p)) return fetchAPI(action, p.map(item => ({ ...item, npsn: user.npsn })));
         return fetchAPI(action, { ...p, npsn: user.npsn });
       };
-      const [activeTab, setActiveTab] = useState('jadwal');
+      const [activeTab, setActiveTab] = useState('dashboard');
       const [dataJadwal, setDataJadwal] = useState([]);
       const [selectedJadwal, setSelectedJadwal] = useState(null);
       const [dataLog, setDataLog] = useState([]);
@@ -268,9 +268,13 @@ import FormNarasiModal from '../components/FormNarasiModal.jsx';
       const fetchData = async () => {
         setIsLoading(true);
         
-        if (activeTab === 'jadwal') {
+        if (activeTab === 'jadwal' || activeTab === 'dashboard') {
           const res = await api('get_jadwal_pengawas', { id_guru: guruId });
           if (res.status === 'success') setDataJadwal(res.data);
+          if (activeTab === 'dashboard') {
+             const resMapel = await api('get_mapel_guru', { id_guru: guruId });
+             if (resMapel.status === 'success') setDataMapel(resMapel.data);
+          }
         } else if (activeTab === 'pengumuman') {
           const res = await api('get_pengumuman', { role: 'guru' });
           if (res.status === 'success') setDataPengumuman(res.data);
@@ -290,7 +294,6 @@ import FormNarasiModal from '../components/FormNarasiModal.jsx';
           const res = await api('get_mapel_guru', { id_guru: guruId });
           if (res.status === 'success') {
             setDataMapel(res.data);
-            if (!selectedMapel && res.data.length > 0) setSelectedMapel(res.data[0].id_mapel);
           }
           
           if (selectedMapel) {
@@ -568,10 +571,59 @@ import FormNarasiModal from '../components/FormNarasiModal.jsx';
             <div className="flex-1 overflow-y-auto pb-24 hide-scrollbar">
               
               
+              {activeTab === 'dashboard' && (
+                <div className="px-6 mt-6 animate-fade-in-up pb-24">
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Dashboard Utama</h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+                      <div className="absolute top-0 right-0 p-4 opacity-20"><span className="material-symbols-outlined text-6xl">library_books</span></div>
+                      <h4 className="text-4xl font-bold mb-1">{dataMapel.length}</h4>
+                      <p className="text-blue-100 text-sm font-medium">Mapel Ditugaskan</p>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+                      <div className="absolute top-0 right-0 p-4 opacity-20"><span className="material-symbols-outlined text-6xl">quiz</span></div>
+                      <h4 className="text-4xl font-bold mb-1">{dataMapel.reduce((sum, m) => sum + parseInt(m.jumlah_soal || m.total_soal || 0), 0)}</h4>
+                      <p className="text-emerald-100 text-sm font-medium">Total Soal Dibuat</p>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+                      <div className="absolute top-0 right-0 p-4 opacity-20"><span className="material-symbols-outlined text-6xl">groups</span></div>
+                      <h4 className="text-4xl font-bold mb-1">{dataJadwal.reduce((sum, j) => sum + (j.peserta?.filter(p => p.status === 'SELESAI').length || 0), 0)}</h4>
+                      <p className="text-purple-100 text-sm font-medium">Siswa Telah Ujian</p>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-100 dark:border-slate-700">
+                    <h4 className="font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2"><span className="material-symbols-outlined text-primary">bar_chart</span> Statistik Ujian per Mapel</h4>
+                    <div className="space-y-3">
+                       {dataMapel.map(m => {
+                          const schedulesForMapel = dataJadwal.filter(j => j.id_mapel === m.id_mapel);
+                          const totalSelesai = schedulesForMapel.reduce((sum, j) => sum + (j.peserta?.filter(p => p.status === 'SELESAI').length || 0), 0);
+                          const totalSiswa = schedulesForMapel.reduce((sum, j) => sum + (j.peserta?.length || 0), 0);
+                          return (
+                            <div key={m.id_mapel} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800">
+                              <div>
+                                <span className="block text-sm font-bold text-slate-800 dark:text-slate-200 mb-1">{m.nama_mapel}</span>
+                                <span className="text-xs text-slate-500">{m.jumlah_soal || m.total_soal || 0} Soal Tersedia di Bank Soal</span>
+                              </div>
+                              <div className="text-right">
+                                <span className="block text-lg font-bold text-primary">{totalSelesai} <span className="text-xs text-slate-500 font-normal">/ {totalSiswa} Siswa Selesai</span></span>
+                              </div>
+                            </div>
+                          );
+                       })}
+                       {dataMapel.length === 0 && <p className="text-sm text-slate-500 text-center py-4">Belum ada data mata pelajaran.</p>}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {activeTab === 'jadwal' && (
                 <div className="px-6 mt-6 animate-fade-in-up">
                   <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Jadwal Mengawas</h3>
+                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Jadwal Ujian</h3>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                     {dataJadwal.map((j) => {
@@ -703,43 +755,58 @@ import FormNarasiModal from '../components/FormNarasiModal.jsx';
               )}
 
               {activeTab === 'bank_soal' && (
-                <div className="px-6 mt-6 animate-fade-in-up">
-                  <div className="flex justify-between items-center mb-4">
-                      <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Bank Soal</h3>
-                      <div className="flex gap-2">
-                        <button onClick={() => setFormNarasi({ isOpen: true, data: null })} className="bg-amber-50 text-amber-600 p-2 rounded-xl hover:bg-amber-100 transition-colors flex items-center gap-1 text-sm font-bold" title="Tulis Wacana / Narasi Baru">
-                          <span className="material-symbols-outlined text-xl">article</span>
-                          <span className="hidden sm:inline">Tambah Narasi</span>
-                        </button>
-                        <button onClick={() => setPreFormSoal({ isOpen: true, id_mapel: '', target_kelas: '' })} className="bg-primary text-white p-2 rounded-xl hover:bg-primary-dark transition-colors flex items-center justify-center">
-                          <span className="material-symbols-outlined text-xl">add</span>
-                        </button>
+                <div className="px-6 mt-6 animate-fade-in-up pb-24">
+                  {!selectedMapel ? (
+                    <>
+                      <div className="flex justify-between items-center mb-4">
+                          <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Pilih Mata Pelajaran</h3>
                       </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
-                     {dataMapel.map((m, idx) => {
-                        const isSelected = selectedMapel === m.id_mapel;
-                        const color = getMapelColor(idx);
-                        return (
-                           <button 
-                             key={m.id_mapel} 
-                             onClick={() => setSelectedMapel(m.id_mapel)} 
-                             className={`relative aspect-square rounded-2xl p-4 flex flex-col items-center justify-center gap-3 transition-all overflow-hidden ${isSelected ? `bg-gradient-to-br ${color.bg} text-white shadow-lg ring-4 ring-primary/30 scale-[1.02]` : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-primary/50 hover:shadow-md'}`}
-                           >
-                             <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-1 ${isSelected ? 'bg-white/20' : color.icon}`}>
-                                <span className="material-symbols-outlined text-3xl">library_books</span>
-                             </div>
-                             <span className="font-bold text-center text-sm leading-tight">{m.nama_mapel}</span>
-                             <span className={`text-xs px-3 py-1 rounded-full font-bold ${isSelected ? 'bg-black/20 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
-                               {isSelected ? dataSoal.length : (m.jumlah_soal || m.total_soal || 0)} Soal
-                             </span>
-                           </button>
-                        );
-                     })}
-                  </div>
+                      <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 mb-6">
+                         {dataMapel.map((m, idx) => {
+                            const color = getMapelColor(idx);
+                            return (
+                               <button 
+                                 key={m.id_mapel} 
+                                 onClick={() => setSelectedMapel(m.id_mapel)} 
+                                 className={`relative rounded-xl p-3 flex flex-col items-center justify-center gap-2 transition-all overflow-hidden bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-primary/50 hover:shadow-md`}
+                               >
+                                 <div className={`w-10 h-10 rounded-full flex items-center justify-center ${color.icon}`}>
+                                    <span className="material-symbols-outlined text-2xl">library_books</span>
+                                 </div>
+                                 <span className="font-bold text-center text-xs leading-tight line-clamp-2">{m.nama_mapel}</span>
+                                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300`}>
+                                   {m.jumlah_soal || m.total_soal || 0} Soal
+                                 </span>
+                               </button>
+                            );
+                         })}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4 border-b border-slate-100 dark:border-slate-700 pb-4">
+                          <div className="flex items-center gap-3">
+                            <button onClick={() => setSelectedMapel(null)} className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-full hover:bg-slate-200 transition-colors">
+                              <span className="material-symbols-outlined">arrow_back</span>
+                            </button>
+                            <div>
+                              <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg leading-tight">{dataMapel.find(m => m.id_mapel === selectedMapel)?.nama_mapel}</h3>
+                              <p className="text-xs text-slate-500">{dataSoal.length} Soal tersedia di bank soal</p>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <button onClick={() => setFormNarasi({ isOpen: true, data: null })} className="bg-amber-50 text-amber-600 px-3 py-2 rounded-xl hover:bg-amber-100 transition-colors flex items-center gap-1 text-xs font-bold" title="Tulis Wacana / Narasi Baru">
+                              <span className="material-symbols-outlined text-[18px]">article</span>
+                              <span>Tambah Narasi</span>
+                            </button>
+                            <button onClick={() => setPreFormSoal({ isOpen: true, id_mapel: selectedMapel, target_kelas: '' })} className="bg-primary text-white px-3 py-2 rounded-xl hover:bg-primary-dark transition-colors flex items-center gap-1 text-xs font-bold">
+                              <span className="material-symbols-outlined text-[18px]">add</span>
+                              <span>Tambah Soal</span>
+                            </button>
+                          </div>
+                      </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 pb-24">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                      {dataSoal.length === 0 ? (
                        <div className="col-span-full py-10 text-center text-slate-500">
                          <span className="material-symbols-outlined text-4xl mb-2 opacity-50">inventory_2</span>
@@ -764,6 +831,8 @@ import FormNarasiModal from '../components/FormNarasiModal.jsx';
                        ))
                      )}
                   </div>
+                    </>
+                  )}
                 </div>
               )}
 
@@ -873,7 +942,10 @@ import FormNarasiModal from '../components/FormNarasiModal.jsx';
             {/* Bottom Navigation */}
             <div className="absolute bottom-0 left-0 w-full bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 md:px-12 py-3 flex justify-between md:justify-center md:gap-16 items-center rounded-t-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] z-50">
               
-              
+              <button onClick={() => setActiveTab('dashboard')} className={`flex flex-col items-center transition-colors ${activeTab === 'dashboard' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
+                <span className="material-symbols-outlined">dashboard</span>
+                <span className="text-[10px] font-bold mt-1">Beranda</span>
+              </button>
               <button onClick={() => setActiveTab('jadwal')} className={`flex flex-col items-center transition-colors ${activeTab === 'jadwal' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
                 <span className="material-symbols-outlined">event_note</span>
                 <span className="text-[10px] font-bold mt-1">Jadwal</span>
