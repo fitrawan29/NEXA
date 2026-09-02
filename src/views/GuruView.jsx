@@ -74,6 +74,7 @@ import * as XLSX from 'xlsx';
       const downloadTemplateSoal = () => {
         const templateData = [
           {
+            wacana: 'Thomas Edison adalah seorang penemu Amerika...',
             tipe_soal: 'PG',
             pertanyaan: 'Siapakah penemu mesin uap?',
             opsi_A: 'James Watt',
@@ -85,6 +86,7 @@ import * as XLSX from 'xlsx';
             bobot: 10
           },
           {
+            wacana: '',
             tipe_soal: 'PGK',
             pertanyaan: 'Manakah di bawah ini yang merupakan bilangan genap? (Jawaban lebih dari satu)',
             opsi_A: '2',
@@ -96,6 +98,7 @@ import * as XLSX from 'xlsx';
             bobot: 10
           },
           {
+            wacana: '',
             tipe_soal: 'BS',
             pertanyaan: 'Ibukota negara Indonesia adalah Jakarta.',
             opsi_A: '',
@@ -107,6 +110,31 @@ import * as XLSX from 'xlsx';
             bobot: 5
           },
           {
+            wacana: '',
+            tipe_soal: 'JODOH',
+            pertanyaan: 'Jodohkan negara dengan benuanya!',
+            opsi_A: 'Indonesia=Asia',
+            opsi_B: 'Jerman=Eropa',
+            opsi_C: 'Mesir=Afrika',
+            opsi_D: 'Brasil=Amerika',
+            opsi_E: '',
+            kunci_jawaban: 'Indonesia=Asia, Jerman=Eropa, Mesir=Afrika, Brasil=Amerika',
+            bobot: 10
+          },
+          {
+            wacana: '',
+            tipe_soal: 'ISIAN',
+            pertanyaan: 'Siapakah presiden pertama Indonesia?',
+            opsi_A: '',
+            opsi_B: '',
+            opsi_C: '',
+            opsi_D: '',
+            opsi_E: '',
+            kunci_jawaban: 'Soekarno',
+            bobot: 10
+          },
+          {
+            wacana: '',
             tipe_soal: 'URAIAN',
             pertanyaan: 'Jelaskan mengapa langit berwarna biru!',
             opsi_A: '',
@@ -138,6 +166,12 @@ import * as XLSX from 'xlsx';
             const payloadData = rows.map(row => {
               let opsiStr = null;
               let finalKunci = row.kunci_jawaban;
+              
+              let finalPertanyaan = row.pertanyaan || '';
+              if (row.wacana) {
+                 finalPertanyaan = `<strong>Wacana:</strong><br/>${row.wacana}<br/><br/>${finalPertanyaan}`;
+              }
+
               if (row.tipe_soal === 'PG') {
                 if (finalKunci === 'A') finalKunci = row.opsi_A;
                 else if (finalKunci === 'B') finalKunci = row.opsi_B;
@@ -145,7 +179,6 @@ import * as XLSX from 'xlsx';
                 else if (finalKunci === 'D') finalKunci = row.opsi_D;
                 else if (finalKunci === 'E') finalKunci = row.opsi_E;
               } else if (row.tipe_soal === 'PGK') {
-                // PGK kunci could be "A,B". Need to convert to JSON array of strings
                 try {
                    let keys = finalKunci.split(',').map(k => k.trim());
                    let mappedKeys = keys.map(k => {
@@ -159,6 +192,7 @@ import * as XLSX from 'xlsx';
                    finalKunci = JSON.stringify(mappedKeys);
                 } catch(e) {}
               }
+
               if (row.tipe_soal === 'PG' || row.tipe_soal === 'PGK') {
                 opsiStr = JSON.stringify([
                   row.opsi_A || '',
@@ -167,14 +201,43 @@ import * as XLSX from 'xlsx';
                   row.opsi_D || '',
                   row.opsi_E || ''
                 ]);
+              } else if (row.tipe_soal === 'JODOH') {
+                let premis = [];
+                let respon = [];
+                let kunci = {};
+                const parseJodoh = (val) => {
+                  if(!val) return;
+                  const parts = String(val).split('=');
+                  if (parts.length === 2) {
+                     const p = parts[0].trim();
+                     const r = parts[1].trim();
+                     if(p && !premis.includes(p)) premis.push(p);
+                     if(r && !respon.includes(r)) respon.push(r);
+                  }
+                };
+                parseJodoh(row.opsi_A); parseJodoh(row.opsi_B); parseJodoh(row.opsi_C); parseJodoh(row.opsi_D); parseJodoh(row.opsi_E);
+                opsiStr = JSON.stringify({ premis, respon });
+
+                if (finalKunci) {
+                   String(finalKunci).split(',').forEach(pair => {
+                      const parts = pair.split('=');
+                      if (parts.length === 2) {
+                         kunci[parts[0].trim()] = parts[1].trim();
+                      }
+                   });
+                   finalKunci = JSON.stringify(kunci);
+                }
+              } else if (row.tipe_soal === 'ISIAN') {
+                 if (finalKunci) finalKunci = String(finalKunci).trim();
               }
+
               return {
                 id_mapel: selectedMapel,
                 npsn: user.npsn,
                 tipe_soal: row.tipe_soal || 'PG',
-                pertanyaan: row.pertanyaan || '',
+                pertanyaan: finalPertanyaan,
                 opsi: opsiStr,
-                kunci_jawaban: row.kunci_jawaban ? String(row.kunci_jawaban) : '',
+                kunci_jawaban: finalKunci ? String(finalKunci) : '',
                 bobot: row.bobot ? parseInt(row.bobot) : 10
               };
             });
