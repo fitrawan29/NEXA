@@ -971,7 +971,7 @@ import FormNarasiModal from '../components/FormNarasiModal.jsx';
                   <input type="password" placeholder="Kosongkan jika tidak ingin diubah" value={profileForm.password} onChange={(e) => setProfileForm({...profileForm, password: e.target.value})} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary/20 outline-none transition-all dark:text-white" />
                 </div>
               </div>
-              <button onClick={handleProfileUpdate} disabled={profileLoading} className="w-full bg-primary hover:bg-primary-dark text-white font-bold py-3 rounded-xl transition-colors disabled:opacity-50">
+              <button onClick={saveProfile} disabled={profileLoading} className="w-full bg-primary hover:bg-primary-dark text-white font-bold py-3 rounded-xl transition-colors disabled:opacity-50">
                 {profileLoading ? 'Menyimpan...' : 'Simpan Perubahan'}
               </button>
             </div>
