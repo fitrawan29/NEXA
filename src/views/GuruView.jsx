@@ -2,6 +2,7 @@ import { fetchAPI, getTrueNow } from '../api.js';
 import React, { useState, useEffect, useRef } from 'react';
 import FormSoalModal from '../components/FormSoalModal.jsx';
 import FormNarasiModal from '../components/FormNarasiModal.jsx';
+import * as XLSX from 'xlsx';
     const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
       const api = (action, p = {}) => {
         if (Array.isArray(p)) return fetchAPI(action, p.map(item => ({ ...item, npsn: user.npsn })));
@@ -979,10 +980,10 @@ import FormNarasiModal from '../components/FormNarasiModal.jsx';
                             <div key={log.id_audit} className="p-4 flex gap-4 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors">
                               <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center flex-shrink-0 text-slate-500">
                                 <span className="material-symbols-outlined text-[20px]">
-                                  {log.aksi.toLowerCase().includes('login') ? 'login' :
-                                   log.aksi.toLowerCase().includes('hapus') ? 'delete' :
-                                   log.aksi.toLowerCase().includes('ubah') ? 'edit' :
-                                   log.aksi.toLowerCase().includes('tambah') ? 'add_circle' : 'info'}
+                                  {(log.aksi || '').toLowerCase().includes('login') ? 'login' :
+                                   (log.aksi || '').toLowerCase().includes('hapus') ? 'delete' :
+                                   (log.aksi || '').toLowerCase().includes('ubah') ? 'edit' :
+                                   (log.aksi || '').toLowerCase().includes('tambah') ? 'add_circle' : 'info'}
                                 </span>
                               </div>
                               <div className="min-w-0 flex-1">
