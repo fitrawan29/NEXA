@@ -42,6 +42,10 @@ const FormNarasiModal = ({ isOpen, data, onClose, onSave }) => {
               <ReactQuill theme="snow" value={pertanyaan} onChange={setPertanyaan} modules={modules} className="h-64 mb-12" />
             </div>
             <p className="text-xs text-slate-500 mt-2">Wacana ini tidak akan dinilai (bobot 0) dan akan muncul sebagai stimulus/bacaan bersama bagi soal-soal yang terhubung kepadanya.</p>
+            <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 rounded-lg">
+              <h4 className="text-xs font-bold text-blue-800 dark:text-blue-300 mb-1 flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">functions</span> Tips Menulis Rumus</h4>
+              <p className="text-xs text-blue-600 dark:text-blue-400">Untuk mata pelajaran eksak, gunakan tombol <strong>fx</strong> di toolbar atas untuk memasukkan rumus dengan format KaTeX/LaTeX (contoh: <code>\sqrt{x^2+1}</code>). Anda juga dapat mengetik rumus langsung di editor dengan mengapitnya menggunakan <code>$$...$$</code> untuk rumus di baris baru, atau <code>\(...\)</code> untuk rumus menyatu dengan teks (MathJax).</p>
+            </div>
           </div>
         </div>
         <div className="p-6 border-t dark:border-slate-700 flex justify-end gap-4">

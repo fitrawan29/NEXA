@@ -699,6 +699,201 @@ import FormNarasiModal from '../components/FormNarasiModal.jsx';
                       {dataJadwal.filter(j => j.status_ujian === 'SELESAI' && j.nama_mapel === filterMapelHasil && (j.target_kelas === filterKelasHasil || (!j.target_kelas && filterKelasHasil === 'Umum'))).length === 0 && <div className="col-span-full text-center text-sm text-slate-500 py-4">Belum ada hasil ujian untuk filter tersebut.</div>}
                     </div>
                   )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      const exportToExcel = () => {
+        if (!dataLog || dataLog.length === 0) return alert('Tidak ada data untuk di-export');
+        const exportData = dataLog.map((l, i) => ({
+          'No': i + 1,
+          'ID Siswa': l.id_siswa,
+          'Nama Siswa': l.nama_lengkap,
+          'Kelas': `${l.angkatan} ${l.kelas_paralel}`,
+          'Status Ujian': l.status_ujian,
+          'Pelanggaran': l.pelanggaran,
+          'Nilai PG': l.nilai_auto,
+          'Nilai Uraian': l.nilai_uraian,
+          'Total Nilai': l.total_nilai
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Hasil Ujian");
+        const fileName = `Hasil_Ujian_${selectedJadwal}_${new Date().getTime()}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+      };
+
+      return (
+        <>
+        <div className="bg-slate-50 dark:bg-slate-900 min-h-screen flex justify-center selection:bg-primary/30 selection:text-primary">
+          <div className="w-full md:max-w-3xl lg:max-w-5xl xl:max-w-6xl mx-auto bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col h-screen">
+            
+            {/* Header / Top Section */}
+            <div className="bg-[#3ecf8e] px-6 pt-6 pb-6 relative text-white shadow-md z-0">
+              <div className="flex justify-between items-start">
+                <div className="flex items-center gap-3">
+                  <div className="w-14 h-14 bg-white/20 rounded-full border-2 border-white/50 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                    {fotoProfil ? (
+                      <img src={fotoProfil} className="w-full h-full object-cover bg-white" />
+                    ) : (
+                      <span className="material-symbols-outlined text-white text-3xl">local_library</span>
+                    )}
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-lg leading-tight">Portal Guru</h2>
+                    <p className="text-sm font-medium opacity-90">{user.nama_lengkap}</p>
+                    <p className="text-xs opacity-80">NIP: {user.nip || '-'}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button type="button" onClick={() => setIsDarkMode(!isDarkMode)} className="relative p-1 rounded-full hover:bg-white/20 transition-colors" title="Mode Gelap/Terang">
+                    <span className="material-symbols-outlined text-2xl">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
+                  </button>
+                  
+                </div>
+              </div>
+            </div>
+
+            {/* Main Scrollable Content */}
+            <div className="flex-1 overflow-y-auto pb-24 hide-scrollbar">
+              
+              
+              {activeTab === 'jadwal' && (
+                <div className="px-6 mt-6 animate-fade-in-up">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Jadwal Mengawas</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {dataJadwal.map((j) => {
+                       const isSelesai = j.status_ujian === 'SELESAI';
+                       const isAktif = j.status_ujian === 'AKTIF';
+                       const iconName = isAktif ? 'play_circle' : isSelesai ? 'check_circle' : 'schedule';
+                       
+                       return (
+                          <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col md:flex-row items-center justify-between gap-3">
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${isAktif ? 'bg-green-100 text-green-500' : isSelesai ? 'bg-slate-100 text-slate-400' : 'bg-orange-100 text-orange-500'}`}>
+                                <span className="material-symbols-outlined">{iconName}</span>
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <h4 className={`font-bold text-sm truncate ${isSelesai ? 'text-slate-500' : 'text-slate-800 dark:text-slate-100'}`}>{j.nama_mapel}</h4>
+                                <p className="text-xs text-slate-500 truncate">{new Date(j.waktu_mulai).toLocaleDateString('id-ID')} - {j.target_kelas ? `Tingkat ${j.target_kelas}` : 'Umum'}</p>
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end gap-2 mt-3 md:mt-0">
+                               <div className="flex gap-2">
+                                 {j.status_ujian !== 'AKTIF' && j.status_ujian !== 'SELESAI' && <button onClick={() => handleUpdateStatusUjian(j.id_jadwal, 'AKTIF')} className="px-3 py-1 bg-green-50 text-green-600 rounded text-xs font-bold hover:bg-green-100">Mulai Ujian</button>}
+                                 {j.status_ujian === 'AKTIF' && <button onClick={() => handleUpdateStatusUjian(j.id_jadwal, 'SELESAI')} className="px-3 py-1 bg-slate-100 text-slate-600 rounded text-xs font-bold hover:bg-slate-200">Akhiri Ujian</button>}
+                                 {j.status_ujian === 'SELESAI' && <button onClick={() => handleUpdateStatusUjian(j.id_jadwal, 'BELUM MULAI')} className="px-3 py-1 bg-orange-50 text-orange-600 rounded text-xs font-bold hover:bg-orange-100">Reset Status</button>}
+                               </div>
+                               <div className="flex items-center gap-2">
+                                 <span className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${isAktif ? 'bg-green-500 text-white shadow-md shadow-green-500/20' : isSelesai ? 'bg-slate-100 text-slate-500' : 'bg-orange-100 text-orange-600'}`}>
+                                   {j.status_ujian}
+                                 </span>
+                                 {j.token && <span className="text-[10px] font-mono text-slate-400 font-bold">#{j.token}</span>}
+                               </div>
+                            </div>
+                          </div>
+                       );
+                    })}
+                    {dataJadwal.length === 0 && <div className="text-center text-sm text-slate-500 py-8">Belum ada jadwal mengawas.</div>}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'monitoring' && (
+                <div className="px-6 mt-6 animate-fade-in-up">
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-2">Monitoring Ujian</h3>
+                  <p className="text-xs text-slate-500 mb-4">Pilih jadwal ujian aktif untuk memantau status siswa yang sedang mengerjakan ujian secara real-time.</p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {dataJadwal.filter(j => j.status_ujian === 'AKTIF').map((j) => (
+                       <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-primary/20 relative overflow-hidden">
+                          <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-r from-primary to-secondary text-on-primary"></div>
+                          <div className="flex justify-between items-start mb-4">
+                            <div>
+                              <h4 className="font-bold text-slate-800 dark:text-slate-100 text-base">{j.nama_mapel}</h4>
+                              <p className="text-xs text-slate-500">{j.target_kelas ? `Tingkat ${j.target_kelas}` : 'Umum'} | Token: <strong className="text-primary font-mono">{j.token}</strong></p>
+                            </div>
+                            <div className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-primary/10 text-primary flex items-center gap-1`}>
+                              <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gradient-to-r from-primary to-secondary text-on-primary opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-gradient-to-r from-primary to-secondary text-on-primary"></span>
+                              </span>
+                              LIVE
+                            </div>
+                          </div>
+                          <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-3 flex justify-between items-center mb-4">
+                             <div className="text-center flex-1">
+                                <span className="block text-xl font-bold text-slate-700 dark:text-slate-200">{j.peserta?.length || 0}</span>
+                                <span className="text-[10px] text-slate-500">Total Peserta</span>
+                             </div>
+                             <div className="w-px h-8 bg-slate-200 dark:bg-slate-700"></div>
+                             <div className="text-center flex-1">
+                                <span className="block text-xl font-bold text-green-500">{j.peserta?.filter(p => p.status === 'SELESAI').length || 0}</span>
+                                <span className="text-[10px] text-slate-500">Selesai</span>
+                             </div>
+                          </div>
+                          <button onClick={() => setSelectedJadwal(j)} className="w-full py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 transition-colors flex justify-center items-center gap-1">
+                             Detail Monitoring <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                          </button>
+                       </div>
+                    ))}
+                    {dataJadwal.filter(j => j.status_ujian === 'AKTIF').length === 0 && (
+                      <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-900/50 rounded-2xl p-6 text-center">
+                        <span className="material-symbols-outlined text-orange-400 text-4xl mb-2">monitoring</span>
+                        <p className="text-sm font-bold text-orange-600 dark:text-orange-400">Tidak Ada Ujian Aktif</p>
+                        <p className="text-xs text-orange-500/80 mt-1">Ujian aktif akan otomatis muncul di sini untuk dimonitoring.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'hasil' && (
+                <div className="px-6 mt-6 animate-fade-in-up pb-24">
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Hasil Evaluasi</h3>
+                  
+                  <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 mb-6 flex flex-col md:flex-row gap-4">
+                     <select value={filterKelasHasil} onChange={(e) => setFilterKelasHasil(e.target.value)} className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2 rounded-xl text-sm outline-none">
+                       <option value="">-- Pilih Kelas --</option>
+                       <option value="10">Kelas 10</option>
+                       <option value="11">Kelas 11</option>
+                       <option value="12">Kelas 12</option>
+                       <option value="Umum">Umum</option>
+                     </select>
+                     <select value={filterMapelHasil} onChange={(e) => setFilterMapelHasil(e.target.value)} className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2 rounded-xl text-sm outline-none">
+                       <option value="">-- Pilih Mapel --</option>
+                       {dataMapel.map(m => <option key={m.id_mapel} value={m.nama_mapel}>{m.nama_mapel}</option>)}
+                     </select>
+                  </div>
+
+                  {!filterKelasHasil || !filterMapelHasil ? (
+                    <div className="text-center text-slate-500 py-10">Silakan pilih Kelas dan Mata Pelajaran terlebih dahulu.</div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                      {dataJadwal.filter(j => j.status_ujian === 'SELESAI' && j.nama_mapel === filterMapelHasil && (j.target_kelas === filterKelasHasil || (!j.target_kelas && filterKelasHasil === 'Umum'))).map((j) => (
+                         <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700">
+                            <h4 className="font-bold text-sm mb-1">{j.nama_mapel}</h4>
+                            <p className="text-xs text-slate-500 mb-3">{new Date(j.waktu_mulai).toLocaleDateString('id-ID')} | Kelas: {j.target_kelas || 'Umum'}</p>
+                            <div className="flex gap-2">
+                               <button onClick={() => { setSelectedJadwal(j); setActiveTab('monitoring'); }} className="flex-1 py-2 bg-primary/10 text-primary rounded-xl text-xs font-bold hover:bg-primary/20 transition-colors">
+                                 Lihat Nilai
+                               </button>
+                               <button onClick={() => openAnalisisSoal(j.id_jadwal, j.id_mapel)} className="flex-1 py-2 bg-purple-50 text-purple-600 rounded-xl text-xs font-bold hover:bg-purple-100 transition-colors">
+                                 Analisis Butir
+                               </button>
+                            </div>
+                         </div>
+                      ))}
+                      {dataJadwal.filter(j => j.status_ujian === 'SELESAI' && j.nama_mapel === filterMapelHasil && (j.target_kelas === filterKelasHasil || (!j.target_kelas && filterKelasHasil === 'Umum'))).length === 0 && <div className="col-span-full text-center text-sm text-slate-500 py-4">Belum ada hasil ujian untuk filter tersebut.</div>}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -706,15 +901,37 @@ import FormNarasiModal from '../components/FormNarasiModal.jsx';
                 <div className="px-6 mt-6 animate-fade-in-up">
                   <div className="flex justify-between items-center mb-4">
                       <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Bank Soal</h3>
-                      <button onClick={() => setPreFormSoal({ isOpen: true, id_mapel: '', target_kelas: '' })} className="bg-primary text-white p-2 rounded-xl hover:bg-primary-dark transition-colors flex items-center justify-center">
-                        <span className="material-symbols-outlined text-xl">add</span>
-                      </button>
+                      <div className="flex gap-2">
+                        <button onClick={() => setFormNarasi({ isOpen: true, data: null })} className="bg-amber-50 text-amber-600 p-2 rounded-xl hover:bg-amber-100 transition-colors flex items-center gap-1 text-sm font-bold" title="Tulis Wacana / Narasi Baru">
+                          <span className="material-symbols-outlined text-xl">article</span>
+                          <span className="hidden sm:inline">Tambah Narasi</span>
+                        </button>
+                        <button onClick={() => setPreFormSoal({ isOpen: true, id_mapel: '', target_kelas: '' })} className="bg-primary text-white p-2 rounded-xl hover:bg-primary-dark transition-colors flex items-center justify-center">
+                          <span className="material-symbols-outlined text-xl">add</span>
+                        </button>
+                      </div>
                   </div>
                   
-                  <div className="flex gap-2 mb-4 overflow-x-auto hide-scrollbar pb-2">
-                     {dataMapel.map(m => (
-                        <button key={m.id_mapel} onClick={() => setSelectedMapel(m.id_mapel)} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${selectedMapel === m.id_mapel ? 'bg-primary text-white shadow-md' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'}`}>{m.nama_mapel}</button>
-                     ))}
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
+                     {dataMapel.map((m, idx) => {
+                        const isSelected = selectedMapel === m.id_mapel;
+                        const color = getMapelColor(idx);
+                        return (
+                           <button 
+                             key={m.id_mapel} 
+                             onClick={() => setSelectedMapel(m.id_mapel)} 
+                             className={`relative aspect-square rounded-2xl p-4 flex flex-col items-center justify-center gap-3 transition-all overflow-hidden ${isSelected ? `bg-gradient-to-br ${color.bg} text-white shadow-lg ring-4 ring-primary/30 scale-[1.02]` : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-primary/50 hover:shadow-md'}`}
+                           >
+                             <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-1 ${isSelected ? 'bg-white/20' : color.icon}`}>
+                                <span className="material-symbols-outlined text-3xl">library_books</span>
+                             </div>
+                             <span className="font-bold text-center text-sm leading-tight">{m.nama_mapel}</span>
+                             <span className={`text-xs px-3 py-1 rounded-full font-bold ${isSelected ? 'bg-black/20 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
+                               {isSelected ? dataSoal.length : (m.jumlah_soal || m.total_soal || 0)} Soal
+                             </span>
+                           </button>
+                        );
+                     })}
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 pb-24">
@@ -955,115 +1172,6 @@ import FormNarasiModal from '../components/FormNarasiModal.jsx';
             </div>
           </div>
         )}
-
-        {/* Avatar Modal */}
-        {isAvatarModalOpen && (
-          <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-sm shadow-2xl p-6 relative border border-slate-100 dark:border-slate-700">
-              <div className="flex justify-between items-center mb-6">
-                <div>
-                   <h3 className="font-bold text-lg dark:text-white">Pilih Avatar</h3>
-                   <p className="text-xs text-slate-500">Pilih karakter untuk foto profil Anda</p>
-                </div>
-                <button onClick={() => setIsAvatarModalOpen(false)} className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
-                  <span className="material-symbols-outlined text-sm">close</span>
-                </button>
-              </div>
-              <div className="grid grid-cols-3 gap-3 mb-2">
-                {PRESET_AVATARS.map((avatar, idx) => (
-                  <button key={idx} onClick={() => handleAvatarSelect(avatar)} className={`w-full aspect-square rounded-2xl overflow-hidden border-2 transition-all ${fotoProfil === avatar ? 'border-primary ring-4 ring-primary/20 shadow-md scale-105 bg-white' : 'border-slate-100 dark:border-slate-700 hover:border-primary/50 bg-slate-50 dark:bg-slate-800'}`}>
-                    <img src={avatar} className="w-full h-full object-cover p-2" />
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-        {renderAnalisisModal && typeof renderAnalisisModal === 'function' ? renderAnalisisModal() : null}
-        {renderResetModal && typeof renderResetModal === 'function' ? renderResetModal() : null}
-        {preFormSoal.isOpen && (
-        <div className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl w-full max-w-sm shadow-xl">
-            <h3 className="font-bold text-lg mb-4">Pilih Kelas & Mapel</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-bold mb-1">Kelas</label>
-                <select value={preFormSoal.target_kelas} onChange={(e) => setPreFormSoal({...preFormSoal, target_kelas: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-3 rounded-xl">
-                  <option value="">Pilih Kelas</option>
-                  <option value="10">Kelas 10</option>
-                  <option value="11">Kelas 11</option>
-                  <option value="12">Kelas 12</option>
-                  <option value="Umum">Umum</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-bold mb-1">Mata Pelajaran</label>
-                <select value={preFormSoal.id_mapel} onChange={(e) => setPreFormSoal({...preFormSoal, id_mapel: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-3 rounded-xl">
-                  <option value="">Pilih Mapel</option>
-                  {dataMapel.map(m => <option key={m.id_mapel} value={m.id_mapel}>{m.nama_mapel}</option>)}
-                </select>
-              </div>
-            </div>
-            <div className="flex gap-2 mt-6">
-              <button onClick={() => setPreFormSoal({ isOpen: false, id_mapel: '', target_kelas: '' })} className="flex-1 py-3 text-slate-500 font-bold hover:bg-slate-100 rounded-xl">Batal</button>
-              <button onClick={() => {
-                if(!preFormSoal.id_mapel || !preFormSoal.target_kelas) return alert('Pilih kelas dan mapel!');
-                setPreFormSoal({ isOpen: false, id_mapel: '', target_kelas: '' });
-                setFormSoal({ isOpen: true, data: null, id_mapel: preFormSoal.id_mapel });
-              }} className="flex-1 py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary-dark">Lanjut</button>
-            </div>
-          </div>
-        </div>
-        )}
-        {skemaModal.isOpen && (
-        <div className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
-            <h3 className="font-bold text-lg mb-4">Pengaturan Skema Penilaian</h3>
-            <p className="text-sm text-slate-500 mb-4">Pengaturan ini akan dipisahkan dari tabel soal dan digunakan saat kalkulasi nilai akhir.</p>
-            <div className="space-y-4">
-               <div>
-                 <label className="block text-sm font-bold mb-1">Mata Pelajaran</label>
-                 <select value={skemaModal.id_mapel} onChange={(e) => setSkemaModal({...skemaModal, id_mapel: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-3 rounded-xl">
-                   {dataMapel.map(m => <option key={m.id_mapel} value={m.id_mapel}>{m.nama_mapel}</option>)}
-                 </select>
-               </div>
-               
-               <div className="grid grid-cols-2 gap-3">
-                 <div>
-                   <label className="block text-xs font-bold text-slate-500 mb-1">Bobot PG (%)</label>
-                   <input type="number" value={skemaPenilaian.PG || 40} onChange={e => setSkemaPenilaian({...skemaPenilaian, PG: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2 rounded-lg" />
-                 </div>
-                 <div>
-                   <label className="block text-xs font-bold text-slate-500 mb-1">Bobot PGK (%)</label>
-                   <input type="number" value={skemaPenilaian.PGK || 30} onChange={e => setSkemaPenilaian({...skemaPenilaian, PGK: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2 rounded-lg" />
-                 </div>
-                 <div>
-                   <label className="block text-xs font-bold text-slate-500 mb-1">Bobot Benar/Salah (%)</label>
-                   <input type="number" value={skemaPenilaian.BS || 10} onChange={e => setSkemaPenilaian({...skemaPenilaian, BS: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2 rounded-lg" />
-                 </div>
-                 <div>
-                   <label className="block text-xs font-bold text-slate-500 mb-1">Bobot Menjodohkan (%)</label>
-                   <input type="number" value={skemaPenilaian.JODOH || 10} onChange={e => setSkemaPenilaian({...skemaPenilaian, JODOH: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2 rounded-lg" />
-                 </div>
-                 <div>
-                   <label className="block text-xs font-bold text-slate-500 mb-1">Bobot Uraian (%)</label>
-                   <input type="number" value={skemaPenilaian.URAIAN || 10} onChange={e => setSkemaPenilaian({...skemaPenilaian, URAIAN: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2 rounded-lg" />
-                 </div>
-               </div>
-            </div>
-            <div className="flex gap-2 mt-6">
-              <button onClick={() => setSkemaModal({ isOpen: false, id_mapel: null })} className="flex-1 py-3 text-slate-500 font-bold hover:bg-slate-100 rounded-xl">Batal</button>
-              <button onClick={() => saveSkema(skemaPenilaian)} className="flex-1 py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary-dark">Simpan Skema</button>
-            </div>
-          </div>
-        </div>
-        )}
-        <FormSoalModal isOpen={formSoal.isOpen} data={formSoal.data} narasiList={[]} onClose={() => setFormSoal({ isOpen: false, data: null, id_mapel: '' })} onSave={handleSaveSoal} />
-        </>
-      );
-    };
-
-export default GuruView;
 
 
 
