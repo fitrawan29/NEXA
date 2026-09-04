@@ -8,6 +8,20 @@ import * as XLSX from 'xlsx';
         if (Array.isArray(p)) return fetchAPI(action, p.map(item => ({ ...item, npsn: user.npsn })));
         return fetchAPI(action, { ...p, npsn: user.npsn });
       };
+
+      const logActivity = async (action, target) => {
+        try {
+          await api('create_audit_log', {
+            username: user.username || user.nama_lengkap,
+            role: 'guru',
+            action,
+            target
+          });
+        } catch (e) {
+          console.error('Failed to log activity:', e);
+        }
+      };
+
       const [activeTab, setActiveTab] = useState('dashboard');
       const [dataJadwal, setDataJadwal] = useState([]);
       const [selectedJadwal, setSelectedJadwal] = useState(null);
@@ -40,6 +54,7 @@ import * as XLSX from 'xlsx';
         if (res.status === 'success') {
           setFotoProfil(avatarUrl);
           setIsAvatarModalOpen(false);
+          logActivity('UPDATE AVATAR', 'Memperbarui foto profil avatar akun guru');
         } else {
           alert(res.message);
         }
@@ -47,18 +62,32 @@ import * as XLSX from 'xlsx';
       
       const [dataMapel, setDataMapel] = useState([]);
       const [dataKelas, setDataKelas] = useState([]);
-    const [dataDashboard, setDataDashboard] = useState({ totalJadwal: 0, totalSelesai: 0, rataNilai: 0 });
-    const [dataAudit, setDataAudit] = useState([]);
+      const [dataDashboard, setDataDashboard] = useState({ totalJadwal: 0, totalSelesai: 0, rataNilai: 0 });
+      const [dataAudit, setDataAudit] = useState([]);
       const [selectedMapel, setSelectedMapel] = useState(null);
       const [dataSoal, setDataSoal] = useState([]);
       
       const [resetModal, setResetModal] = useState(null);
       const [monitoringPage, setMonitoringPage] = useState(1);
-      const [filterMapelHasil, setFilterMapelHasil] = useState('');
+      
+      // Hasil Evaluasi State
+      const [filterMapelHasil, setFilterMapelHasil] = useState('ALL');
       const [filterKelasHasil, setFilterKelasHasil] = useState('');
+      const [filterParalelHasil, setFilterParalelHasil] = useState([]); // Multi-select array
+      const [selectedHasilJadwal, setSelectedHasilJadwal] = useState(null);
+      const [dataHasilSiswa, setDataHasilSiswa] = useState([]);
+      const [isHasilModalOpen, setIsHasilModalOpen] = useState(false);
+      const [filterHasilParalelDetail, setFilterHasilParalelDetail] = useState('ALL');
+      const [searchHasilSiswa, setSearchHasilSiswa] = useState('');
+
+      // Log Aktivitas State
+      const [activeLogSubTab, setActiveLogSubTab] = useState('aktif'); // 'aktif' | 'arsip'
+      const [dataAuditArchive, setDataAuditArchive] = useState([]);
+      const [isArchivingLog, setIsArchivingLog] = useState(false);
+
       const [skemaModal, setSkemaModal] = useState({ isOpen: false, id_mapel: null });
       const [skemaPenilaian, setSkemaPenilaian] = useState([]);
-      const [preFormSoal, setPreFormSoal] = useState({ isOpen: false, id_mapel: '', target_kelas: '' });
+      const [preFormSoal, setPreFormSoal] = useState({ isOpen: false, id_mapel: '', target_kelas: '', target_paralel: [] });
       const [formSoal, setFormSoal] = useState({ isOpen: false, data: null, id_mapel: '' });
 
       const [formNarasi, setFormNarasi] = useState({ isOpen: false, data: null });
@@ -247,6 +276,8 @@ import * as XLSX from 'xlsx';
             const res = await api('import_soal_bulk', { data: payloadData, npsn: user.npsn });
             if (res.status === 'success') {
               alert(payloadData.length + ' soal berhasil diimpor!');
+              const mapelNama = dataMapel.find(m => m.id_mapel === selectedMapel)?.nama_mapel || selectedMapel;
+              logActivity('IMPORT SOAL', `Import ${payloadData.length} butir soal Excel pada mapel ${mapelNama}`);
               fetchData();
             } else {
               alert(res.message);
@@ -263,7 +294,10 @@ import * as XLSX from 'xlsx';
         if (!confirm('Anda yakin ingin menghentikan ujian peserta ini secara paksa?')) return;
         setIsLoading(true);
         const res = await api('force_stop_ujian', { id_log });
-        if (res.status === 'success') fetchData();
+        if (res.status === 'success') {
+          logActivity('STOP PAKSA SISWA', `Menghentikan paksa ujian siswa pada sesi ${id_log}`);
+          fetchData();
+        }
         setIsLoading(false);
       };
 
@@ -272,6 +306,7 @@ import * as XLSX from 'xlsx';
         const res = await api(resetType === 'total' ? 'reset_sesi_siswa' : 'reset_login_siswa', { id_siswa, npsn: user.npsn });
         if (res.status === 'success') {
           alert('Berhasil mereset akun peserta.');
+          logActivity('RESET SESI SISWA', `Reset sesi peserta (ID Siswa: ${id_siswa}, tipe: ${resetType})`);
           fetchData();
         } else {
           alert('Gagal: ' + res.message);
@@ -298,6 +333,9 @@ import * as XLSX from 'xlsx';
         setIsLoading(false);
         if (res.status === 'success') {
           setFormSoal({ isOpen: false, data: null, id_mapel: '' });
+          const actName = formSoal.data ? 'EDIT SOAL' : 'TAMBAH SOAL';
+          const mapelNama = dataMapel.find(m => m.id_mapel === formSoal.id_mapel)?.nama_mapel || formSoal.id_mapel;
+          logActivity(actName, `${actName} (${payload.tipe_soal}) pada mapel ${mapelNama}`);
           fetchData(); // refresh bank soal
         } else {
           alert('Gagal menyimpan soal: ' + res.message);
@@ -384,6 +422,10 @@ import * as XLSX from 'xlsx';
 
       const fetchData = async () => {
         setIsLoading(true);
+
+        // Selalu muat data kelas untuk filter kelas & paralel
+        const resKelas = await api('get_kelas', {});
+        if (resKelas.status === 'success') setDataKelas(resKelas.data || []);
         
         if (activeTab === 'jadwal' || activeTab === 'dashboard') {
           const res = await api('get_jadwal_pengawas', { id_guru: guruId });
@@ -398,15 +440,21 @@ import * as XLSX from 'xlsx';
         } else if (activeTab === 'monitoring' || activeTab === 'hasil') {
           const res = await api('get_jadwal_pengawas', { id_guru: guruId });
           if (res.status === 'success') setDataJadwal(res.data);
-          if (selectedJadwal) {
-            const endpoint = activeTab === 'hasil' ? 'get_hasil_ujian' : 'monitoring_ujian';
-            const logRes = await api(endpoint, { id_jadwal: selectedJadwal });
+          
+          const resMapel = await api('get_mapel_guru', { id_guru: guruId });
+          if (resMapel.status === 'success') setDataMapel(resMapel.data);
+
+          if (selectedJadwal && activeTab === 'monitoring') {
+            const endpoint = 'monitoring_ujian';
+            const logRes = await api(endpoint, { id_jadwal: typeof selectedJadwal === 'object' ? selectedJadwal.id_jadwal : selectedJadwal });
             if (logRes.status === 'success') setDataLog(logRes.data);
           }
         
         } else if (activeTab === 'logs') {
-          const res = await api('get_audit_log', { filterGuru: guruId });
-          if (res.status === 'success') setDataAudit(res.data);
+          const res = await api('get_audit_log', { username: user.username });
+          if (res.status === 'success') setDataAudit(res.data || []);
+          const resArc = await api('get_audit_log_archive', { username: user.username });
+          if (resArc.status === 'success') setDataAuditArchive(resArc.data || []);
         } else if (activeTab === 'bank_soal') {
           const res = await api('get_mapel_guru', { id_guru: guruId });
           if (res.status === 'success') {
@@ -460,6 +508,8 @@ import * as XLSX from 'xlsx';
         const res = await api('update_jadwal', { id_jadwal, ...updates });
         setIsLoading(false);
         if (res.status === 'success') {
+          const mapelNama = dataJadwal.find(j => j.id_jadwal === id_jadwal)?.nama_mapel || id_jadwal;
+          logActivity('STATUS UJIAN', `Mengubah status ujian ${mapelNama} menjadi ${status_baru}`);
           fetchData();
         } else {
           alert(res.message);
@@ -470,6 +520,7 @@ import * as XLSX from 'xlsx';
         const res = await api('get_token', { id_jadwal: id });
         if (res.status === 'success') {
           alert('Token Ujian: ' + res.token);
+          logActivity('GENERATE TOKEN', `Membuat token ujian baru untuk jadwal ID ${id}`);
           fetchData();
         } else alert(res.message);
       };
@@ -477,12 +528,14 @@ import * as XLSX from 'xlsx';
       const handleBlock = async (idLog) => {
         if (!confirm('Blokir siswa ini?')) return;
         await api('catat_pelanggaran', { id_log: idLog });
+        logActivity('BLOKIR SISWA', `Memblokir sesi ujian siswa (ID Log: ${idLog})`);
         fetchData();
       };
 
       const handleUnblock = async (idLog) => {
         if (!confirm('Buka blokir siswa ini?')) return;
         await api('buka_blokir', { id_log: idLog });
+        logActivity('BUKA BLOKIR', `Membuka blokir sesi ujian siswa (ID Log: ${idLog})`);
         fetchData();
       };
 
@@ -496,6 +549,8 @@ import * as XLSX from 'xlsx';
         if (res.status === 'success') {
           setFormSoal({ isOpen: false, data: null });
           setFormNarasi({ isOpen: false, data: null });
+          const mapelNama = dataMapel.find(m => m.id_mapel === selectedMapel)?.nama_mapel || selectedMapel;
+          logActivity(payload.id_soal ? 'EDIT WACANA' : 'TAMBAH WACANA', `Menyimpan wacana/narasi pada mapel ${mapelNama}`);
           fetchData();
         } else alert(res.message);
       };
@@ -511,6 +566,8 @@ import * as XLSX from 'xlsx';
         const res = await api(endpoint, payload);
         if (res.status === 'success') {
           alert('Skema penilaian berhasil disimpan.');
+          const mapelNama = dataMapel.find(m => m.id_mapel === selectedMapel)?.nama_mapel || selectedMapel;
+          logActivity('SKEMA PENILAIAN', `Menyimpan skema bobot penilaian mapel ${mapelNama}`);
           fetchData();
         } else alert(res.message);
       };
@@ -518,7 +575,10 @@ import * as XLSX from 'xlsx';
       const deleteSoal = async (id) => {
         if (!confirm('Hapus soal ini?')) return;
         const res = await api('delete_soal_mapel', { id_soal: id });
-        if (res.status === 'success') fetchData();
+        if (res.status === 'success') {
+          logActivity('HAPUS SOAL', `Menghapus soal ID ${id}`);
+          fetchData();
+        }
         else alert(res.message);
       };
 
@@ -534,6 +594,7 @@ import * as XLSX from 'xlsx';
       const saveNilaiUraian = async (totalNilai) => {
         const res = await api('update_nilai_uraian', { id_log: modalUraian.logUjian.id_log, nilai_uraian_total: totalNilai });
         if (res.status === 'success') {
+          logActivity('NILAI URAIAN', `Memberikan nilai uraian siswa pada sesi ${modalUraian.logUjian.id_log} skor ${totalNilai}`);
           setModalUraian({ isOpen: false, logUjian: null, jawabanUraian: [] });
           fetchData();
         } else alert(res.message);
@@ -559,6 +620,7 @@ import * as XLSX from 'xlsx';
         setProfileLoading(false);
         if (res.status === 'success') {
           alert('Profil berhasil diperbarui!');
+          logActivity('UPDATE PROFIL', 'Memperbarui data profil atau kata sandi guru');
           setShowProfileModal(false);
           if (profileForm.foto) user.foto = profileForm.foto;
         } else {
@@ -578,19 +640,110 @@ import * as XLSX from 'xlsx';
 
       const getMapelColor = (index) => mapelCardColors[index % mapelCardColors.length];
 
-      const openAnalisisSoal = async () => {
-        if (!selectedJadwal) return alert('Pilih jadwal ujian terlebih dahulu.');
-        const jadwalObj = dataJadwal.find(j => j.id_jadwal === selectedJadwal);
-        if (!jadwalObj) return;
+      const openAnalisisSoal = async (jadwalId, mapelId) => {
+        const jId = jadwalId || (selectedHasilJadwal ? selectedHasilJadwal.id_jadwal : (typeof selectedJadwal === 'object' ? selectedJadwal?.id_jadwal : selectedJadwal));
+        if (!jId) return alert('Pilih jadwal ujian terlebih dahulu.');
+        const jadwalObj = dataJadwal.find(j => j.id_jadwal === jId) || selectedHasilJadwal;
+        const mId = mapelId || (jadwalObj ? jadwalObj.id_mapel : null);
+        if (!mId) return alert('ID Mata Pelajaran tidak ditemukan.');
         setIsLoading(true);
-        const res = await api('get_analisis_soal', { id_jadwal: selectedJadwal, id_mapel: jadwalObj.id_mapel });
+        const res = await api('get_analisis_soal', { id_jadwal: jId, id_mapel: mId });
         setIsLoading(false);
         if (res.status === 'success') {
           setDataAnalisis(res.data);
           setIsAnalisisModalOpen(true);
+          logActivity('ANALISIS SOAL', `Membuka analisis butir soal mapel ${jadwalObj?.nama_mapel || ''}`);
         } else {
-          alert('Gagal memuat analisis soal: ' + res.message);
+          alert('Gagal memuat analisis butir soal: ' + (res.message || ''));
         }
+      };
+
+      const handleOpenHasilDetail = async (jadwal) => {
+        setIsLoading(true);
+        setSelectedHasilJadwal(jadwal);
+        const res = await api('get_hasil_ujian', { id_jadwal: jadwal.id_jadwal });
+        setIsLoading(false);
+        if (res.status === 'success') {
+          setDataHasilSiswa(res.data || []);
+          setIsHasilModalOpen(true);
+          setFilterHasilParalelDetail('ALL');
+          setSearchHasilSiswa('');
+          logActivity('LIHAT HASIL', `Melihat rekap nilai ujian mapel ${jadwal.nama_mapel}`);
+        } else {
+          alert('Gagal memuat rekap nilai: ' + (res.message || ''));
+        }
+      };
+
+      const exportHasilToExcel = (jadwal, siswaList, paralelFilter) => {
+        if (!siswaList || siswaList.length === 0) return alert('Tidak ada data hasil ujian untuk di-export');
+        
+        let filteredList = [...siswaList];
+        if (paralelFilter && paralelFilter !== 'ALL') {
+          filteredList = filteredList.filter(s => s.kelas_paralel === paralelFilter);
+        }
+
+        const exportData = filteredList.map((l, i) => {
+          const nilaiAkhir = Number(l.total_nilai) || 0;
+          return {
+            'Peringkat': i + 1,
+            'NISN': l.nisn || '-',
+            'Nama Siswa': l.nama_lengkap,
+            'Tingkat': l.angkatan || '-',
+            'Kelas Paralel': l.kelas_paralel || '-',
+            'Nilai PG': Number(l.nilai_auto) || 0,
+            'Nilai Uraian': Number(l.nilai_uraian) || 0,
+            'Total Nilai': nilaiAkhir,
+            'Status': nilaiAkhir >= 75 ? 'Tuntas' : 'Remedial'
+          };
+        });
+
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Rekap Nilai Siswa");
+        
+        const safeMapel = (jadwal?.nama_mapel || 'Mapel').replace(/[^a-zA-Z0-9]/g, '_');
+        const safeKelas = (jadwal?.target_kelas || 'Semua').replace(/[^a-zA-Z0-9]/g, '_');
+        const safeParalel = (paralelFilter === 'ALL' ? 'SemuaParalel' : `Paralel_${paralelFilter}`);
+        const fileName = `Hasil_Evaluasi_${safeMapel}_${safeKelas}_${safeParalel}_${new Date().toISOString().slice(0,10)}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+        logActivity('EXPORT NILAI', `Export file Excel hasil evaluasi mapel ${jadwal?.nama_mapel || ''} (${safeKelas} - ${safeParalel})`);
+      };
+
+      const handleResetArchiveLog = async () => {
+        if (!confirm('Apakah Anda yakin ingin mereset dan mengarsipkan semua log aktif saat ini ke riwayat arsip? Log tidak akan terhapus, melainkan disimpan di Riwayat Arsip.')) return;
+        setIsArchivingLog(true);
+        const res = await api('reset_and_archive_audit_log', { username: user.username });
+        setIsArchivingLog(false);
+        if (res.status === 'success') {
+          alert(res.message);
+          const resAudit = await api('get_audit_log', { username: user.username });
+          if (resAudit.status === 'success') setDataAudit(resAudit.data || []);
+          const resArc = await api('get_audit_log_archive', { username: user.username });
+          if (resArc.status === 'success') setDataAuditArchive(resArc.data || []);
+        } else {
+          alert(res.message);
+        }
+      };
+
+      const handleExportLogToExcel = (isArchive = false) => {
+        const list = isArchive ? dataAuditArchive : dataAudit;
+        if (!list || list.length === 0) return alert('Tidak ada data log untuk diunduh.');
+        const exportData = list.map((l, i) => ({
+          'No': i + 1,
+          'Waktu': new Date(l.created_at).toLocaleString('id-ID'),
+          'User': l.username,
+          'Peran': l.role,
+          'Aksi': l.action,
+          'Target / Keterangan': l.target,
+          ...(isArchive ? { 'Waktu Diarsipkan': l.archived_at ? new Date(l.archived_at).toLocaleString('id-ID') : '-' } : {})
+        }));
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        const wb = XLSX.utils.book_new();
+        const sheetTitle = isArchive ? 'Arsip Log' : 'Log Aktif';
+        XLSX.utils.book_append_sheet(wb, ws, sheetTitle);
+        const filePrefix = isArchive ? 'Arsip_Log_Aktivitas' : 'Log_Aktivitas_Aktif';
+        XLSX.writeFile(wb, `${filePrefix}_${user.username}_${new Date().toISOString().slice(0,10)}.xlsx`);
+        logActivity('EXPORT LOG', `Mengunduh berkas ${sheetTitle} ke Excel`);
       };
 
       const renderAnalisisModal = () => {
@@ -630,27 +783,6 @@ import * as XLSX from 'xlsx';
             </div>
           </div>
         );
-      };
-
-      const exportToExcel = () => {
-        if (!dataLog || dataLog.length === 0) return alert('Tidak ada data untuk di-export');
-        const exportData = dataLog.map((l, i) => ({
-          'No': i + 1,
-          'ID Siswa': l.id_siswa,
-          'Nama Siswa': l.nama_lengkap,
-          'Kelas': `${l.angkatan} ${l.kelas_paralel}`,
-          'Status Ujian': l.status_ujian,
-          'Pelanggaran': l.pelanggaran,
-          'Nilai PG': l.nilai_auto,
-          'Nilai Uraian': l.nilai_uraian,
-          'Total Nilai': l.total_nilai
-        }));
-
-        const ws = XLSX.utils.json_to_sheet(exportData);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Hasil Ujian");
-        const fileName = `Hasil_Ujian_${selectedJadwal}_${new Date().getTime()}.xlsx`;
-        XLSX.writeFile(wb, fileName);
       };
 
       return (
@@ -829,47 +961,216 @@ import * as XLSX from 'xlsx';
                 </div>
               )}
 
-              {activeTab === 'hasil' && (
-                <div className="px-6 mt-6 animate-fade-in-up pb-24">
-                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">Hasil Evaluasi</h3>
-                  
-                  <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 mb-6 flex flex-col md:flex-row gap-4">
-                     <select value={filterKelasHasil} onChange={(e) => setFilterKelasHasil(e.target.value)} className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2 rounded-xl text-sm outline-none">
-                       <option value="">-- Pilih Kelas --</option>
-                       <option value="10">Kelas 10</option>
-                       <option value="11">Kelas 11</option>
-                       <option value="12">Kelas 12</option>
-                       <option value="Umum">Umum</option>
-                     </select>
-                     <select value={filterMapelHasil} onChange={(e) => setFilterMapelHasil(e.target.value)} className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2 rounded-xl text-sm outline-none">
-                       <option value="">-- Pilih Mapel --</option>
-                       {dataMapel.map(m => <option key={m.id_mapel} value={m.nama_mapel}>{m.nama_mapel}</option>)}
-                     </select>
-                  </div>
+              {activeTab === 'hasil' && (() => {
+                const tingkatList = Array.from(new Set(dataKelas.map(k => k.tingkat).filter(Boolean)));
+                const availableParalels = filterKelasHasil && filterKelasHasil !== 'Umum'
+                  ? Array.from(new Set(dataKelas.filter(k => k.tingkat === filterKelasHasil).map(k => k.kelas_paralel).filter(Boolean)))
+                  : [];
 
-                  {!filterKelasHasil || !filterMapelHasil ? (
-                    <div className="text-center text-slate-500 py-10">Silakan pilih Kelas dan Mata Pelajaran terlebih dahulu.</div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                      {dataJadwal.filter(j => j.status_ujian === 'SELESAI' && j.nama_mapel === filterMapelHasil && (j.target_kelas === filterKelasHasil || (!j.target_kelas && filterKelasHasil === 'Umum'))).map((j) => (
-                         <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700">
-                            <h4 className="font-bold text-sm mb-1">{j.nama_mapel}</h4>
-                            <p className="text-xs text-slate-500 mb-3">{new Date(j.waktu_mulai).toLocaleDateString('id-ID')} | Kelas: {j.target_kelas || 'Umum'}</p>
-                            <div className="flex gap-2">
-                               <button onClick={() => { setSelectedJadwal(j); setActiveTab('monitoring'); }} className="flex-1 py-2 bg-primary/10 text-primary rounded-xl text-xs font-bold hover:bg-primary/20 transition-colors">
-                                 Lihat Nilai
-                               </button>
-                               <button onClick={() => openAnalisisSoal(j.id_jadwal, j.id_mapel)} className="flex-1 py-2 bg-purple-50 text-purple-600 rounded-xl text-xs font-bold hover:bg-purple-100 transition-colors">
-                                 Analisis Butir
-                               </button>
-                            </div>
-                         </div>
-                      ))}
-                      {dataJadwal.filter(j => j.status_ujian === 'SELESAI' && j.nama_mapel === filterMapelHasil && (j.target_kelas === filterKelasHasil || (!j.target_kelas && filterKelasHasil === 'Umum'))).length === 0 && <div className="col-span-full text-center text-sm text-slate-500 py-4">Belum ada hasil ujian untuk filter tersebut.</div>}
+                const filteredJadwalHasil = dataJadwal.filter(j => {
+                  if (j.status_ujian !== 'SELESAI') return false;
+                  if (filterMapelHasil && filterMapelHasil !== 'ALL' && j.nama_mapel !== filterMapelHasil) return false;
+                  if (filterKelasHasil && filterKelasHasil !== 'Umum') {
+                    if (j.target_kelas && j.target_kelas !== 'Umum' && j.target_kelas !== filterKelasHasil && !j.target_kelas.includes(filterKelasHasil)) {
+                      return false;
+                    }
+                  }
+                  return true;
+                });
+
+                return (
+                  <div className="px-6 mt-6 animate-fade-in-up pb-24">
+                    <div className="mb-4">
+                      <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Hasil Evaluasi Pembelajaran</h3>
+                      <p className="text-xs text-slate-500">Pilih Kelas / Tingkat, pilih satu atau lebih Kelas Paralel, dan Mata Pelajaran untuk melihat rekap nilai.</p>
                     </div>
-                  )}
-                </div>
-              )}
+                    
+                    {/* Filter Box */}
+                    <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 mb-6 space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Dropdown Kelas / Tingkat */}
+                        <div>
+                          <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                            <span className="material-symbols-outlined text-[16px] text-primary">school</span>
+                            Kelas / Tingkat
+                          </label>
+                          <select 
+                            value={filterKelasHasil} 
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setFilterKelasHasil(val);
+                              // Default: pilih semua paralel untuk tingkat ini
+                              const allP = dataKelas.filter(k => k.tingkat === val).map(k => k.kelas_paralel).filter(Boolean);
+                              setFilterParalelHasil(Array.from(new Set(allP)));
+                            }} 
+                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/40 dark:text-white"
+                          >
+                            <option value="">-- Pilih Kelas / Tingkat --</option>
+                            {tingkatList.map(t => (
+                              <option key={t} value={t}>{t.startsWith('Kelas') || t.startsWith('Tingkat') ? t : `Tingkat ${t}`}</option>
+                            ))}
+                            <option value="Umum">Umum / Semua Tingkat</option>
+                          </select>
+                        </div>
+
+                        {/* Dropdown Mapel */}
+                        <div>
+                          <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                            <span className="material-symbols-outlined text-[16px] text-purple-500">auto_stories</span>
+                            Mata Pelajaran
+                          </label>
+                          <select 
+                            value={filterMapelHasil} 
+                            onChange={(e) => setFilterMapelHasil(e.target.value)} 
+                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/40 dark:text-white"
+                          >
+                            <option value="ALL">Semua Mata Pelajaran</option>
+                            {dataMapel.map(m => (
+                              <option key={m.id_mapel} value={m.nama_mapel}>{m.nama_mapel}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Multi-Select Kelas Paralel */}
+                      {filterKelasHasil && filterKelasHasil !== 'Umum' && (
+                        <div className="pt-3 border-t border-slate-100 dark:border-slate-700/60">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-2.5">
+                            <label className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                              <span className="material-symbols-outlined text-[16px] text-amber-500">splitscreen</span>
+                              Pilih Kelas Paralel <span className="text-[11px] font-normal text-slate-400">(Boleh pilih lebih dari satu)</span>
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <button 
+                                type="button" 
+                                onClick={() => {
+                                  const allP = dataKelas.filter(k => k.tingkat === filterKelasHasil).map(k => k.kelas_paralel).filter(Boolean);
+                                  setFilterParalelHasil(Array.from(new Set(allP)));
+                                }}
+                                className="text-[11px] text-primary hover:underline font-bold"
+                              >
+                                Pilih Semua
+                              </button>
+                              <span className="text-slate-300 dark:text-slate-600">|</span>
+                              <button 
+                                type="button" 
+                                onClick={() => setFilterParalelHasil([])}
+                                className="text-[11px] text-slate-500 hover:underline font-bold"
+                              >
+                                Kosongkan
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap gap-2">
+                            {availableParalels.length === 0 ? (
+                              <span className="text-xs text-slate-400 italic">Tidak ada paralel spesifik pada tingkat ini.</span>
+                            ) : (
+                              availableParalels.map(p => {
+                                const isSelected = filterParalelHasil.includes(p);
+                                return (
+                                  <button
+                                    key={p}
+                                    type="button"
+                                    onClick={() => {
+                                      if (isSelected) {
+                                        setFilterParalelHasil(filterParalelHasil.filter(item => item !== p));
+                                      } else {
+                                        setFilterParalelHasil([...filterParalelHasil, p]);
+                                      }
+                                    }}
+                                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border ${
+                                      isSelected 
+                                        ? 'bg-primary text-white border-primary shadow-sm shadow-primary/25' 
+                                        : 'bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
+                                    }`}
+                                  >
+                                    <span className="material-symbols-outlined text-[15px]">
+                                      {isSelected ? 'check_box' : 'check_box_outline_blank'}
+                                    </span>
+                                    Paralel {p}
+                                  </button>
+                                );
+                              })
+                            )}
+                          </div>
+                          {filterParalelHasil.length > 0 && (
+                            <p className="text-[11px] text-slate-500 mt-2 flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[14px] text-green-500">task_alt</span>
+                              Kelas paralel aktif ({filterParalelHasil.length}): <strong className="text-slate-700 dark:text-slate-200">{filterParalelHasil.map(p => `Paralel ${p}`).join(', ')}</strong>
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Content Section */}
+                    {!filterKelasHasil ? (
+                      <div className="bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 rounded-2xl p-10 text-center">
+                        <span className="material-symbols-outlined text-4xl text-slate-400 mb-2">assignment</span>
+                        <p className="text-sm font-bold text-slate-600 dark:text-slate-300">Pilih Kelas / Tingkat Terlebih Dahulu</p>
+                        <p className="text-xs text-slate-400 mt-1">Silakan pilih kelas dan kelas paralel di atas untuk menampilkan hasil evaluasi ujian.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                            Daftar Ujian Selesai ({filteredJadwalHasil.length})
+                          </h4>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                          {filteredJadwalHasil.map((j) => (
+                            <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col justify-between hover:shadow-md transition-shadow">
+                              <div>
+                                <div className="flex justify-between items-start mb-2">
+                                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">
+                                    SELESAI
+                                  </span>
+                                  <span className="text-[11px] text-slate-400">
+                                    {new Date(j.waktu_mulai).toLocaleDateString('id-ID')}
+                                  </span>
+                                </div>
+                                <h4 className="font-bold text-base text-slate-800 dark:text-slate-100 mb-1">{j.nama_mapel}</h4>
+                                <div className="space-y-1 mb-4 text-xs text-slate-500">
+                                  <p>Tingkat: <strong className="text-slate-700 dark:text-slate-300">{j.target_kelas || 'Umum'}</strong></p>
+                                  {filterParalelHasil.length > 0 && (
+                                    <p className="line-clamp-1">Paralel Ditinjau: <span className="text-primary font-bold">{filterParalelHasil.join(', ')}</span></p>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2 pt-3 border-t border-slate-100 dark:border-slate-700/60">
+                                <button 
+                                  onClick={() => handleOpenHasilDetail(j)} 
+                                  className="flex-1 py-2.5 bg-primary text-white rounded-xl text-xs font-bold hover:bg-primary-dark transition-colors flex items-center justify-center gap-1.5 shadow-sm shadow-primary/20"
+                                >
+                                  <span className="material-symbols-outlined text-[16px]">visibility</span>
+                                  Lihat Rekap Nilai
+                                </button>
+                                <button 
+                                  onClick={() => openAnalisisSoal(j.id_jadwal, j.id_mapel)} 
+                                  className="py-2.5 px-3 bg-purple-50 text-purple-600 rounded-xl text-xs font-bold hover:bg-purple-100 transition-colors flex items-center gap-1"
+                                  title="Analisis Butir Soal"
+                                >
+                                  <span className="material-symbols-outlined text-[16px]">analytics</span>
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+
+                          {filteredJadwalHasil.length === 0 && (
+                            <div className="col-span-full bg-white dark:bg-slate-800 p-8 rounded-2xl border border-slate-100 dark:border-slate-700 text-center text-slate-500">
+                              <span className="material-symbols-outlined text-3xl opacity-40 mb-1">quiz</span>
+                              <p className="text-sm font-medium">Belum ada ujian berstatus selesai untuk filter ini.</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {activeTab === 'bank_soal' && (
                 <div className="px-6 mt-6 animate-fade-in-up pb-24">
@@ -1022,42 +1323,168 @@ import * as XLSX from 'xlsx';
 
                 {activeTab === 'logs' && (
                   <div className="px-6 mt-6 animate-fade-in-up pb-24">
-                    <div className="flex justify-between items-center mb-6">
+                    {/* Header */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
                       <div className="flex items-center gap-3">
                         <button onClick={() => setActiveTab('akun')} className="p-2 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl hover:bg-slate-50 transition-colors">
                           <span className="material-symbols-outlined text-slate-600 dark:text-slate-300">arrow_back</span>
                         </button>
-                        <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Log Aktivitas</h3>
+                        <div>
+                          <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Log Aktivitas Guru</h3>
+                          <p className="text-xs text-slate-500">Riwayat pencatatan aktivitas dan audit sistem.</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          onClick={() => handleExportLogToExcel(activeLogSubTab === 'arsip')}
+                          className="px-3 py-2 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5"
+                          title="Unduh data log ke Excel"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">download</span>
+                          Unduh Excel
+                        </button>
+                        {activeLogSubTab === 'aktif' && (
+                          <button
+                            onClick={handleResetArchiveLog}
+                            disabled={isArchivingLog || dataAudit.length === 0}
+                            className="px-3 py-2 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:bg-amber-100 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                            title="Pindahkan log aktif ke arsip dan mulai siklus baru"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">inventory_2</span>
+                            {isArchivingLog ? 'Mengarsipkan...' : 'Arsipkan Sekarang'}
+                          </button>
+                        )}
                       </div>
                     </div>
+
+                    {/* Notice Banner */}
+                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/50 rounded-2xl p-4 mb-5 flex items-start gap-3">
+                      <span className="material-symbols-outlined text-blue-500 text-xl flex-shrink-0 mt-0.5">auto_schedule</span>
+                      <div className="text-xs text-blue-800 dark:text-blue-300">
+                        <strong className="font-bold">Rotasi Mingguan Otomatis:</strong> Log aktif disaring untuk <strong>1 minggu (7 hari) terakhir</strong>. Log yang lebih lama otomatis dipindahkan ke <strong>Riwayat Arsip</strong>. Arsip riwayat otomatis dibersihkan setelah <strong>1 bulan (30 hari)</strong> untuk menjaga performa.
+                      </div>
+                    </div>
+
+                    {/* Subtabs */}
+                    <div className="flex gap-2 mb-4 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl">
+                      <button
+                        onClick={() => setActiveLogSubTab('aktif')}
+                        className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                          activeLogSubTab === 'aktif'
+                            ? 'bg-white dark:bg-slate-700 text-primary shadow-sm'
+                            : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-[16px]">history</span>
+                        Log Aktif Minggu Ini ({dataAudit.length})
+                      </button>
+                      <button
+                        onClick={() => setActiveLogSubTab('arsip')}
+                        className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                          activeLogSubTab === 'arsip'
+                            ? 'bg-white dark:bg-slate-700 text-primary shadow-sm'
+                            : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-[16px]">archive</span>
+                        Riwayat Arsip ({dataAuditArchive.length})
+                      </button>
+                    </div>
                     
+                    {/* Log Items List */}
                     <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden shadow-sm">
-                      {dataAudit.length === 0 ? (
-                        <div className="p-8 text-center text-slate-500 flex flex-col items-center">
-                          <span className="material-symbols-outlined text-4xl mb-2 opacity-50">history_toggle_off</span>
-                          <p>Belum ada aktivitas yang dicatat.</p>
-                        </div>
-                      ) : (
-                        <div className="divide-y divide-slate-100 dark:divide-slate-700/50 max-h-[60vh] overflow-y-auto">
-                          {dataAudit.map((log) => (
-                            <div key={log.id_audit} className="p-4 flex gap-4 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors">
-                              <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center flex-shrink-0 text-slate-500">
-                                <span className="material-symbols-outlined text-[20px]">
-                                  {(log.aksi || '').toLowerCase().includes('login') ? 'login' :
-                                   (log.aksi || '').toLowerCase().includes('hapus') ? 'delete' :
-                                   (log.aksi || '').toLowerCase().includes('ubah') ? 'edit' :
-                                   (log.aksi || '').toLowerCase().includes('tambah') ? 'add_circle' : 'info'}
-                                </span>
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{log.aksi}</p>
-                                <p className="text-xs text-slate-500 mt-1 line-clamp-2">{log.keterangan}</p>
-                                <p className="text-[10px] text-slate-400 mt-1">{new Date(log.created_at).toLocaleString('id-ID')}</p>
-                              </div>
+                      {(() => {
+                        const currentList = activeLogSubTab === 'aktif' ? dataAudit : dataAuditArchive;
+                        if (currentList.length === 0) {
+                          return (
+                            <div className="p-10 text-center text-slate-500 flex flex-col items-center">
+                              <span className="material-symbols-outlined text-4xl mb-2 opacity-40">
+                                {activeLogSubTab === 'aktif' ? 'history_toggle_off' : 'archive'}
+                              </span>
+                              <p className="font-semibold text-sm">
+                                {activeLogSubTab === 'aktif' ? 'Belum ada aktivitas dalam 7 hari terakhir.' : 'Belum ada log yang diarsipkan.'}
+                              </p>
+                              <p className="text-xs text-slate-400 mt-1">Aktivitas guru seperti kelola soal, ujian, penilaian, dan profil akan tercatat di sini.</p>
                             </div>
-                          ))}
-                        </div>
-                      )}
+                          );
+                        }
+
+                        return (
+                          <div className="divide-y divide-slate-100 dark:divide-slate-700/60 max-h-[65vh] overflow-y-auto">
+                            {currentList.map((log) => {
+                              const act = (log.action || '').toUpperCase();
+                              let iconName = 'history';
+                              let iconClass = 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300';
+                              let badgeClass = 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300';
+
+                              if (act.includes('TAMBAH') || act.includes('CREATE')) {
+                                iconName = 'add_circle';
+                                iconClass = 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400';
+                                badgeClass = 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300';
+                              } else if (act.includes('EDIT') || act.includes('UPDATE')) {
+                                iconName = 'edit';
+                                iconClass = 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400';
+                                badgeClass = 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300';
+                              } else if (act.includes('HAPUS') || act.includes('DELETE')) {
+                                iconName = 'delete';
+                                iconClass = 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400';
+                                badgeClass = 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300';
+                              } else if (act.includes('IMPORT')) {
+                                iconName = 'upload_file';
+                                iconClass = 'bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400';
+                                badgeClass = 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300';
+                              } else if (act.includes('UJIAN') || act.includes('STATUS')) {
+                                iconName = 'play_circle';
+                                iconClass = 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400';
+                                badgeClass = 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300';
+                              } else if (act.includes('RESET') || act.includes('STOP') || act.includes('BLOKIR')) {
+                                iconName = 'restart_alt';
+                                iconClass = 'bg-orange-50 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400';
+                                badgeClass = 'bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300';
+                              } else if (act.includes('EXPORT')) {
+                                iconName = 'file_download';
+                                iconClass = 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400';
+                                badgeClass = 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300';
+                              } else if (act.includes('PROFIL') || act.includes('AVATAR')) {
+                                iconName = 'account_circle';
+                                iconClass = 'bg-teal-50 text-teal-600 dark:bg-teal-900/30 dark:text-teal-400';
+                                badgeClass = 'bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300';
+                              }
+
+                              return (
+                                <div key={log.id_archive || log.id_audit} className="p-4 flex gap-3.5 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors">
+                                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${iconClass}`}>
+                                    <span className="material-symbols-outlined text-[20px]">{iconName}</span>
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${badgeClass}`}>
+                                        {log.action || 'AKTIVITAS'}
+                                      </span>
+                                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                        {log.username || user.username}
+                                      </span>
+                                      <span className="text-[10px] text-slate-400">
+                                        ({log.role || 'guru'})
+                                      </span>
+                                    </div>
+                                    <p className="text-xs text-slate-600 dark:text-slate-300 break-words font-medium">
+                                      {log.target || '-'}
+                                    </p>
+                                    <div className="flex items-center gap-3 mt-1 text-[10px] text-slate-400">
+                                      <span>{new Date(log.created_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                                      {log.archived_at && (
+                                        <span>• Diarsipkan: {new Date(log.archived_at).toLocaleDateString('id-ID')}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 )}
@@ -1201,35 +1628,283 @@ import * as XLSX from 'xlsx';
         )}
         {renderAnalisisModal && typeof renderAnalisisModal === 'function' ? renderAnalisisModal() : null}
         {renderResetModal && typeof renderResetModal === 'function' ? renderResetModal() : null}
+
+        {/* Modal Detail Hasil Evaluasi & Rekap Nilai Siswa */}
+        {isHasilModalOpen && selectedHasilJadwal && (() => {
+          // Filter siswa berdasarkan filter paralel yang dipilih di dalam modal
+          const uniqueParalelsInResult = Array.from(new Set(dataHasilSiswa.map(s => s.kelas_paralel).filter(Boolean)));
+          
+          let filteredSiswa = dataHasilSiswa.filter(s => {
+            if (filterHasilParalelDetail !== 'ALL' && s.kelas_paralel !== filterHasilParalelDetail) return false;
+            // Jika filter awal dari halaman utama memiliki paralel terpilih, saring juga
+            if (filterParalelHasil.length > 0 && filterHasilParalelDetail === 'ALL') {
+              if (!filterParalelHasil.includes(s.kelas_paralel)) return false;
+            }
+            if (searchHasilSiswa.trim()) {
+              const q = searchHasilSiswa.toLowerCase();
+              const nameMatch = (s.nama_lengkap || '').toLowerCase().includes(q);
+              const nisnMatch = (s.nisn || '').toLowerCase().includes(q);
+              if (!nameMatch && !nisnMatch) return false;
+            }
+            return true;
+          });
+
+          // Urutkan nilai tertinggi ke terendah
+          filteredSiswa.sort((a, b) => (Number(b.total_nilai) || 0) - (Number(a.total_nilai) || 0));
+
+          const totalPeserta = filteredSiswa.length;
+          const rataNilai = totalPeserta > 0 ? (filteredSiswa.reduce((sum, s) => sum + (Number(s.total_nilai) || 0), 0) / totalPeserta).toFixed(1) : 0;
+          const nilaiTertinggi = totalPeserta > 0 ? Math.max(...filteredSiswa.map(s => Number(s.total_nilai) || 0)) : 0;
+          const nilaiTerendah = totalPeserta > 0 ? Math.min(...filteredSiswa.map(s => Number(s.total_nilai) || 0)) : 0;
+          const tuntasCount = filteredSiswa.filter(s => (Number(s.total_nilai) || 0) >= 75).length;
+          const persentaseTuntas = totalPeserta > 0 ? Math.round((tuntasCount / totalPeserta) * 100) : 0;
+
+          return (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 z-[150] animate-fade-in">
+              <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-5xl shadow-2xl overflow-hidden border border-slate-100 dark:border-slate-800 flex flex-col max-h-[92vh]">
+                
+                {/* Header Modal */}
+                <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white dark:bg-slate-900 sticky top-0 z-10">
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={() => setIsHasilModalOpen(false)}
+                      className="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                    >
+                      <span className="material-symbols-outlined">arrow_back</span>
+                    </button>
+                    <div>
+                      <h3 className="font-bold text-slate-800 dark:text-slate-100 text-base md:text-lg flex items-center gap-2">
+                        <span>Rekap Nilai: {selectedHasilJadwal.nama_mapel}</span>
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                          Tingkat {selectedHasilJadwal.target_kelas || 'Umum'}
+                        </span>
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        Waktu Ujian: {new Date(selectedHasilJadwal.waktu_mulai).toLocaleDateString('id-ID')} | Total {dataHasilSiswa.length} Siswa Terdaftar Selesai
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Top Action Buttons */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button 
+                      onClick={() => exportHasilToExcel(selectedHasilJadwal, filteredSiswa, filterHasilParalelDetail)}
+                      className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-emerald-500/25 flex items-center gap-1.5"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">download</span>
+                      Unduh Excel
+                    </button>
+                    <button 
+                      onClick={() => openAnalisisSoal(selectedHasilJadwal.id_jadwal, selectedHasilJadwal.id_mapel)}
+                      className="px-3 py-2 bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-300 hover:bg-purple-100 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">analytics</span>
+                      Analisis Butir
+                    </button>
+                    <button 
+                      onClick={() => setIsHasilModalOpen(false)}
+                      className="p-2 text-slate-400 hover:text-slate-600 rounded-xl transition-colors"
+                    >
+                      <span className="material-symbols-outlined">close</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Body Content */}
+                <div className="flex-1 overflow-y-auto p-5 space-y-5 bg-slate-50 dark:bg-slate-900/50">
+                  
+                  {/* Summary Analytics Cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                    <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/60 shadow-sm text-center">
+                      <span className="text-[11px] font-medium text-slate-500 block mb-1">Peserta</span>
+                      <span className="text-2xl font-bold text-slate-800 dark:text-slate-100">{totalPeserta}</span>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">Siswa dinilai</span>
+                    </div>
+                    <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/60 shadow-sm text-center">
+                      <span className="text-[11px] font-medium text-slate-500 block mb-1">Rata-Rata</span>
+                      <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">{rataNilai}</span>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">Skor keseluruhan</span>
+                    </div>
+                    <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/60 shadow-sm text-center">
+                      <span className="text-[11px] font-medium text-slate-500 block mb-1">Tertinggi</span>
+                      <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{nilaiTertinggi}</span>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">Nilai maks</span>
+                    </div>
+                    <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/60 shadow-sm text-center">
+                      <span className="text-[11px] font-medium text-slate-500 block mb-1">Terendah</span>
+                      <span className="text-2xl font-bold text-rose-500">{nilaiTerendah}</span>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">Nilai min</span>
+                    </div>
+                    <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/60 shadow-sm text-center col-span-2 sm:col-span-1">
+                      <span className="text-[11px] font-medium text-slate-500 block mb-1">Ketuntasan</span>
+                      <span className="text-2xl font-bold text-primary">{persentaseTuntas}%</span>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">{tuntasCount} / {totalPeserta} Lulus</span>
+                    </div>
+                  </div>
+
+                  {/* Filter Kelas Paralel & Pencarian Siswa */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
+                    {/* Pills Paralel */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+                      <span className="text-xs font-bold text-slate-500 mr-1 flex items-center gap-1 flex-shrink-0">
+                        <span className="material-symbols-outlined text-[14px]">filter_alt</span> Paralel:
+                      </span>
+                      <button
+                        onClick={() => setFilterHasilParalelDetail('ALL')}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors whitespace-nowrap ${
+                          filterHasilParalelDetail === 'ALL'
+                            ? 'bg-primary text-white shadow-sm'
+                            : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                        }`}
+                      >
+                        Semua Paralel ({dataHasilSiswa.length})
+                      </button>
+                      {uniqueParalelsInResult.map(p => {
+                        const countInP = dataHasilSiswa.filter(s => s.kelas_paralel === p).length;
+                        return (
+                          <button
+                            key={p}
+                            onClick={() => setFilterHasilParalelDetail(p)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors whitespace-nowrap ${
+                              filterHasilParalelDetail === p
+                                ? 'bg-primary text-white shadow-sm'
+                                : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                            }`}
+                          >
+                            Paralel {p} ({countInP})
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Search Input */}
+                    <div className="relative min-w-[200px]">
+                      <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-sm">search</span>
+                      <input
+                        type="text"
+                        placeholder="Cari siswa atau NISN..."
+                        value={searchHasilSiswa}
+                        onChange={(e) => setSearchHasilSiswa(e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 pl-8 pr-3 py-1.5 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary/40 dark:text-white"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Student Scores Table */}
+                  <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden shadow-sm">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 dark:bg-slate-900/60 border-b border-slate-100 dark:border-slate-700 text-slate-500 font-bold uppercase tracking-wider">
+                          <tr>
+                            <th className="p-3.5 text-center w-12">#</th>
+                            <th className="p-3.5">Nama Siswa</th>
+                            <th className="p-3.5">NISN</th>
+                            <th className="p-3.5">Kelas & Paralel</th>
+                            <th className="p-3.5 text-center">Nilai PG</th>
+                            <th className="p-3.5 text-center">Nilai Uraian</th>
+                            <th className="p-3.5 text-center font-bold">Total Nilai</th>
+                            <th className="p-3.5 text-center">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                          {filteredSiswa.map((s, idx) => {
+                            const total = Number(s.total_nilai) || 0;
+                            const isLulus = total >= 75;
+                            return (
+                              <tr key={s.id_log || idx} className="hover:bg-slate-50/80 dark:hover:bg-slate-750/50 transition-colors">
+                                <td className="p-3.5 text-center font-bold text-slate-400">
+                                  {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1}
+                                </td>
+                                <td className="p-3.5 font-bold text-slate-800 dark:text-slate-100">
+                                  {s.nama_lengkap}
+                                </td>
+                                <td className="p-3.5 font-mono text-slate-500">
+                                  {s.nisn || '-'}
+                                </td>
+                                <td className="p-3.5">
+                                  <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700 font-semibold text-slate-600 dark:text-slate-300">
+                                    {s.angkatan || selectedHasilJadwal.target_kelas || '-'} ({s.kelas_paralel ? `Paralel ${s.kelas_paralel}` : '-'})
+                                  </span>
+                                </td>
+                                <td className="p-3.5 text-center font-semibold text-slate-600 dark:text-slate-300">
+                                  {Number(s.nilai_auto) || 0}
+                                </td>
+                                <td className="p-3.5 text-center font-semibold text-slate-600 dark:text-slate-300">
+                                  {Number(s.nilai_uraian) || 0}
+                                </td>
+                                <td className="p-3.5 text-center">
+                                  <span className={`text-sm font-extrabold ${isLulus ? 'text-green-600 dark:text-green-400' : 'text-rose-500'}`}>
+                                    {total}
+                                  </span>
+                                </td>
+                                <td className="p-3.5 text-center">
+                                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                    isLulus 
+                                      ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' 
+                                      : 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
+                                  }`}>
+                                    {isLulus ? 'Tuntas' : 'Remedial'}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                          {filteredSiswa.length === 0 && (
+                            <tr>
+                              <td colSpan="8" className="p-8 text-center text-slate-500">
+                                Tidak ada siswa yang sesuai dengan filter paralel atau pencarian.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {preFormSoal.isOpen && (
         <div className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl w-full max-w-sm shadow-xl">
             <h3 className="font-bold text-lg mb-4">Pilih Kelas & Mapel</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-bold mb-1">Kelas</label>
-                <select value={preFormSoal.target_kelas} onChange={(e) => setPreFormSoal({...preFormSoal, target_kelas: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-3 rounded-xl">
-                  <option value="">Pilih Kelas</option>
-                  <option value="10">Kelas 10</option>
-                  <option value="11">Kelas 11</option>
-                  <option value="12">Kelas 12</option>
-                  <option value="Umum">Umum</option>
+                <label className="block text-sm font-bold mb-1">Kelas / Tingkat</label>
+                <select 
+                  value={preFormSoal.target_kelas} 
+                  onChange={(e) => setPreFormSoal({...preFormSoal, target_kelas: e.target.value})} 
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-3 rounded-xl text-sm outline-none"
+                >
+                  <option value="">Pilih Tingkat Kelas</option>
+                  {Array.from(new Set(dataKelas.map(k => k.tingkat).filter(Boolean))).map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                  <option value="Umum">Umum / Semua Tingkat</option>
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-bold mb-1">Mata Pelajaran</label>
-                <select value={preFormSoal.id_mapel} onChange={(e) => setPreFormSoal({...preFormSoal, id_mapel: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-3 rounded-xl">
+                <select 
+                  value={preFormSoal.id_mapel} 
+                  onChange={(e) => setPreFormSoal({...preFormSoal, id_mapel: e.target.value})} 
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-3 rounded-xl text-sm outline-none"
+                >
                   <option value="">Pilih Mapel</option>
                   {dataMapel.map(m => <option key={m.id_mapel} value={m.id_mapel}>{m.nama_mapel}</option>)}
                 </select>
               </div>
             </div>
             <div className="flex gap-2 mt-6">
-              <button onClick={() => setPreFormSoal({ isOpen: false, id_mapel: '', target_kelas: '' })} className="flex-1 py-3 text-slate-500 font-bold hover:bg-slate-100 rounded-xl">Batal</button>
+              <button onClick={() => setPreFormSoal({ isOpen: false, id_mapel: '', target_kelas: '', target_paralel: [] })} className="flex-1 py-3 text-slate-500 font-bold hover:bg-slate-100 rounded-xl">Batal</button>
               <button onClick={() => {
                 if(!preFormSoal.id_mapel || !preFormSoal.target_kelas) return alert('Pilih kelas dan mapel!');
-                setPreFormSoal({ isOpen: false, id_mapel: '', target_kelas: '' });
-                setFormSoal({ isOpen: true, data: null, id_mapel: preFormSoal.id_mapel });
+                const chosenMapel = preFormSoal.id_mapel;
+                setPreFormSoal({ isOpen: false, id_mapel: '', target_kelas: '', target_paralel: [] });
+                setFormSoal({ isOpen: true, data: null, id_mapel: chosenMapel });
               }} className="flex-1 py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary-dark">Lanjut</button>
             </div>
           </div>

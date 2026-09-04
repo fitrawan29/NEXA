@@ -762,13 +762,21 @@ import React from 'react';
           }
 
           case 'get_hasil_ujian': {
-            ({ data, error } = await supabaseClient.from('log_ujian').select('*, siswa!inner(nama_lengkap, angkatan, kelas_paralel, npsn)').eq('id_jadwal', payload.id_jadwal).eq('status_ujian', 'SELESAI').eq('siswa.npsn', payload.npsn));
+            let q = supabaseClient.from('log_ujian').select('*, siswa!inner(nama_lengkap, nisn, username, angkatan, kelas_paralel, npsn)').eq('status_ujian', 'SELESAI').eq('siswa.npsn', payload.npsn);
+            if (Array.isArray(payload.id_jadwal)) {
+              q = q.in('id_jadwal', payload.id_jadwal);
+            } else if (payload.id_jadwal) {
+              q = q.eq('id_jadwal', payload.id_jadwal);
+            }
+            ({ data, error } = await q);
             if (error) return { status: 'error', message: error.message };
             return {
               status: 'success',
-              data: data.map(l => ({
+              data: (data || []).map(l => ({
                 ...l,
                 nama_lengkap: l.siswa ? l.siswa.nama_lengkap : 'Unknown',
+                nisn: l.siswa ? l.siswa.nisn : '-',
+                username: l.siswa ? l.siswa.username : '-',
                 angkatan: l.siswa ? l.siswa.angkatan : '-',
                 kelas_paralel: l.siswa ? l.siswa.kelas_paralel : '-',
                 total_nilai: (Number(l.nilai_auto) || 0) + (Number(l.nilai_uraian) || 0)
@@ -1023,9 +1031,77 @@ import React from 'react';
           }
           
           case 'get_audit_log': {
-            ({ data, error } = await supabaseClient.from('audit_log').select('*').eq('npsn', payload.npsn).order('created_at', { ascending: false }).limit(100));
+            try {
+              const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+              const oneMonthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+              // Otomatis hapus arsip yang lebih dari 1 bulan
+              await supabaseClient.from('audit_log_archive').delete().lt('created_at', oneMonthAgo);
+
+              // Otomatis pindahkan log yang lebih dari 1 minggu (7 hari) ke arsip
+              const { data: oldLogs } = await supabaseClient.from('audit_log').select('*').eq('npsn', payload.npsn).lt('created_at', oneWeekAgo);
+              if (oldLogs && oldLogs.length > 0) {
+                const archiveEntries = oldLogs.map(l => ({
+                  id_archive: 'ARC-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
+                  id_audit: l.id_audit,
+                  npsn: l.npsn,
+                  username: l.username,
+                  role: l.role,
+                  action: l.action,
+                  target: l.target,
+                  created_at: l.created_at,
+                  archived_at: new Date().toISOString()
+                }));
+                await supabaseClient.from('audit_log_archive').insert(archiveEntries);
+                const oldIds = oldLogs.map(l => l.id_audit);
+                await supabaseClient.from('audit_log').delete().in('id_audit', oldIds);
+              }
+            } catch (err) {
+              console.warn('Auto-archive audit_log warning:', err);
+            }
+
+            let logQuery = supabaseClient.from('audit_log').select('*').eq('npsn', payload.npsn);
+            if (payload.username) logQuery = logQuery.eq('username', payload.username);
+            ({ data, error } = await logQuery.order('created_at', { ascending: false }).limit(100));
             if (error) return { status: 'error', message: error.message };
-            return { status: 'success', data };
+            return { status: 'success', data: data || [] };
+          }
+
+          case 'get_audit_log_archive': {
+            try {
+              const oneMonthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+              await supabaseClient.from('audit_log_archive').delete().lt('created_at', oneMonthAgo);
+            } catch (err) {
+              console.warn('Purge audit_log_archive warning:', err);
+            }
+            let q = supabaseClient.from('audit_log_archive').select('*').eq('npsn', payload.npsn);
+            if (payload.username) q = q.eq('username', payload.username);
+            ({ data, error } = await q.order('created_at', { ascending: false }).limit(200));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', data: data || [] };
+          }
+
+          case 'reset_and_archive_audit_log': {
+            let q = supabaseClient.from('audit_log').select('*').eq('npsn', payload.npsn);
+            if (payload.username) q = q.eq('username', payload.username);
+            const { data: logsToArchive, error: fetchErr } = await q;
+            if (fetchErr) return { status: 'error', message: fetchErr.message };
+            if (logsToArchive && logsToArchive.length > 0) {
+              const archiveEntries = logsToArchive.map(l => ({
+                id_archive: 'ARC-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
+                id_audit: l.id_audit,
+                npsn: l.npsn,
+                username: l.username,
+                role: l.role,
+                action: l.action,
+                target: l.target,
+                created_at: l.created_at,
+                archived_at: new Date().toISOString()
+              }));
+              await supabaseClient.from('audit_log_archive').insert(archiveEntries);
+              const ids = logsToArchive.map(l => l.id_audit);
+              await supabaseClient.from('audit_log').delete().in('id_audit', ids);
+            }
+            return { status: 'success', message: 'Semua log berhasil direset dan disimpan ke arsip riwayat.' };
           }
           
           case 'create_audit_log': {
