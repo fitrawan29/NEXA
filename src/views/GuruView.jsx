@@ -749,8 +749,8 @@ import * as XLSX from 'xlsx';
       const renderAnalisisModal = () => {
         if (!isAnalisisModalOpen) return null;
         return (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
-            <div className="bg-surface dark:bg-slate-800 rounded-2xl w-full max-w-4xl shadow-2xl p-6 relative border border-outline-variant/30 dark:border-slate-700 max-h-[90vh] overflow-y-auto flex flex-col">
+          <div className="fixed inset-0 bg-slate-100 dark:bg-slate-950 flex items-center justify-center p-4 sm:p-6 z-[200]">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-5xl shadow-2xl p-6 relative border border-slate-200 dark:border-slate-800 h-full max-h-[92vh] flex flex-col">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-on-surface dark:text-white flex items-center gap-2"><span className="material-symbols-outlined text-primary">analytics</span> Analisis Butir Soal</h2>
                 <button onClick={() => setIsAnalisisModalOpen(false)} className="text-on-surface-variant hover:bg-surface-variant rounded-full p-1"><span className="material-symbols-outlined">close</span></button>
@@ -1147,13 +1147,6 @@ import * as XLSX from 'xlsx';
                                 >
                                   <span className="material-symbols-outlined text-[16px]">visibility</span>
                                   Lihat Rekap Nilai
-                                </button>
-                                <button 
-                                  onClick={() => openAnalisisSoal(j.id_jadwal, j.id_mapel)} 
-                                  className="py-2.5 px-3 bg-purple-50 text-purple-600 rounded-xl text-xs font-bold hover:bg-purple-100 transition-colors flex items-center gap-1"
-                                  title="Analisis Butir Soal"
-                                >
-                                  <span className="material-symbols-outlined text-[16px]">analytics</span>
                                 </button>
                               </div>
                             </div>
