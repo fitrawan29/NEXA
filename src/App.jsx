@@ -117,7 +117,14 @@ import Modal from './components/Modal';
         }
       };
 
-      const handleLogout = () => {
+      const handleLogout = async () => {
+        if (user?.role === 'siswa') {
+          try {
+            await fetchAPI('reset_login_siswa', { id_siswa: user.id_user, npsn: user.npsn });
+          } catch (e) {
+            console.error('Failed to reset session:', e);
+          }
+        }
         setUser(null);
         setUsername('');
         setPassword('');
