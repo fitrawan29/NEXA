@@ -156,6 +156,18 @@ import * as XLSX from 'xlsx';
         }
       };
 
+      const handleResetAllLoginSiswa = async () => {
+        if (!confirm('Anda yakin ingin mereset sesi login SELURUH siswa secara massal? Ini akan mengeluarkan semua siswa yang sedang login.')) return;
+        setIsSubmitting(true);
+        const res = await fetchAPI('reset_all_login_siswa', { npsn: user.npsn });
+        setIsSubmitting(false);
+        if (res.status === 'success') {
+          alert('Sesi login seluruh siswa berhasil direset.');
+        } else {
+          alert(res.message);
+        }
+      };
+
       const handleUpdateStatusUjian = async (id_jadwal, status_baru) => {
         setIsSubmitting(true);
         let updates = {};
@@ -934,6 +946,9 @@ import * as XLSX from 'xlsx';
                         <option value="">Semua Kelas</option>
                         {[...new Set(dataSiswa.map(s => s.kelas).filter(Boolean))].map(k => <option key={k} value={k}>{k}</option>)}
                       </select>
+                      <button onClick={handleResetAllLoginSiswa} disabled={isSubmitting} className="flex items-center justify-center gap-1 bg-orange-50 text-orange-600 px-3 py-2 rounded-xl text-sm font-bold hover:bg-orange-100 transition-colors disabled:opacity-50" title="Reset Semua Sesi">
+                        <span className="material-symbols-outlined text-sm">phonelink_erase</span>
+                      </button>
                       <button onClick={() => setImportModal({isOpen: true, type: 'siswa'})} className="flex items-center justify-center gap-1 bg-blue-50 text-blue-600 px-3 py-2 rounded-xl text-sm font-bold hover:bg-blue-100 transition-colors" title="Import Excel">
                         <span className="material-symbols-outlined text-sm">upload_file</span>
                       </button>
@@ -953,8 +968,9 @@ import * as XLSX from 'xlsx';
                           <p className="text-xs text-slate-500 truncate">NISN: {s.nisn} | Kls: {s.kelas || '-'}</p>
                         </div>
                         <div className="flex flex-col gap-1">
-                          <button onClick={() => openEditModal('siswa', s)} className="w-7 h-7 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center hover:bg-blue-100 transition-colors"><span className="material-symbols-outlined text-sm">edit</span></button>
-                          <button onClick={() => handleDeleteClick(s.id_siswa, 'siswa', s)} className="w-7 h-7 rounded-full bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors"><span className="material-symbols-outlined text-sm">delete</span></button>
+                          <button onClick={() => handleResetLogin(s.id_siswa)} className="w-7 h-7 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center hover:bg-orange-100 transition-colors" title="Reset Sesi Login"><span className="material-symbols-outlined text-sm">phonelink_erase</span></button>
+                          <button onClick={() => openEditModal('siswa', s)} className="w-7 h-7 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center hover:bg-blue-100 transition-colors" title="Edit"><span className="material-symbols-outlined text-sm">edit</span></button>
+                          <button onClick={() => handleDeleteClick(s.id_siswa, 'siswa', s)} className="w-7 h-7 rounded-full bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors" title="Hapus"><span className="material-symbols-outlined text-sm">delete</span></button>
                         </div>
                       </div>
                     ))}

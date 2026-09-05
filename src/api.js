@@ -1183,7 +1183,12 @@ import React from 'react';
           case 'reset_login_siswa': {
             ({ error } = await supabaseClient.from('siswa').update({ session_token: null }).eq('id_siswa', payload.id_siswa).eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
-            return { status: 'success', message: 'Sesi siswa berhasil direset.' };
+            return { status: 'success', message: 'Sesi login siswa berhasil direset.' };
+          }
+          case 'reset_all_login_siswa': {
+            ({ error } = await supabaseClient.from('siswa').update({ session_token: null }).eq('npsn', payload.npsn));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Semua sesi login siswa berhasil direset.' };
           }
           case 'force_stop_ujian': {
             ({ error } = await supabaseClient.from('log_ujian').update({ status_ujian: 'SELESAI', waktu_selesai: new Date().toISOString() }).eq('id_log', payload.id_log));
