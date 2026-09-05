@@ -94,7 +94,7 @@ import * as XLSX from 'xlsx';
         } else if (tab === 'pengumuman') {
           const res = await api('get_pengumuman', { role: 'admin' });
           if (res.status === 'success') setDataPengumuman(res.data);
-        } else if (tab === 'jadwal' || tab === 'monitoring' || tab === 'hasil') {
+        } else if (tab === 'jadwal' || tab === 'monitoring' || tab === 'hasil' || tab === 'kontrol') {
           const res = await api('get_all_jadwal', {});
           if (res.status === 'success') setDataJadwal(res.data);
           
