@@ -74,7 +74,7 @@ import * as XLSX from 'xlsx';
           if (resJ.status === 'success') setDataJadwal(resJ.data);
         } else if (tab === 'siswa' || tab === 'kelas') {
           const res = await api('get_siswa', {});
-          if (res.status === 'success') setDataSiswa(res.data);
+          if (res.status === 'success') setDataSiswa(res.data.map(s => ({...s, kelas: `${s.angkatan || ''} ${s.kelas_paralel || ''}`.trim()})));
           const resK = await api('get_kelas', {});
           if (resK.status === 'success') setDataKelas(resK.data);
         } else if (tab === 'guru') {
