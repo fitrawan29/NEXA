@@ -183,6 +183,35 @@ import * as XLSX from 'xlsx';
           alert(res.message);
         }
       };
+
+      const handleBulkUpdateStatusUjian = async (status_baru) => {
+        if (!confirm(`Apakah Anda yakin ingin mengatur SEMUA ujian menjadi ${status_baru}?`)) return;
+        setIsSubmitting(true);
+        const now = await getTrueNow();
+        
+        const updates = dataJadwal.map(j => {
+           let updateObj = { id_jadwal: j.id_jadwal };
+           if (status_baru === 'AKTIF') {
+             updateObj.waktu_mulai = new Date(now.getTime() - 60000).toISOString();
+             if (j.waktu_selesai && new Date(j.waktu_selesai) > now) {
+               updateObj.waktu_selesai = j.waktu_selesai;
+             } else {
+               updateObj.waktu_selesai = new Date(now.getTime() + 2 * 60 * 60 * 1000).toISOString();
+             }
+           } else if (status_baru === 'SELESAI') {
+             updateObj.waktu_selesai = new Date(now.getTime() - 60000).toISOString();
+           } else if (status_baru === 'BELUM MULAI') {
+             updateObj.waktu_mulai = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+             updateObj.waktu_selesai = new Date(now.getTime() + 26 * 60 * 60 * 1000).toISOString();
+           }
+           return api('update_jadwal', updateObj);
+        });
+
+        await Promise.all(updates);
+        setIsSubmitting(false);
+        alert(`Semua jadwal ujian berhasil diubah menjadi ${status_baru}`);
+        fetchData('jadwal');
+      };
       const handleSaveForm = async (e) => {
         e.preventDefault();
         setIsSubmitting(true);
@@ -1036,6 +1065,64 @@ import * as XLSX from 'xlsx';
                 </>
               )}
 
+              {activeTab === 'kontrol' && (
+                <div className="px-6 mt-6 animate-fade-in-up pb-24">
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
+                    <div>
+                      <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Kontrol Ujian (Semua Mata Pelajaran)</h3>
+                      <p className="text-xs text-slate-500">Mulai, hentikan, atau reset ujian secara massal atau per mata pelajaran.</p>
+                    </div>
+                    <div className="flex gap-2 w-full md:w-auto">
+                      <button onClick={() => handleBulkUpdateStatusUjian('AKTIF')} disabled={isSubmitting} className="flex-1 md:flex-none px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 shadow-sm shadow-green-500/30">
+                        <span className="material-symbols-outlined text-sm">play_arrow</span> Mulai Semua
+                      </button>
+                      <button onClick={() => handleBulkUpdateStatusUjian('SELESAI')} disabled={isSubmitting} className="flex-1 md:flex-none px-3 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 shadow-sm shadow-red-500/30">
+                        <span className="material-symbols-outlined text-sm">stop</span> Berhentikan Semua
+                      </button>
+                      <button onClick={() => handleBulkUpdateStatusUjian('BELUM MULAI')} disabled={isSubmitting} className="flex-1 md:flex-none px-3 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 shadow-sm shadow-orange-500/30">
+                        <span className="material-symbols-outlined text-sm">refresh</span> Reset Semua
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mb-4">
+                    <select value={filterMapel} onChange={(e) => setFilterMapel(e.target.value)} className="w-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 dark:text-white">
+                      <option value="">Semua Mapel</option>
+                      {dataMapel.map(m => <option key={m.id_mapel} value={m.nama_mapel}>{m.nama_mapel}</option>)}
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                    {dataJadwal.filter(j => filterMapel === '' || j.nama_mapel === filterMapel).map((j) => {
+                       const isAktif = j.status_ujian === 'AKTIF';
+                       const isSelesai = j.status_ujian === 'SELESAI';
+                       const iconName = isAktif ? 'play_circle' : isSelesai ? 'check_circle' : 'schedule';
+                       return (
+                         <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col md:flex-row items-center justify-between gap-3">
+                           <div className="flex items-center gap-3 flex-1 min-w-0">
+                             <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${isAktif ? 'bg-green-100 text-green-500' : isSelesai ? 'bg-slate-100 text-slate-400' : 'bg-orange-100 text-orange-500'}`}>
+                               <span className="material-symbols-outlined">{iconName}</span>
+                             </div>
+                             <div className="min-w-0 flex-1">
+                               <h4 className={`font-bold text-sm truncate ${isSelesai ? 'text-slate-500' : 'text-slate-800 dark:text-slate-100'}`}>{j.nama_mapel}</h4>
+                               <p className="text-[10px] text-slate-500 truncate mb-1">{new Date(j.waktu_mulai).toLocaleDateString('id-ID')} | {j.guru || '-'}</p>
+                               <div className="flex items-center gap-2">
+                                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${isAktif ? 'bg-green-500 text-white' : isSelesai ? 'bg-slate-100 text-slate-500' : 'bg-orange-100 text-orange-600'}`}>{j.status_ujian}</span>
+                                 {j.token && <span className="text-[10px] font-mono text-slate-400 font-bold">#{j.token}</span>}
+                               </div>
+                             </div>
+                           </div>
+                           <div className="flex flex-col md:flex-row items-end md:items-center gap-2 mt-3 md:mt-0 w-full md:w-auto">
+                             {!isAktif && !isSelesai && <button onClick={() => handleUpdateStatusUjian(j.id_jadwal, 'AKTIF')} disabled={isSubmitting} className="w-full md:w-auto px-4 py-2 bg-green-50 text-green-600 rounded-xl text-xs font-bold hover:bg-green-100 disabled:opacity-50">Mulai</button>}
+                             {isAktif && <button onClick={() => handleUpdateStatusUjian(j.id_jadwal, 'SELESAI')} disabled={isSubmitting} className="w-full md:w-auto px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 disabled:opacity-50">Berhentikan</button>}
+                             {isSelesai && <button onClick={() => handleUpdateStatusUjian(j.id_jadwal, 'BELUM MULAI')} disabled={isSubmitting} className="w-full md:w-auto px-4 py-2 bg-orange-50 text-orange-600 rounded-xl text-xs font-bold hover:bg-orange-100 disabled:opacity-50">Reset</button>}
+                           </div>
+                         </div>
+                       );
+                    })}
+                    {dataJadwal.length === 0 && <div className="text-center text-sm text-slate-500 col-span-full">Tidak ada jadwal ujian.</div>}
+                  </div>
+                </div>
+              )}
+
               {/* Monitoring View */}
               {activeTab === 'monitoring' && selectedJadwal && (
                 <div className="absolute inset-0 z-[60] bg-white dark:bg-slate-900 flex flex-col h-full animate-fade-in-up">
@@ -1313,6 +1400,10 @@ import * as XLSX from 'xlsx';
               <button onClick={() => setActiveTab('jadwal')} className={`flex flex-col items-center transition-colors ${activeTab === 'jadwal' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
                 <span className="material-symbols-outlined">event_note</span>
                 <span className="text-[10px] font-bold mt-1">Jadwal</span>
+              </button>
+              <button onClick={() => setActiveTab('kontrol')} className={`flex flex-col items-center transition-colors ${activeTab === 'kontrol' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
+                <span className="material-symbols-outlined">settings_remote</span>
+                <span className="text-[10px] font-bold mt-1">Kontrol</span>
               </button>
               <button onClick={() => setActiveTab('akun')} className={`flex flex-col items-center transition-colors ${activeTab === 'akun' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
                 <span className="material-symbols-outlined">person</span>

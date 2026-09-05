@@ -427,7 +427,7 @@ import * as XLSX from 'xlsx';
         const resKelas = await api('get_kelas', {});
         if (resKelas.status === 'success') setDataKelas(resKelas.data || []);
         
-        if (activeTab === 'jadwal' || activeTab === 'dashboard') {
+        if (activeTab === 'jadwal' || activeTab === 'dashboard' || activeTab === 'kontrol') {
           const res = await api('get_jadwal_pengawas', { id_guru: guruId });
           if (res.status === 'success') setDataJadwal(res.data);
           if (activeTab === 'dashboard') {
@@ -892,11 +892,6 @@ import * as XLSX from 'xlsx';
                               </div>
                             </div>
                             <div className="flex flex-col items-end gap-2 mt-3 md:mt-0">
-                               <div className="flex gap-2">
-                                 {j.status_ujian !== 'AKTIF' && j.status_ujian !== 'SELESAI' && <button onClick={() => handleUpdateStatusUjian(j.id_jadwal, 'AKTIF')} className="px-3 py-1 bg-green-50 text-green-600 rounded text-xs font-bold hover:bg-green-100">Mulai Ujian</button>}
-                                 {j.status_ujian === 'AKTIF' && <button onClick={() => handleUpdateStatusUjian(j.id_jadwal, 'SELESAI')} className="px-3 py-1 bg-slate-100 text-slate-600 rounded text-xs font-bold hover:bg-slate-200">Akhiri Ujian</button>}
-                                 {j.status_ujian === 'SELESAI' && <button onClick={() => handleUpdateStatusUjian(j.id_jadwal, 'BELUM MULAI')} className="px-3 py-1 bg-orange-50 text-orange-600 rounded text-xs font-bold hover:bg-orange-100">Reset Status</button>}
-                               </div>
                                <div className="flex items-center gap-2">
                                  <span className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${isAktif ? 'bg-green-500 text-white shadow-md shadow-green-500/20' : isSelesai ? 'bg-slate-100 text-slate-500' : 'bg-orange-100 text-orange-600'}`}>
                                    {j.status_ujian}
@@ -908,6 +903,45 @@ import * as XLSX from 'xlsx';
                        );
                     })}
                     {dataJadwal.length === 0 && <div className="text-center text-sm text-slate-500 py-8">Belum ada jadwal mengawas.</div>}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'kontrol' && (
+                <div className="px-6 mt-6 animate-fade-in-up pb-24">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">Kontrol Ujian (Mata Pelajaran Anda)</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {dataJadwal.map((j) => {
+                       const isSelesai = j.status_ujian === 'SELESAI';
+                       const isAktif = j.status_ujian === 'AKTIF';
+                       const iconName = isAktif ? 'play_circle' : isSelesai ? 'check_circle' : 'schedule';
+                       
+                       return (
+                          <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col md:flex-row items-center justify-between gap-3">
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${isAktif ? 'bg-green-100 text-green-500' : isSelesai ? 'bg-slate-100 text-slate-400' : 'bg-orange-100 text-orange-500'}`}>
+                                <span className="material-symbols-outlined">{iconName}</span>
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <h4 className={`font-bold text-sm truncate ${isSelesai ? 'text-slate-500' : 'text-slate-800 dark:text-slate-100'}`}>{j.nama_mapel}</h4>
+                                <p className="text-xs text-slate-500 truncate mb-1">{new Date(j.waktu_mulai).toLocaleDateString('id-ID')} - {j.target_kelas ? `Tingkat ${j.target_kelas}` : 'Umum'}</p>
+                                <div className="flex items-center gap-2">
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${isAktif ? 'bg-green-500 text-white' : isSelesai ? 'bg-slate-100 text-slate-500' : 'bg-orange-100 text-orange-600'}`}>{j.status_ujian}</span>
+                                  {j.token && <span className="text-[10px] font-mono text-slate-400 font-bold">#{j.token}</span>}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex flex-col md:flex-row items-end md:items-center gap-2 mt-3 md:mt-0 w-full md:w-auto">
+                              {!isAktif && !isSelesai && <button onClick={() => handleUpdateStatusUjian(j.id_jadwal, 'AKTIF')} disabled={isSubmitting} className="w-full md:w-auto px-4 py-2 bg-green-50 text-green-600 rounded-xl text-xs font-bold hover:bg-green-100 disabled:opacity-50">Mulai Ujian</button>}
+                              {isAktif && <button onClick={() => handleUpdateStatusUjian(j.id_jadwal, 'SELESAI')} disabled={isSubmitting} className="w-full md:w-auto px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 disabled:opacity-50">Berhentikan</button>}
+                              {isSelesai && <button onClick={() => handleUpdateStatusUjian(j.id_jadwal, 'BELUM MULAI')} disabled={isSubmitting} className="w-full md:w-auto px-4 py-2 bg-orange-50 text-orange-600 rounded-xl text-xs font-bold hover:bg-orange-100 disabled:opacity-50">Reset Status</button>}
+                            </div>
+                          </div>
+                       );
+                    })}
+                    {dataJadwal.length === 0 && <div className="text-center text-sm text-slate-500 py-8 col-span-full">Belum ada mata pelajaran yang diujikan.</div>}
                   </div>
                 </div>
               )}
@@ -1495,6 +1529,10 @@ import * as XLSX from 'xlsx';
               <button onClick={() => setActiveTab('jadwal')} className={`flex flex-col items-center transition-colors ${activeTab === 'jadwal' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
                 <span className="material-symbols-outlined">event_note</span>
                 <span className="text-[10px] font-bold mt-1">Jadwal</span>
+              </button>
+              <button onClick={() => setActiveTab('kontrol')} className={`flex flex-col items-center transition-colors ${activeTab === 'kontrol' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
+                <span className="material-symbols-outlined">settings_remote</span>
+                <span className="text-[10px] font-bold mt-1">Kontrol</span>
               </button>
               <button onClick={() => setActiveTab('monitoring')} className={`flex flex-col items-center transition-colors ${activeTab === 'monitoring' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
                 <span className="material-symbols-outlined">visibility</span>
