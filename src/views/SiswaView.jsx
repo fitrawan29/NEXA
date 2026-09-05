@@ -15,6 +15,47 @@ import React, { useState, useEffect, useRef } from 'react';
       const [dataPengumuman, setDataPengumuman] = useState([]);
       const [dataRiwayat, setDataRiwayat] = useState([]);
       const [hasNotification, setHasNotification] = useState(false);
+      
+      const [profileModalOpen, setProfileModalOpen] = useState(false);
+      const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
+      
+      const PRESET_AVATARS = [
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&backgroundColor=b6e3f4",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka&backgroundColor=c0aede",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=George&backgroundColor=ffdfbf",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Leo&backgroundColor=d1d4f9",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Mia&backgroundColor=f6e3d4"
+      ];
+
+      const handleSaveProfile = async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const pw = fd.get('password');
+        if (!pw) return showMessage('Info', 'Password tidak diubah', 'info');
+        
+        setIsLoading(true);
+        const res = await api('update_profil_siswa', { id_siswa: user.id_user, password: pw });
+        setIsLoading(false);
+        if (res.status === 'success') {
+          showMessage('Sukses', res.message, 'success');
+          setProfileModalOpen(false);
+        } else {
+          showMessage('Gagal', res.message, 'error');
+        }
+      };
+
+      const handleAvatarSelect = async (url) => {
+        setIsLoading(true);
+        const res = await api('update_profil_siswa', { id_siswa: user.id_user, foto_profil: url });
+        setIsLoading(false);
+        if (res.status === 'success') {
+          user.foto_profil = url; // Update local state directly for immediate visual feedback
+          showMessage('Sukses', 'Foto profil berhasil diperbarui', 'success');
+          setIsAvatarModalOpen(false);
+        } else {
+          showMessage('Gagal', res.message, 'error');
+        }
+      };
 
       useEffect(() => {
         loadPengumuman();
@@ -85,62 +126,26 @@ import React, { useState, useEffect, useRef } from 'react';
           <div className="w-full md:max-w-3xl lg:max-w-5xl xl:max-w-6xl mx-auto bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col h-screen">
             
             {/* Header / Top Section */}
-            <div className="bg-[#3ecf8e] rounded-b-[40px] px-6 pt-8 pb-20 relative text-white shadow-md z-0">
+            <div className="bg-[#3ecf8e] px-6 pt-6 pb-6 relative text-white shadow-md z-0">
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-3">
                   <div className="w-14 h-14 bg-white/20 rounded-full border-2 border-white/50 overflow-hidden flex-shrink-0 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-white text-3xl">person</span>
+                    {user.foto_profil ? (
+                      <img src={user.foto_profil} alt="Profile" className="w-full h-full object-cover bg-white" />
+                    ) : (
+                      <span className="material-symbols-outlined text-white text-3xl">person</span>
+                    )}
                   </div>
                   <div>
-                    <h2 className="font-bold text-lg leading-tight">SMPN 1 Yogyakarta</h2>
+                    <h2 className="font-bold text-lg leading-tight">{user.nama_sekolah || 'Siswa'}</h2>
                     <p className="text-sm font-medium opacity-90">{user.nama_lengkap}</p>
-                    <p className="text-xs opacity-80">N.I.S : {user.id_user}</p>
+                    <p className="text-xs opacity-80">N.I.S : {user.nisn || user.id_user}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  <button type="button" onClick={() => setIsDarkMode(!isDarkMode)} className="relative p-1 rounded-full hover:bg-white/20 transition-colors" title="Mode Gelap/Terang">
+                  <button type="button" onClick={() => setIsDarkMode(!isDarkMode)} className="relative p-1 rounded-full hover:bg-white/20 transition-colors text-white" title="Mode Gelap/Terang">
                     <span className="material-symbols-outlined text-2xl">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
                   </button>
-                  <button className="relative p-1 rounded-full hover:bg-white/20 transition-colors" title="Pengaturan">
-                    <span className="material-symbols-outlined text-2xl">settings</span>
-                  </button>
-                  <button className="relative p-1 rounded-full hover:bg-white/20 transition-colors" title="Notifikasi">
-                    <span className="material-symbols-outlined text-2xl">notifications</span>
-                    {hasNotification && <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 border-2 border-[#3ecf8e] rounded-full"></span>}
-                  </button>
-                  <button type="button" onClick={onLogout} className="relative p-1 rounded-full hover:bg-white/20 transition-colors text-white" title="Keluar">
-                    <span className="material-symbols-outlined text-2xl">logout</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Stats Cards (Overlapping) */}
-            <div className="px-6 -mt-12 relative z-10">
-              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-4 grid grid-cols-3 gap-2">
-                <div className="flex flex-col items-center justify-center text-center">
-                  <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center mb-1">
-                    <span className="material-symbols-outlined text-green-500">calculate</span>
-                  </div>
-                  <span className="text-xl font-bold text-green-500">84</span>
-                  <span className="text-[10px] text-slate-500 font-medium">Matematika</span>
-                  <span className="text-[10px] text-slate-400">UAS</span>
-                </div>
-                <div className="flex flex-col items-center justify-center text-center border-x border-slate-100 dark:border-slate-700">
-                  <div className="w-10 h-10 bg-yellow-100 dark:bg-yellow-900/30 rounded-xl flex items-center justify-center mb-1">
-                    <span className="material-symbols-outlined text-yellow-500">menu_book</span>
-                  </div>
-                  <span className="text-xl font-bold text-yellow-500">60</span>
-                  <span className="text-[10px] text-slate-500 font-medium">B. Indonesia</span>
-                  <span className="text-[10px] text-slate-400">UTS</span>
-                </div>
-                <div className="flex flex-col items-center justify-center text-center">
-                  <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-xl flex items-center justify-center mb-1">
-                    <span className="material-symbols-outlined text-red-500">computer</span>
-                  </div>
-                  <span className="text-xl font-bold text-red-500">45</span>
-                  <span className="text-[10px] text-slate-500 font-medium">PAI</span>
-                  <span className="text-[10px] text-slate-400">Tugas</span>
                 </div>
               </div>
             </div>
@@ -161,7 +166,7 @@ import React, { useState, useEffect, useRef } from 'react';
                       {jadwal.length === 0 ? (
                         <div className="text-center text-slate-500 text-sm py-4">Tidak ada jadwal aktif.</div>
                       ) : (
-                        jadwal.map((j, index) => {
+                        jadwal.filter(j => j.status_ujian === 'AKTIF' || new Date(j.waktu_mulai).toDateString() === new Date().toDateString()).slice(0, 3).map((j, index) => {
                           let statusBtnClass = "bg-gradient-to-r from-primary to-secondary text-on-primary";
                           let statusText = "Ambil";
                           if (j.status_siswa === 'SELESAI') {
@@ -334,15 +339,47 @@ import React, { useState, useEffect, useRef } from 'react';
               )}
 
               {activeTab === 'akun' && (
-                <div className="px-6 mt-6 animate-fade-in-up flex flex-col items-center">
-                   <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center mb-4">
-                     <span className="material-symbols-outlined text-4xl text-primary">person</span>
+                <div className="px-6 mt-6 animate-fade-in-up flex flex-col items-center pb-24">
+                   <div className="relative group">
+                     <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center mb-4 overflow-hidden border-4 border-white shadow-md">
+                       {user.foto_profil ? (
+                         <img src={user.foto_profil} alt="Profile" className="w-full h-full object-cover" />
+                       ) : (
+                         <span className="material-symbols-outlined text-4xl text-primary">person</span>
+                       )}
+                     </div>
+                     <button onClick={() => setIsAvatarModalOpen(true)} className="absolute bottom-4 right-0 w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center border border-slate-100 text-slate-600 hover:text-primary hover:scale-110 transition-transform">
+                       <span className="material-symbols-outlined text-sm">edit</span>
+                     </button>
                    </div>
-                   <h3 className="font-bold text-xl">{user.nama_lengkap}</h3>
-                   <p className="text-slate-500">{user.id_user}</p>
+                   <h3 className="font-bold text-xl dark:text-white">{user.nama_lengkap}</h3>
+                   <p className="text-slate-500">{user.nisn || user.id_user}</p>
                    
                    <div className="w-full mt-8 space-y-3">
-                      {/* Tombol telah dipindah ke pojok kanan atas */}
+                      <button onClick={() => setProfileModalOpen(true)} className="w-full bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-500">
+                            <span className="material-symbols-outlined">lock</span>
+                          </div>
+                          <div className="text-left">
+                            <h4 className="font-bold text-sm dark:text-white">Ubah Password</h4>
+                            <p className="text-xs text-slate-500">Perbarui kata sandi akun Anda</p>
+                          </div>
+                        </div>
+                        <span className="material-symbols-outlined text-slate-400">chevron_right</span>
+                      </button>
+                      <button onClick={onLogout} className="w-full bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex items-center justify-between hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors group">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-red-50 dark:bg-red-900/30 flex items-center justify-center text-red-500 group-hover:bg-red-100 dark:group-hover:bg-red-900/50 transition-colors">
+                            <span className="material-symbols-outlined">logout</span>
+                          </div>
+                          <div className="text-left">
+                            <h4 className="font-bold text-sm text-red-600 dark:text-red-400">Keluar Akun</h4>
+                            <p className="text-xs text-slate-500">Akhiri sesi Anda saat ini</p>
+                          </div>
+                        </div>
+                        <span className="material-symbols-outlined text-slate-400 group-hover:text-red-500 transition-colors">chevron_right</span>
+                      </button>
                    </div>
                 </div>
               )}
@@ -350,7 +387,7 @@ import React, { useState, useEffect, useRef } from 'react';
             </div>
 
             {/* Bottom Navigation */}
-            <div className="absolute bottom-0 left-0 w-full bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 md:px-12 py-3 flex justify-between md:justify-center md:gap-16 items-center rounded-t-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] z-50">
+            <div className="absolute bottom-0 left-0 w-full bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 md:px-12 py-3 flex justify-between md:justify-center md:gap-16 items-center rounded-t-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] z-40">
               <button onClick={() => setActiveTab('beranda')} className={`flex flex-col items-center transition-colors ${activeTab === 'beranda' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
                 <span className="material-symbols-outlined">home</span>
                 <span className="text-[10px] font-bold mt-1">Beranda</span>
@@ -363,15 +400,53 @@ import React, { useState, useEffect, useRef } from 'react';
                 <span className="material-symbols-outlined">schedule</span>
                 <span className="text-[10px] font-bold mt-1">Jadwal</span>
               </button>
-              <button onClick={() => setActiveTab('leaderboards')} className={`flex flex-col items-center transition-colors ${activeTab === 'leaderboards' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
-                <span className="material-symbols-outlined">emoji_events</span>
-                <span className="text-[10px] font-bold mt-1">Peringkat</span>
-              </button>
               <button onClick={() => setActiveTab('akun')} className={`flex flex-col items-center transition-colors ${activeTab === 'akun' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
                 <span className="material-symbols-outlined">person</span>
                 <span className="text-[10px] font-bold mt-1">Akun</span>
               </button>
             </div>
+
+            {/* Modals */}
+            {profileModalOpen && (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onClick={() => setProfileModalOpen(false)}></div>
+                <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-sm relative z-10 p-6 shadow-2xl animate-fade-in-up">
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-lg dark:text-white">Ubah Password</h3>
+                    <button onClick={() => setProfileModalOpen(false)} className="text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 p-1 rounded-full"><span className="material-symbols-outlined">close</span></button>
+                  </div>
+                  <form onSubmit={handleSaveProfile} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1 dark:text-slate-300">Password Baru</label>
+                      <input name="password" type="password" required className="w-full rounded-xl border p-3 dark:bg-slate-700 dark:border-slate-600 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" placeholder="Masukkan password baru" />
+                    </div>
+                    <button type="submit" disabled={isLoading} className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 rounded-xl transition-colors disabled:opacity-50">
+                      {isLoading ? 'Menyimpan...' : 'Simpan Perubahan'}
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {isAvatarModalOpen && (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onClick={() => setIsAvatarModalOpen(false)}></div>
+                <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-sm relative z-10 p-6 shadow-2xl animate-fade-in-up">
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-lg dark:text-white">Pilih Avatar</h3>
+                    <button onClick={() => setIsAvatarModalOpen(false)} className="text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 p-1 rounded-full"><span className="material-symbols-outlined">close</span></button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4 mb-6">
+                    {PRESET_AVATARS.map((url, idx) => (
+                      <button key={idx} onClick={() => handleAvatarSelect(url)} className={`rounded-full overflow-hidden border-4 transition-all hover:scale-105 ${user.foto_profil === url ? 'border-primary shadow-[0_0_15px_rgba(59,130,246,0.5)]' : 'border-transparent hover:border-slate-200 dark:hover:border-slate-600'}`}>
+                        <img src={url} alt={`Avatar ${idx+1}`} className="w-full h-auto" />
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-center text-slate-500">Pilih avatar yang paling mencerminkan diri Anda!</p>
+                </div>
+              </div>
+            )}
 
           </div>
         </div>

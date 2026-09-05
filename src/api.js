@@ -373,6 +373,16 @@ import React from 'react';
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Siswa berhasil diperbarui' };
           }
+          case 'update_profil_siswa': {
+            const { id_siswa, password, foto_profil } = payload;
+            const updateData = {};
+            if (password) updateData.password = password;
+            if (foto_profil) updateData.foto_profil = foto_profil;
+            if (Object.keys(updateData).length === 0) return { status: 'error', message: 'Tidak ada data yang diubah.' };
+            ({ error } = await supabaseClient.from('siswa').update(updateData).eq('id_siswa', id_siswa).eq('npsn', payload.npsn));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Profil berhasil diperbarui.' };
+          }
           case 'delete_siswa': {
             ({ error } = await supabaseClient.from('siswa').delete().eq('id_siswa', payload.id_siswa).eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
