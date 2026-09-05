@@ -345,7 +345,7 @@ import * as XLSX from 'xlsx';
       const renderResetModal = () => {
          if (!resetModal) return null;
          return (
-           <div className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4">
+           <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
              <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl w-full max-w-sm shadow-xl">
                <h3 className="font-bold text-lg mb-2">Pilih Metode Reset</h3>
                <p className="text-sm text-slate-500 mb-6">Pilih "Reset Login" jika siswa hanya terkeluar dari aplikasi. Pilih "Reset Total" untuk mengulang seluruh sesi dan menghapus jawaban siswa.</p>
@@ -363,7 +363,7 @@ import * as XLSX from 'xlsx';
         
 
   return (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
+          <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 z-[100]">
             <div className="bg-surface dark:bg-slate-800 rounded-2xl w-full max-w-4xl h-[90vh] shadow-2xl flex flex-col overflow-hidden border border-outline-variant/30 dark:border-slate-700">
               <div className="p-4 border-b border-outline-variant dark:border-slate-700 flex justify-between items-center bg-surface-variant/30 dark:bg-slate-800/80">
                 <h3 className="font-bold text-lg">Pratinjau Ujian</h3>
@@ -1610,7 +1610,7 @@ import * as XLSX from 'xlsx';
         
         {/* Profile Edit Modal */}
         {showProfileModal && (
-          <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4">
             <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-sm shadow-2xl p-6 relative border border-slate-100 dark:border-slate-700">
               <div className="flex justify-between items-center mb-6">
                 <div>
@@ -1636,7 +1636,7 @@ import * as XLSX from 'xlsx';
 
         {/* Avatar Modal */}
         {isAvatarModalOpen && (
-          <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4">
             <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-sm shadow-2xl p-6 relative border border-slate-100 dark:border-slate-700">
               <div className="flex justify-between items-center mb-6">
                 <div>
@@ -1691,7 +1691,7 @@ import * as XLSX from 'xlsx';
           const persentaseTuntas = totalPeserta > 0 ? Math.round((tuntasCount / totalPeserta) * 100) : 0;
 
           return (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 z-[150] animate-fade-in">
+            <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 z-[150] animate-fade-in">
               <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-5xl shadow-2xl overflow-hidden border border-slate-100 dark:border-slate-800 flex flex-col max-h-[92vh]">
                 
                 {/* Header Modal */}
@@ -1899,7 +1899,7 @@ import * as XLSX from 'xlsx';
         })()}
 
         {preFormSoal.isOpen && (
-        <div className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl w-full max-w-sm shadow-xl">
             <h3 className="font-bold text-lg mb-4">Pilih Kelas & Mapel</h3>
             <div className="space-y-4">
@@ -1942,7 +1942,7 @@ import * as XLSX from 'xlsx';
         </div>
         )}
         {skemaModal.isOpen && (
-        <div className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
             <h3 className="font-bold text-lg mb-4">Pengaturan Skema Penilaian</h3>
             <p className="text-sm text-slate-500 mb-4">Pengaturan ini akan dipisahkan dari tabel soal dan digunakan saat kalkulasi nilai akhir.</p>

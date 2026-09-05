@@ -544,8 +544,8 @@ import * as XLSX from 'xlsx';
         const isEdit = data != null;
 
         return (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md shadow-2xl p-6 relative border border-outline-variant/30 dark:border-slate-700 max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 z-[100]">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-3xl shadow-2xl p-6 relative border border-slate-200 dark:border-slate-700 max-h-[90vh] overflow-y-auto">
               <h2 className="text-xl font-bold mb-4 text-on-surface dark:text-white capitalize">
                 {isEdit ? 'Edit Data' : 'Tambah Data'} {type}
               </h2>
@@ -615,7 +615,7 @@ import * as XLSX from 'xlsx';
                   </>
                 )}
 
-                <div className="flex justify-end gap-2 mt-6">
+                <div className="col-span-1 md:col-span-2 xl:col-span-3 flex justify-end gap-2 mt-6">
                   <button type="button" onClick={() => setFormModal({ isOpen: false, type: '', data: null })} className="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg dark:text-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600">Batal</button>
                   <button type="submit" className="px-4 py-2 text-sm font-medium bg-gradient-to-r from-primary to-secondary text-on-primary hover:from-primary/90 hover:to-secondary/90 rounded-lg shadow-sm">Simpan</button>
                 </div>
@@ -628,8 +628,8 @@ import * as XLSX from 'xlsx';
       const renderProfileModal = () => {
         if (!profileModalOpen) return null;
         return (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md shadow-2xl p-6 relative border border-outline-variant/30 dark:border-slate-700">
+          <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 z-[100]">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-md shadow-2xl p-6 relative border border-slate-200 dark:border-slate-700">
               <h2 className="text-xl font-bold mb-4 text-on-surface dark:text-white">Profil Admin</h2>
               <form onSubmit={async (e) => {
                 e.preventDefault();
@@ -671,7 +671,7 @@ import * as XLSX from 'xlsx';
       const renderDeleteModal = () => {
         if (!deleteModal.isOpen) return null;
         return (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-fade-in">
             <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl animate-slide-up relative p-6 border border-slate-100 dark:border-slate-800">
                <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">Konfirmasi Hapus</h3>
                <p className="text-sm text-slate-500 mb-4">Apakah Anda yakin ingin menghapus data ini? Ketik <strong>HAPUS</strong> untuk mengonfirmasi.</p>
@@ -754,7 +754,7 @@ import * as XLSX from 'xlsx';
       const renderImportModal = () => {
         if (!importModal.isOpen) return null;
         return (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-fade-in">
             <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl animate-slide-up relative p-6 border border-slate-100 dark:border-slate-800">
                <div className="flex justify-between items-center mb-4">
                  <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Import Data {importModal.type === 'siswa' ? 'Siswa' : 'Guru'}</h3>
