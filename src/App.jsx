@@ -14,7 +14,7 @@ import Modal from './components/Modal';
       componentDidCatch(error, errorInfo) { console.error('ErrorBoundary caught error', error, errorInfo); } 
       render() { 
         if (this.state.hasError) { 
-          return <div className="p-8 h-screen w-full flex items-center justify-center bg-red-50 text-red-600"><div className="bg-white p-6 rounded-xl shadow-lg border border-red-200"><h1 className="text-xl font-bold mb-4">Something went wrong.</h1><pre className="text-sm bg-red-50 p-4 rounded overflow-auto max-w-full">{this.state.error && this.state.error.toString()}</pre><button onClick={() => window.location.reload()} className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 font-bold">Refresh Page</button></div></div>; 
+          return <div className="p-8 h-[100dvh] w-full flex items-center justify-center bg-red-50 text-red-600"><div className="bg-white p-6 rounded-xl shadow-lg border border-red-200"><h1 className="text-xl font-bold mb-4">Something went wrong.</h1><pre className="text-sm bg-red-50 p-4 rounded overflow-auto max-w-full">{this.state.error && this.state.error.toString()}</pre><button onClick={() => window.location.reload()} className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 font-bold">Refresh Page</button></div></div>; 
         } 
         return this.props.children; 
       } 
@@ -176,12 +176,12 @@ import Modal from './components/Modal';
           };
 
           return (
-            <div className="bg-slate-50 dark:bg-slate-900 min-h-screen flex justify-center md:items-center md:p-6 selection:bg-primary/30 selection:text-primary relative">
+            <div className="bg-slate-50 dark:bg-slate-900 min-h-[100dvh] flex justify-center md:items-center md:p-6 selection:bg-primary/30 selection:text-primary relative">
               
               {/* Background gradient effects */}
               <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-primary/20 to-transparent pointer-events-none"></div>
 
-              <div className="w-full max-w-md bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col min-h-screen md:min-h-0 md:h-auto md:rounded-[40px] z-10 md:border border-slate-100 dark:border-slate-800">
+              <div className="w-full max-w-md bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col min-h-[100dvh] md:min-h-0 md:h-auto md:rounded-[40px] z-10 md:border border-slate-100 dark:border-slate-800">
                 {/* Header Section */}
                 <div className="bg-[#3ecf8e] rounded-b-[40px] px-6 pt-6 pb-16 relative text-white shadow-md z-0 flex flex-col items-center justify-center text-center">
                    <div className="w-16 h-16 bg-white shadow-lg rounded-2xl flex items-center justify-center p-2.5 mb-2 border border-white/20">
@@ -411,13 +411,13 @@ import Modal from './components/Modal';
 
         }
 
-        const suspenseFallback = <div className="h-screen w-full flex items-center justify-center bg-slate-50 dark:bg-slate-900 text-slate-500">Memuat...</div>;
+        const suspenseFallback = <div className="h-[100dvh] w-full flex items-center justify-center bg-slate-50 dark:bg-slate-900 text-slate-500">Memuat...</div>;
         switch (user.role) {
           case 'super_admin': return <ErrorBoundary><React.Suspense fallback={suspenseFallback}><SuperAdminView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></React.Suspense></ErrorBoundary>;
           case 'admin': return <ErrorBoundary><React.Suspense fallback={suspenseFallback}><AdminView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></React.Suspense></ErrorBoundary>;
           case 'guru': return <ErrorBoundary><React.Suspense fallback={suspenseFallback}><GuruView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></React.Suspense></ErrorBoundary>;
           case 'siswa': return <ErrorBoundary><React.Suspense fallback={suspenseFallback}><SiswaView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></React.Suspense></ErrorBoundary>;
-          default: return <div className="p-8 text-center text-red-600 font-bold bg-white h-screen">Role tidak valid!</div>;
+          default: return <div className="p-8 text-center text-red-600 font-bold bg-white h-[100dvh]">Role tidak valid!</div>;
         }
       };
 
