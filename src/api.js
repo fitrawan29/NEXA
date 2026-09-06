@@ -1208,6 +1208,25 @@ import React from 'react';
               })) 
             };
           }
+          
+          case 'get_leaderboard': {
+             const { data: logs, error: err } = await supabaseClient
+                 .from('log_ujian')
+                 .select('id_siswa, nilai_auto, nilai_uraian, siswa!inner(nama_lengkap, kelas_paralel, angkatan)')
+                 .eq('status_ujian', 'SELESAI')
+                 .eq('siswa.npsn', payload.npsn);
+             if (err) return { status: 'error', message: err.message };
+             
+             const map = {};
+             logs.forEach(l => {
+                 if (!map[l.id_siswa]) map[l.id_siswa] = { id: l.id_siswa, nama: l.siswa?.nama_lengkap, kelas: `${l.siswa?.angkatan || ''} ${l.siswa?.kelas_paralel || ''}`.trim(), total_nilai: 0, count: 0 };
+                 map[l.id_siswa].total_nilai += (Number(l.nilai_auto) || 0) + (Number(l.nilai_uraian) || 0);
+                 map[l.id_siswa].count++;
+             });
+             let arr = Object.values(map).map(item => ({ ...item, rata_rata: parseFloat((item.total_nilai / item.count).toFixed(1)) }));
+             arr.sort((a, b) => b.rata_rata - a.rata_rata);
+             return { status: 'success', data: arr.slice(0, 10) }; // Top 10
+          }
 
           
           case 'update_sekolah_status': {
