@@ -1,6 +1,6 @@
 import { fetchAPI } from '../api.js';
 import React, { useState, useEffect, useRef } from 'react';
-import ExamRoom from '../components/ExamRoom.jsx';
+import ExamRoom from './ExamRoom.jsx';
 
 const Countdown = ({ targetDate }) => {
   const [timeLeft, setTimeLeft] = useState('');
