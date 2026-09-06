@@ -129,10 +129,22 @@ import React from 'react';
             // Periksa proteksi multi-login khusus Siswa
             if (payload.role === 'siswa') {
                if (data.session_token) {
-                  return { status: 'error', message: 'Akun Anda sedang digunakan di perangkat lain. Minta admin mereset sesi Anda.' };
+                  const parts = data.session_token.split('|');
+                  let isActive = true;
+                  if (parts.length === 2) {
+                     const lastActive = parseInt(parts[1], 10);
+                     // Allow login if lastActive is older than 3 minutes (180000 ms)
+                     if (Date.now() - lastActive > 3 * 60 * 1000) {
+                         isActive = false; 
+                     }
+                  }
+
+                  if (isActive) {
+                      return { status: 'error', message: 'Akun Anda sedang digunakan. Tunggu 3 menit setelah keluar, atau minta admin mereset sesi Anda.' };
+                  }
                }
-               // Generate and set new session_token
-               const newSessionToken = crypto.randomUUID();
+               // Generate and set new session_token with timestamp
+               const newSessionToken = crypto.randomUUID() + '|' + Date.now();
                const { error: updateErr } = await supabaseClient
                   .from('siswa')
                   .update({ session_token: newSessionToken })
@@ -144,6 +156,19 @@ import React from 'react';
 
             data.role = payload.role;
             return { status: 'success', data };
+          }
+          case 'heartbeat_siswa': {
+             const { data: dbData } = await supabaseClient.from('siswa').select('session_token').eq('id_siswa', payload.id_siswa).single();
+             if (dbData && dbData.session_token) {
+                 const currentUuid = dbData.session_token.split('|')[0];
+                 const payloadUuid = payload.session_token.split('|')[0];
+                 if (currentUuid === payloadUuid) {
+                     const newToken = currentUuid + '|' + Date.now();
+                     await supabaseClient.from('siswa').update({ session_token: newToken }).eq('id_siswa', payload.id_siswa);
+                     return { status: 'success' };
+                 }
+             }
+             return { status: 'error', message: 'Sesi tidak valid' };
           }
           case 'register': {
             ({ data, error } = await supabaseClient

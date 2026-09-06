@@ -63,6 +63,20 @@ import React, { useState, useEffect, useRef } from 'react';
         loadJadwal();
       }, []);
 
+      useEffect(() => {
+        // Heartbeat every 1 minute to keep session alive
+        const interval = setInterval(async () => {
+          if (user && user.session_token) {
+            const res = await api('heartbeat_siswa', { id_siswa: user.id_siswa, session_token: user.session_token });
+            if (res.status === 'error') {
+               onLogout();
+               showMessage('Sesi Berakhir', 'Sesi Anda telah digantikan oleh login di perangkat lain atau waktu telah habis.', 'error');
+            }
+          }
+        }, 60000);
+        return () => clearInterval(interval);
+      }, [user]);
+
       const loadPengumuman = async () => {
         const res = await api('get_pengumuman', { role: 'siswa' });
         if (res.status === 'success') {
