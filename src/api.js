@@ -833,29 +833,40 @@ import React from 'react';
 
           // ================= SISWA =================
           case 'get_jadwal': {
-            const { data: siswaData } = await supabaseClient.from('siswa').select('kelas').eq('id_siswa', payload.id_siswa).eq('npsn', payload.npsn).single();
-            let siswaTingkat = null;
-            if (siswaData && siswaData.kelas) {
-               siswaTingkat = siswaData.kelas.split('|')[0];
-            }
-            
-            let q = supabaseClient.from('jadwal').select('*, guru(nama_lengkap), mata_pelajaran(nama_mapel)').eq('npsn', payload.npsn);
-            if (siswaTingkat) {
-               q = q.or(`kelas.eq.${siswaTingkat},kelas.is.null`);
-            }
-            
-            const { data, error } = await q.order('waktu_mulai', { ascending: false });
-            if (error) return { status: 'error', message: error.message };
-            return {
-              status: 'success',
-              data: data.map(j => ({
-                ...j,
-                nama_guru: j.guru ? j.guru.nama_lengkap : 'Unknown',
-                nama_mapel: j.mata_pelajaran ? j.mata_pelajaran.nama_mapel : 'Unknown'
-              }))
-            };
-          }
+              const { data: siswaData } = await supabaseClient.from('siswa').select('kelas').eq('id_siswa', payload.id_siswa).eq('npsn', payload.npsn).single();
+              let siswaTingkat = null;
+              if (siswaData && siswaData.kelas) {
+                 siswaTingkat = siswaData.kelas.split('|')[0];
+              }
+              
+              let q = supabaseClient.from('jadwal').select('*, guru(nama_lengkap), mata_pelajaran(nama_mapel)').eq('npsn', payload.npsn);
+              if (siswaTingkat) {
+                 q = q.or(`kelas.eq.${siswaTingkat},kelas.is.null`);
+              }
+              
+              const { data, error } = await q.order('waktu_mulai', { ascending: false });
+              if (error) return { status: 'error', message: error.message };
 
+              const { data: logs } = await supabaseClient.from('log_ujian').select('id_jadwal, status_ujian, is_blocked').eq('id_siswa', payload.id_siswa);
+              const logMap = {};
+              if (logs) {
+                logs.forEach(l => { logMap[l.id_jadwal] = l; });
+              }
+
+              return {
+                status: 'success',
+                data: data.map(j => {
+                  const l = logMap[j.id_jadwal];
+                  return {
+                    ...j,
+                    nama_guru: j.guru ? j.guru.nama_lengkap : 'Unknown',
+                    nama_mapel: j.mata_pelajaran ? j.mata_pelajaran.nama_mapel : 'Unknown',
+                    status_siswa: l ? l.status_ujian : null,
+                    is_blocked: l ? l.is_blocked : false
+                  }
+                })
+              };
+            }
           case 'mulai_ujian': {
             ({ data, error } = await supabaseClient.from('jadwal').select('token_aktif, waktu_selesai').eq('id_jadwal', payload.id_jadwal).eq('npsn', payload.npsn).single());
             if (error || !data) return { status: 'error', message: 'Jadwal tidak ditemukan.' };
@@ -935,14 +946,22 @@ import React from 'react';
           }
 
           case 'catat_pelanggaran': {
-            const { data: currLog } = await supabaseClient.from('log_ujian').select('pelanggaran').eq('id_log', payload.id_log).single();
-            if (!currLog) return { status: 'error', message: 'Log tidak ditemukan' };
-            const newPelanggaran = (currLog.pelanggaran || 0) + 1;
-            const isBlocked = newPelanggaran >= 3;
-            await supabaseClient.from('log_ujian').update({ pelanggaran: newPelanggaran, is_blocked: isBlocked }).eq('id_log', payload.id_log);
-            return { status: 'success' };
-          }
+              const { data: currLog } = await supabaseClient.from('log_ujian').select('pelanggaran, pelanggaran_detail').eq('id_log', payload.id_log).single();
+              if (!currLog) return { status: 'error', message: 'Log tidak ditemukan' };
+              const newPelanggaran = (currLog.pelanggaran || 0) + 1;
+              const isBlocked = newPelanggaran >= 3;
+              const details = Array.isArray(currLog.pelanggaran_detail) ? currLog.pelanggaran_detail : [];
+              const waktu = new Date().toISOString();
+              details.push({ waktu, alasan: payload.alasan || 'Terdeteksi keluar dari layar penuh atau pindah aplikasi/tab.' });
 
+              await supabaseClient.from('log_ujian').update({ 
+                 pelanggaran: newPelanggaran, 
+                 is_blocked: isBlocked,
+                 pelanggaran_detail: details
+              }).eq('id_log', payload.id_log);
+              
+              return { status: 'success', pelanggaran_saat_ini: newPelanggaran, terblokir: isBlocked };
+            }
           case 'submit_ujian': {
             const logId = payload.id_log;
             const jawaban = payload.jawaban; 
