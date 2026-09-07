@@ -1,28 +1,6 @@
 import { fetchAPI } from '../api.js';
 import React, { useState, useEffect, useRef } from 'react';
-import Loader from '../components/Loader.jsx';
-import Modal from '../components/Modal.jsx';
-﻿
-function mulberry32(a) {
-  return function() {
-    var t = a += 0x6D2B79F5;
-    t = Math.imul(t ^ t >>> 15, t | 1);
-    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
-  }
-}
-function seededShuffle(array, seed) {
-  let rand = mulberry32(seed);
-  let currentIndex = array.length, randomIndex;
-  while (currentIndex !== 0) {
-    randomIndex = Math.floor(rand() * currentIndex);
-    currentIndex--;
-    [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
-  }
-  return array;
-}
-
-const ExamRoom = ({ user, jadwal, idLog, showMessage, onFinish, isDarkMode, setIsDarkMode }) => {
+﻿const ExamRoom = ({ user, jadwal, idLog, showMessage, onFinish, isDarkMode, setIsDarkMode }) => {
       const api = (action, p = {}) => {
         if (Array.isArray(p)) return fetchAPI(action, p.map(item => ({ ...item, npsn: user.npsn })));
         return fetchAPI(action, { ...p, npsn: user.npsn });
@@ -43,7 +21,6 @@ const ExamRoom = ({ user, jadwal, idLog, showMessage, onFinish, isDarkMode, setI
       const [isSubmitting, setIsSubmitting] = useState(false);
       const [confirmModal, setConfirmModal] = useState({ isOpen: false });
       const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-      const [blurOverlay, setBlurOverlay] = useState(false);
 
       const [isOffline, setIsOffline] = useState(!navigator.onLine);
       const [offlineCountdown, setOfflineCountdown] = useState(15);
@@ -407,25 +384,7 @@ const ExamRoom = ({ user, jadwal, idLog, showMessage, onFinish, isDarkMode, setI
 
       return (
         <div className="font-body-md text-body-md text-on-background dark:text-slate-100 bg-background dark:bg-slate-900 h-screen flex flex-col overflow-hidden select-none transition-colors duration-500" ref={examContainerRef} onClick={enforceFullscreen}>
-          
-          {blurOverlay && (
-             <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xl z-[150] flex items-center justify-center p-4 transition-all">
-                <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 max-w-md text-center shadow-2xl border border-error/20 animate-fade-in-up">
-                   <div className="w-20 h-20 bg-error/10 text-error rounded-full flex items-center justify-center mx-auto mb-6">
-                      <span className="material-symbols-outlined text-[40px]">gavel</span>
-                   </div>
-                   <h2 className="text-2xl font-black text-slate-800 dark:text-white mb-2">Pelanggaran Terdeteksi!</h2>
-                   <p className="text-slate-500 dark:text-slate-400 mb-8 text-sm">
-                      Anda terdeteksi keluar dari mode layar penuh (Full Screen), pindah tab, atau membuka aplikasi lain. Tindakan ini dicatat sebagai pelanggaran.
-                   </p>
-                   <button onClick={returnToExam} className="w-full py-4 rounded-xl font-bold bg-primary text-white shadow-lg shadow-primary/30 hover:bg-primary/90 transition-colors">
-                      Kembali ke Ujian
-                   </button>
-                </div>
-             </div>
-          )}
-
-            {isOffline && (
+          {isOffline && (
             <div className="fixed inset-0 bg-black/80 z-[100] flex flex-col items-center justify-center text-white backdrop-blur-md">
               <span className="material-symbols-outlined text-[80px] text-error mb-4">wifi_off</span>
               <h1 className="text-3xl font-bold mb-2">Koneksi Terputus!</h1>
