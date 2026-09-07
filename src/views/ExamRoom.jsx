@@ -44,6 +44,8 @@ const ExamRoom = ({ user, jadwal, idLog, showMessage, onFinish, isDarkMode, setI
       const [confirmModal, setConfirmModal] = useState({ isOpen: false });
       const [isDrawerOpen, setIsDrawerOpen] = useState(false);
       const [blurOverlay, setBlurOverlay] = useState(false);
+      const isSubmittingRef = useRef(false);
+      const isBlockedRef = useRef(false);
 
       const [isOffline, setIsOffline] = useState(!navigator.onLine);
       const [offlineCountdown, setOfflineCountdown] = useState(15);
@@ -98,11 +100,14 @@ const ExamRoom = ({ user, jadwal, idLog, showMessage, onFinish, isDarkMode, setI
         window.addEventListener('offline', handleOffline);
 
         return () => {
-          clearInterval(timerInterval);
-          document.removeEventListener('visibilitychange', handleVisibilityChange);
-          document.removeEventListener('fullscreenchange', handleFullscreenChange);
-          window.removeEventListener('online', handleOnline);
-          window.removeEventListener('offline', handleOffline);
+            clearInterval(timerInterval);
+            if (gracePeriodTimer.current) clearTimeout(gracePeriodTimer.current);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+            window.removeEventListener('blur', handleWindowBlur);
+            window.removeEventListener('resize', handleResize);
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
           if (wakeLock) wakeLock.release().catch(()=>{});
         };
       }, []);
@@ -162,13 +167,14 @@ const ExamRoom = ({ user, jadwal, idLog, showMessage, onFinish, isDarkMode, setI
       };
 
       const reportViolation = async () => {
-        if (isBlocked || isSubmitting) return;
+        if (isBlockedRef.current || isSubmittingRef.current) return;
 
         const res = await api('catat_pelanggaran', { id_log: idLog });
         if (res.status === 'success') {
           setViolationCount(res.pelanggaran_saat_ini);
           if (res.terblokir) {
             setIsBlocked(true);
+            isBlockedRef.current = true;
             if (document.fullscreenElement) document.exitFullscreen().catch(() => { });
             showMessage('TERBLOKIR!', 'Akun Anda diblokir karena meninggalkan halaman ujian lebih dari 3 kali. Hubungi pengawas.', 'error');
             setTimeout(onFinish, 5000);
@@ -178,11 +184,18 @@ const ExamRoom = ({ user, jadwal, idLog, showMessage, onFinish, isDarkMode, setI
         }
       };
 
+      const triggerViolationImmediate = () => {
+         if (!isSubmittingRef.current && !isBlockedRef.current && navigator.onLine) {
+            reportViolation();
+            enforceFullscreen();
+         }
+      };
+
       const handleVisibilityChange = () => {
         if (document.hidden) {
           gracePeriodTimer.current = setTimeout(() => {
-            reportViolation();
-          }, 10000);
+            triggerViolationImmediate();
+          }, 2000);
         } else {
           if (gracePeriodTimer.current) {
             clearTimeout(gracePeriodTimer.current);
@@ -192,9 +205,20 @@ const ExamRoom = ({ user, jadwal, idLog, showMessage, onFinish, isDarkMode, setI
       };
 
       const handleFullscreenChange = () => {
-        if (!document.fullscreenElement && !isSubmitting && !isBlocked) {
-          reportViolation();
-          enforceFullscreen();
+        if (!document.fullscreenElement) {
+          triggerViolationImmediate();
+        }
+      };
+
+      const handleWindowBlur = () => {
+        triggerViolationImmediate();
+      };
+
+      const handleResize = () => {
+        const activeElement = document.activeElement;
+        const isInput = activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA');
+        if (!isInput && window.innerHeight < window.screen.height * 0.70) {
+             triggerViolationImmediate();
         }
       };
 
@@ -202,6 +226,8 @@ const ExamRoom = ({ user, jadwal, idLog, showMessage, onFinish, isDarkMode, setI
         if (jadwal.browser_lockdown) {
           document.addEventListener('visibilitychange', handleVisibilityChange);
           document.addEventListener('fullscreenchange', handleFullscreenChange);
+          window.addEventListener('blur', handleWindowBlur);
+          window.addEventListener('resize', handleResize);
         }
       };
 
@@ -242,8 +268,9 @@ const ExamRoom = ({ user, jadwal, idLog, showMessage, onFinish, isDarkMode, setI
 
       const executeSubmitExam = async (isAuto = false) => {
         setConfirmModal({ isOpen: false });
-        if (isSubmitting) return;
+        if (isSubmittingRef.current) return;
 
+        isSubmittingRef.current = true;
         setIsSubmitting(true);
         setIsLoading(true);
 
@@ -457,7 +484,7 @@ const ExamRoom = ({ user, jadwal, idLog, showMessage, onFinish, isDarkMode, setI
                    <span className="material-symbols-outlined text-[16px]">timer</span>
                    {String(timeLeft.hours).padStart(2, '0')}:{String(timeLeft.minutes).padStart(2, '0')}:{String(timeLeft.seconds).padStart(2, '0')}
                  </div>
-                 <button onClick={requestSubmit} className="bg-error text-white text-xs font-bold px-4 py-2 rounded-full shadow-md shadow-error/20 hover:bg-error/90 active:scale-95 transition-all">Selesai</button>
+                 <button onClick={requestSubmit} className="bg-error dark:bg-error-container text-white dark:text-on-error-container text-xs font-bold px-4 py-2 rounded-full shadow-md shadow-error/20 hover:opacity-90 active:scale-95 transition-all border border-error/50 dark:border-error-container/50">Selesai</button>
               </div>
             </header>
 
