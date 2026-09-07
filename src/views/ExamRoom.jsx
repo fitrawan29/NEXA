@@ -143,20 +143,16 @@ const ExamRoom = ({ user, jadwal, idLog, showMessage, onFinish, isDarkMode, setI
             if (s.opsi) {
               try { parsedOpsi = JSON.parse(s.opsi); } catch (e) { parsedOpsi = s.opsi; }
             }
+            const seed = (user.id_user ? user.id_user.toString().charCodeAt(0) : 1) + (jadwal.id_jadwal * 10);
             if (jadwal.acak_opsi && parsedOpsi && (s.tipe_soal === 'PG' || s.tipe_soal === 'PGK')) {
-              for (let i = parsedOpsi.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [parsedOpsi[i], parsedOpsi[j]] = [parsedOpsi[j], parsedOpsi[i]];
-              }
+              seededShuffle(parsedOpsi, seed + (s.id_soal || 0));
             }
             return { ...s, opsi: parsedOpsi };
           });
 
           if (jadwal.acak_soal) {
-            for (let i = parsedSoal.length - 1; i > 0; i--) {
-              const j = Math.floor(Math.random() * (i + 1));
-              [parsedSoal[i], parsedSoal[j]] = [parsedSoal[j], parsedSoal[i]];
-            }
+            const seed = (user.id_user ? user.id_user.toString().charCodeAt(0) : 1) + (jadwal.id_jadwal * 10);
+            seededShuffle(parsedSoal, seed);
           }
 
           setSoal(parsedSoal);
