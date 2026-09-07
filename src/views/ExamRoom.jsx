@@ -105,7 +105,6 @@ const ExamRoom = ({ user, jadwal, idLog, showMessage, onFinish, isDarkMode, setI
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             document.removeEventListener('fullscreenchange', handleFullscreenChange);
             window.removeEventListener('blur', handleWindowBlur);
-            window.removeEventListener('resize', handleResize);
             window.removeEventListener('online', handleOnline);
             window.removeEventListener('offline', handleOffline);
           if (wakeLock) wakeLock.release().catch(()=>{});
@@ -214,21 +213,12 @@ const ExamRoom = ({ user, jadwal, idLog, showMessage, onFinish, isDarkMode, setI
         triggerViolationImmediate();
       };
 
-      const handleResize = () => {
-        const activeElement = document.activeElement;
-        const isInput = activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA');
-        if (!isInput && window.innerHeight < window.screen.height * 0.70) {
-             triggerViolationImmediate();
-        }
-      };
-
       const setupAntiCheat = () => {
         if (jadwal.browser_lockdown) {
           document.addEventListener('visibilitychange', handleVisibilityChange);
           document.addEventListener('fullscreenchange', handleFullscreenChange);
           window.addEventListener('blur', handleWindowBlur);
-          window.addEventListener('resize', handleResize);
-        }
+          }
       };
 
       const enforceFullscreen = () => {
@@ -484,7 +474,7 @@ const ExamRoom = ({ user, jadwal, idLog, showMessage, onFinish, isDarkMode, setI
                    <span className="material-symbols-outlined text-[16px]">timer</span>
                    {String(timeLeft.hours).padStart(2, '0')}:{String(timeLeft.minutes).padStart(2, '0')}:{String(timeLeft.seconds).padStart(2, '0')}
                  </div>
-                 <button onClick={requestSubmit} className="bg-error dark:bg-error-container text-white dark:text-on-error-container text-xs font-bold px-4 py-2 rounded-full shadow-md shadow-error/20 hover:opacity-90 active:scale-95 transition-all border border-error/50 dark:border-error-container/50">Selesai</button>
+                 <button onClick={requestSubmit} className="bg-red-600 text-white text-sm font-black px-5 py-2 rounded-full shadow-lg shadow-red-600/30 hover:bg-red-700 active:scale-95 transition-all border border-red-400">SELESAI</button>
               </div>
             </header>
 
