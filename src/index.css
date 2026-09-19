@@ -2,59 +2,82 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-      font-family: 'Inter', sans-serif;
-      background-color: #faf8ff;
-      /* surface */
-    }
+@layer base {
+  * {
+    touch-action: manipulation;
+  }
 
-    .custom-scrollbar::-webkit-scrollbar {
-      width: 6px;
-    }
+  html {
+    font-family: 'Nunito', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
 
-    .custom-scrollbar::-webkit-scrollbar-track {
-      background: transparent;
-    }
+  body {
+    @apply bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans antialiased overflow-x-hidden min-h-screen transition-colors duration-300;
+  }
 
-    .custom-scrollbar::-webkit-scrollbar-thumb {
-      background-color: #cbd5e1;
-      border-radius: 20px;
-    }
+  /* Form controls and headings inherit Nunito typography */
+  h1, h2, h3, h4, h5, h6, input, textarea, select, button {
+    font-family: inherit;
+  }
+}
 
-    .animate-fade-in-up {
-      animation: fadeInUp 0.4s ease-out forwards;
-    }
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
 
-    @keyframes fadeInUp {
-      from {
-        opacity: 0;
-        transform: translateY(15px);
-      }
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
 
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 9999px;
+}
 
-    /* Stitch Custom Styles */
-    .academic-input:focus {
-      outline: none;
-      border-color: #1a56db;
-      box-shadow: 0 0 0 4px rgba(26, 86, 219, 0.1);
-    }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
+}
 
-    .form-slider {
-      display: flex;
-      width: 200%;
-      transition: transform 0.4s ease-in-out;
-    }
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #475569;
+}
 
-    .show-register {
-      transform: translateX(-50%);
-    }
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #64748b;
+}
 
-    .form-pane {
-      width: 50%;
-      flex-shrink: 0;
-    }
+/* Hide scrollbar utility */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Unified Focus Style using Emerald Brand Accent */
+.academic-input:focus {
+  outline: none;
+  border-color: #10b981;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15);
+}
+
+/* Authentication Slider */
+.form-slider {
+  display: flex;
+  width: 200%;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.show-register {
+  transform: translateX(-50%);
+}
+
+.form-pane {
+  width: 50%;
+  flex-shrink: 0;
+}
