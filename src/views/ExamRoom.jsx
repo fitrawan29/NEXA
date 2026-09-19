@@ -53,6 +53,7 @@ const ExamRoom = ({ user, jadwal, idLog, showMessage, onFinish, isDarkMode, setI
       const gracePeriodTimer = useRef(null);
 
       const examContainerRef = useRef(null);
+      const windowBlurTimerRef = useRef(null);
 
       useEffect(() => {
         fetchSoal();
@@ -82,7 +83,7 @@ const ExamRoom = ({ user, jadwal, idLog, showMessage, onFinish, isDarkMode, setI
           const remaining = calculateTimeLeft(jadwal.waktu_selesai);
           setTimeLeft(remaining);
 
-          if (remaining.total <= 0 && !isSubmitting && !isBlocked) {
+          if (remaining.total <= 0 && !isSubmittingRef.current && !isBlockedRef.current) {
             clearInterval(timerInterval);
             showMessage('Waktu Habis!', 'Waktu ujian telah berakhir. Sistem mengumpulkan jawaban otomatis.', 'warning');
             executeSubmitExam(true);
@@ -102,6 +103,7 @@ const ExamRoom = ({ user, jadwal, idLog, showMessage, onFinish, isDarkMode, setI
         return () => {
             clearInterval(timerInterval);
             if (gracePeriodTimer.current) clearTimeout(gracePeriodTimer.current);
+            if (windowBlurTimerRef.current) clearTimeout(windowBlurTimerRef.current);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             document.removeEventListener('fullscreenchange', handleFullscreenChange);
             window.removeEventListener('blur', handleWindowBlur);
@@ -210,7 +212,13 @@ const ExamRoom = ({ user, jadwal, idLog, showMessage, onFinish, isDarkMode, setI
       };
 
       const handleWindowBlur = () => {
-        triggerViolationImmediate();
+        // Debounce 800ms to prevent false positives from modal/keyboard focus changes on mobile
+        if (windowBlurTimerRef.current) clearTimeout(windowBlurTimerRef.current);
+        windowBlurTimerRef.current = setTimeout(() => {
+          if (!document.hasFocus()) {
+            triggerViolationImmediate();
+          }
+        }, 800);
       };
 
       const setupAntiCheat = () => {
@@ -218,11 +226,16 @@ const ExamRoom = ({ user, jadwal, idLog, showMessage, onFinish, isDarkMode, setI
           document.addEventListener('visibilitychange', handleVisibilityChange);
           document.addEventListener('fullscreenchange', handleFullscreenChange);
           window.addEventListener('blur', handleWindowBlur);
-          }
+        }
+      };
+
+      const returnToExam = () => {
+        setBlurOverlay(false);
+        enforceFullscreen();
       };
 
       const enforceFullscreen = () => {
-        if (jadwal.browser_lockdown && !isBlocked && document.documentElement.requestFullscreen && !document.fullscreenElement) {
+        if (jadwal.browser_lockdown && !isBlockedRef.current && document.documentElement.requestFullscreen && !document.fullscreenElement) {
           document.documentElement.requestFullscreen().catch(() => { });
         }
       };

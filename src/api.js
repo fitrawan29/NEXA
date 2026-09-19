@@ -905,44 +905,15 @@ import React from 'react';
               return s;
             });
 
-            // Fisher-Yates shuffle helper
-            const shuffleArray = (arr) => {
-              const a = [...arr];
-              for (let i = a.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [a[i], a[j]] = [a[j], a[i]];
-              }
-              return a;
-            };
-
             // Filter out NARASI and SKEMA_PENILAIAN from exam questions
             const soalAktif = unpackedData.filter(s => s.tipe_soal !== 'NARASI' && s.tipe_soal !== 'SKEMA_PENILAIAN');
             const narasiMap = {};
             unpackedData.filter(s => s.tipe_soal === 'NARASI').forEach(n => { narasiMap[n.id_soal] = n; });
 
-            // Helper to extract clean options array
-            const getCleanOpsi = (soal) => {
-              if (!soal.opsi) return null;
-              if (Array.isArray(soal.opsi)) return soal.opsi;
-              return null;
-            };
-
-            // Shuffle soal order
-            const soalAcak = shuffleArray(soalAktif).map(soal => {
-              // Shuffle opsi for PG and PGK — only the actual options array
-              if ((soal.tipe_soal === 'PG' || soal.tipe_soal === 'PGK') && soal.opsi) {
-                try {
-                  const cleanOpsi = getCleanOpsi(soal);
-                  if (Array.isArray(cleanOpsi)) {
-                    const opsiAcak = shuffleArray(cleanOpsi);
-                    return { ...soal, opsi: JSON.stringify(opsiAcak) };
-                  }
-                } catch(e) {}
-              }
-              return soal;
-            });
-
-            return { status: 'success', data: soalAcak, narasiMap };
+            // NOTE: Shuffling is done client-side (ExamRoom.jsx) with a seeded random function
+            // so that each student gets a consistent (but unique-per-student) question order.
+            // Do NOT shuffle here with Math.random() as it would create inconsistent order on reconnects.
+            return { status: 'success', data: soalAktif, narasiMap };
           }
 
           case 'catat_pelanggaran': {
@@ -964,7 +935,15 @@ import React from 'react';
             }
           case 'submit_ujian': {
             const logId = payload.id_log;
-            const jawaban = payload.jawaban; 
+            
+            // Konversi array jawaban [{id_soal, jawaban}] menjadi object/map {id_soal: jawaban}
+            const jawaban = {};
+            if (Array.isArray(payload.jawaban)) {
+              payload.jawaban.forEach(j => {
+                if (j && j.id_soal) jawaban[j.id_soal] = j.jawaban;
+              });
+            }
+
             const idSiswa = payload.id_siswa;
 
             const { data: jadwal } = await supabaseClient.from('jadwal').select('id_mapel').eq('id_jadwal', payload.id_jadwal).single();
@@ -1218,12 +1197,14 @@ import React from 'react';
               status: 'success', 
               data: data.map(log => ({
                 id_log: log.id_log,
-                waktu_mulai: log.waktu_mulai,
-                waktu_selesai: log.waktu_selesai,
+                waktu_mulai: log.jadwal?.waktu_mulai,
+                waktu_selesai: log.jadwal?.waktu_selesai,
                 nilai_auto: log.nilai_auto || 0,
                 nilai_uraian: log.nilai_uraian || 0,
                 total_nilai: (Number(log.nilai_auto) || 0) + (Number(log.nilai_uraian) || 0),
-                nama_mapel: log.jadwal?.mata_pelajaran?.nama_mapel || 'Unknown'
+                nama_mapel: log.jadwal?.mata_pelajaran?.nama_mapel || 'Unknown',
+                is_blocked: log.is_blocked || false,
+                pelanggaran_detail: log.pelanggaran_detail || []
               })) 
             };
           }

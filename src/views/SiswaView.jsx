@@ -111,7 +111,7 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
   useEffect(() => {
     const interval = setInterval(async () => {
       if (user && user.session_token) {
-        const res = await api('heartbeat_siswa', { id_siswa: user.id_siswa, session_token: user.session_token });
+        const res = await api('heartbeat_siswa', { id_siswa: user.id_user, session_token: user.session_token });
         if (res.status === 'error') {
            onLogout();
            showMessage('Sesi Berakhir', 'Sesi Anda telah digantikan oleh login di perangkat lain atau waktu telah habis.', 'error');
@@ -222,7 +222,15 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
               <button onClick={() => setSelectedJadwalUntukToken(null)} className="px-2 h-8 rounded-full text-xs font-bold text-slate-400 hover:text-slate-600"><span className="material-symbols-outlined text-[16px]">close</span></button>
             </div>
           ) : (
-            <button onClick={() => !isBelumMulai && !j.is_blocked && j.status_siswa !== 'SELESAI' && setSelectedJadwalUntukToken(j.id_jadwal)} disabled={isBelumMulai || j.status_siswa === 'SELESAI' || (j.is_blocked && j.status_siswa !== 'SELESAI')} className={`px-4 py-1.5 rounded-full text-xs font-bold ${statusBtnClass}`}>
+            <button onClick={() => {
+                if (j.is_blocked && j.status_siswa !== 'SELESAI') {
+                  showMessage('Akses Terblokir', 'Akun Anda telah diblokir dari ujian ini karena terindikasi melakukan pelanggaran. Silakan hubungi Admin Sekolah atau Guru Pengampu mata pelajaran ini untuk membuka blokir Anda.', 'error');
+                  return;
+                }
+                if (!isBelumMulai && j.status_siswa !== 'SELESAI') {
+                  setSelectedJadwalUntukToken(j.id_jadwal);
+                }
+              }} disabled={isBelumMulai || j.status_siswa === 'SELESAI'} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${statusBtnClass}`}>
               {statusText}
             </button>
           )}

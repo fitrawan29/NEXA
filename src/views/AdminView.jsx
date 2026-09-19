@@ -1166,17 +1166,33 @@ import * as XLSX from 'xlsx';
                          const pBadge = isAktif ? 'bg-green-100 text-green-600' : isSelesai ? 'bg-blue-100 text-blue-600' : 'bg-slate-200 text-slate-600';
                          
                          return (
-                           <div key={idx} className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                 <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-                                   <span className="material-symbols-outlined text-slate-400">person</span>
-                                 </div>
-                                 <div>
-                                    <h5 className="font-bold text-sm dark:text-white">{p.nama_lengkap}</h5>
-                                    <p className="text-[10px] text-slate-500">Nilai: <strong className="text-slate-700 dark:text-slate-300">{p.nilai_auto !== null ? p.nilai_auto : '-'}</strong> | Opsi Terisi: {p.jawaban ? Object.keys(p.jawaban).length : 0}</p>
-                                 </div>
+                           <div key={idx} className={`p-4 rounded-xl border shadow-sm flex flex-col gap-2 ${p.is_blocked ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700'}`}>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                   <div className={`w-10 h-10 rounded-full flex items-center justify-center ${p.is_blocked ? 'bg-red-200 dark:bg-red-900/50 text-red-700 dark:text-red-300' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}>
+                                     <span className="material-symbols-outlined">{p.is_blocked ? 'block' : 'person'}</span>
+                                   </div>
+                                   <div>
+                                      <h5 className="font-bold text-sm dark:text-white flex items-center gap-1">
+                                         {p.nama_lengkap}
+                                         {p.is_blocked && <span className="text-[10px] bg-red-600 text-white px-1.5 py-0.5 rounded-full">TERBLOKIR</span>}
+                                      </h5>
+                                      <p className="text-[10px] text-slate-500">
+                                        Nilai: <strong className="text-slate-700 dark:text-slate-300">{p.nilai_auto !== null ? p.nilai_auto : '-'}</strong> | 
+                                        Pelanggaran: <strong className={p.pelanggaran >= 3 ? 'text-red-600' : 'text-slate-700 dark:text-slate-300'}>{p.pelanggaran || 0}/3</strong>
+                                      </p>
+                                   </div>
+                                </div>
+                                <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${pBadge}`}>{p.status_ujian}</span>
                               </div>
-                              <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${pBadge}`}>{p.status_ujian}</span>
+                              
+                              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100/50 dark:border-slate-700/50 mt-1">
+                                 {p.is_blocked ? (
+                                    <button onClick={() => handleUnblock(p.id_log)} className="px-3 py-1 bg-green-100 text-green-700 text-[10px] font-bold rounded-lg hover:bg-green-200 transition-colors">Buka Blokir</button>
+                                 ) : (
+                                    <button onClick={() => handleBlock(p.id_log)} className="px-3 py-1 bg-red-100 text-red-700 text-[10px] font-bold rounded-lg hover:bg-red-200 transition-colors">Blokir Siswa</button>
+                                 )}
+                              </div>
                            </div>
                          );
                       })}

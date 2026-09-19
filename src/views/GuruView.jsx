@@ -1575,22 +1575,34 @@ import * as XLSX from 'xlsx';
                          <div className="text-center text-slate-500 py-10">Belum ada siswa yang sedang mengerjakan.</div>
                        ) : (
                          dataLog.slice((monitoringPage - 1) * 20, monitoringPage * 20).map((log) => (
-                           <div key={log.id_log} className="bg-white dark:bg-slate-800 rounded-xl p-4 flex flex-col md:flex-row justify-between md:items-center gap-3 shadow-sm border border-slate-100 dark:border-slate-700">
-                             <div className="flex items-center gap-3">
-                               <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 font-bold uppercase">{log.siswa?.nama_lengkap?.substring(0,2)}</div>
-                               <div>
-                                 <h5 className="font-bold text-sm dark:text-white">{log.siswa?.nama_lengkap}</h5>
-                                 <p className="text-[10px] text-slate-500">Mulai: {new Date(log.waktu_mulai).toLocaleTimeString('id-ID')} | Status: <span className={`font-bold ${log.status_ujian === 'SELESAI' ? 'text-green-500' : 'text-blue-500'}`}>{log.status_ujian}</span></p>
+                             <div key={log.id_log} className={`rounded-xl p-4 flex flex-col md:flex-row justify-between md:items-center gap-3 shadow-sm border ${log.is_blocked ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700'}`}>
+                               <div className="flex items-center gap-3">
+                                 <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold uppercase ${log.is_blocked ? 'bg-red-200 dark:bg-red-900/50 text-red-700 dark:text-red-300' : 'bg-slate-100 dark:bg-slate-700 text-slate-500'}`}>
+                                    {log.is_blocked ? <span className="material-symbols-outlined text-sm">block</span> : log.siswa?.nama_lengkap?.substring(0,2)}
+                                 </div>
+                                 <div>
+                                   <h5 className="font-bold text-sm dark:text-white flex items-center gap-1">
+                                      {log.siswa?.nama_lengkap}
+                                      {log.is_blocked && <span className="text-[10px] bg-red-600 text-white px-1.5 py-0.5 rounded-full">TERBLOKIR</span>}
+                                   </h5>
+                                   <p className="text-[10px] text-slate-500">Mulai: {new Date(log.waktu_mulai).toLocaleTimeString('id-ID')} | Status: <span className={`font-bold ${log.status_ujian === 'SELESAI' ? 'text-green-500' : 'text-blue-500'}`}>{log.status_ujian}</span> | Pelanggaran: <span className="text-red-500 font-bold">{log.pelanggaran || 0}/3</span></p>
+                                 </div>
+                               </div>
+                               <div className="flex flex-wrap gap-2 mt-3 md:mt-0 justify-end">
+                                 {log.is_blocked ? (
+                                    <button onClick={() => handleUnblock(log.id_log)} className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-xs font-bold hover:bg-green-200 transition-colors flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">check_circle</span> Buka Blokir</button>
+                                 ) : (
+                                    <button onClick={() => handleBlock(log.id_log)} className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs font-bold hover:bg-red-200 transition-colors flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">block</span> Blokir</button>
+                                 )}
+                                 {log.status_ujian === 'SEDANG KERJA' && (
+                                   <>
+                                     <button onClick={() => setResetModal({ id_log: log.id_log, id_siswa: log.id_siswa })} className="px-3 py-1.5 bg-orange-50 text-orange-600 rounded-lg text-xs font-bold hover:bg-orange-100 transition-colors flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">restart_alt</span> Reset</button>
+                                     <button onClick={() => handleForceStop(log.id_log)} className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200 transition-colors flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">stop_circle</span> Stop</button>
+                                   </>
+                                 )}
                                </div>
                              </div>
-                             {log.status_ujian === 'SEDANG KERJA' && (
-                               <div className="flex gap-2 mt-3 md:mt-0">
-                                 <button onClick={() => setResetModal({ id_log: log.id_log, id_siswa: log.id_siswa })} className="px-3 py-1.5 bg-orange-50 text-orange-600 rounded-lg text-xs font-bold hover:bg-orange-100 transition-colors flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">restart_alt</span> Reset</button>
-                                 <button onClick={() => handleForceStop(log.id_log)} className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100 transition-colors flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">stop_circle</span> Stop Paksa</button>
-                               </div>
-                             )}
-                           </div>
-                         ))
+                           ))
                        )}
                     </div>
                     {dataLog.length > 20 && (
