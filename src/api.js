@@ -936,6 +936,10 @@ import React from 'react';
           case 'submit_ujian': {
             const logId = payload.id_log;
             
+            // Cek status blokir
+            const { data: currLog } = await supabaseClient.from('log_ujian').select('is_blocked').eq('id_log', logId).single();
+            const isBlocked = currLog?.is_blocked || false;
+
             // Konversi array jawaban [{id_soal, jawaban}] menjadi object/map {id_soal: jawaban}
             const jawaban = {};
             if (Array.isArray(payload.jawaban)) {
@@ -1021,18 +1025,24 @@ import React from 'react';
               await supabaseClient.from('jawaban_siswa').insert(insertJawaban);
             }
 
-            let nilaiAuto = 0;
-            if (totalSkorMaxAuto > 0) {
-              nilaiAuto = (totalSkorDiperolehAuto / totalSkorMaxAuto) * 100;
-              nilaiAuto = Math.round(nilaiAuto * 100) / 100;
-            }
-
-            await supabaseClient.from('log_ujian').update({
-              status_ujian: 'SELESAI',
-              nilai_auto: nilaiAuto
-            }).eq('id_log', logId);
-
-            return { status: 'success', message: 'Ujian berhasil diselesaikan.', nilai_auto: nilaiAuto };
+              let nilaiAuto = 0;
+              if (isBlocked) {
+                nilaiAuto = 0;
+              } else if (totalSkorMaxAuto > 0) {
+                nilaiAuto = (totalSkorDiperolehAuto / totalSkorMaxAuto) * 100;
+                nilaiAuto = Math.round(nilaiAuto * 100) / 100;
+              }
+  
+              await supabaseClient.from('log_ujian').update({
+                status_ujian: 'SELESAI',
+                nilai_auto: nilaiAuto
+              }).eq('id_log', logId);
+  
+              return { 
+                status: 'success', 
+                message: isBlocked ? 'Ujian telah berakhir. Karena Anda melanggar lebih dari 3 kali (Terblokir), nilai Anda otomatis menjadi 0.' : 'Ujian berhasil diselesaikan.', 
+                nilai_auto: nilaiAuto 
+              };
           }
 
           // ================= ADMIN NEW FEATURES =================
