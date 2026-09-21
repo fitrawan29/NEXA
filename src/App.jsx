@@ -104,6 +104,14 @@ import Modal from './components/Modal';
         }
       }, [isDarkMode]);
 
+      useEffect(() => {
+        const activeRole = user?.role || loginRole || registerRole || 'siswa';
+        // Remove existing theme classes
+        document.documentElement.classList.remove('theme-siswa', 'theme-guru', 'theme-admin', 'theme-super_admin');
+        // Add current theme class
+        document.documentElement.classList.add(`theme-${activeRole}`);
+      }, [user?.role, loginRole, registerRole]);
+
       const handlePasswordKeyUp = (e) => {
         if (e.getModifierState && e.getModifierState('CapsLock')) {
           setCapsLockActive(true);
@@ -214,7 +222,7 @@ import Modal from './components/Modal';
 
               <div className="w-full max-w-md bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col min-h-[100dvh] md:min-h-0 md:h-auto md:rounded-[40px] z-10 md:border border-slate-100 dark:border-slate-800">
                 {/* Header Section */}
-                <div className="bg-[#3ecf8e] rounded-b-[40px] px-6 pt-6 pb-16 relative text-white shadow-md z-0 flex flex-col items-center justify-center text-center">
+                <div className="bg-primary rounded-b-[40px] px-6 pt-6 pb-16 relative text-white shadow-md z-0 flex flex-col items-center justify-center text-center">
                    <div className="w-16 h-16 bg-white shadow-lg rounded-2xl flex items-center justify-center p-2.5 mb-2 border border-white/20">
                      <img alt="NEXA Logo" className="w-full h-full object-contain" src={nexaLogo} />
                    </div>
@@ -332,7 +340,7 @@ import Modal from './components/Modal';
                                    <button type="button" onClick={handleLupaPassword} className="font-bold text-primary hover:text-primary/80 transition-colors">Lupa Password?</button>
                                  </div>
 
-                                 <button disabled={loading || loginSuccess} className={`w-full py-2 rounded-xl font-bold text-white transition-all shadow-md mt-1 flex justify-center items-center gap-1.5 text-sm ${loginSuccess ? 'bg-green-500' : 'bg-[#3ecf8e] hover:bg-[#3ecf8e]/90 hover:shadow-lg'}`} type="submit">
+                                 <button disabled={loading || loginSuccess} className={`w-full py-2 rounded-xl font-bold text-white transition-all shadow-md mt-1 flex justify-center items-center gap-1.5 text-sm ${loginSuccess ? 'bg-green-500' : 'bg-primary hover:bg-primary/90 hover:shadow-lg'}`} type="submit">
                                    {loading ? (
                                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                                    ) : loginSuccess ? (
@@ -442,7 +450,7 @@ import Modal from './components/Modal';
                                    </div>
                                  </div>
 
-                                 <button disabled={loading} className="w-full py-3 rounded-xl font-bold text-white bg-[#3ecf8e] hover:bg-[#3ecf8e]/90 transition-all shadow-md mt-2 flex justify-center items-center gap-2 disabled:opacity-80" type="submit">
+                                 <button disabled={loading} className="w-full py-3 rounded-xl font-bold text-white bg-primary hover:bg-primary/90 transition-all shadow-md mt-2 flex justify-center items-center gap-2 disabled:opacity-80" type="submit">
                                    {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <>Daftar <span className="material-symbols-outlined text-[18px]">arrow_forward</span></>}
                                  </button>
                                </div>

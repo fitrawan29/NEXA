@@ -178,7 +178,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
           <div className="w-full md:max-w-3xl lg:max-w-5xl xl:max-w-6xl mx-auto bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col h-[100dvh]">
             
             {/* Header / Top Section */}
-            <div className="bg-[#3ecf8e] rounded-none px-6 pt-4 pb-4 relative text-white shadow-md z-0 flex-shrink-0">
+            <div className="bg-primary rounded-none px-6 pt-4 pb-4 relative text-white shadow-md z-0 flex-shrink-0">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-white/20 rounded-full border-2 border-white/50 overflow-hidden flex-shrink-0 flex items-center justify-center">
