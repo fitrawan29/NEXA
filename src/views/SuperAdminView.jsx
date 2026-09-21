@@ -123,8 +123,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 
         return (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md shadow-2xl p-6 relative border border-outline-variant/30 dark:border-slate-700">
-              <h2 className="text-xl font-bold mb-4 text-on-surface dark:text-white capitalize">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md shadow-2xl p-6 relative border border-slate-200 dark:border-slate-700">
+              <h2 className="text-xl font-bold mb-4 text-slate-800 dark:text-slate-100 capitalize">
                 {formModal.isEdit ? 'Edit' : 'Tambah'} {type}
               </h2>
               <form onSubmit={handleSaveForm} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -164,8 +164,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
                   </>
                 )}
                 <div className="flex justify-end space-x-2 pt-4">
-                  <button type="button" onClick={() => setFormModal({ isOpen: false, type: '', isEdit: false, editItem: null })} className="px-4 py-2 rounded-lg font-label-md text-on-surface-variant hover:bg-surface-variant">Batal</button>
-                  <button type="submit" className="px-4 py-2 rounded-lg font-label-md bg-gradient-to-r from-primary to-secondary text-on-primary text-on-primary hover:from-primary/90 hover:to-secondary/90">Simpan</button>
+                  <button type="button" onClick={() => setFormModal({ isOpen: false, type: '', isEdit: false, editItem: null })} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">Batal</button>
+                  <button type="submit" className="px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-primary to-secondary text-white hover:from-primary/90 hover:to-secondary/90 transition-all shadow-sm">Simpan</button>
                 </div>
               </form>
             </div>
@@ -178,7 +178,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
           <div className="w-full md:max-w-3xl lg:max-w-5xl xl:max-w-6xl mx-auto bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col h-[100dvh]">
             
             {/* Header / Top Section */}
-            <div className="bg-[#3ecf8e] rounded-none px-6 pt-4 pb-4 relative text-white shadow-md z-0">
+            <div className="bg-[#3ecf8e] rounded-none px-6 pt-4 pb-4 relative text-white shadow-md z-0 flex-shrink-0">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-white/20 rounded-full border-2 border-white/50 overflow-hidden flex-shrink-0 flex items-center justify-center">
@@ -203,7 +203,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 
             {/* Main Scrollable Content */}
-            <div className="flex-1 overflow-y-auto pb-24 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            <div className="flex-1 overflow-y-auto pb-28 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               
               {activeTab === 'analytics' && (
                 <div className="px-6 mt-6 animate-fade-in-up">
@@ -504,27 +504,29 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
             </div>
 
             {/* Bottom Navigation */}
-            <div className="absolute bottom-0 left-0 w-full bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-6 md:px-12 py-3 flex justify-between md:justify-center md:gap-16 items-center rounded-t-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] z-50">
-              <button onClick={() => setActiveTab('analytics')} className={`flex flex-col items-center transition-colors ${activeTab === 'analytics' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
-                <span className="material-symbols-outlined">analytics</span>
-                <span className="text-[10px] font-bold mt-1">Statistik</span>
-              </button>
-              <button onClick={() => setActiveTab('sekolah')} className={`flex flex-col items-center transition-colors ${activeTab === 'sekolah' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
-                <span className="material-symbols-outlined">account_balance</span>
-                <span className="text-[10px] font-bold mt-1">Sekolah</span>
-              </button>
-              <button onClick={() => setActiveTab('admin')} className={`flex flex-col items-center transition-colors ${activeTab === 'admin' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
-                <span className="material-symbols-outlined">manage_accounts</span>
-                <span className="text-[10px] font-bold mt-1">Admin</span>
-              </button>
-              <button onClick={() => setActiveTab('pengumuman')} className={`flex flex-col items-center transition-colors ${activeTab === 'pengumuman' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
-                <span className="material-symbols-outlined">campaign</span>
-                <span className="text-[10px] font-bold mt-1">Informasi</span>
-              </button>
-              <button onClick={() => setActiveTab('akun')} className={`flex flex-col items-center transition-colors ${activeTab === 'akun' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'}`}>
-                <span className="material-symbols-outlined">person</span>
-                <span className="text-[10px] font-bold mt-1">Akun</span>
-              </button>
+            <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)]">
+              <div className="w-full md:max-w-3xl lg:max-w-5xl xl:max-w-6xl mx-auto px-6 md:px-12 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] flex justify-between md:justify-center md:gap-16 items-center">
+                <button onClick={() => setActiveTab('analytics')} className={`flex flex-col items-center transition-colors min-h-[44px] min-w-[44px] justify-center ${activeTab === 'analytics' ? 'text-primary font-bold' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}>
+                  <span className="material-symbols-outlined text-[22px]">analytics</span>
+                  <span className="text-[10px] mt-0.5">Statistik</span>
+                </button>
+                <button onClick={() => setActiveTab('sekolah')} className={`flex flex-col items-center transition-colors min-h-[44px] min-w-[44px] justify-center ${activeTab === 'sekolah' ? 'text-primary font-bold' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}>
+                  <span className="material-symbols-outlined text-[22px]">account_balance</span>
+                  <span className="text-[10px] mt-0.5">Sekolah</span>
+                </button>
+                <button onClick={() => setActiveTab('admin')} className={`flex flex-col items-center transition-colors min-h-[44px] min-w-[44px] justify-center ${activeTab === 'admin' ? 'text-primary font-bold' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}>
+                  <span className="material-symbols-outlined text-[22px]">manage_accounts</span>
+                  <span className="text-[10px] mt-0.5">Admin</span>
+                </button>
+                <button onClick={() => setActiveTab('pengumuman')} className={`flex flex-col items-center transition-colors min-h-[44px] min-w-[44px] justify-center ${activeTab === 'pengumuman' ? 'text-primary font-bold' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}>
+                  <span className="material-symbols-outlined text-[22px]">campaign</span>
+                  <span className="text-[10px] mt-0.5">Informasi</span>
+                </button>
+                <button onClick={() => setActiveTab('akun')} className={`flex flex-col items-center transition-colors min-h-[44px] min-w-[44px] justify-center ${activeTab === 'akun' ? 'text-primary font-bold' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}>
+                  <span className="material-symbols-outlined text-[22px]">person</span>
+                  <span className="text-[10px] mt-0.5">Akun</span>
+                </button>
+              </div>
             </div>
             
             {renderFormModal()}

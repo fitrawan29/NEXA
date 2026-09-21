@@ -204,6 +204,11 @@ import React from 'react';
             return { status: 'success', message: 'Sekolah berhasil ditambahkan.' };
           }
           case 'delete_sekolah': {
+            const { data: rpcData, error: rpcError } = await supabaseClient.rpc('delete_sekolah_cascade', { p_npsn: payload.npsn });
+            if (!rpcError && rpcData) {
+              if (rpcData.status === 'error') return { status: 'error', message: rpcData.message };
+              return { status: 'success', message: rpcData.message, data: rpcData };
+            }
             ({ error } = await supabaseClient.from('sekolah').delete().eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Sekolah berhasil dihapus.' };
@@ -257,7 +262,7 @@ import React from 'react';
             if (payload.foto_profil) updateData.foto_profil = payload.foto_profil;
             ({ error } = await supabaseClient.from('admin').update(updateData).eq('id_admin', payload.id_admin));
             if (error) return { status: 'error', message: error.message };
-            return { status: 'success', message: 'Profil berhasil diperbarui. Silakan masuk kembali.' };
+            return { status: 'success', message: 'Profil berhasil diperbarui.' };
           }
 
           // ================= SUPERADMIN ANALYTICS =================
@@ -413,6 +418,12 @@ import React from 'react';
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Siswa berhasil dihapus' };
           }
+          case 'delete_siswa_bulk': {
+            if (!payload.ids || !payload.ids.length) return { status: 'error', message: 'Tidak ada siswa yang dipilih.' };
+            ({ error } = await supabaseClient.from('siswa').delete().in('id_siswa', payload.ids).eq('npsn', payload.npsn));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: `${payload.ids.length} siswa berhasil dihapus.` };
+          }
           case 'reset_sesi_siswa': {
             ({ error } = await supabaseClient.from('log_ujian').delete().eq('id_siswa', payload.id_siswa).eq('status_ujian', 'SEDANG KERJA'));
             if (error) return { status: 'error', message: error.message };
@@ -476,13 +487,32 @@ import React from 'react';
             return { status: 'success', message: 'Guru berhasil ditambahkan' };
           }
           case 'create_guru_bulk': {
-            const bulkData = payload.map(item => ({ ...item, id_guru: item.id_guru || generateId('G') }));
-            ({ error } = await supabaseClient.from('guru').insert(bulkData));
+            const bulkData = payload.map(item => {
+              const { mata_pelajaran, mapels, ...rest } = item;
+              return {
+                ...rest,
+                id_guru: item.id_guru || generateId('G'),
+                _mapels: Array.isArray(mapels) ? mapels : []
+              };
+            });
+            const guruInserts = bulkData.map(({ _mapels, ...g }) => g);
+            ({ error } = await supabaseClient.from('guru').insert(guruInserts));
             if (error) {
-              if (error.message.includes('guru_username_key')) {
+              if (error.message && error.message.includes('guru_username_key')) {
                 return { status: 'error', message: 'Gagal menambah data masal: Terdapat username guru yang sudah digunakan.' };
               }
               return { status: 'error', message: error.message };
+            }
+            const mapelInserts = [];
+            for (const item of bulkData) {
+              if (item._mapels && item._mapels.length > 0) {
+                for (const mId of item._mapels) {
+                  mapelInserts.push({ id_guru: item.id_guru, id_mapel: mId });
+                }
+              }
+            }
+            if (mapelInserts.length > 0) {
+              await supabaseClient.from('guru_mapel').insert(mapelInserts);
             }
             return { status: 'success', message: 'Guru berhasil ditambahkan secara massal' };
           }
@@ -518,6 +548,15 @@ import React from 'react';
               return { status: 'error', message: error.message };
             }
             return { status: 'success', message: 'Guru berhasil dihapus' };
+          }
+          case 'delete_guru_bulk': {
+            if (!payload.ids || !payload.ids.length) return { status: 'error', message: 'Tidak ada guru yang dipilih.' };
+            ({ error } = await supabaseClient.from('guru').delete().in('id_guru', payload.ids).eq('npsn', payload.npsn));
+            if (error) {
+              if (error.code === '23503') return { status: 'error', message: 'Gagal: Sebagian guru tidak dapat dihapus karena masih terhubung dengan Mata Pelajaran atau Jadwal Ujian.' };
+              return { status: 'error', message: error.message };
+            }
+            return { status: 'success', message: `${payload.ids.length} guru berhasil dihapus.` };
           }
 
           // MATA PELAJARAN
@@ -624,6 +663,12 @@ import React from 'react';
             ({ error } = await supabaseClient.from('jadwal').delete().eq('id_jadwal', payload.id_jadwal).eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Jadwal berhasil dihapus.' };
+          }
+          case 'delete_jadwal_bulk': {
+            if (!payload.ids || !payload.ids.length) return { status: 'error', message: 'Tidak ada jadwal yang dipilih.' };
+            ({ error } = await supabaseClient.from('jadwal').delete().in('id_jadwal', payload.ids).eq('npsn', payload.npsn));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: `${payload.ids.length} jadwal berhasil dihapus.` };
           }
 
           // ================= GURU / PENGAWAS =================
@@ -847,7 +892,7 @@ import React from 'react';
               const { data, error } = await q.order('waktu_mulai', { ascending: false });
               if (error) return { status: 'error', message: error.message };
 
-              const { data: logs } = await supabaseClient.from('log_ujian').select('id_jadwal, status_ujian, is_blocked').eq('id_siswa', payload.id_siswa);
+              const { data: logs } = await supabaseClient.from('log_ujian').select('id_jadwal, status_ujian, is_blocked, pelanggaran, id_log').eq('id_siswa', payload.id_siswa);
               const logMap = {};
               if (logs) {
                 logs.forEach(l => { logMap[l.id_jadwal] = l; });
@@ -857,16 +902,31 @@ import React from 'react';
                 status: 'success',
                 data: data.map(j => {
                   const l = logMap[j.id_jadwal];
+                  const strikes = l ? (l.pelanggaran || 0) : 0;
+                  const blocked = l ? (l.is_blocked || strikes >= 3) : false;
                   return {
                     ...j,
                     nama_guru: j.guru ? j.guru.nama_lengkap : 'Unknown',
                     nama_mapel: j.mata_pelajaran ? j.mata_pelajaran.nama_mapel : 'Unknown',
                     status_siswa: l ? l.status_ujian : null,
-                    is_blocked: l ? l.is_blocked : false
-                  }
+                    is_blocked: blocked,
+                    pelanggaran: strikes,
+                    id_log: l ? l.id_log : null
+                  };
                 })
               };
             }
+
+          case 'get_status_log_ujian': {
+            const { data: log, error: logErr } = await supabaseClient
+              .from('log_ujian')
+              .select('id_log, id_jadwal, id_siswa, pelanggaran, is_blocked, status_ujian, nilai_auto')
+              .eq('id_log', payload.id_log)
+              .single();
+            if (logErr || !log) return { status: 'error', message: logErr?.message || 'Log tidak ditemukan' };
+            return { status: 'success', data: log };
+          }
+
           case 'mulai_ujian': {
             ({ data, error } = await supabaseClient.from('jadwal').select('token_aktif, waktu_selesai').eq('id_jadwal', payload.id_jadwal).eq('npsn', payload.npsn).single());
             if (error || !data) return { status: 'error', message: 'Jadwal tidak ditemukan.' };
@@ -877,7 +937,14 @@ import React from 'react';
             let idLog = logData ? logData.id_log : null;
 
             if (logData) {
-              if (logData.is_blocked) return { status: 'error', message: 'Akun Anda diblokir dari ujian ini.' };
+              if (logData.is_blocked || (logData.pelanggaran || 0) >= 3) {
+                return { 
+                  status: 'error', 
+                  message: 'Akun Anda diblokir dari ujian ini (pelanggaran melebihi batas 3 kali).',
+                  terblokir: true,
+                  pelanggaran: logData.pelanggaran || 3
+                };
+              }
               if (logData.status_ujian === 'SELESAI') return { status: 'error', message: 'Anda sudah menyelesaikan ujian ini.' };
             } else {
               idLog = 'LOG-' + Math.random().toString(36).substr(2, 9);
@@ -885,10 +952,17 @@ import React from 'react';
                 id_log: idLog,
                 id_jadwal: payload.id_jadwal,
                 id_siswa: payload.id_siswa,
-                status_ujian: 'SEDANG KERJA'
+                status_ujian: 'SEDANG KERJA',
+                pelanggaran: 0
               }]);
             }
-            return { status: 'success', id_log: idLog };
+            return { 
+              status: 'success', 
+              id_log: idLog,
+              pelanggaran: logData ? (logData.pelanggaran || 0) : 0,
+              is_blocked: logData ? (logData.is_blocked || false) : false,
+              dataLog: logData || { id_log: idLog, pelanggaran: 0, is_blocked: false }
+            };
           }
 
           case 'get_soal_ujian': {
@@ -913,25 +987,57 @@ import React from 'react';
             // NOTE: Shuffling is done client-side (ExamRoom.jsx) with a seeded random function
             // so that each student gets a consistent (but unique-per-student) question order.
             // Do NOT shuffle here with Math.random() as it would create inconsistent order on reconnects.
-            return { status: 'success', data: soalAktif, narasiMap };
+            let logStatus = null;
+            if (payload.id_log) {
+              const { data: log } = await supabaseClient.from('log_ujian').select('pelanggaran, is_blocked, status_ujian, nilai_auto').eq('id_log', payload.id_log).single();
+              if (log) logStatus = log;
+            }
+
+            return { status: 'success', data: soalAktif, narasiMap, logStatus };
           }
 
           case 'catat_pelanggaran': {
-              const { data: currLog } = await supabaseClient.from('log_ujian').select('pelanggaran, pelanggaran_detail').eq('id_log', payload.id_log).single();
-              if (!currLog) return { status: 'error', message: 'Log tidak ditemukan' };
+              const { data: currLog, error: fetchErr } = await supabaseClient
+                .from('log_ujian')
+                .select('pelanggaran, pelanggaran_detail')
+                .eq('id_log', payload.id_log)
+                .single();
+
+              if (fetchErr || !currLog) return { status: 'error', message: fetchErr?.message || 'Log tidak ditemukan' };
+
               const newPelanggaran = (currLog.pelanggaran || 0) + 1;
               const isBlocked = newPelanggaran >= 3;
               const details = Array.isArray(currLog.pelanggaran_detail) ? currLog.pelanggaran_detail : [];
               const waktu = new Date().toISOString();
-              details.push({ waktu, alasan: payload.alasan || 'Terdeteksi keluar dari layar penuh atau pindah aplikasi/tab.' });
+              details.push({ 
+                waktu, 
+                alasan: payload.alasan || 'Terdeteksi keluar dari layar penuh atau pindah aplikasi/tab.' 
+              });
 
-              await supabaseClient.from('log_ujian').update({ 
-                 pelanggaran: newPelanggaran, 
-                 is_blocked: isBlocked,
-                 pelanggaran_detail: details
-              }).eq('id_log', payload.id_log);
-              
-              return { status: 'success', pelanggaran_saat_ini: newPelanggaran, terblokir: isBlocked };
+              const updatePayload = {
+                pelanggaran: newPelanggaran,
+                is_blocked: isBlocked,
+                pelanggaran_detail: details
+              };
+
+              if (isBlocked) {
+                updatePayload.status_ujian = 'SELESAI';
+                updatePayload.nilai_auto = 0;
+                updatePayload.waktu_selesai = waktu;
+              }
+
+              const { error: updateErr } = await supabaseClient
+                .from('log_ujian')
+                .update(updatePayload)
+                .eq('id_log', payload.id_log);
+
+              if (updateErr) return { status: 'error', message: updateErr.message };
+
+              return { 
+                status: 'success', 
+                pelanggaran_saat_ini: newPelanggaran, 
+                terblokir: isBlocked 
+              };
             }
           case 'submit_ujian': {
             const logId = payload.id_log;
@@ -1260,9 +1366,17 @@ import React from 'react';
             return { status: 'success', message: 'Ujian berhasil dihentikan paksa.' };
           }
           case 'import_soal_bulk': {
-            ({ error } = await supabaseClient.from('soal_ujian').insert(payload.data));
+            const sanitized = (payload.data || []).map((item, idx) => {
+              const { kd, ...rest } = item;
+              return {
+                ...rest,
+                id_soal: item.id_soal || `SOAL-${generateId('IMP')}-${idx}`,
+                bobot: item.bobot !== undefined ? Number(item.bobot) : 10
+              };
+            });
+            ({ error } = await supabaseClient.from('soal_ujian').insert(sanitized));
             if (error) return { status: 'error', message: error.message };
-            return { status: 'success', message: 'Soal berhasil diimport.' };
+            return { status: 'success', message: `${sanitized.length} butir soal berhasil diimpor.` };
           }
 
           case 'update_superadmin_password': {
@@ -1292,24 +1406,26 @@ import React from 'react';
     // =============================================================================
 
     // Safe JSON parser — never throws, returns fallback on invalid input
-    window.safeJSONParse = (str, fallback) => {
-      if (str === null || str === undefined || str === '') return fallback;
-      try { return JSON.parse(str); } catch (e) { console.warn('safeJSONParse error:', e); return fallback; }
-    };
+    if (typeof window !== 'undefined') {
+      window.safeJSONParse = (str, fallback) => {
+        if (str === null || str === undefined || str === '') return fallback;
+        try { return JSON.parse(str); } catch (e) { console.warn('safeJSONParse error:', e); return fallback; }
+      };
 
-    // Custom hook: Supabase realtime listener
-    window.useSupabaseRealtime = (table, filterString, onUpdate) => {
-      React.useEffect(() => {
-        if (typeof supabaseClient === 'undefined') return;
-        const channelName = `realtime:${table}:${filterString || 'all'}`;
-        const channel = supabaseClient.channel(channelName)
-          .on('postgres_changes', {
-            event: '*',
-            schema: 'public',
-            table: table,
-            filter: filterString || undefined
-          }, (payload) => { onUpdate(payload); })
-          .subscribe();
-        return () => { supabaseClient.removeChannel(channel); };
-      }, [table, filterString, onUpdate]);
-    };
+      // Custom hook: Supabase realtime listener
+      window.useSupabaseRealtime = (table, filterString, onUpdate) => {
+        React.useEffect(() => {
+          if (typeof supabaseClient === 'undefined') return;
+          const channelName = `realtime:${table}:${filterString || 'all'}`;
+          const channel = supabaseClient.channel(channelName)
+            .on('postgres_changes', {
+              event: '*',
+              schema: 'public',
+              table: table,
+              filter: filterString || undefined
+            }, (payload) => { onUpdate(payload); })
+            .subscribe();
+          return () => { supabaseClient.removeChannel(channel); };
+        }, [table, filterString, onUpdate]);
+      };
+    }

@@ -73,6 +73,7 @@ const testOpacityClasses = [
   'text-danger/90',
   'border-primary/40',
   'border-secondary/30',
+  'border-secondary/40',
   // Surface and outline compatibility tokens
   'bg-surface/50',
   'bg-surface-variant/50',
@@ -94,28 +95,27 @@ const compiledUtilityCss = await compileTailwind('@tailwind utilities;', rawTest
 console.log('--- BG-PRIMARY/30 RULE ---');
 const primaryMatch = compiledUtilityCss.match(/\.bg-primary\\\/30\s*\{[^}]*\}/);
 console.log('primaryMatch:', primaryMatch ? primaryMatch[0] : 'null');
-if (!primaryMatch) {
-  console.log('Sample of compiled utility css containing primary:');
-  const idx = compiledUtilityCss.indexOf('primary\\/30');
-  console.log(compiledUtilityCss.slice(Math.max(0, idx - 20), idx + 100));
-}
+const arbitraryMatch = compiledUtilityCss.match(/\.bg-primary\\\/\\\[0\.33\\\]\s*\{[^}]*\}/);
+console.log('arbitraryMatch:', arbitraryMatch ? arbitraryMatch[0] : 'null');
+const anyBracket = compiledUtilityCss.match(/\.bg-primary[^\n{]*\{[^}]*\}/g);
+console.log('all primary classes:', anyBracket);
 
 
 // Expected mapping checks
 const checks = [
-  { className: 'bg-primary/30', pattern: /bg-primary\/30[\s\S]*?rgb\(\s*16\s+185\s+129\s*\/\s*0\.3\)/ },
-  { className: 'bg-primary/50', pattern: /bg-primary\/50[\s\S]*?rgb\(\s*16\s+185\s+129\s*\/\s*0\.5\)/ },
-  { className: 'bg-secondary/20', pattern: /bg-secondary\/20[\s\S]*?rgb\(\s*5\s+150\s+105\s*\/\s*0\.2\)/ },
-  { className: 'bg-danger/10', pattern: /bg-danger\/10[\s\S]*?rgb\(\s*244\s+63\s+94\s*\/\s*0\.1\)/ },
-  { className: 'bg-warning/25', pattern: /bg-warning\/25[\s\S]*?rgb\(\s*245\s+158\s+11\s*\/\s*0\.25\)/ },
-  { className: 'bg-success/80', pattern: /bg-success\/80[\s\S]*?rgb\(\s*16\s+185\s+129\s*\/\s*0\.8\)/ },
-  { className: 'bg-error/15', pattern: /bg-error\/15[\s\S]*?rgb\(\s*244\s+63\s+94\s*\/\s*0\.15\)/ },
-  { className: 'bg-info/30', pattern: /bg-info\/30[\s\S]*?rgb\(\s*14\s+165\s+233\s*\/\s*0\.3\)/ },
-  { className: 'text-primary/70', pattern: /text-primary\/70[\s\S]*?rgb\(\s*16\s+185\s+129\s*\/\s*0\.7\)/ },
-  { className: 'border-secondary/40', pattern: /border-secondary\/40[\s\S]*?rgb\(\s*5\s+150\s+105\s*\/\s*0\.4\)/ },
-  { className: 'bg-surface/50', pattern: /bg-surface\/50[\s\S]*?rgb\(\s*255\s+255\s+255\s*\/\s*0\.5\)/ },
-  { className: 'text-on-primary/90', pattern: /text-on-primary\/90[\s\S]*?rgb\(\s*255\s+255\s+255\s*\/\s*0\.9\)/ },
-  { className: 'bg-primary/[0.33]', pattern: /bg-primary\/\\\[0\.33\\\][\s\S]*?rgb\(\s*16\s+185\s+129\s*\/\s*0\.33\)/ }
+  { className: 'bg-primary/30', pattern: /bg-primary\\\/30[\s\S]*?rgb\(\s*16\s+185\s+129\s*\/\s*0\.3\)/ },
+  { className: 'bg-primary/50', pattern: /bg-primary\\\/50[\s\S]*?rgb\(\s*16\s+185\s+129\s*\/\s*0\.5\)/ },
+  { className: 'bg-secondary/20', pattern: /bg-secondary\\\/20[\s\S]*?rgb\(\s*5\s+150\s+105\s*\/\s*0\.2\)/ },
+  { className: 'bg-danger/10', pattern: /bg-danger\\\/10[\s\S]*?rgb\(\s*244\s+63\s+94\s*\/\s*0\.1\)/ },
+  { className: 'bg-warning/25', pattern: /bg-warning\\\/25[\s\S]*?rgb\(\s*245\s+158\s+11\s*\/\s*0\.25\)/ },
+  { className: 'bg-success/80', pattern: /bg-success\\\/80[\s\S]*?rgb\(\s*16\s+185\s+129\s*\/\s*0\.8\)/ },
+  { className: 'bg-error/15', pattern: /bg-error\\\/15[\s\S]*?rgb\(\s*244\s+63\s+94\s*\/\s*0\.15\)/ },
+  { className: 'bg-info/30', pattern: /bg-info\\\/30[\s\S]*?rgb\(\s*14\s+165\s+233\s*\/\s*0\.3\)/ },
+  { className: 'text-primary/70', pattern: /text-primary\\\/70[\s\S]*?rgb\(\s*16\s+185\s+129\s*\/\s*0\.7\)/ },
+  { className: 'border-secondary/40', pattern: /border-secondary\\\/40[\s\S]*?rgb\(\s*5\s+150\s+105\s*\/\s*0\.4\)/ },
+  { className: 'bg-surface/50', pattern: /bg-surface\\\/50[\s\S]*?rgb\(\s*255\s+255\s+255\s*\/\s*0\.5\)/ },
+  { className: 'text-on-primary/90', pattern: /text-on-primary\\\/90[\s\S]*?rgb\(\s*255\s+255\s+255\s*\/\s*0\.9\)/ },
+  { className: 'bg-primary/[0.33]', pattern: /bg-primary\\\/\\\[0\\\.33\\\][\s\S]*?rgb\(\s*16\s+185\s+129\s*\/\s*0\.33\)/ }
 ];
 
 for (const check of checks) {

@@ -26,6 +26,8 @@ import Modal from './components/Modal';
       const [loading, setLoading] = useState(false);
 
       const [npsn, setNpsn] = useState('');
+      const [daftarSekolah, setDaftarSekolah] = useState([]);
+      const [loadingSekolah, setLoadingSekolah] = useState(false);
       const [username, setUsername] = useState('');
       const [password, setPassword] = useState('');
       const [showPassword, setShowPassword] = useState(false);
@@ -58,6 +60,23 @@ import Modal from './components/Modal';
           setQuoteIndex((prev) => (prev + 1) % quotes.length);
         }, 8000);
         return () => clearInterval(interval);
+      }, []);
+
+      useEffect(() => {
+        const fetchSekolah = async () => {
+          setLoadingSekolah(true);
+          try {
+            const res = await fetchAPI('get_sekolah');
+            if (res && res.status === 'success' && Array.isArray(res.data)) {
+              setDaftarSekolah(res.data);
+            }
+          } catch (err) {
+            console.error('Gagal memuat daftar sekolah:', err);
+          } finally {
+            setLoadingSekolah(false);
+          }
+        };
+        fetchSekolah();
       }, []);
 
       useEffect(() => {
@@ -103,7 +122,12 @@ import Modal from './components/Modal';
         e.preventDefault();
         setLoading(true);
         setLoginError('');
-        const res = await fetchAPI('login', { username, password, npsn, role: loginRole });
+        const cleanNpsn = loginRole === 'super_admin' ? '' : (
+          npsn.includes('-')
+            ? npsn.replace(/^\[?([^-]+).*/, '$1').replace(/[^a-zA-Z0-9]/g, '').trim()
+            : npsn.replace(/[^a-zA-Z0-9]/g, '').trim()
+        );
+        const res = await fetchAPI('login', { username: username.trim(), password, npsn: cleanNpsn, role: loginRole });
         setLoading(false);
 
         if (res.status === 'success') {
@@ -131,6 +155,10 @@ import Modal from './components/Modal';
         setRememberMe(false);
       };
 
+      const handleUpdateUser = (fields) => {
+        setUser(prev => prev ? ({ ...prev, ...fields }) : prev);
+      };
+
       const renderView = () => {
         if (!user) {
           const onLoginSubmit = (e) => {
@@ -141,13 +169,16 @@ import Modal from './components/Modal';
           const onRegisterSubmit = async (e) => {
             e.preventDefault();
             setLoading(true);
+            const cleanRegNpsn = npsn.includes('-')
+              ? npsn.replace(/^\[?([^-]+).*/, '$1').replace(/[^a-zA-Z0-9]/g, '').trim()
+              : npsn.replace(/[^a-zA-Z0-9]/g, '').trim();
             const payload = {
               role: registerRole,
               nama: regName,
               username: regUsername,
               identitas: registerRole === 'siswa' ? regNisn : regNip,
               password: regPassword,
-              npsn: npsn
+              npsn: cleanRegNpsn
             };
             const res = await fetchAPI('register', payload);
             setLoading(false);
@@ -247,10 +278,26 @@ import Modal from './components/Modal';
 
                                  {loginRole !== 'super_admin' && (
                                    <div className="flex flex-col gap-1">
-                                     <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">NPSN Sekolah</label>
+                                     <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Sekolah (NPSN)</label>
                                      <div className="relative">
-                                       <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 text-[18px]">account_balance</span>
-                                       <input required value={npsn} onChange={e => setNpsn(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl py-2 pl-9 pr-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Masukkan NPSN" type="text" />
+                                       <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 text-[18px] pointer-events-none">account_balance</span>
+                                       <select
+                                         required
+                                         name="npsn"
+                                         value={npsn ? (npsn.includes('-') ? npsn.replace(/^\[?([^-]+).*/, '$1').replace(/[^a-zA-Z0-9]/g, '').trim() : npsn) : ''}
+                                         onChange={e => setNpsn(e.target.value)}
+                                         className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl py-2 pl-9 pr-9 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none cursor-pointer truncate"
+                                       >
+                                         <option value="">
+                                           {loadingSekolah ? '-- Memuat Daftar Sekolah... --' : daftarSekolah.length === 0 ? '-- Belum Ada Sekolah Terdaftar --' : '-- Pilih Sekolah --'}
+                                         </option>
+                                         {daftarSekolah.map(s => (
+                                           <option key={s.npsn} value={s.npsn}>
+                                             [{s.npsn}-{s.nama_sekolah}]
+                                           </option>
+                                         ))}
+                                       </select>
+                                       <span className="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-[18px]">expand_more</span>
                                      </div>
                                    </div>
                                  )}
@@ -361,10 +408,29 @@ import Modal from './components/Modal';
                                    </div>
                                  )}
 
-                                 <div className="flex flex-col gap-1">
-                                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300">NPSN Sekolah</label>
-                                   <input required value={npsn} onChange={e => setNpsn(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="NPSN Sekolah" type="text" />
-                                 </div>
+                                  <div className="flex flex-col gap-1">
+                                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Sekolah (NPSN)</label>
+                                    <div className="relative">
+                                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 text-[18px] pointer-events-none">account_balance</span>
+                                      <select
+                                        required
+                                        name="reg_npsn"
+                                        value={npsn ? (npsn.includes('-') ? npsn.replace(/^\[?([^-]+).*/, '$1').replace(/[^a-zA-Z0-9]/g, '').trim() : npsn) : ''}
+                                        onChange={e => setNpsn(e.target.value)}
+                                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl py-2.5 pl-9 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none cursor-pointer truncate"
+                                      >
+                                        <option value="">
+                                          {loadingSekolah ? '-- Memuat Daftar Sekolah... --' : daftarSekolah.length === 0 ? '-- Belum Ada Sekolah Terdaftar --' : '-- Pilih Sekolah Terdaftar --'}
+                                        </option>
+                                        {daftarSekolah.map(s => (
+                                          <option key={s.npsn} value={s.npsn}>
+                                            [{s.npsn}-{s.nama_sekolah}]
+                                          </option>
+                                        ))}
+                                      </select>
+                                      <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-[20px]">expand_more</span>
+                                    </div>
+                                  </div>
 
                                  <div className="flex flex-col gap-1">
                                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Password</label>
@@ -414,7 +480,7 @@ import Modal from './components/Modal';
         const suspenseFallback = <div className="h-[100dvh] w-full flex items-center justify-center bg-slate-50 dark:bg-slate-900 text-slate-500">Memuat...</div>;
         switch (user.role) {
           case 'super_admin': return <ErrorBoundary><React.Suspense fallback={suspenseFallback}><SuperAdminView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></React.Suspense></ErrorBoundary>;
-          case 'admin': return <ErrorBoundary><React.Suspense fallback={suspenseFallback}><AdminView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></React.Suspense></ErrorBoundary>;
+          case 'admin': return <ErrorBoundary><React.Suspense fallback={suspenseFallback}><AdminView user={user} onLogout={handleLogout} onUpdateUser={handleUpdateUser} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></React.Suspense></ErrorBoundary>;
           case 'guru': return <ErrorBoundary><React.Suspense fallback={suspenseFallback}><GuruView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></React.Suspense></ErrorBoundary>;
           case 'siswa': return <ErrorBoundary><React.Suspense fallback={suspenseFallback}><SiswaView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></React.Suspense></ErrorBoundary>;
           default: return <div className="p-8 text-center text-red-600 font-bold bg-white h-[100dvh]">Role tidak valid!</div>;
