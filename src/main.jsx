@@ -1,7 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.jsx';
-import './components/UI.jsx';
 import './index.css'; // This will contain Tailwind directives
 import { registerSW } from './registerSW.js';
 
