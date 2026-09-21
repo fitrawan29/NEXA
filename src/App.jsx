@@ -7,6 +7,8 @@ const GuruView = React.lazy(() => import('./views/GuruView'));
 const SiswaView = React.lazy(() => import('./views/SiswaView'));
 const SuperAdminView = React.lazy(() => import('./views/SuperAdminView'));
 import Modal from './components/Modal';
+import PwaInstallToast from './components/PwaInstallToast';
+
 
 ﻿    class ErrorBoundary extends React.Component { 
       constructor(props) { super(props); this.state = { hasError: false, error: null }; } 
@@ -37,6 +39,7 @@ import Modal from './components/Modal';
       const [isOnline, setIsOnline] = useState(navigator.onLine);
       const [isDarkMode, setIsDarkMode] = useState(false);
       const [capsLockActive, setCapsLockActive] = useState(false);
+      const [isExamActive, setIsExamActive] = useState(false);
 
       const [loginRole, setLoginRole] = useState('');
       const [registerRole, setRegisterRole] = useState('');
@@ -111,6 +114,25 @@ import Modal from './components/Modal';
         // Add current theme class
         document.documentElement.classList.add(`theme-${activeRole}`);
       }, [user?.role, loginRole, registerRole]);
+
+      useEffect(() => {
+        const checkExamStatus = () => {
+          try {
+            const hasExam = typeof window !== 'undefined' && (
+              !!sessionStorage.getItem('nexa_active_exam') ||
+              window.location.hash.includes('exam')
+            );
+            setIsExamActive(hasExam);
+          } catch (err) {}
+        };
+        checkExamStatus();
+        window.addEventListener('storage', checkExamStatus);
+        const interval = setInterval(checkExamStatus, 1000);
+        return () => {
+          window.removeEventListener('storage', checkExamStatus);
+          clearInterval(interval);
+        };
+      }, []);
 
       const handlePasswordKeyUp = (e) => {
         if (e.getModifierState && e.getModifierState('CapsLock')) {
@@ -505,6 +527,7 @@ import Modal from './components/Modal';
             type={modal.type}
             onClose={() => setModal({ ...modal, isOpen: false })}
           />
+          {!isExamActive && <PwaInstallToast isExamActive={isExamActive} />}
         </React.Fragment>
       );
     };

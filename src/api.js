@@ -87,6 +87,131 @@ import React from 'react';
       }));
     };
 
+    export const get_default_skema_sekolah = async (npsn) => {
+      const fallbackDefault = {
+        mode: 'default',
+        skema: { PG: 20, PGK: 20, BS: 20, JODOH: 20, ISIAN: 10, URAIAN: 10 }
+      };
+
+      if (!npsn || typeof npsn !== 'string' || !npsn.trim()) {
+        return fallbackDefault;
+      }
+
+      // Check localStorage cache first
+      if (typeof localStorage !== 'undefined') {
+        try {
+          const cached = localStorage.getItem('nexa_default_skema_' + npsn);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed && typeof parsed === 'object') {
+              return parsed;
+            }
+          }
+        } catch (e) {
+          console.warn('Error reading default skema from localStorage cache:', e);
+        }
+      }
+
+      // Query Supabase soal_ujian table for reserved default record
+      try {
+        const { data, error } = await supabaseClient
+          .from('soal_ujian')
+          .select('kunci_jawaban')
+          .eq('id_soal', 'SKEMA_DEFAULT_' + npsn)
+          .eq('npsn', npsn)
+          .maybeSingle();
+
+        if (!error && data && data.kunci_jawaban) {
+          try {
+            const parsed = JSON.parse(data.kunci_jawaban);
+            if (parsed && typeof parsed === 'object') {
+              if (typeof localStorage !== 'undefined') {
+                localStorage.setItem('nexa_default_skema_' + npsn, JSON.stringify(parsed));
+              }
+              return parsed;
+            }
+          } catch (e) {
+            console.warn('Error parsing default skema kunci_jawaban from DB:', e);
+          }
+        }
+      } catch (err) {
+        console.warn('get_default_skema_sekolah DB error:', err);
+      }
+
+      return fallbackDefault;
+    };
+
+    export const save_default_skema_sekolah = async (npsn, payload) => {
+      // Validate non-empty npsn
+      if (!npsn || typeof npsn !== 'string' || !npsn.trim()) {
+        throw new Error('NPSN must be a non-empty string');
+      }
+
+      if (!payload || typeof payload !== 'object') {
+        throw new Error('Payload must be an object');
+      }
+
+      // Validate custom mode weight sum and weights
+      if (payload.mode === 'custom') {
+        const skema = payload.skema || {};
+        const allowedKeys = ['PG', 'PGK', 'BS', 'JODOH', 'ISIAN', 'URAIAN'];
+        let total = 0;
+        for (const key of allowedKeys) {
+          const val = parseFloat(skema[key] ?? 0);
+          if (isNaN(val) || val < 0) {
+            throw new Error(`Negative or NaN weight for ${key}: ${skema[key]}`);
+          }
+          total += val;
+        }
+        if (Math.round(total * 100) / 100 !== 100) {
+          throw new Error(`Total percentage must equal 100%, got ${total}%`);
+        }
+      }
+
+      const recordId = 'SKEMA_DEFAULT_' + npsn;
+      const record = {
+        id_soal: recordId,
+        tipe_soal: 'SKEMA_DEFAULT',
+        id_mapel: null,
+        pertanyaan: 'Skema Penilaian Default Sekolah',
+        kunci_jawaban: JSON.stringify(payload),
+        bobot: 1,
+        npsn: npsn
+      };
+
+      try {
+        const { data: existing } = await supabaseClient
+          .from('soal_ujian')
+          .select('id_soal')
+          .eq('id_soal', recordId)
+          .eq('npsn', npsn)
+          .maybeSingle();
+
+        if (existing) {
+          const { error } = await supabaseClient
+            .from('soal_ujian')
+            .update(record)
+            .eq('id_soal', recordId)
+            .eq('npsn', npsn);
+          if (error) console.warn('Database update error in save_default_skema_sekolah:', error);
+        } else {
+          const { error } = await supabaseClient
+            .from('soal_ujian')
+            .insert([record]);
+          if (error) console.warn('Database insert error in save_default_skema_sekolah:', error);
+        }
+      } catch (err) {
+        console.warn('save_default_skema_sekolah network/DB warning:', err);
+      }
+
+      // Sync cache to localStorage
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('nexa_default_skema_' + npsn, JSON.stringify(payload));
+      }
+
+      return { success: true, data: payload };
+    };
+
     export const fetchAPI = async (action, payload = {}) => {
       try {
         // ================= APPLICATION-LEVEL RLS =================
@@ -980,7 +1105,7 @@ import React from 'react';
             });
 
             // Filter out NARASI and SKEMA_PENILAIAN from exam questions
-            const soalAktif = unpackedData.filter(s => s.tipe_soal !== 'NARASI' && s.tipe_soal !== 'SKEMA_PENILAIAN');
+            const soalAktif = unpackedData.filter(s => s.tipe_soal !== 'NARASI' && s.tipe_soal !== 'SKEMA_PENILAIAN' && s.tipe_soal !== 'SKEMA_DEFAULT');
             const narasiMap = {};
             unpackedData.filter(s => s.tipe_soal === 'NARASI').forEach(n => { narasiMap[n.id_soal] = n; });
 
@@ -1070,7 +1195,7 @@ import React from 'react';
             let insertJawaban = [];
 
             if (soalData) {
-              for (const soal of soalData.filter(s => s.tipe_soal !== 'NARASI' && s.tipe_soal !== 'SKEMA_PENILAIAN')) {
+              for (const soal of soalData.filter(s => s.tipe_soal !== 'NARASI' && s.tipe_soal !== 'SKEMA_PENILAIAN' && s.tipe_soal !== 'SKEMA_DEFAULT')) {
                 let jwb = jawaban[soal.id_soal];
                 let isCorrect = false;
                 let skorDiperoleh = 0;
@@ -1390,6 +1515,15 @@ import React from 'react';
                await supabaseClient.from(table).delete().neq('created_at', '1970-01-01T00:00:00Z');
             }
             return { status: 'success', message: 'Semua data sistem berhasil dihapus secara permanen.' };
+          }
+
+          case 'get_default_skema_sekolah': {
+            const data = await get_default_skema_sekolah(payload.npsn);
+            return { status: 'success', data };
+          }
+          case 'save_default_skema_sekolah': {
+            const res = await save_default_skema_sekolah(payload.npsn, payload.payload || payload.format || payload.skema_data || payload);
+            return { status: 'success', data: res.data, message: 'Skema penilaian default sekolah berhasil disimpan.' };
           }
 
           default:

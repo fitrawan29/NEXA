@@ -1,6 +1,7 @@
 /**
- * NEXA CBT - Service Worker (Compatibility Mirror)
- * Mirrors sw.js for clients configured with /service-worker.js
+ * NEXA CBT - Service Worker
+ * Implements core precaching, offline navigation fallback,
+ * and strict bypass for Supabase and dynamic API calls.
  */
 
 const CACHE_NAME = 'nexa-cbt-v4';

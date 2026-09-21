@@ -14,6 +14,7 @@ import {
   CardSkeleton,
   safeJSONParse,
 } from '../components/UI.jsx';
+import NotificationBell from '../components/NotificationBell.jsx';
 
 /**
  * Calm countdown component: formatted time without aggressive flashing
@@ -67,7 +68,7 @@ const ProgressChart = ({ data }) => {
           <CardTitle>Grafik Perkembangan Nilai</CardTitle>
           <CardDescription>Tren performa dari {recentData.length} ujian terakhir</CardDescription>
         </div>
-        <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1 rounded-full border border-emerald-200/80 dark:border-emerald-800/60">
+        <div className="text-xs font-bold text-primary dark:text-primary-400 bg-primary/10 dark:bg-primary/10 px-3 py-1 rounded-full border border-primary/30 dark:border-primary/30">
           Tertinggi: {max}
         </div>
       </CardHeader>
@@ -79,11 +80,11 @@ const ProgressChart = ({ data }) => {
               <div key={i} className="flex flex-col items-center flex-1 group relative h-full justify-end cursor-pointer">
                 {/* Tooltip */}
                 <div className="absolute -top-7 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-[10px] px-2 py-1 rounded-md font-bold z-20 whitespace-nowrap pointer-events-none shadow-md">
-                  {d.nama_mapel}: <span className="text-emerald-400">{d.total_nilai}</span>
+                  {d.nama_mapel}: <span className="text-primary-400">{d.total_nilai}</span>
                 </div>
                 {/* Bar */}
                 <div className="w-full max-w-[48px] bg-slate-100 dark:bg-slate-700/60 rounded-t-lg relative flex items-end overflow-hidden" style={{ height: `${heightPct}%` }}>
-                  <div className="w-full bg-gradient-to-t from-emerald-600 to-teal-400 rounded-t-lg transition-all group-hover:brightness-110" style={{ height: '100%' }}></div>
+                  <div className="w-full bg-gradient-to-t from-primary-600 to-primary-400 rounded-t-lg transition-all group-hover:brightness-110" style={{ height: '100%' }}></div>
                 </div>
                 {/* Label */}
                 <div className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mt-2 truncate w-full text-center font-medium" title={d.nama_mapel}>
@@ -310,10 +311,10 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
     }
 
     return (
-      <Card key={j.id_jadwal} className="flex flex-col justify-between hover:shadow-md transition-all hover:border-emerald-500/30">
+      <Card key={j.id_jadwal} className="flex flex-col justify-between hover:shadow-md transition-all hover:border-primary/30">
         <CardHeader className="pb-3 flex-row items-start justify-between gap-2">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-11 h-11 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-100 dark:border-emerald-900/50">
+            <div className="w-11 h-11 rounded-xl bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 flex items-center justify-center shrink-0 border border-primary/20 dark:border-primary/20">
               <span className="material-symbols-outlined text-2xl">menu_book</span>
             </div>
             <div className="min-w-0">
@@ -347,7 +348,7 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
           {isSelesai && matchingRiwayat && (
             <div className="pt-2 flex items-center justify-between border-t border-slate-100 dark:border-slate-700/60">
               <span className="text-xs text-slate-500 dark:text-slate-400">Nilai Akhir:</span>
-              <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-0.5 rounded-lg border border-emerald-200/80 dark:border-emerald-800/60">
+              <span className="text-sm font-black text-primary dark:text-primary-400 bg-primary/10 dark:bg-primary/10 px-2.5 py-0.5 rounded-lg border border-primary/30 dark:border-primary/30">
                 {matchingRiwayat.total_nilai}
               </span>
             </div>
@@ -438,7 +439,7 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
   }
 
   return (
-    <div className="h-[100dvh] overflow-hidden bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 flex flex-col selection:bg-emerald-500/20 selection:text-emerald-700">
+    <div className="h-[100dvh] overflow-hidden bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 flex flex-col selection:bg-primary/20 selection:text-primary-700">
       
       {/* ------------------------------------------------------------- */}
       {/* DESKTOP TOP NAVIGATION BAR (md: and above)                    */}
@@ -449,14 +450,14 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
             
             {/* School / NEXA Branding */}
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black shadow-sm shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center font-black shadow-sm shrink-0">
                 <span className="material-symbols-outlined text-2xl">school</span>
               </div>
               <div className="min-w-0">
                 <h1 className="font-bold text-base text-slate-800 dark:text-white leading-tight truncate">
                   {user.nama_sekolah || 'NEXA CBT'}
                 </h1>
-                <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold truncate">
+                <p className="text-xs text-primary dark:text-primary-400 font-semibold truncate">
                   Portal Ujian Siswa
                 </p>
               </div>
@@ -466,7 +467,7 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
             <nav className="flex items-center gap-1">
               {[
                 { id: 'beranda', label: 'Beranda', icon: 'home' },
-                { id: 'jadwal', label: 'Jadwal Ujian', icon: 'event_note', badge: todaySchedules.length > 0 ? todaySchedules.length : null },
+                { id: 'jadwal', label: 'Jadwal Ujian', icon: 'event_note' },
                 { id: 'nilai', label: 'Riwayat Nilai', icon: 'military_tech' },
                 { id: 'leaderboard', label: 'Papan Peringkat', icon: 'social_leaderboard' },
                 { id: 'akun', label: 'Profil Saya', icon: 'person' },
@@ -476,23 +477,19 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
                   onClick={() => setActiveTab(tab.id)}
                   className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all min-h-[44px] ${
                     activeTab === tab.id
-                      ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                      ? 'bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 shadow-sm'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/80 dark:hover:bg-slate-700/50'
                   }`}
                 >
                   <span className="material-symbols-outlined text-[18px]">{tab.icon}</span>
                   <span>{tab.label}</span>
-                  {tab.badge && (
-                    <span className="w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] font-black flex items-center justify-center">
-                      {tab.badge}
-                    </span>
-                  )}
                 </button>
               ))}
             </nav>
 
             {/* User Profile Summary & Utilities */}
             <div className="flex items-center gap-2">
+              <NotificationBell role="siswa" />
               {/* Dark Mode Toggle */}
               <button
                 type="button"
@@ -511,7 +508,7 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
                 onClick={() => setIsAvatarModalOpen(true)}
                 className="flex items-center gap-2.5 p-1.5 pr-3 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700/60 cursor-pointer transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
               >
-                <div className="w-8 h-8 rounded-lg overflow-hidden bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold">
+                <div className="w-8 h-8 rounded-lg overflow-hidden bg-primary/15 dark:bg-primary/10 text-primary-700 dark:text-primary-300 flex items-center justify-center font-bold">
                   {user.foto_profil ? (
                     <img src={user.foto_profil} alt="Profile" className="w-full h-full object-cover" />
                   ) : (
@@ -546,7 +543,7 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
       {/* ------------------------------------------------------------- */}
       {/* MOBILE HEADER BANNER (md:hidden)                              */}
       {/* ------------------------------------------------------------- */}
-      <div className="md:hidden flex-shrink-0 z-30 bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-5 pt-6 pb-6 shadow-md">
+      <div className="md:hidden flex-shrink-0 z-30 bg-gradient-to-r from-primary-600 to-primary-400 text-white px-5 pt-6 pb-6 shadow-md">
         <div className="flex justify-between items-start gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div
@@ -573,6 +570,7 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
           </div>
 
           <div className="flex items-center gap-1.5">
+            <NotificationBell role="siswa" variant="white" />
             <button
               type="button"
               onClick={() => setIsDarkMode(!isDarkMode)}
@@ -611,7 +609,7 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
             {/* Quick KPI Stat Banner */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
               <Card className="p-4 sm:p-5 flex items-center gap-3">
-                <div className="w-11 h-11 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                <div className="w-11 h-11 rounded-xl bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 flex items-center justify-center shrink-0">
                   <span className="material-symbols-outlined text-2xl">event_available</span>
                 </div>
                 <div className="min-w-0">
@@ -631,7 +629,7 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
               </Card>
 
               <Card className="p-4 sm:p-5 flex items-center gap-3">
-                <div className="w-11 h-11 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                <div className="w-11 h-11 rounded-xl bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 flex items-center justify-center shrink-0">
                   <span className="material-symbols-outlined text-2xl">trending_up</span>
                 </div>
                 <div className="min-w-0">
@@ -755,7 +753,7 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
                                 {lb.nama}
                               </span>
                             </div>
-                            <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 shrink-0">
+                            <span className="text-xs font-black text-primary dark:text-primary-400 shrink-0">
                               {lb.rata_rata}
                             </span>
                           </div>
@@ -789,7 +787,7 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
                     onClick={() => setJadwalFilter(filter)}
                     className={`px-4 py-2 text-xs font-bold rounded-lg transition-all min-h-[44px] ${
                       jadwalFilter === filter
-                        ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                        ? 'bg-white dark:bg-slate-700 text-primary dark:text-primary-400 shadow-sm'
                         : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                     }`}
                   >
@@ -848,7 +846,7 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
                 {dataPengumuman.map(p => (
                   <Card key={p.id_pengumuman} className="p-5 sm:p-6">
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-lg shrink-0 border border-emerald-100 dark:border-emerald-900/50">
+                      <div className="w-10 h-10 rounded-xl bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 flex items-center justify-center font-bold text-lg shrink-0 border border-primary/20 dark:border-primary/20">
                         <span className="material-symbols-outlined">campaign</span>
                       </div>
                       <div className="min-w-0">
@@ -895,23 +893,23 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
                     <Card
                       key={r.id_log}
                       onClick={() => setDetailNilaiModal(r)}
-                      className="p-4 flex items-center justify-between cursor-pointer hover:border-emerald-500/50 hover:shadow-md transition-all group"
+                      className="p-4 flex items-center justify-between cursor-pointer hover:border-primary/50 hover:shadow-md transition-all group"
                     >
                       <div className="flex-1 min-w-0 pr-4">
-                        <h4 className="font-bold text-slate-800 dark:text-slate-100 text-sm truncate group-hover:text-emerald-600 transition-colors">
+                        <h4 className="font-bold text-slate-800 dark:text-slate-100 text-sm truncate group-hover:text-primary transition-colors">
                           {r.nama_mapel}
                         </h4>
                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                           {new Date(r.waktu_mulai).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
                         </p>
-                        <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-2 font-bold inline-flex items-center gap-0.5">
+                        <p className="text-[11px] text-primary dark:text-primary-400 mt-2 font-bold inline-flex items-center gap-0.5">
                           <span>Lihat Rincian</span>
                           <span className="material-symbols-outlined text-[14px]">chevron_right</span>
                         </p>
                       </div>
 
                       <div className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center font-black text-lg text-white shadow-sm shrink-0 ${
-                        r.is_blocked ? 'bg-rose-500' : 'bg-gradient-to-br from-emerald-500 to-teal-600'
+                        r.is_blocked ? 'bg-rose-500' : 'bg-gradient-to-br from-primary-500 to-primary-400'
                       }`}>
                         <span>{r.is_blocked ? 0 : r.total_nilai}</span>
                         <span className="text-[8px] uppercase tracking-wider font-semibold opacity-90">Poin</span>
@@ -934,7 +932,7 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
                 <h3 className="text-xl font-bold text-slate-800 dark:text-white">Papan Peringkat Kelas</h3>
                 <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">10 Siswa terbaik dengan rata-rata nilai tertinggi</p>
               </div>
-              <div className="bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200/80 dark:border-amber-800/60 text-xs font-bold px-3 py-1 rounded-full">
+              <div className="bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 border border-primary/30 dark:border-primary/20 text-xs font-bold px-3 py-1 rounded-full">
                 Top 10
               </div>
             </div>
@@ -954,7 +952,7 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
                       <div
                         key={idx}
                         className={`p-4 flex items-center gap-4 transition-colors ${
-                          isSelf ? 'bg-emerald-50/70 dark:bg-emerald-950/30' : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                          isSelf ? 'bg-primary/10 dark:bg-primary/10' : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'
                         }`}
                       >
                         {/* Rank Badge */}
@@ -977,7 +975,7 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
                           <h4 className="font-bold text-sm text-slate-800 dark:text-slate-100 truncate flex items-center gap-2">
                             <span>{lb.nama}</span>
                             {isSelf && (
-                              <span className="text-[10px] bg-emerald-600 text-white px-2 py-0.5 rounded-full font-semibold">
+                              <span className="text-[10px] bg-primary text-white px-2 py-0.5 rounded-full font-semibold">
                                 Anda
                               </span>
                             )}
@@ -987,7 +985,7 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
 
                         {/* Average Score */}
                         <div className="text-right shrink-0">
-                          <div className="font-black text-base sm:text-lg text-emerald-600 dark:text-emerald-400">
+                          <div className="font-black text-base sm:text-lg text-primary dark:text-primary-400">
                             {lb.rata_rata}
                           </div>
                           <div className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold">
@@ -1010,16 +1008,16 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
           <div className="max-w-2xl mx-auto space-y-6 animate-fade-in-up">
             <Card className="p-6 sm:p-8 flex flex-col items-center text-center">
               <div className="relative group cursor-pointer mb-4" onClick={() => setIsAvatarModalOpen(true)}>
-                <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-emerald-500/30 shadow-xl group-hover:scale-105 transition-transform bg-slate-100 dark:bg-slate-800">
+                <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-primary/30 shadow-xl group-hover:scale-105 transition-transform bg-slate-100 dark:bg-slate-800">
                   {user.foto_profil ? (
                     <img src={user.foto_profil} alt="Profile" className="w-full h-full object-cover" />
                   ) : (
-                    <span className="material-symbols-outlined text-6xl text-emerald-600 h-full flex items-center justify-center">
+                    <span className="material-symbols-outlined text-6xl text-primary h-full flex items-center justify-center">
                       person
                     </span>
                   )}
                 </div>
-                <div className="absolute bottom-1 right-1 w-9 h-9 bg-emerald-600 text-white rounded-full shadow-lg flex items-center justify-center border-2 border-white dark:border-slate-800 group-hover:bg-emerald-700 transition-colors">
+                <div className="absolute bottom-1 right-1 w-9 h-9 bg-primary text-white rounded-full shadow-lg flex items-center justify-center border-2 border-white dark:border-slate-800 group-hover:bg-primary/90 transition-colors">
                   <span className="material-symbols-outlined text-[16px]">edit</span>
                 </div>
               </div>
@@ -1078,14 +1076,14 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`flex flex-col items-center justify-center flex-1 min-h-[48px] py-1 transition-all ${
-                isActive ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600'
+                isActive ? 'text-primary dark:text-primary-400 font-bold' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600'
               }`}
             >
               <span className={`material-symbols-outlined text-[24px] ${isActive ? 'font-black' : ''}`}>
                 {tab.icon}
               </span>
               <span className="text-[10px] tracking-tight mt-0.5">{tab.label}</span>
-              {isActive && <div className="w-1.5 h-1.5 bg-emerald-600 dark:bg-emerald-400 rounded-full mt-0.5"></div>}
+              {isActive && <div className="w-1.5 h-1.5 bg-primary dark:bg-primary-400 rounded-full mt-0.5"></div>}
             </button>
           );
         })}
@@ -1101,7 +1099,7 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
             
             <div className="flex items-start justify-between gap-4 mb-5">
               <div>
-                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Konfirmasi Ujian</span>
+                <span className="text-xs font-bold text-primary dark:text-primary-400 uppercase tracking-wider">Konfirmasi Ujian</span>
                 <h3 className="font-bold text-xl text-slate-800 dark:text-white mt-0.5">{tokenModalJadwal.nama_mapel}</h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">{tokenModalJadwal.nama_guru || 'Pengawas Ruangan'}</p>
               </div>
@@ -1133,7 +1131,7 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
                     if (tokenError) setTokenError('');
                   }}
                   placeholder="Contoh: AB12CD"
-                  className="w-full text-center text-2xl font-mono font-black tracking-[0.3em] uppercase py-3 rounded-xl border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 dark:text-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/20 outline-none transition-all min-h-[52px]"
+                  className="w-full text-center text-2xl font-mono font-black tracking-[0.3em] uppercase py-3 rounded-xl border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 dark:text-white focus:border-primary focus:ring-4 focus:ring-primary/20 outline-none transition-all min-h-[52px]"
                 />
 
                 {tokenError && (
@@ -1177,7 +1175,7 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
           <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onClick={() => setDetailNilaiModal(null)}></div>
           <div className="bg-white dark:bg-slate-800 w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl relative z-10 shadow-2xl animate-slide-up sm:animate-fade-in-up overflow-hidden border border-slate-200 dark:border-slate-700">
-            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-6 text-white relative">
+            <div className="bg-gradient-to-r from-primary-600 to-primary-400 p-6 text-white relative">
               <button
                 type="button"
                 onClick={() => setDetailNilaiModal(null)}
@@ -1194,7 +1192,7 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
             <div className="p-6">
               <div className="flex flex-col items-center justify-center mb-6 relative">
                 <div className={`w-28 h-28 rounded-full border-4 border-slate-50 dark:border-slate-900 flex items-center justify-center ${
-                  detailNilaiModal.is_blocked ? 'bg-rose-500' : 'bg-gradient-to-br from-emerald-500 to-teal-600'
+                  detailNilaiModal.is_blocked ? 'bg-rose-500' : 'bg-gradient-to-br from-primary-500 to-primary-400'
                 } shadow-xl z-10 text-white relative -mt-14`}>
                   <span className="font-black text-3xl">{detailNilaiModal.is_blocked ? 0 : detailNilaiModal.total_nilai}</span>
                 </div>
@@ -1215,7 +1213,7 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
 
               <div className="grid grid-cols-2 gap-3 mb-6">
                 <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/60 rounded-2xl p-4 text-center">
-                  <span className="material-symbols-outlined text-emerald-600 dark:text-emerald-400 mb-1">fact_check</span>
+                  <span className="material-symbols-outlined text-primary dark:text-primary-400 mb-1">fact_check</span>
                   <span className="block text-xs text-slate-500">Pilihan Ganda</span>
                   <span className="font-bold text-lg text-slate-800 dark:text-white">{detailNilaiModal.nilai_auto}</span>
                 </div>
@@ -1265,7 +1263,7 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
                     name="password"
                     type="password"
                     required
-                    className="w-full rounded-xl border p-3 pl-10 dark:bg-slate-900 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all text-sm min-h-[44px]"
+                    className="w-full rounded-xl border p-3 pl-10 dark:bg-slate-900 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm min-h-[44px]"
                     placeholder="Ketik password baru"
                   />
                 </div>
@@ -1311,7 +1309,7 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
                   onClick={() => handleAvatarSelect(url)}
                   className={`rounded-2xl overflow-hidden border-4 transition-all hover:scale-105 min-h-[44px] ${
                     user.foto_profil === url
-                      ? 'border-emerald-500 shadow-md shadow-emerald-500/30'
+                      ? 'border-primary shadow-md shadow-primary/30'
                       : 'border-transparent hover:border-slate-200 dark:hover:border-slate-600 bg-slate-50 dark:bg-slate-700'
                   }`}
                 >

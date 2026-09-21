@@ -20,7 +20,7 @@ const Modal = ({ isOpen, title, message, onClose, type = 'info', children, onCon
               Batal
             </button>
           )}
-          <button onClick={onConfirm ? onConfirm : onClose} className={`px-6 py-2.5 text-white rounded-xl transition-all font-bold shadow-lg active:scale-95 ${onConfirm ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/30' : 'bg-slate-800 dark:bg-primary hover:bg-slate-700 dark:hover:bg-primary-dark shadow-slate-800/30 dark:shadow-primary/30'}`}>
+          <button onClick={onConfirm ? onConfirm : onClose} className={`px-6 py-2.5 text-white rounded-xl transition-all font-bold shadow-lg active:scale-95 ${onConfirm ? 'bg-primary hover:bg-primary/90 text-white shadow-primary/30' : 'bg-slate-800 dark:bg-primary hover:bg-slate-700 dark:hover:bg-primary-dark shadow-slate-800/30 dark:shadow-primary/30'}`}>
             {onConfirm ? confirmText : "Mengerti"}
           </button>
         </div>

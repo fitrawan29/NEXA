@@ -1,4 +1,4 @@
-import { fetchAPI, getTrueNow } from '../api.js';
+import { fetchAPI, getTrueNow, get_default_skema_sekolah } from '../api.js';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import FormSoalModal from '../components/FormSoalModal.jsx';
 import FormNarasiModal from '../components/FormNarasiModal.jsx';
@@ -16,6 +16,7 @@ import {
   CardTitle,
   CardContent
 } from '../components/UI.jsx';
+import NotificationBell from '../components/NotificationBell.jsx';
 
 const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
   const api = (action, p = {}) => {
@@ -231,6 +232,12 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
   }, [activeTab, selectedJadwal, selectedMapel]);
 
   useEffect(() => {
+    if (user?.npsn) {
+      get_default_skema_sekolah(user.npsn).catch(() => {});
+    }
+  }, [user?.npsn]);
+
+  useEffect(() => {
     if (activeTab === 'akun') {
       if (!selectedMapelAccount && dataMapel.length > 0) {
         setSelectedMapelAccount(dataMapel[0].id_mapel);
@@ -309,7 +316,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
   }, [filteredSoal, bankSoalPage, itemsPerPage]);
 
   const MAPEL_COLORS = [
-    { bg: 'bg-emerald-50 dark:bg-emerald-950/40', text: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-200/60 dark:border-emerald-800/60', icon: 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-600 dark:text-emerald-300' },
+    { bg: 'bg-primary/10 dark:bg-primary/10', text: 'text-primary dark:text-primary-400', border: 'border-primary/30/60 dark:border-primary/30', icon: 'bg-primary/15 dark:bg-primary/15 text-primary dark:text-primary-300' },
     { bg: 'bg-blue-50 dark:bg-blue-950/40', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-200/60 dark:border-blue-800/60', icon: 'bg-blue-100 dark:bg-blue-900/60 text-blue-600 dark:text-blue-300' },
     { bg: 'bg-purple-50 dark:bg-purple-950/40', text: 'text-purple-600 dark:text-purple-400', border: 'border-purple-200/60 dark:border-purple-800/60', icon: 'bg-purple-100 dark:bg-purple-900/60 text-purple-600 dark:text-purple-300' },
     { bg: 'bg-amber-50 dark:bg-amber-950/40', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-200/60 dark:border-amber-800/60', icon: 'bg-amber-100 dark:bg-amber-900/60 text-amber-600 dark:text-amber-300' },
@@ -325,7 +332,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
       return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border border-blue-200/70 dark:border-blue-800/60">PG</span>;
     }
     if (t === 'PGK') {
-      return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200/70 dark:border-emerald-800/60">PGK</span>;
+      return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 border border-primary/30/70 dark:border-primary/30">PGK</span>;
     }
     if (t === 'JODOH') {
       return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 border border-amber-200/70 dark:border-amber-800/60">JODOH</span>;
@@ -914,13 +921,13 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
   };
 
   // =========================================================================
-  // Navigation Taxonomy Definitions
+  // Navigation Taxonomy Definitions & Dashboard Metrics
   // =========================================================================
-  const totalQuestionsBadge = useMemo(() => {
+  const totalQuestionsCount = useMemo(() => {
     return dataMapel.reduce((sum, m) => sum + parseInt(m.jumlah_soal || m.total_soal || 0), 0);
   }, [dataMapel]);
 
-  const activeExamsBadge = useMemo(() => {
+  const activeExamsCount = useMemo(() => {
     return dataJadwal.filter(j => j.status_ujian === 'AKTIF').length;
   }, [dataJadwal]);
 
@@ -934,7 +941,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
     {
       title: 'Akademik',
       items: [
-        { id: 'bank_soal', label: 'Bank Soal & Narasi', icon: 'quiz', badge: totalQuestionsBadge },
+        { id: 'bank_soal', label: 'Bank Soal & Narasi', icon: 'quiz' },
         { id: 'jadwal', label: 'Jadwal Mengajar', icon: 'event_note' },
         { id: 'kontrol', label: 'Kontrol Ujian', icon: 'settings_remote' }
       ]
@@ -942,7 +949,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
     {
       title: 'Monitoring & Nilai',
       items: [
-        { id: 'monitoring', label: 'Live Monitoring', icon: 'visibility', badge: activeExamsBadge },
+        { id: 'monitoring', label: 'Live Monitoring', icon: 'visibility' },
         { id: 'hasil', label: 'Hasil & Rekap Nilai', icon: 'assessment' }
       ]
     },
@@ -1018,7 +1025,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                 {soal.tipe_soal === 'PG' && soal.opsi && Array.isArray(soal.opsi) && (
                   <div className="space-y-1.5 pt-1">
                     {soal.opsi.map((opt, oIdx) => (
-                      <div key={oIdx} className={`p-2.5 rounded-lg border text-xs sm:text-sm ${soal.kunci_jawaban === opt ? 'bg-emerald-50 border-emerald-500 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 font-semibold' : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'}`}>
+                      <div key={oIdx} className={`p-2.5 rounded-lg border text-xs sm:text-sm ${soal.kunci_jawaban === opt ? 'bg-primary/10 border-primary dark:bg-primary/10 text-primary-800 dark:text-primary-200 font-semibold' : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'}`}>
                         <span className="font-bold mr-2">{String.fromCharCode(65 + oIdx)}.</span>
                         <span dangerouslySetInnerHTML={{ __html: typeof opt === 'string' ? opt : opt.teks }} />
                       </div>
@@ -1030,7 +1037,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                     {soal.opsi.map((opt, oIdx) => {
                       const isChecked = soal.kunci_jawaban && soal.kunci_jawaban.includes(opt);
                       return (
-                        <div key={oIdx} className={`p-2.5 rounded-lg border text-xs sm:text-sm ${isChecked ? 'bg-emerald-50 border-emerald-500 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 font-semibold' : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'}`}>
+                        <div key={oIdx} className={`p-2.5 rounded-lg border text-xs sm:text-sm ${isChecked ? 'bg-primary/10 border-primary dark:bg-primary/10 text-primary-800 dark:text-primary-200 font-semibold' : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'}`}>
                           <span className="font-bold mr-2">{String.fromCharCode(65 + oIdx)}.</span>
                           <span dangerouslySetInnerHTML={{ __html: typeof opt === 'string' ? opt : opt.teks }} />
                         </div>
@@ -1058,7 +1065,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
         <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-5xl shadow-2xl p-5 sm:p-6 relative border border-slate-200 dark:border-slate-800 h-full max-h-[92vh] flex flex-col animate-scale-up">
           <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
             <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-              <span className="material-symbols-outlined text-emerald-600 dark:text-emerald-400">analytics</span>
+              <span className="material-symbols-outlined text-primary dark:text-primary-400">analytics</span>
               Analisis Butir Soal
             </h2>
             <button
@@ -1086,15 +1093,15 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                     <td className="p-3 font-mono">{soal.id_soal}</td>
                     <td className="p-3 truncate max-w-[200px]" dangerouslySetInnerHTML={{ __html: soal.pertanyaan }}></td>
                     <td className="p-3 text-center">
-                      <span className="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded text-xs font-semibold">
+                      <span className="bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 px-2 py-0.5 rounded text-xs font-semibold">
                         {soal.tipe_soal}
                       </span>
                     </td>
-                    <td className="p-3 text-center text-emerald-600 font-bold">{soal.correct}</td>
+                    <td className="p-3 text-center text-primary font-bold">{soal.correct}</td>
                     <td className="p-3 text-center text-rose-600 font-bold">{soal.wrong}</td>
                     <td className="p-3 text-right">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                        parseFloat(soal.difficulty) > 70 ? 'bg-emerald-100 text-emerald-700' :
+                        parseFloat(soal.difficulty) > 70 ? 'bg-primary/15 text-primary-700' :
                         parseFloat(soal.difficulty) < 30 ? 'bg-rose-100 text-rose-700' :
                         'bg-amber-100 text-amber-700'
                       }`}>
@@ -1123,7 +1130,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
       <div className="fixed inset-0 z-[110] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
         <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 dark:border-slate-700 animate-scale-up">
           <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 ${
-            confirmDialog.type === 'unblock' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400' :
+            confirmDialog.type === 'unblock' ? 'bg-primary/10 text-primary dark:bg-primary/10 dark:text-primary-400' :
             confirmDialog.type === 'block' || confirmDialog.type === 'stop' ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400' :
             'bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400'
           }`}>
@@ -1141,7 +1148,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
             <button
               onClick={confirmDialog.onConfirm}
               className={`px-4 py-2 rounded-xl text-xs font-bold text-white shadow-sm transition-all active:scale-95 ${
-                confirmDialog.type === 'unblock' ? 'bg-emerald-600 hover:bg-emerald-700' :
+                confirmDialog.type === 'unblock' ? 'bg-primary hover:bg-primary/90' :
                 confirmDialog.type === 'block' || confirmDialog.type === 'stop' ? 'bg-rose-600 hover:bg-rose-700' :
                 'bg-amber-600 hover:bg-amber-700'
               }`}
@@ -1166,7 +1173,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
           <div className="flex flex-col gap-2.5">
             <button
               onClick={() => handleResetJawaban(resetModal.id_siswa, 'login')}
-              className="w-full py-2.5 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-200/60 dark:border-blue-800/60 rounded-xl font-bold text-xs hover:bg-blue-100 transition-colors min-h-[44px]"
+              className="w-full py-2.5 bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 border border-primary/30 dark:border-primary/20 rounded-xl font-bold text-xs hover:bg-primary/20 transition-colors min-h-[44px]"
             >
               Reset Login Saja
             </button>
@@ -1191,7 +1198,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
   if (!user) return null;
 
   return (
-    <div className="h-[100dvh] overflow-hidden bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 flex flex-col lg:flex-row w-full selection:bg-emerald-500/20 selection:text-emerald-700">
+    <div className="h-[100dvh] overflow-hidden bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 flex flex-col lg:flex-row w-full selection:bg-primary/20 selection:text-primary-700">
 
       {/* ================================================================= */}
       {/* DESKTOP PERSISTENT COLLAPSIBLE SIDEBAR (lg: and above)           */}
@@ -1204,7 +1211,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
         {/* Brand Header */}
         <div className="h-16 px-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80">
           <div className={`flex items-center gap-3 min-w-0 ${isSidebarCollapsed ? 'justify-center w-full' : ''}`}>
-            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black shadow-sm shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center font-black shadow-sm shrink-0">
               <span className="material-symbols-outlined text-2xl">local_library</span>
             </div>
             {!isSidebarCollapsed && (
@@ -1212,7 +1219,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                 <h1 className="font-black text-sm text-slate-800 dark:text-white leading-tight truncate">
                   {user.nama_sekolah || 'NEXA CBT'}
                 </h1>
-                <p className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 truncate">
+                <p className="text-[11px] font-bold text-primary dark:text-primary-400 truncate">
                   Portal Guru
                 </p>
               </div>
@@ -1264,20 +1271,15 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                       isSidebarCollapsed ? 'justify-center' : ''
                     } ${
                       isActive
-                        ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 shadow-xs'
+                        ? 'bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 shadow-xs'
                         : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'
                     }`}
                   >
-                    <span className={`material-symbols-outlined text-[20px] shrink-0 ${isActive ? 'text-emerald-600 dark:text-emerald-400' : ''}`}>
+                    <span className={`material-symbols-outlined text-[20px] shrink-0 ${isActive ? 'text-primary dark:text-primary-400' : ''}`}>
                       {item.icon}
                     </span>
                     {!isSidebarCollapsed && (
                       <span className="truncate flex-1 text-left">{item.label}</span>
-                    )}
-                    {!isSidebarCollapsed && item.badge !== undefined && item.badge > 0 && (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-600 text-white shrink-0">
-                        {item.badge}
-                      </span>
                     )}
                   </button>
                 );
@@ -1291,13 +1293,13 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
           <div className={`flex items-center gap-2.5 p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 ${isSidebarCollapsed ? 'justify-center' : ''}`}>
             <div
               onClick={() => setIsAvatarModalOpen(true)}
-              className="w-9 h-9 rounded-lg overflow-hidden border border-emerald-500/40 shrink-0 cursor-pointer"
+              className="w-9 h-9 rounded-lg overflow-hidden border border-primary/40 shrink-0 cursor-pointer"
               title="Ganti Avatar"
             >
               {fotoProfil ? (
                 <img src={fotoProfil} alt="Avatar" className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-xs">
+                <div className="w-full h-full bg-primary/15 dark:bg-primary/10 text-primary-700 dark:text-primary-300 flex items-center justify-center font-bold text-xs">
                   {(user.nama_lengkap || 'G').charAt(0)}
                 </div>
               )}
@@ -1351,14 +1353,14 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
             <span className="material-symbols-outlined text-2xl">menu</span>
           </button>
           <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black shadow-sm shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center font-black shadow-sm shrink-0">
               <span className="material-symbols-outlined text-xl">local_library</span>
             </div>
             <div className="min-w-0">
               <h1 className="font-extrabold text-sm text-slate-800 dark:text-white leading-tight truncate">
                 Portal Guru
               </h1>
-              <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider truncate">
+              <p className="text-[10px] text-primary dark:text-primary-400 font-bold uppercase tracking-wider truncate">
                 {user.nama_lengkap}
               </p>
             </div>
@@ -1366,6 +1368,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
         </div>
 
         <div className="flex items-center gap-1.5">
+          <NotificationBell role="guru" />
           <button
             type="button"
             onClick={() => setIsDarkMode(!isDarkMode)}
@@ -1378,12 +1381,12 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
           </button>
           <div
             onClick={() => setIsAvatarModalOpen(true)}
-            className="w-10 h-10 rounded-xl overflow-hidden border border-emerald-500/40 p-0.5 cursor-pointer shrink-0"
+            className="w-10 h-10 rounded-xl overflow-hidden border border-primary/40 p-0.5 cursor-pointer shrink-0"
           >
             {fotoProfil ? (
               <img src={fotoProfil} alt="Profile" className="w-full h-full object-cover rounded-lg" />
             ) : (
-              <div className="w-full h-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-xs rounded-lg">
+              <div className="w-full h-full bg-primary/15 dark:bg-primary/10 text-primary-700 dark:text-primary-300 flex items-center justify-center font-bold text-xs rounded-lg">
                 {(user.nama_lengkap || 'G').charAt(0)}
               </div>
             )}
@@ -1404,7 +1407,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
           <div className="relative w-80 max-w-[85vw] bg-white dark:bg-slate-900 h-full flex flex-col shadow-2xl border-r border-slate-200 dark:border-slate-800 z-10 animate-fade-in-up">
             <div className="h-16 px-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black">
+                <div className="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center font-black">
                   <span className="material-symbols-outlined text-xl">local_library</span>
                 </div>
                 <div>
@@ -1437,17 +1440,12 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                         onClick={() => navigateTab(item.id)}
                         className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl font-bold text-sm transition-all min-h-[44px] ${
                           isActive
-                            ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400'
+                            ? 'bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400'
                             : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-left'
                         }`}
                       >
                         <span className="material-symbols-outlined text-xl shrink-0">{item.icon}</span>
                         <span className="truncate flex-1 text-left">{item.label}</span>
-                        {item.badge !== undefined && item.badge > 0 && (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-600 text-white">
-                            {item.badge}
-                          </span>
-                        )}
                       </button>
                     );
                   })}
@@ -1490,7 +1488,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
               }}
               className={`flex flex-col items-center justify-center flex-1 py-1 min-h-[44px] min-w-[44px] transition-colors ${
                 isActive && !isTrigger
-                  ? 'text-emerald-600 dark:text-emerald-400'
+                  ? 'text-primary dark:text-primary-400'
                   : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'
               }`}
             >
@@ -1517,15 +1515,16 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800/60 text-xs font-bold flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <NotificationBell role="guru" />
+            <div className="px-3 py-1 rounded-full bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 border border-primary/30 dark:border-primary/30 text-xs font-bold flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-primary-400 animate-pulse"></span>
               <span>Sistem Online</span>
             </div>
           </div>
         </header>
 
         {/* Main Content Body with Natural Scrolling */}
-        <main className="flex-1 overflow-y-auto w-full max-w-7xl mx-auto px-3 sm:px-5 lg:px-6 py-4 pb-24 lg:pb-8">
+        <main className="flex-1 overflow-y-auto w-full max-w-7xl mx-auto px-3 sm:px-5 lg:px-6 py-4 pb-28 lg:pb-12">
 
           {/* ================= TAB 1: DASHBOARD ================= */}
           {activeTab === 'dashboard' && (
@@ -1534,9 +1533,9 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
               <div className="grid grid-cols-3 gap-2.5 sm:gap-3.5">
                 <div
                   onClick={() => navigateTab('bank_soal')}
-                  className="bg-white dark:bg-slate-800 p-3 sm:p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-xs flex items-center gap-2.5 sm:gap-3 cursor-pointer hover:border-emerald-500/50 hover:shadow-sm transition-all group"
+                  className="bg-white dark:bg-slate-800 p-3 sm:p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-xs flex items-center gap-2.5 sm:gap-3 cursor-pointer hover:border-primary/50 hover:shadow-sm transition-all group"
                 >
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                     <span className="material-symbols-outlined text-lg sm:text-xl">library_books</span>
                   </div>
                   <div className="min-w-0">
@@ -1550,9 +1549,9 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
 
                 <div
                   onClick={() => navigateTab('bank_soal')}
-                  className="bg-white dark:bg-slate-800 p-3 sm:p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-xs flex items-center gap-2.5 sm:gap-3 cursor-pointer hover:border-emerald-500/50 hover:shadow-sm transition-all group"
+                  className="bg-white dark:bg-slate-800 p-3 sm:p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-xs flex items-center gap-2.5 sm:gap-3 cursor-pointer hover:border-primary/50 hover:shadow-sm transition-all group"
                 >
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                     <span className="material-symbols-outlined text-lg sm:text-xl">quiz</span>
                   </div>
                   <div className="min-w-0">
@@ -1560,13 +1559,13 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                       <span className="hidden sm:inline">Total Soal Dibuat</span>
                       <span className="sm:hidden">Total Soal</span>
                     </p>
-                    <h4 className="text-lg sm:text-xl font-black text-slate-800 dark:text-white leading-tight">{totalQuestionsBadge}</h4>
+                    <h4 className="text-lg sm:text-xl font-black text-slate-800 dark:text-white leading-tight">{totalQuestionsCount}</h4>
                   </div>
                 </div>
 
                 <div
                   onClick={() => navigateTab('monitoring')}
-                  className="bg-white dark:bg-slate-800 p-3 sm:p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-xs flex items-center gap-2.5 sm:gap-3 cursor-pointer hover:border-emerald-500/50 hover:shadow-sm transition-all group"
+                  className="bg-white dark:bg-slate-800 p-3 sm:p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-xs flex items-center gap-2.5 sm:gap-3 cursor-pointer hover:border-primary/50 hover:shadow-sm transition-all group"
                 >
                   <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                     <span className="material-symbols-outlined text-lg sm:text-xl">visibility</span>
@@ -1576,7 +1575,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                       <span className="hidden sm:inline">Ujian Sedang Aktif</span>
                       <span className="sm:hidden">Ujian Aktif</span>
                     </p>
-                    <h4 className="text-lg sm:text-xl font-black text-slate-800 dark:text-white leading-tight">{activeExamsBadge}</h4>
+                    <h4 className="text-lg sm:text-xl font-black text-slate-800 dark:text-white leading-tight">{activeExamsCount}</h4>
                   </div>
                 </div>
               </div>
@@ -1587,12 +1586,12 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                 <div className="lg:col-span-7 bg-white dark:bg-slate-800 p-3.5 sm:p-4 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-xs space-y-3">
                   <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-slate-700/60">
                     <h4 className="font-bold text-xs sm:text-sm text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-emerald-600 text-base">bar_chart</span>
+                      <span className="material-symbols-outlined text-primary text-base">bar_chart</span>
                       Daftar Mata Pelajaran & Bank Soal
                     </h4>
                     <button
                       onClick={() => navigateTab('bank_soal')}
-                      className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 transition-colors"
+                      className="text-[11px] font-bold text-primary hover:text-primary-700 transition-colors"
                     >
                       Buka Semua Soal →
                     </button>
@@ -1622,7 +1621,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                             </span>
                             <button
                               onClick={() => { setSelectedMapel(m.id_mapel); navigateTab('bank_soal'); }}
-                              className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 font-bold text-[11px] hover:bg-emerald-100 transition-colors flex items-center gap-0.5"
+                              className="px-2.5 py-1 rounded-lg bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 font-bold text-[11px] hover:bg-primary/15 transition-colors flex items-center gap-0.5"
                             >
                               <span>Kelola</span>
                               <span className="material-symbols-outlined text-xs">arrow_forward</span>
@@ -1651,10 +1650,10 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                         <span className="material-symbols-outlined text-purple-600 text-base">sensors</span>
                         Live Exam HUD
                       </h4>
-                      {activeExamsBadge > 0 && (
+                      {activeExamsCount > 0 && (
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 flex items-center gap-1">
                           <span className="w-1.5 h-1.5 rounded-full bg-purple-600 animate-pulse"></span>
-                          {activeExamsBadge} Aktif
+                          {activeExamsCount} Aktif
                         </span>
                       )}
                     </div>
@@ -1676,7 +1675,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                             </div>
                             <button
                               onClick={() => { setSelectedJadwal(j.id_jadwal); navigateTab('monitoring'); }}
-                              className="px-2.5 py-1 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-bold text-[11px] shrink-0 transition-colors shadow-xs"
+                              className="px-2.5 py-1 rounded-lg bg-primary hover:bg-primary/90 text-white font-bold text-[11px] shrink-0 transition-colors shadow-xs"
                             >
                               Pantau
                             </button>
@@ -1700,9 +1699,9 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => navigateTab('bank_soal')}
-                        className="p-2.5 rounded-lg border border-slate-200/80 dark:border-slate-700 hover:border-emerald-500/50 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20 text-left transition-all group"
+                        className="p-2.5 rounded-lg border border-slate-200/80 dark:border-slate-700 hover:border-primary/50 hover:bg-primary/10 dark:hover:bg-primary/5 text-left transition-all group"
                       >
-                        <span className="material-symbols-outlined text-emerald-600 text-lg mb-1 block group-hover:scale-110 transition-transform">quiz</span>
+                        <span className="material-symbols-outlined text-primary text-lg mb-1 block group-hover:scale-110 transition-transform">quiz</span>
                         <p className="font-bold text-xs text-slate-800 dark:text-slate-200">Bank Soal</p>
                         <p className="text-[10px] text-slate-400">Kelola butir soal</p>
                       </button>
@@ -1718,9 +1717,9 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
 
                       <button
                         onClick={() => navigateTab('jadwal')}
-                        className="p-2.5 rounded-lg border border-slate-200/80 dark:border-slate-700 hover:border-blue-500/50 hover:bg-blue-50/40 dark:hover:bg-blue-950/20 text-left transition-all group"
+                        className="p-2.5 rounded-lg border border-slate-200/80 dark:border-slate-700 hover:border-primary/50 hover:bg-primary/5 dark:hover:bg-primary/10 text-left transition-all group"
                       >
-                        <span className="material-symbols-outlined text-blue-600 text-lg mb-1 block group-hover:scale-110 transition-transform">event_note</span>
+                        <span className="material-symbols-outlined text-primary text-lg mb-1 block group-hover:scale-110 transition-transform">event_note</span>
                         <p className="font-bold text-xs text-slate-800 dark:text-slate-200">Jadwal Ujian</p>
                         <p className="text-[10px] text-slate-400">Agenda mengajar</p>
                       </button>
@@ -1759,7 +1758,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                         <div
                           key={m.id_mapel || idx}
                           onClick={() => setSelectedMapel(m.id_mapel)}
-                          className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200/80 dark:border-slate-700/80 shadow-sm hover:border-emerald-500/50 hover:shadow-md cursor-pointer transition-all group flex flex-col justify-between"
+                          className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200/80 dark:border-slate-700/80 shadow-sm hover:border-primary/50 hover:shadow-md cursor-pointer transition-all group flex flex-col justify-between"
                         >
                           <div className="flex items-start justify-between mb-3">
                             <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${color.icon} group-hover:scale-105 transition-transform`}>
@@ -1803,7 +1802,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                           <h3 className="font-black text-base sm:text-lg text-slate-800 dark:text-white leading-tight">
                             {dataMapel.find(m => m.id_mapel === selectedMapel)?.nama_mapel || 'Bank Soal'}
                           </h3>
-                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60">
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 border border-primary/30/60 dark:border-primary/30">
                             {filteredSoal.length} Soal
                           </span>
                         </div>
@@ -1841,7 +1840,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                       </button>
                       <button
                         onClick={() => setSkemaModal({ isOpen: true, id_mapel: selectedMapel })}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 hover:bg-blue-100 transition-colors min-h-[44px]"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 hover:bg-primary/20 transition-colors min-h-[44px]"
                         title="Konfigurasi Skema Penilaian"
                       >
                         <span className="material-symbols-outlined text-[18px]">tune</span>
@@ -1857,7 +1856,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                       </button>
                       <button
                         onClick={() => setFormSoal({ isOpen: true, data: null, id_mapel: selectedMapel })}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all active:scale-95 min-h-[44px]"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 min-h-[44px]"
                       >
                         <span className="material-symbols-outlined text-[18px]">add</span>
                         <span>Tambah Soal</span>
@@ -1876,7 +1875,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                         onClick={() => { setSelectedMapel(m.id_mapel); setBankSoalPage(1); }}
                         className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap min-h-[38px] ${
                           selectedMapel === m.id_mapel
-                            ? 'bg-emerald-600 text-white shadow-xs'
+                            ? 'bg-primary text-white shadow-xs'
                             : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700 hover:bg-slate-50'
                         }`}
                       >
@@ -1895,7 +1894,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                           onClick={() => { setFilterTipeSoal(tipe); setBankSoalPage(1); }}
                           className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap min-h-[38px] ${
                             filterTipeSoal === tipe
-                              ? 'bg-emerald-600 text-white shadow-xs'
+                              ? 'bg-primary text-white shadow-xs'
                               : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
                           }`}
                         >
@@ -1996,7 +1995,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                                   <div className="flex items-center justify-end gap-1">
                                     <button
                                       onClick={() => setFormSoal({ isOpen: true, data: soal, id_mapel: soal.id_mapel || selectedMapel })}
-                                      className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-lg transition-colors"
+                                      className="p-1.5 text-primary hover:bg-primary/10 dark:hover:bg-primary/10 rounded-lg transition-colors"
                                       title="Edit Soal"
                                     >
                                       <span className="material-symbols-outlined text-[18px]">edit</span>
@@ -2059,7 +2058,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                           <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
                             <button
                               onClick={() => setFormSoal({ isOpen: true, data: soal, id_mapel: soal.id_mapel || selectedMapel })}
-                              className="px-3 py-1.5 rounded-lg text-xs font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 flex items-center gap-1 min-h-[38px]"
+                              className="px-3 py-1.5 rounded-lg text-xs font-bold text-primary bg-primary/10 dark:bg-primary/10 hover:bg-primary/20 flex items-center gap-1 min-h-[38px]"
                             >
                               <span className="material-symbols-outlined text-[16px]">edit</span>
                               <span>Edit</span>
@@ -2132,7 +2131,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-slate-400">Token Ujian:</span>
-                          <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{j.token || '-'}</span>
+                          <span className="font-mono font-bold text-primary dark:text-primary-400">{j.token || '-'}</span>
                         </div>
                       </div>
                     </div>
@@ -2141,7 +2140,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                       {j.status_ujian === 'AKTIF' && (
                         <button
                           onClick={() => { setSelectedJadwal(j); navigateTab('monitoring'); }}
-                          className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 transition-colors flex items-center justify-center gap-1 min-h-[44px]"
+                          className="flex-1 py-2 px-3 rounded-xl bg-primary text-white font-bold text-xs hover:bg-primary/90 transition-colors flex items-center justify-center gap-1 min-h-[44px]"
                         >
                           <span className="material-symbols-outlined text-[16px]">visibility</span>
                           <span>Live Monitoring</span>
@@ -2194,7 +2193,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                     <div className="bg-slate-50 dark:bg-slate-900/50 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">
                       <div>
                         <p className="text-[11px] text-slate-400 uppercase font-extrabold tracking-wider">Token Akses</p>
-                        <p className="font-mono text-xl font-black text-emerald-600 dark:text-emerald-400">{j.token || 'BELUM ADA'}</p>
+                        <p className="font-mono text-xl font-black text-primary dark:text-primary-400">{j.token || 'BELUM ADA'}</p>
                       </div>
                       <button
                         onClick={() => handleGenerateToken(j.id_jadwal)}
@@ -2209,7 +2208,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                       {j.status_ujian !== 'AKTIF' && (
                         <button
                           onClick={() => handleUpdateStatusUjian(j.id_jadwal, 'AKTIF')}
-                          className="flex-1 py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-colors min-h-[44px]"
+                          className="flex-1 py-2.5 px-3 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs transition-colors min-h-[44px]"
                         >
                           Aktifkan Ujian
                         </button>
@@ -2293,19 +2292,19 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                     {dataJadwal.filter(j => j.status_ujian === 'AKTIF').map((j) => (
-                      <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-emerald-500/30 shadow-sm space-y-3">
+                      <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-primary/30 shadow-sm space-y-3">
                         <div className="flex justify-between items-start">
                           <div>
                             <h4 className="font-bold text-base text-slate-800 dark:text-white">{j.nama_mapel}</h4>
-                            <p className="text-xs text-slate-500">Tingkat {j.target_kelas || 'Umum'} | Token: <strong className="font-mono text-emerald-600">{j.token}</strong></p>
+                            <p className="text-xs text-slate-500">Tingkat {j.target_kelas || 'Umum'} | Token: <strong className="font-mono text-primary">{j.token}</strong></p>
                           </div>
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 flex items-center gap-1 animate-pulse">
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-primary/15 dark:bg-primary/10 text-primary-700 dark:text-primary-300 flex items-center gap-1 animate-pulse">
                             LIVE
                           </span>
                         </div>
                         <button
                           onClick={() => setSelectedJadwal(j)}
-                          className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 min-h-[44px]"
+                          className="w-full py-2.5 bg-primary hover:bg-primary/90 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 min-h-[44px]"
                         >
                           <span className="material-symbols-outlined text-[18px]">visibility</span>
                           <span>Buka Monitoring</span>
@@ -2337,12 +2336,12 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                     </div>
 
                     <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex items-center gap-3.5">
-                      <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                      <div className="w-12 h-12 rounded-xl bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 flex items-center justify-center shrink-0">
                         <span className="material-symbols-outlined text-2xl animate-pulse">timer</span>
                       </div>
                       <div className="min-w-0">
                         <p className="text-xs font-bold text-slate-500 dark:text-slate-400 truncate">Sedang Ujian</p>
-                        <h4 className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{monitoringMetrics.mengerjakan}</h4>
+                        <h4 className="text-2xl font-black text-primary dark:text-primary-400">{monitoringMetrics.mengerjakan}</h4>
                       </div>
                     </div>
 
@@ -2376,7 +2375,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                           onClick={() => setMonitoringFilterStatus(st)}
                           className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap min-h-[38px] ${
                             monitoringFilterStatus === st
-                              ? 'bg-emerald-600 text-white shadow-xs'
+                              ? 'bg-primary text-white shadow-xs'
                               : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
                           }`}
                         >
@@ -2455,7 +2454,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                                   <td className="py-3 px-4">
                                     <div className="flex items-center gap-2.5">
                                       <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
-                                        isBlocked ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
+                                        isBlocked ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300' : 'bg-primary/15 text-primary-700 dark:bg-primary/10 dark:text-primary-300'
                                       }`}>
                                         {isBlocked ? <span className="material-symbols-outlined text-[16px]">block</span> : sName.substring(0, 2).toUpperCase()}
                                       </div>
@@ -2474,14 +2473,14 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                                     <div className="w-full">
                                       <div className="flex justify-between items-center text-[11px] mb-1 font-semibold">
                                         <span className="text-slate-600 dark:text-slate-400">{totalDijawab} / {totalSoal} Soal</span>
-                                        <span className={isBlocked ? 'text-rose-500 font-bold' : log.status_ujian === 'SELESAI' ? 'text-emerald-600 font-bold' : 'text-slate-700 dark:text-slate-300'}>
+                                        <span className={isBlocked ? 'text-rose-500 font-bold' : log.status_ujian === 'SELESAI' ? 'text-primary font-bold' : 'text-slate-700 dark:text-slate-300'}>
                                           {progressPercent}%
                                         </span>
                                       </div>
                                       <div className="w-full bg-slate-100 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
                                         <div
                                           className={`h-full transition-all duration-500 rounded-full ${
-                                            isBlocked ? 'bg-rose-500' : log.status_ujian === 'SELESAI' ? 'bg-sky-500' : 'bg-emerald-500'
+                                            isBlocked ? 'bg-rose-500' : log.status_ujian === 'SELESAI' ? 'bg-sky-500' : 'bg-primary-400'
                                           }`}
                                           style={{ width: `${progressPercent}%` }}
                                         />
@@ -2509,7 +2508,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                                       {isBlocked ? (
                                         <button
                                           onClick={() => handleUnblock(log.id_log, log.id_siswa, jId)}
-                                          className="px-2.5 py-1.5 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 rounded-lg text-xs font-bold hover:bg-emerald-100 transition-colors flex items-center gap-1 min-h-[36px]"
+                                          className="px-2.5 py-1.5 bg-primary/10 text-primary-700 dark:bg-primary/10 dark:text-primary-300 rounded-lg text-xs font-bold hover:bg-primary/15 transition-colors flex items-center gap-1 min-h-[36px]"
                                           title="Buka Blokir Siswa"
                                         >
                                           <span className="material-symbols-outlined text-[16px]">lock_open</span>
@@ -2588,7 +2587,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2.5 min-w-0">
                                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
-                                  isBlocked ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
+                                  isBlocked ? 'bg-rose-100 text-rose-700' : 'bg-primary/15 text-primary-700'
                                 }`}>
                                   {isBlocked ? <span className="material-symbols-outlined text-[18px]">block</span> : sName.substring(0, 2).toUpperCase()}
                                 </div>
@@ -2604,12 +2603,12 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                             <div>
                               <div className="flex justify-between items-center text-[11px] mb-1 font-semibold">
                                 <span className="text-slate-500">{totalDijawab} / {totalSoal} Soal</span>
-                                <span className={isBlocked ? 'text-rose-500 font-bold' : 'text-emerald-600 font-bold'}>{progressPercent}%</span>
+                                <span className={isBlocked ? 'text-rose-500 font-bold' : 'text-primary font-bold'}>{progressPercent}%</span>
                               </div>
                               <div className="w-full bg-slate-100 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
                                 <div
                                   className={`h-full transition-all duration-500 rounded-full ${
-                                    isBlocked ? 'bg-rose-500' : log.status_ujian === 'SELESAI' ? 'bg-sky-500' : 'bg-emerald-500'
+                                    isBlocked ? 'bg-rose-500' : log.status_ujian === 'SELESAI' ? 'bg-sky-500' : 'bg-primary-400'
                                   }`}
                                   style={{ width: `${progressPercent}%` }}
                                 />
@@ -2621,7 +2620,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                               {isBlocked ? (
                                 <button
                                   onClick={() => handleUnblock(log.id_log, log.id_siswa, jId)}
-                                  className="px-3.5 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-colors flex items-center gap-1 min-h-[44px]"
+                                  className="px-3.5 py-2 bg-primary text-white rounded-xl text-xs font-bold hover:bg-primary/90 transition-colors flex items-center gap-1 min-h-[44px]"
                                 >
                                   <span className="material-symbols-outlined text-[18px]">lock_open</span>
                                   <span>Buka Blokir</span>
@@ -2694,7 +2693,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-[16px] text-emerald-600">school</span>
+                        <span className="material-symbols-outlined text-[16px] text-primary">school</span>
                         Kelas / Tingkat
                       </label>
                       <select
@@ -2705,7 +2704,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                           const allP = dataKelas.filter(k => k.tingkat === val).map(k => k.kelas_paralel).filter(Boolean);
                           setFilterParalelHasil(Array.from(new Set(allP)));
                         }}
-                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2.5 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-emerald-500/40 dark:text-white"
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2.5 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-primary/40 dark:text-white"
                       >
                         <option value="">-- Pilih Kelas / Tingkat --</option>
                         {tingkatList.map(t => (
@@ -2723,7 +2722,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                       <select
                         value={filterMapelHasil}
                         onChange={(e) => setFilterMapelHasil(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2.5 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-emerald-500/40 dark:text-white"
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2.5 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-primary/40 dark:text-white"
                       >
                         <option value="ALL">Semua Mata Pelajaran</option>
                         {dataMapel.map(m => (
@@ -2748,7 +2747,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                               const allP = dataKelas.filter(k => k.tingkat === filterKelasHasil).map(k => k.kelas_paralel).filter(Boolean);
                               setFilterParalelHasil(Array.from(new Set(allP)));
                             }}
-                            className="text-[11px] text-emerald-600 hover:underline font-bold"
+                            className="text-[11px] text-primary hover:underline font-bold"
                           >
                             Pilih Semua
                           </button>
@@ -2782,7 +2781,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                                 }}
                                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border min-h-[38px] ${
                                   isSelected
-                                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                                    ? 'bg-primary text-white border-primary shadow-xs'
                                     : 'bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
                                 }`}
                               >
@@ -2830,7 +2829,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                         <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
                           <button
                             onClick={() => openDetailHasil(j)}
-                            className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-colors flex items-center justify-center gap-1.5 min-h-[44px]"
+                            className="flex-1 py-2 px-3 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs transition-colors flex items-center justify-center gap-1.5 min-h-[44px]"
                           >
                             <span className="material-symbols-outlined text-[16px]">leaderboard</span>
                             <span>Buka Rekap & Ranking</span>
@@ -2865,7 +2864,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                     <button
                       onClick={() => setActiveLogSubTab('aktif')}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors min-h-[38px] ${
-                        activeLogSubTab === 'aktif' ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                        activeLogSubTab === 'aktif' ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
                       }`}
                     >
                       Log Aktif ({dataAudit.length})
@@ -2873,7 +2872,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                     <button
                       onClick={() => setActiveLogSubTab('arsip')}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors min-h-[38px] ${
-                        activeLogSubTab === 'arsip' ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                        activeLogSubTab === 'arsip' ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
                       }`}
                     >
                       Arsip ({dataAuditArchive.length})
@@ -2939,13 +2938,13 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                 <div className="flex items-center gap-4">
                   <div
                     onClick={() => setIsAvatarModalOpen(true)}
-                    className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-emerald-500/40 cursor-pointer shrink-0 relative group"
+                    className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-primary/40 cursor-pointer shrink-0 relative group"
                     title="Klik untuk memilih avatar"
                   >
                     {fotoProfil ? (
                       <img src={fotoProfil} alt="Avatar" className="w-full h-full object-cover" />
                     ) : (
-                      <div className="w-full h-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-2xl">
+                      <div className="w-full h-full bg-primary/15 dark:bg-primary/10 text-primary-700 dark:text-primary-300 flex items-center justify-center font-bold text-2xl">
                         {(user.nama_lengkap || 'G').charAt(0)}
                       </div>
                     )}
@@ -2956,7 +2955,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                   <div>
                     <h4 className="font-bold text-base text-slate-800 dark:text-white">{user.nama_lengkap}</h4>
                     <p className="text-xs text-slate-400">{user.nip ? `NIP: ${user.nip}` : 'Tenaga Pengajar'}</p>
-                    <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-1">
+                    <p className="text-xs text-primary dark:text-primary-400 font-semibold mt-1">
                       NPSN: {user.npsn}
                     </p>
                   </div>
@@ -2972,7 +2971,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                       placeholder="Masukkan password baru..."
                       value={profileForm.password}
                       onChange={(e) => setProfileForm({ ...profileForm, password: e.target.value })}
-                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-emerald-500/40 dark:text-white"
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-primary/40 dark:text-white"
                     />
                   </div>
 
@@ -2988,7 +2987,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                       type="button"
                       onClick={saveProfile}
                       disabled={profileLoading}
-                      className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition-all active:scale-95 disabled:opacity-50 min-h-[44px]"
+                      className="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white text-xs font-bold shadow-sm transition-all active:scale-95 disabled:opacity-50 min-h-[44px]"
                     >
                       {profileLoading ? 'Menyimpan...' : 'Simpan Perubahan'}
                     </button>
@@ -2999,7 +2998,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
               {/* Pengaturan Skema Penilaian di Menu Akun */}
               <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-5">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 flex items-center justify-center shrink-0">
                     <span className="material-symbols-outlined text-2xl">tune</span>
                   </div>
                   <div>
@@ -3023,7 +3022,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                       <select
                         value={selectedMapelAccount}
                         onChange={(e) => setSelectedMapelAccount(e.target.value)}
-                        className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-500/40 dark:text-white"
+                        className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-bold outline-none focus:ring-2 focus:ring-primary/40 dark:text-white"
                       >
                         {dataMapel.map((m) => (
                           <option key={m.id_mapel} value={m.id_mapel}>
@@ -3099,7 +3098,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                   <div>
                     <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm sm:text-base flex items-center gap-2">
                       <span>Rekap Nilai: {selectedHasilJadwal.nama_mapel}</span>
-                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400">
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary dark:bg-primary/10 dark:text-primary-400">
                         Tingkat {selectedHasilJadwal.target_kelas || 'Umum'}
                       </span>
                     </h3>
@@ -3112,7 +3111,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                 <div className="flex items-center gap-2 flex-wrap">
                   <button
                     onClick={() => exportHasilToExcel(selectedHasilJadwal, filteredSiswa, filterHasilParalelDetail)}
-                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 min-h-[44px]"
+                    className="px-3.5 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 min-h-[44px]"
                   >
                     <span className="material-symbols-outlined text-[16px]">download</span>
                     <span>Unduh Excel</span>
@@ -3145,12 +3144,12 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                   </div>
                   <div className="bg-white dark:bg-slate-800 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 shadow-xs text-center">
                     <span className="text-[11px] font-medium text-slate-500 block mb-0.5">Rata-Rata</span>
-                    <span className="text-2xl font-black text-blue-600 dark:text-blue-400">{rataNilai}</span>
+                    <span className="text-2xl font-black text-primary dark:text-primary-400">{rataNilai}</span>
                     <span className="text-[10px] text-slate-400 block mt-0.5">Skor kelas</span>
                   </div>
                   <div className="bg-white dark:bg-slate-800 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 shadow-xs text-center">
                     <span className="text-[11px] font-medium text-slate-500 block mb-0.5">Tertinggi</span>
-                    <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{nilaiTertinggi}</span>
+                    <span className="text-2xl font-black text-primary dark:text-primary-400">{nilaiTertinggi}</span>
                     <span className="text-[10px] text-slate-400 block mt-0.5">Nilai maks</span>
                   </div>
                   <div className="bg-white dark:bg-slate-800 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 shadow-xs text-center">
@@ -3160,7 +3159,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                   </div>
                   <div className="bg-white dark:bg-slate-800 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 shadow-xs text-center col-span-2 sm:col-span-1">
                     <span className="text-[11px] font-medium text-slate-500 block mb-0.5">Ketuntasan</span>
-                    <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{persentaseTuntas}%</span>
+                    <span className="text-2xl font-black text-primary dark:text-primary-400">{persentaseTuntas}%</span>
                     <span className="text-[10px] text-slate-400 block mt-0.5">{tuntasCount} / {totalPeserta} Tuntas</span>
                   </div>
                 </div>
@@ -3175,7 +3174,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                       onClick={() => setFilterHasilParalelDetail('ALL')}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors whitespace-nowrap min-h-[38px] ${
                         filterHasilParalelDetail === 'ALL'
-                          ? 'bg-emerald-600 text-white shadow-xs'
+                          ? 'bg-primary text-white shadow-xs'
                           : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
                       }`}
                     >
@@ -3189,7 +3188,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                           onClick={() => setFilterHasilParalelDetail(p)}
                           className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors whitespace-nowrap min-h-[38px] ${
                             filterHasilParalelDetail === p
-                              ? 'bg-emerald-600 text-white shadow-xs'
+                              ? 'bg-primary text-white shadow-xs'
                               : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
                           }`}
                         >
@@ -3206,7 +3205,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                       placeholder="Cari siswa atau NISN..."
                       value={searchHasilSiswa}
                       onChange={(e) => setSearchHasilSiswa(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 pl-8 pr-3 py-1.5 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500/40 dark:text-white"
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 pl-8 pr-3 py-1.5 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary/40 dark:text-white"
                     />
                   </div>
                 </div>
@@ -3255,14 +3254,14 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                                 {Number(s.nilai_uraian) || 0}
                               </td>
                               <td className="p-3.5 text-center">
-                                <span className={`text-sm font-extrabold ${isLulus ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>
+                                <span className={`text-sm font-extrabold ${isLulus ? 'text-primary dark:text-primary-400' : 'text-rose-500'}`}>
                                   {total}
                                 </span>
                               </td>
                               <td className="p-3.5 text-center">
                                 <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                                   isLulus
-                                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+                                    ? 'bg-primary/15 text-primary-700 dark:bg-primary/10 dark:text-primary-300'
                                     : 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
                                 }`}>
                                   {isLulus ? 'Tuntas' : 'Remedial'}
@@ -3376,8 +3375,8 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                   onClick={() => handleAvatarSelect(avatar)}
                   className={`w-full aspect-square rounded-2xl overflow-hidden border-2 transition-all p-2 ${
                     fotoProfil === avatar
-                      ? 'border-emerald-500 ring-4 ring-emerald-500/20 shadow-md scale-105 bg-white dark:bg-slate-900'
-                      : 'border-slate-100 dark:border-slate-700 hover:border-emerald-500/50 bg-slate-50 dark:bg-slate-800'
+                      ? 'border-primary ring-4 ring-primary/20 shadow-md scale-105 bg-white dark:bg-slate-900'
+                      : 'border-slate-100 dark:border-slate-700 hover:border-primary/50 bg-slate-50 dark:bg-slate-800'
                   }`}
                 >
                   <img src={avatar} alt={`Avatar ${idx + 1}`} className="w-full h-full object-cover" />

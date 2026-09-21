@@ -1,11 +1,29 @@
 import React, { useState, useEffect } from 'react';
 
-const SkemaPenilaianPanel = ({ dataSoal = [], onSave }) => {
+const SkemaPenilaianPanel = ({
+  dataSoal = [],
+  onSave,
+  isSchoolDefault = false,
+  schoolDefaultScheme = null,
+  initialSkema = null
+}) => {
   const defaultSkema = { PG: 0, PGK: 0, BS: 0, JODOH: 0, ISIAN: 0, URAIAN: 0 };
   const [mode, setMode] = useState('default'); // 'default' | 'custom'
   const [skema, setSkema] = useState(defaultSkema);
+  const [adminDefaultInfo, setAdminDefaultInfo] = useState(schoolDefaultScheme);
 
   useEffect(() => {
+    if (isSchoolDefault) {
+      if (initialSkema) {
+        setMode(initialSkema.mode || 'default');
+        if (initialSkema.skema) {
+          setSkema({ ...defaultSkema, ...initialSkema.skema });
+        }
+      }
+      return;
+    }
+
+    // Teacher mode: check dataSoal
     const skemaRecord = dataSoal?.find(s => s.tipe_soal === 'SKEMA_PENILAIAN');
     if (skemaRecord && skemaRecord.kunci_jawaban) {
       let parsed = null;
@@ -30,7 +48,28 @@ const SkemaPenilaianPanel = ({ dataSoal = [], onSave }) => {
         }
       }
     }
-  }, [dataSoal]);
+
+    // If teacher mode and no explicit schoolDefaultScheme prop passed, try to look up from localStorage
+    if (!schoolDefaultScheme && typeof localStorage !== 'undefined') {
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('nexa_default_skema_')) {
+            const raw = localStorage.getItem(key);
+            if (raw) {
+              const p = JSON.parse(raw);
+              if (p && typeof p === 'object') {
+                setAdminDefaultInfo(p);
+                break;
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+  }, [dataSoal, isSchoolDefault, initialSkema, schoolDefaultScheme]);
 
   const hitungTotalPersentase = () => {
     return Object.values(skema).reduce((acc, val) => acc + (parseFloat(val) || 0), 0);
@@ -43,6 +82,14 @@ const SkemaPenilaianPanel = ({ dataSoal = [], onSave }) => {
         alert(`Total persentase bobot skema khusus harus tepat 100%. Saat ini: ${total}%. Silakan sesuaikan kembali.`);
         return;
       }
+      if (isSchoolDefault) {
+        onSave({
+          mode: 'custom',
+          skema,
+          bobot: 1
+        });
+        return;
+      }
       const payload = {
         kunci_jawaban: JSON.stringify({
           mode: 'custom',
@@ -52,6 +99,14 @@ const SkemaPenilaianPanel = ({ dataSoal = [], onSave }) => {
       };
       onSave(payload);
     } else {
+      if (isSchoolDefault) {
+        onSave({
+          mode: 'default',
+          skema: defaultSkema,
+          bobot: 0
+        });
+        return;
+      }
       const payload = {
         kunci_jawaban: JSON.stringify({
           mode: 'default',
@@ -66,10 +121,12 @@ const SkemaPenilaianPanel = ({ dataSoal = [], onSave }) => {
   return (
     <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-sm p-5 sm:p-6">
       <h3 className="font-bold text-base sm:text-lg text-slate-800 dark:text-white mb-2">
-        Pengaturan Skema Penilaian
+        {isSchoolDefault ? 'Pengaturan Skema Penilaian Default Sekolah' : 'Pengaturan Skema Penilaian'}
       </h3>
       <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mb-5 leading-relaxed">
-        Pilih model perhitungan nilai akhir ujian: gunakan format default sekolah / admin atau skema bobot khusus mata pelajaran.
+        {isSchoolDefault
+          ? 'Atur format bobot penilaian acuan default sekolah yang dapat digunakan oleh seluruh guru mata pelajaran.'
+          : 'Pilih model perhitungan nilai akhir ujian: gunakan format default sekolah / admin atau skema bobot khusus mata pelajaran.'}
       </p>
 
       {/* Mode Selector */}
@@ -79,18 +136,22 @@ const SkemaPenilaianPanel = ({ dataSoal = [], onSave }) => {
           onClick={() => setMode('default')}
           className={`p-3.5 rounded-xl border text-left transition-all flex flex-col justify-between ${
             mode === 'default'
-              ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-200 ring-2 ring-emerald-500/20'
+              ? 'border-primary bg-primary/10 text-slate-800 dark:text-white ring-2 ring-primary/20'
               : 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30 text-slate-600 dark:text-slate-400 hover:border-slate-300'
           }`}
         >
           <div className="flex items-center gap-2 mb-1.5">
-            <span className={`material-symbols-outlined text-lg ${mode === 'default' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
+            <span className={`material-symbols-outlined text-lg ${mode === 'default' ? 'text-primary dark:text-primary-400' : 'text-slate-400'}`}>
               {mode === 'default' ? 'radio_button_checked' : 'radio_button_unchecked'}
             </span>
-            <span className="font-bold text-xs sm:text-sm">Format Default Sekolah / Admin</span>
+            <span className="font-bold text-xs sm:text-sm">
+              {isSchoolDefault ? 'Proporsional (Poin Murni)' : 'Format Default Sekolah / Admin'}
+            </span>
           </div>
           <p className="text-[11px] leading-relaxed opacity-80">
-            Proporsional Poin Murni (Pure Proportional Points). Nilai akhir dihitung otomatis berdasarkan akumulasi perolehan bobot setiap butir soal tanpa persentase tipe soal.
+            {isSchoolDefault
+              ? 'Nilai akhir dihitung otomatis berdasarkan akumulasi perolehan poin butir soal tanpa persentase pembobotan tipe soal.'
+              : 'Proporsional Poin Murni (Pure Proportional Points). Nilai akhir dihitung otomatis berdasarkan akumulasi perolehan bobot setiap butir soal tanpa persentase tipe soal.'}
           </p>
         </button>
 
@@ -99,29 +160,41 @@ const SkemaPenilaianPanel = ({ dataSoal = [], onSave }) => {
           onClick={() => setMode('custom')}
           className={`p-3.5 rounded-xl border text-left transition-all flex flex-col justify-between ${
             mode === 'custom'
-              ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-200 ring-2 ring-emerald-500/20'
+              ? 'border-primary bg-primary/10 text-slate-800 dark:text-white ring-2 ring-primary/20'
               : 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30 text-slate-600 dark:text-slate-400 hover:border-slate-300'
           }`}
         >
           <div className="flex items-center gap-2 mb-1.5">
-            <span className={`material-symbols-outlined text-lg ${mode === 'custom' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
+            <span className={`material-symbols-outlined text-lg ${mode === 'custom' ? 'text-primary dark:text-primary-400' : 'text-slate-400'}`}>
               {mode === 'custom' ? 'radio_button_checked' : 'radio_button_unchecked'}
             </span>
-            <span className="font-bold text-xs sm:text-sm">Skema Khusus Mata Pelajaran</span>
+            <span className="font-bold text-xs sm:text-sm">
+              {isSchoolDefault ? 'Kustom (Bobot Persentase)' : 'Skema Khusus Mata Pelajaran'}
+            </span>
           </div>
           <p className="text-[11px] leading-relaxed opacity-80">
-            Atur bobot persentase custom untuk setiap tipe soal (PG, PGK, BS, JODOH, ISIAN, URAIAN). Total akumulasi wajib 100%.
+            {isSchoolDefault
+              ? 'Atur persentase bobot acuan sekolah untuk setiap tipe soal (PG, PGK, BS, JODOH, ISIAN, URAIAN). Total akumulasi wajib 100%.'
+              : 'Atur bobot persentase custom untuk setiap tipe soal (PG, PGK, BS, JODOH, ISIAN, URAIAN). Total akumulasi wajib 100%.'}
           </p>
         </button>
       </div>
 
       {mode === 'default' ? (
-        <div className="p-3.5 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200/70 dark:border-blue-800/60 mb-6 flex items-start gap-3">
-          <span className="material-symbols-outlined text-blue-600 dark:text-blue-400 text-xl shrink-0 mt-0.5">info</span>
-          <div className="text-xs text-blue-800 dark:text-blue-300 leading-relaxed">
-            <p className="font-bold mb-0.5">Mode Default Sekolah Aktif</p>
+        <div className="p-3.5 rounded-xl bg-primary/5 dark:bg-primary/10 border border-primary/20 dark:border-primary/30 mb-6 flex items-start gap-3">
+          <span className="material-symbols-outlined text-primary dark:text-primary-400 text-xl shrink-0 mt-0.5">info</span>
+          <div className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+            <p className="font-bold mb-0.5 text-primary dark:text-primary-400">
+              {isSchoolDefault ? 'Mode Default Sekolah (Proporsional Poin Murni)' : 'Format Default Sekolah / Admin Aktif'}
+            </p>
             <p className="opacity-90">
-              Input persentase dinonaktifkan. Seluruh tipe soal akan dinilai secara proporsional sesuai perolehan skor dan bobot poin yang ditentukan pada masing-masing butir soal.
+              {isSchoolDefault ? (
+                'Input persentase dinonaktifkan. Nilai akhir seluruh ujian dihitung murni dari total perolehan skor butir soal.'
+              ) : adminDefaultInfo?.mode === 'custom' ? (
+                `Acuan Sekolah Aktif: Bobot Persentase Standar (PG: ${adminDefaultInfo.skema?.PG ?? 0}%, PGK: ${adminDefaultInfo.skema?.PGK ?? 0}%, BS: ${adminDefaultInfo.skema?.BS ?? 0}%, Jodoh: ${adminDefaultInfo.skema?.JODOH ?? 0}%, Isian: ${adminDefaultInfo.skema?.ISIAN ?? 0}%, Uraian: ${adminDefaultInfo.skema?.URAIAN ?? 0}%). Nilai akan dihitung berdasarkan persentase ini.`
+              ) : (
+                'Input persentase dinonaktifkan. Seluruh tipe soal akan dinilai secara proporsional sesuai perolehan skor dan bobot poin yang ditentukan pada masing-masing butir soal.'
+              )}
             </p>
           </div>
         </div>
@@ -139,7 +212,7 @@ const SkemaPenilaianPanel = ({ dataSoal = [], onSave }) => {
                 disabled={mode === 'default'}
                 value={skema[tipe]}
                 onChange={(e) => setSkema({ ...skema, [tipe]: e.target.value })}
-                className="w-full px-3 py-2 pr-8 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:cursor-not-allowed"
+                className="w-full px-3 py-2 pr-8 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:cursor-not-allowed"
                 min="0"
                 max="100"
               />
@@ -156,23 +229,23 @@ const SkemaPenilaianPanel = ({ dataSoal = [], onSave }) => {
           {mode === 'custom' ? (
             <>
               Total Persentase:{' '}
-              <span className={`font-mono text-base ml-1 ${hitungTotalPersentase() === 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+              <span className={`font-mono text-base ml-1 ${hitungTotalPersentase() === 100 ? 'text-primary dark:text-primary-400' : 'text-rose-600 dark:text-rose-400'}`}>
                 {hitungTotalPersentase()}%
               </span>
             </>
           ) : (
             <span className="text-slate-500 dark:text-slate-400 text-xs flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-              Mode: Proporsional Poin Murni (Default Sekolah)
+              <span className="w-2 h-2 rounded-full bg-primary"></span>
+              {isSchoolDefault ? 'Mode: Proporsional Poin Murni (Default Sekolah)' : 'Mode: Proporsional Poin Murni (Default Sekolah)'}
             </span>
           )}
         </div>
         <button
           onClick={handleSave}
-          className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2"
+          className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2"
         >
           <span className="material-symbols-outlined text-[18px]">save</span>
-          <span>Simpan Skema</span>
+          <span>{isSchoolDefault ? 'Simpan Format Default' : 'Simpan Skema'}</span>
         </button>
       </div>
     </div>

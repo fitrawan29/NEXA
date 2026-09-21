@@ -1,5 +1,6 @@
 import { fetchAPI } from '../api.js';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import NotificationBell from '../components/NotificationBell.jsx';
 ﻿    const SuperAdminView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) => {
       const [activeTab, setActiveTab] = useState('analytics');
       const [dataSekolah, setDataSekolah] = useState([]);
@@ -194,6 +195,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
+                  <NotificationBell role="super_admin" variant="white" />
                   <button type="button" onClick={() => setIsDarkMode(!isDarkMode)} className="relative p-1 rounded-full hover:bg-white/20 transition-colors" title="Mode Gelap/Terang">
                     <span className="material-symbols-outlined text-2xl">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
                   </button>
@@ -277,7 +279,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
                           <p className="text-xs text-slate-500 truncate">NPSN: {s.npsn}</p>
                         </div>
                         <div className="flex gap-2">
-                          <button onClick={() => handleEdit('sekolah', s)} className="p-1 text-slate-400 hover:text-blue-500 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                          <button onClick={() => handleEdit('sekolah', s)} className="p-1 text-slate-400 hover:text-primary bg-slate-50 dark:bg-slate-700/50 rounded-lg">
                             <span className="material-symbols-outlined text-[18px]">edit</span>
                           </button>
                           <button onClick={() => handleDelete('sekolah', s)} className="p-1 text-slate-400 hover:text-red-500 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
@@ -297,7 +299,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
                   {/* FAB Tambah */}
                   <button 
                     onClick={() => setFormModal({ isOpen: true, type: 'sekolah', isEdit: false })}
-                    className="fixed bottom-20 right-4 w-10 h-10 bg-gradient-to-r from-primary to-secondary text-emerald-900 rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform z-10">
+                    className="fixed bottom-20 right-4 w-10 h-10 bg-gradient-to-r from-primary to-secondary text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform z-10">
                     <span className="material-symbols-outlined text-2xl">add</span>
                   </button>
                 </div>
@@ -320,7 +322,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
                           <p className="text-xs text-slate-500 truncate">ID: {a.id_admin} | NPSN: {a.npsn}</p>
                         </div>
                         <div className="flex gap-2">
-                          <button onClick={() => handleEdit('admin', a)} className="p-1 text-slate-400 hover:text-blue-500 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                          <button onClick={() => handleEdit('admin', a)} className="p-1 text-slate-400 hover:text-primary bg-slate-50 dark:bg-slate-700/50 rounded-lg">
                             <span className="material-symbols-outlined text-[18px]">edit</span>
                           </button>
                           <button onClick={() => handleDelete('admin', a)} className="p-1 text-slate-400 hover:text-red-500 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
@@ -340,7 +342,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
                   {/* FAB Tambah */}
                   <button 
                     onClick={() => setFormModal({ isOpen: true, type: 'admin', isEdit: false })}
-                    className="fixed bottom-20 right-4 w-10 h-10 bg-gradient-to-r from-primary to-secondary text-emerald-900 rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform z-10">
+                    className="fixed bottom-20 right-4 w-10 h-10 bg-gradient-to-r from-primary to-secondary text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform z-10">
                     <span className="material-symbols-outlined text-2xl">add</span>
                   </button>
                 </div>
@@ -374,7 +376,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
                   {/* FAB Tambah */}
                   <button 
                     onClick={() => setFormModal({ isOpen: true, type: 'pengumuman', isEdit: false })}
-                    className="fixed bottom-20 right-4 w-10 h-10 bg-gradient-to-r from-primary to-secondary text-emerald-900 rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform z-10">
+                    className="fixed bottom-20 right-4 w-10 h-10 bg-gradient-to-r from-primary to-secondary text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform z-10">
                     <span className="material-symbols-outlined text-2xl">add</span>
                   </button>
                 </div>

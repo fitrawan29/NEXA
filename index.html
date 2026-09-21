@@ -6,11 +6,11 @@
     <title>NEXA - The Future of Smart Education</title>
     
     <!-- Meta tags for PWA -->
-    <meta name="theme-color" content="#10b981">
+    <meta name="theme-color" content="#003fb1">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="/manifest.json">
-    <link rel="apple-touch-icon" href="/stitch_assets/icon.png">
+    <link rel="apple-touch-icon" href="/stitch_assets/screen_3_logo.png">
     
     <!-- Preconnect Google Fonts CDN for faster DNS & TLS handshake -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -37,9 +37,9 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/service-worker.js')
+          navigator.serviceWorker.register('/sw.js')
             .then((registration) => {
-              console.log('ServiceWorker registration successful');
+              console.log('ServiceWorker registration successful with scope: ', registration.scope);
             })
             .catch((err) => {
               console.log('ServiceWorker registration failed: ', err);

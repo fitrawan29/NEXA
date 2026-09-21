@@ -1,4 +1,4 @@
-import { fetchAPI, getTrueNow } from '../api.js';
+import { fetchAPI, getTrueNow, get_default_skema_sekolah, save_default_skema_sekolah } from '../api.js';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import {
@@ -12,6 +12,8 @@ import {
   CardTitle,
   CardContent
 } from '../components/UI.jsx';
+import NotificationBell from '../components/NotificationBell.jsx';
+import SkemaPenilaianPanel from '../components/SkemaPenilaianPanel.jsx';
 
 const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIsDarkMode }) => {
   const api = (action, p = {}) => {
@@ -39,6 +41,12 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   const [dataAnalisis, setDataAnalisis] = useState([]);
   const [isAnalisisModalOpen, setIsAnalisisModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [defaultSkemaSekolah, setDefaultSkemaSekolah] = useState({
+    mode: 'default',
+    skema: { PG: 20, PGK: 20, BS: 20, JODOH: 20, ISIAN: 10, URAIAN: 10 }
+  });
+  const [isSkemaLoading, setIsSkemaLoading] = useState(false);
+  const [skemaSuccessMsg, setSkemaSuccessMsg] = useState('');
 
   // Selection & Filter State
   const [selectedKelas, setSelectedKelas] = useState(null);
@@ -100,6 +108,50 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     setIsSidebarOpen(false);
     setIsMobileDrawerOpen(false);
   };
+
+  const loadDefaultSkema = async () => {
+    if (!user?.npsn) return;
+    setIsSkemaLoading(true);
+    try {
+      const res = await get_default_skema_sekolah(user.npsn);
+      if (res) {
+        setDefaultSkemaSekolah(res);
+      }
+    } catch (err) {
+      console.warn('Gagal memuat skema default sekolah:', err);
+    } finally {
+      setIsSkemaLoading(false);
+    }
+  };
+
+  const handleSaveDefaultSkema = async (payload) => {
+    if (!user?.npsn) return;
+    try {
+      const res = await save_default_skema_sekolah(user.npsn, payload);
+      if (res && res.success) {
+        setDefaultSkemaSekolah(res.data);
+        setSkemaSuccessMsg('Skema penilaian default sekolah berhasil disimpan dan diperbarui.');
+        setTimeout(() => setSkemaSuccessMsg(''), 4000);
+        if (typeof logActivity === 'function') {
+          logActivity('SKEMA DEFAULT', 'Memperbarui skema penilaian default sekolah');
+        }
+      }
+    } catch (err) {
+      alert('Gagal menyimpan skema default sekolah: ' + err.message);
+    }
+  };
+
+  useEffect(() => {
+    if (user?.npsn) {
+      loadDefaultSkema();
+    }
+  }, [user?.npsn]);
+
+  useEffect(() => {
+    if (activeTab === 'skema' && user?.npsn) {
+      loadDefaultSkema();
+    }
+  }, [activeTab]);
 
   const handleAvatarSelect = async (avatarUrl) => {
     setIsLoading(true);
@@ -899,17 +951,18 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     {
       title: 'Data Master',
       items: [
-        { id: 'siswa', label: 'Data Siswa', icon: 'school', badge: dataSiswa.length },
-        { id: 'guru', label: 'Data Guru', icon: 'local_library', badge: dataGuru.length },
-        { id: 'mapel', label: 'Mata Pelajaran', icon: 'menu_book', badge: dataMapel.length },
-        { id: 'kelas', label: 'Manajemen Kelas', icon: 'meeting_room', badge: dataKelas.length }
+        { id: 'siswa', label: 'Data Siswa', icon: 'school' },
+        { id: 'guru', label: 'Data Guru', icon: 'local_library' },
+        { id: 'mapel', label: 'Mata Pelajaran', icon: 'menu_book' },
+        { id: 'kelas', label: 'Manajemen Kelas', icon: 'meeting_room' }
       ]
     },
     {
       title: 'Ujian & Pelaksanaan',
       items: [
-        { id: 'jadwal', label: 'Jadwal Ujian', icon: 'event_note', badge: dataJadwal.length },
+        { id: 'jadwal', label: 'Jadwal Ujian', icon: 'event_note' },
         { id: 'kontrol', label: 'Kontrol Ujian', icon: 'settings_remote' },
+        { id: 'skema', label: 'Skema Penilaian', icon: 'tune' },
         { id: 'soal', label: 'Bank Soal (Preview)', icon: 'quiz' }
       ]
     },
@@ -938,6 +991,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     kelas: 'Manajemen Kelas',
     jadwal: 'Jadwal Ujian',
     kontrol: 'Kontrol Ujian',
+    skema: 'Skema Penilaian Default',
     monitoring: 'Live Monitoring Ujian',
     hasil: 'Rekap Hasil Ujian',
     soal: 'Bank Soal (Preview)',
@@ -954,7 +1008,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
         <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-4xl shadow-2xl p-5 sm:p-6 relative border border-slate-200 dark:border-slate-700 max-h-[90vh] overflow-y-auto flex flex-col animate-scale-up">
           <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-700">
             <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-              <span className="material-symbols-outlined text-emerald-600 dark:text-emerald-400">analytics</span>
+              <span className="material-symbols-outlined text-primary dark:text-primary-400">analytics</span>
               Analisis Butir Soal
             </h2>
             <button
@@ -982,15 +1036,15 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     <td className="p-3 font-mono">{soal.id_soal}</td>
                     <td className="p-3 truncate max-w-[200px]" dangerouslySetInnerHTML={{ __html: soal.pertanyaan }}></td>
                     <td className="p-3 text-center">
-                      <span className="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded text-xs font-semibold">
+                      <span className="bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 px-2 py-0.5 rounded text-xs font-semibold">
                         {soal.tipe_soal}
                       </span>
                     </td>
-                    <td className="p-3 text-center text-emerald-600 font-bold">{soal.correct}</td>
+                    <td className="p-3 text-center text-primary font-bold">{soal.correct}</td>
                     <td className="p-3 text-center text-rose-600 font-bold">{soal.wrong}</td>
                     <td className="p-3 text-right">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                        parseFloat(soal.difficulty) > 70 ? 'bg-emerald-100 text-emerald-700' :
+                        parseFloat(soal.difficulty) > 70 ? 'bg-primary/15 text-primary-700' :
                         parseFloat(soal.difficulty) < 30 ? 'bg-rose-100 text-rose-700' :
                         'bg-amber-100 text-amber-700'
                       }`}>
@@ -1130,7 +1184,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   <div className="max-h-40 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl p-3 space-y-1.5 bg-slate-50 dark:bg-slate-900/40">
                     {dataMapel.map(m => (
                       <label key={m.id_mapel} className="flex items-center space-x-2 text-xs sm:text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
-                        <input type="checkbox" name="mapels" value={m.id_mapel} defaultChecked={data?.id_mapels?.includes(m.id_mapel)} onChange={handleAutoUsernameGuru} className="rounded text-emerald-600 focus:ring-emerald-500" />
+                        <input type="checkbox" name="mapels" value={m.id_mapel} defaultChecked={data?.id_mapels?.includes(m.id_mapel)} onChange={handleAutoUsernameGuru} className="rounded text-primary focus:ring-primary/50" />
                         <span>{m.nama_mapel}</span>
                       </label>
                     ))}
@@ -1196,7 +1250,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
               </button>
               <button
                 type="submit"
-                className="px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all active:scale-95"
+                className="px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95"
               >
                 Simpan
               </button>
@@ -1244,9 +1298,9 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
           >
             <div className="flex items-center justify-center mb-2">
               {user.foto_profil ? (
-                <img src={user.foto_profil} alt="Profile" className="w-20 h-20 rounded-full object-cover border-4 border-emerald-500/20" />
+                <img src={user.foto_profil} alt="Profile" className="w-20 h-20 rounded-full object-cover border-4 border-primary/20" />
               ) : (
-                <div className="w-20 h-20 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-3xl">
+                <div className="w-20 h-20 rounded-full bg-primary/15 dark:bg-primary/10 text-primary-700 dark:text-primary-300 flex items-center justify-center font-bold text-3xl">
                   {user.nama_lengkap.charAt(0)}
                 </div>
               )}
@@ -1274,7 +1328,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 rounded-xl font-bold text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all active:scale-95"
+                className="px-5 py-2 rounded-xl font-bold text-xs sm:text-sm bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95"
               >
                 Simpan
               </button>
@@ -1349,7 +1403,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
 
           <button
             onClick={handleDownloadTemplate}
-            className="w-full flex items-center justify-center gap-2 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 font-bold py-2.5 px-4 rounded-xl mb-4 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors text-xs sm:text-sm"
+            className="w-full flex items-center justify-center gap-2 bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 font-bold py-2.5 px-4 rounded-xl mb-4 hover:bg-primary/15 dark:hover:bg-primary/15 transition-colors text-xs sm:text-sm"
           >
             <span className="material-symbols-outlined text-lg">download</span> Download Template Excel
           </button>
@@ -1380,7 +1434,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       <div className="fixed inset-0 z-[110] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
         <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 dark:border-slate-700 animate-scale-up">
           <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 ${
-            confirmDialog.type === 'unblock' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400' :
+            confirmDialog.type === 'unblock' ? 'bg-primary/10 text-primary dark:bg-primary/10 dark:text-primary-400' :
             confirmDialog.type === 'block' ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400' :
             'bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400'
           }`}>
@@ -1398,7 +1452,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
             <button
               onClick={confirmDialog.onConfirm}
               className={`px-4 py-2 rounded-xl text-xs font-bold text-white shadow-sm transition-all active:scale-95 ${
-                confirmDialog.type === 'unblock' ? 'bg-emerald-600 hover:bg-emerald-700' :
+                confirmDialog.type === 'unblock' ? 'bg-primary hover:bg-primary/90' :
                 confirmDialog.type === 'block' ? 'bg-rose-600 hover:bg-rose-700' :
                 'bg-amber-600 hover:bg-amber-700'
               }`}
@@ -1414,7 +1468,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   if (!user) return null;
 
   return (
-    <div className="h-[100dvh] overflow-hidden bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 flex flex-col lg:flex-row w-full selection:bg-emerald-500/20 selection:text-emerald-700">
+    <div className="h-[100dvh] overflow-hidden bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 flex flex-col lg:flex-row w-full selection:bg-primary/20 selection:text-primary-700">
 
       {/* ================================================================= */}
       {/* DESKTOP PERSISTENT COLLAPSIBLE SIDEBAR (lg: and above)           */}
@@ -1427,7 +1481,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
         {/* Brand Header */}
         <div className="h-16 px-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80">
           <div className={`flex items-center gap-3 min-w-0 ${isSidebarCollapsed ? 'justify-center w-full' : ''}`}>
-            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black shadow-sm shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center font-black shadow-sm shrink-0">
               <span className="material-symbols-outlined text-2xl">admin_panel_settings</span>
             </div>
             {!isSidebarCollapsed && (
@@ -1435,7 +1489,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 <h1 className="font-black text-sm text-slate-800 dark:text-white leading-tight truncate">
                   {user.nama_sekolah || 'NEXA CBT'}
                 </h1>
-                <p className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 truncate">
+                <p className="text-[11px] font-bold text-primary dark:text-primary-400 truncate">
                   Admin Sekolah
                 </p>
               </div>
@@ -1487,20 +1541,15 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                       isSidebarCollapsed ? 'justify-center' : ''
                     } ${
                       isActive
-                        ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 shadow-xs'
+                        ? 'bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 shadow-xs'
                         : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'
                     }`}
                   >
-                    <span className={`material-symbols-outlined text-[20px] shrink-0 ${isActive ? 'text-emerald-600 dark:text-emerald-400' : ''}`}>
+                    <span className={`material-symbols-outlined text-[20px] shrink-0 ${isActive ? 'text-primary dark:text-primary-400' : ''}`}>
                       {item.icon}
                     </span>
                     {!isSidebarCollapsed && (
                       <span className="truncate flex-1 text-left">{item.label}</span>
-                    )}
-                    {!isSidebarCollapsed && item.badge !== undefined && item.badge > 0 && (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-600 text-white shrink-0">
-                        {item.badge}
-                      </span>
                     )}
                   </button>
                 );
@@ -1514,13 +1563,13 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
           <div className={`flex items-center gap-2.5 p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 ${isSidebarCollapsed ? 'justify-center' : ''}`}>
             <div
               onClick={() => setIsAvatarModalOpen(true)}
-              className="w-9 h-9 rounded-lg overflow-hidden border border-emerald-500/40 shrink-0 cursor-pointer"
+              className="w-9 h-9 rounded-lg overflow-hidden border border-primary/40 shrink-0 cursor-pointer"
               title="Ganti Avatar"
             >
               {user.foto_profil ? (
                 <img src={user.foto_profil} alt="Avatar" className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-xs">
+                <div className="w-full h-full bg-primary/15 dark:bg-primary/10 text-primary-700 dark:text-primary-300 flex items-center justify-center font-bold text-xs">
                   {(user.nama_lengkap || 'A').charAt(0)}
                 </div>
               )}
@@ -1574,14 +1623,14 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
             <span className="material-symbols-outlined text-2xl">menu</span>
           </button>
           <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black shadow-sm shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center font-black shadow-sm shrink-0">
               <span className="material-symbols-outlined text-xl">admin_panel_settings</span>
             </div>
             <div className="min-w-0">
               <h1 className="font-extrabold text-sm text-slate-800 dark:text-white leading-tight truncate">
                 Admin Sekolah
               </h1>
-              <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider truncate">
+              <p className="text-[10px] text-primary dark:text-primary-400 font-bold uppercase tracking-wider truncate">
                 NPSN: {user.npsn}
               </p>
             </div>
@@ -1589,6 +1638,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
         </div>
 
         <div className="flex items-center gap-1.5">
+          <NotificationBell role="admin" />
           <button
             type="button"
             onClick={() => setIsDarkMode(!isDarkMode)}
@@ -1601,12 +1651,12 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
           </button>
           <div
             onClick={() => setIsAvatarModalOpen(true)}
-            className="w-10 h-10 rounded-xl overflow-hidden border border-emerald-500/40 p-0.5 cursor-pointer shrink-0"
+            className="w-10 h-10 rounded-xl overflow-hidden border border-primary/40 p-0.5 cursor-pointer shrink-0"
           >
             {user.foto_profil ? (
               <img src={user.foto_profil} alt="Profile" className="w-full h-full object-cover rounded-lg" />
             ) : (
-              <div className="w-full h-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-xs rounded-lg">
+              <div className="w-full h-full bg-primary/15 dark:bg-primary/10 text-primary-700 dark:text-primary-300 flex items-center justify-center font-bold text-xs rounded-lg">
                 {(user.nama_lengkap || 'A').charAt(0)}
               </div>
             )}
@@ -1627,7 +1677,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
           <div className="relative w-80 max-w-[85vw] bg-white dark:bg-slate-900 h-full flex flex-col shadow-2xl border-r border-slate-200 dark:border-slate-800 z-10 animate-fade-in-up">
             <div className="h-16 px-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black">
+                <div className="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center font-black">
                   <span className="material-symbols-outlined text-xl">admin_panel_settings</span>
                 </div>
                 <div>
@@ -1660,17 +1710,12 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                         onClick={() => navigateTab(item.id)}
                         className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl font-bold text-sm transition-all min-h-[44px] ${
                           isActive
-                            ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400'
+                            ? 'bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400'
                             : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-left'
                         }`}
                       >
                         <span className="material-symbols-outlined text-xl shrink-0">{item.icon}</span>
                         <span className="truncate flex-1 text-left">{item.label}</span>
-                        {item.badge !== undefined && item.badge > 0 && (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-600 text-white">
-                            {item.badge}
-                          </span>
-                        )}
                       </button>
                     );
                   })}
@@ -1714,7 +1759,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
               }}
               className={`flex flex-col items-center justify-center flex-1 py-1 min-h-[44px] min-w-[44px] transition-colors ${
                 isActive && !isTrigger
-                  ? 'text-emerald-600 dark:text-emerald-400'
+                  ? 'text-primary dark:text-primary-400'
                   : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'
               }`}
             >
@@ -1741,8 +1786,9 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800/60 text-xs font-bold flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <NotificationBell role="admin" />
+            <div className="px-3 py-1 rounded-full bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 border border-primary/30 dark:border-primary/30 text-xs font-bold flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-primary-400 animate-pulse"></span>
               <span>Sistem Online</span>
             </div>
           </div>
@@ -1764,9 +1810,9 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
                 <div
                   onClick={() => navigateTab('siswa')}
-                  className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-3.5 cursor-pointer hover:border-emerald-500/50 hover:shadow transition-all group"
+                  className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-3.5 cursor-pointer hover:border-primary/50 hover:shadow transition-all group"
                 >
-                  <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                  <div className="w-12 h-12 rounded-xl bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                     <span className="material-symbols-outlined text-2xl">school</span>
                   </div>
                   <div className="min-w-0">
@@ -1779,9 +1825,9 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
 
                 <div
                   onClick={() => navigateTab('guru')}
-                  className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-3.5 cursor-pointer hover:border-blue-500/50 hover:shadow transition-all group"
+                  className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-3.5 cursor-pointer hover:border-primary/50 hover:shadow transition-all group"
                 >
-                  <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                  <div className="w-12 h-12 rounded-xl bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                     <span className="material-symbols-outlined text-2xl">local_library</span>
                   </div>
                   <div className="min-w-0">
@@ -1794,9 +1840,9 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
 
                 <div
                   onClick={() => navigateTab('mapel')}
-                  className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-3.5 cursor-pointer hover:border-amber-500/50 hover:shadow transition-all group"
+                  className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-3.5 cursor-pointer hover:border-primary/50 hover:shadow transition-all group"
                 >
-                  <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                  <div className="w-12 h-12 rounded-xl bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                     <span className="material-symbols-outlined text-2xl">menu_book</span>
                   </div>
                   <div className="min-w-0">
@@ -1829,7 +1875,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   <h4 className="font-bold text-slate-800 dark:text-slate-100 text-base">Jadwal Ujian Aktif & Berlangsung</h4>
                   <button
                     onClick={() => navigateTab('jadwal')}
-                    className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+                    className="text-xs font-bold text-primary dark:text-primary-400 hover:underline flex items-center gap-1"
                   >
                     Lihat Semua Jadwal <span className="material-symbols-outlined text-sm">arrow_forward</span>
                   </button>
@@ -1839,7 +1885,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   {dataJadwal.filter(j => j.status_ujian === 'AKTIF').map((j) => (
                     <div
                       key={j.id_jadwal}
-                      className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/80 border-l-4 border-l-emerald-500 flex flex-col justify-between gap-3"
+                      className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/80 border-l-4 border-l-primary flex flex-col justify-between gap-3"
                     >
                       <div>
                         <div className="flex justify-between items-start">
@@ -1849,13 +1895,13 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                         <p className="text-xs text-slate-500 mt-1">Guru: {j.guru || '-'}</p>
                         <p className="text-xs text-slate-500 mt-0.5">
                           {new Date(j.waktu_mulai).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} - {new Date(j.waktu_selesai).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-                          {' '}| Token: <strong className="font-mono text-emerald-600 dark:text-emerald-400">{j.token || 'Menunggu'}</strong>
+                          {' '}| Token: <strong className="font-mono text-primary dark:text-primary-400">{j.token || 'Menunggu'}</strong>
                         </p>
                       </div>
                       <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/60">
                         <button
                           onClick={() => { setSelectedJadwal(j.id_jadwal); navigateTab('monitoring'); }}
-                          className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 transition-colors"
+                          className="px-3 py-1.5 rounded-xl text-xs font-bold bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 hover:bg-primary/15 transition-colors"
                         >
                           Monitoring Live
                         </button>
@@ -1887,7 +1933,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 <div>
                   <div className="flex items-center gap-2.5">
                     <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg sm:text-xl">Master Data Siswa</h3>
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60">
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 border border-primary/30/60 dark:border-primary/30">
                       {sortedFilteredSiswa.length} Siswa
                     </span>
                   </div>
@@ -1921,7 +1967,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   </button>
                   <button
                     onClick={() => openCreateModal('siswa')}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all active:scale-95 min-h-[44px]"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 min-h-[44px]"
                   >
                     <span className="material-symbols-outlined text-[18px]">person_add</span>
                     <span>Tambah Siswa</span>
@@ -1938,7 +1984,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     placeholder="Cari berdasarkan nama lengkap atau NISN..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-8 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 dark:text-white transition-all"
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-8 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/50/40 dark:text-white transition-all"
                   />
                   {searchQuery && (
                     <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
@@ -1950,7 +1996,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   <select
                     value={filterKelas}
                     onChange={(e) => setFilterKelas(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 dark:text-white"
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/50/40 dark:text-white"
                   >
                     <option value="">Semua Kelas ({dataSiswa.length})</option>
                     {[...new Set(dataSiswa.map(s => s.kelas).filter(Boolean))].map(k => (
@@ -2003,12 +2049,12 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                                 setSelectedSiswa([]);
                               }
                             }}
-                            className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                            className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/50 cursor-pointer"
                           />
                         </th>
                         <th className="py-3 px-2 w-10 text-center">#</th>
                         <th
-                          className="py-3 px-4 cursor-pointer select-none hover:text-emerald-600 transition-colors"
+                          className="py-3 px-4 cursor-pointer select-none hover:text-primary transition-colors"
                           onClick={() => setSortConfigSiswa(prev => ({ key: 'nama_lengkap', direction: prev.key === 'nama_lengkap' && prev.direction === 'asc' ? 'desc' : 'asc' }))}
                         >
                           <div className="flex items-center gap-1">
@@ -2019,7 +2065,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                           </div>
                         </th>
                         <th
-                          className="py-3 px-4 cursor-pointer select-none hover:text-emerald-600 transition-colors"
+                          className="py-3 px-4 cursor-pointer select-none hover:text-primary transition-colors"
                           onClick={() => setSortConfigSiswa(prev => ({ key: 'nisn', direction: prev.key === 'nisn' && prev.direction === 'asc' ? 'desc' : 'asc' }))}
                         >
                           <div className="flex items-center gap-1">
@@ -2030,7 +2076,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                           </div>
                         </th>
                         <th
-                          className="py-3 px-4 cursor-pointer select-none hover:text-emerald-600 transition-colors"
+                          className="py-3 px-4 cursor-pointer select-none hover:text-primary transition-colors"
                           onClick={() => setSortConfigSiswa(prev => ({ key: 'kelas', direction: prev.key === 'kelas' && prev.direction === 'asc' ? 'desc' : 'asc' }))}
                         >
                           <div className="flex items-center gap-1">
@@ -2073,13 +2119,13 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                                     setSelectedSiswa(prev => prev.filter(id => id !== s.id_siswa));
                                   }
                                 }}
-                                className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/50 cursor-pointer"
                               />
                             </td>
                             <td className="py-3 px-2 text-center text-xs font-mono text-slate-400">{idx + 1}</td>
                             <td className="py-3 px-4">
                               <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-xs shrink-0 border border-emerald-200/60 dark:border-emerald-800/60">
+                                <div className="w-8 h-8 rounded-full bg-primary/10 dark:bg-primary/10 text-primary-700 dark:text-primary-300 flex items-center justify-center font-bold text-xs shrink-0 border border-primary/30/60 dark:border-primary/30">
                                   {s.nama_lengkap ? s.nama_lengkap.substring(0, 2).toUpperCase() : 'SW'}
                                 </div>
                                 <span className="font-semibold text-slate-800 dark:text-slate-100 truncate max-w-xs">{s.nama_lengkap}</span>
@@ -2102,7 +2148,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                                 </button>
                                 <button
                                   onClick={() => openEditModal('siswa', s)}
-                                  className="w-8 h-8 rounded-lg flex items-center justify-center text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
+                                  className="w-8 h-8 rounded-lg flex items-center justify-center text-primary hover:bg-primary/10 dark:hover:bg-primary/10 transition-colors"
                                   title="Edit"
                                 >
                                   <span className="material-symbols-outlined text-[18px]">edit</span>
@@ -2153,15 +2199,15 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                               setSelectedSiswa(prev => prev.filter(id => id !== s.id_siswa));
                             }
                           }}
-                          className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer shrink-0 mr-0.5"
+                          className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/50 cursor-pointer shrink-0 mr-0.5"
                         />
-                        <div className="w-9 h-9 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-xs shrink-0 border border-emerald-200/60 dark:border-emerald-800/60">
+                        <div className="w-9 h-9 rounded-full bg-primary/10 dark:bg-primary/10 text-primary-700 dark:text-primary-300 flex items-center justify-center font-bold text-xs shrink-0 border border-primary/30/60 dark:border-primary/30">
                           {s.nama_lengkap ? s.nama_lengkap.substring(0, 2).toUpperCase() : 'SW'}
                         </div>
                         <div className="min-w-0 flex-1">
                           <h4 className="font-bold text-xs text-slate-800 dark:text-slate-100 truncate">{s.nama_lengkap}</h4>
                           <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                            <span className="font-mono">{s.nisn || '-'}</span> • <span className="font-semibold text-emerald-600 dark:text-emerald-400">{s.kelas || '-'}</span>
+                            <span className="font-mono">{s.nisn || '-'}</span> • <span className="font-semibold text-primary dark:text-primary-400">{s.kelas || '-'}</span>
                           </p>
                         </div>
                       </div>
@@ -2175,7 +2221,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                         </button>
                         <button
                           onClick={() => openEditModal('siswa', s)}
-                          className="w-9 h-9 rounded-lg flex items-center justify-center text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
+                          className="w-9 h-9 rounded-lg flex items-center justify-center text-primary hover:bg-primary/10 dark:hover:bg-primary/10 transition-colors"
                           title="Edit"
                         >
                           <span className="material-symbols-outlined text-[18px]">edit</span>
@@ -2203,7 +2249,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 <div>
                   <div className="flex items-center gap-2.5">
                     <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg sm:text-xl">Master Data Guru</h3>
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-200/60 dark:border-blue-800/60">
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 border border-primary/30 dark:border-primary/20">
                       {sortedFilteredGuru.length} Guru
                     </span>
                   </div>
@@ -2228,7 +2274,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   </button>
                   <button
                     onClick={() => openCreateModal('guru')}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all active:scale-95 min-h-[44px]"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 min-h-[44px]"
                   >
                     <span className="material-symbols-outlined text-[18px]">person_add</span>
                     <span>Tambah Guru</span>
@@ -2245,7 +2291,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     placeholder="Cari berdasarkan nama guru atau NIP..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-8 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 dark:text-white transition-all"
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-8 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/50/40 dark:text-white transition-all"
                   />
                   {searchQuery && (
                     <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
@@ -2257,7 +2303,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   <select
                     value={filterMapel}
                     onChange={(e) => setFilterMapel(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 dark:text-white"
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/50/40 dark:text-white"
                   >
                     <option value="">Semua Mapel</option>
                     {dataMapel.map(m => (
@@ -2310,12 +2356,12 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                                 setSelectedGuru([]);
                               }
                             }}
-                            className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                            className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/50 cursor-pointer"
                           />
                         </th>
                         <th className="py-3 px-2 w-10 text-center">#</th>
                         <th
-                          className="py-3 px-4 cursor-pointer select-none hover:text-emerald-600 transition-colors"
+                          className="py-3 px-4 cursor-pointer select-none hover:text-primary transition-colors"
                           onClick={() => setSortConfigGuru(prev => ({ key: 'nama_lengkap', direction: prev.key === 'nama_lengkap' && prev.direction === 'asc' ? 'desc' : 'asc' }))}
                         >
                           <div className="flex items-center gap-1">
@@ -2326,7 +2372,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                           </div>
                         </th>
                         <th
-                          className="py-3 px-4 cursor-pointer select-none hover:text-emerald-600 transition-colors"
+                          className="py-3 px-4 cursor-pointer select-none hover:text-primary transition-colors"
                           onClick={() => setSortConfigGuru(prev => ({ key: 'nip', direction: prev.key === 'nip' && prev.direction === 'asc' ? 'desc' : 'asc' }))}
                         >
                           <div className="flex items-center gap-1">
@@ -2370,13 +2416,13 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                                     setSelectedGuru(prev => prev.filter(id => id !== g.id_guru));
                                   }
                                 }}
-                                className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/50 cursor-pointer"
                               />
                             </td>
                             <td className="py-3 px-2 text-center text-xs font-mono text-slate-400">{idx + 1}</td>
                             <td className="py-3 px-4">
                               <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 flex items-center justify-center font-bold text-xs shrink-0 border border-blue-200/60 dark:border-blue-800/60">
+                                <div className="w-8 h-8 rounded-full bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 flex items-center justify-center font-bold text-xs shrink-0 border border-primary/20 dark:border-primary/20">
                                   {g.nama_lengkap ? g.nama_lengkap.substring(0, 2).toUpperCase() : 'GR'}
                                 </div>
                                 <span className="font-semibold text-slate-800 dark:text-slate-100 truncate max-w-xs">{g.nama_lengkap}</span>
@@ -2392,7 +2438,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                               <div className="flex items-center justify-end gap-1">
                                 <button
                                   onClick={() => openEditModal('guru', g)}
-                                  className="w-8 h-8 rounded-lg flex items-center justify-center text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
+                                  className="w-8 h-8 rounded-lg flex items-center justify-center text-primary hover:bg-primary/10 dark:hover:bg-primary/10 transition-colors"
                                   title="Edit"
                                 >
                                   <span className="material-symbols-outlined text-[18px]">edit</span>
@@ -2443,9 +2489,9 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                               setSelectedGuru(prev => prev.filter(id => id !== g.id_guru));
                             }
                           }}
-                          className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer shrink-0 mr-0.5"
+                          className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/50 cursor-pointer shrink-0 mr-0.5"
                         />
-                        <div className="w-9 h-9 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 flex items-center justify-center font-bold text-xs shrink-0 border border-blue-200/60 dark:border-blue-800/60">
+                        <div className="w-9 h-9 rounded-full bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 flex items-center justify-center font-bold text-xs shrink-0 border border-primary/20 dark:border-primary/20">
                           {g.nama_lengkap ? g.nama_lengkap.substring(0, 2).toUpperCase() : 'GR'}
                         </div>
                         <div className="min-w-0 flex-1">
@@ -2458,7 +2504,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                       <div className="flex items-center gap-1 shrink-0">
                         <button
                           onClick={() => openEditModal('guru', g)}
-                          className="w-9 h-9 rounded-lg flex items-center justify-center text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
+                          className="w-9 h-9 rounded-lg flex items-center justify-center text-primary hover:bg-primary/10 dark:hover:bg-primary/10 transition-colors"
                           title="Edit"
                         >
                           <span className="material-symbols-outlined text-[18px]">edit</span>
@@ -2509,7 +2555,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   </button>
                   <button
                     onClick={() => openCreateModal('jadwal')}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all active:scale-95 min-h-[44px]"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 min-h-[44px]"
                   >
                     <span className="material-symbols-outlined text-[18px]">add_circle</span>
                     <span>Buat Jadwal Baru</span>
@@ -2532,7 +2578,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                       onClick={() => setFilterJadwalStatus(st.id)}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap min-h-[38px] ${
                         filterJadwalStatus === st.id
-                          ? 'bg-emerald-600 text-white shadow-xs'
+                          ? 'bg-primary text-white shadow-xs'
                           : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
                       }`}
                     >
@@ -2549,13 +2595,13 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                       placeholder="Cari mapel / token..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 pl-8 pr-3 py-1.5 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500/20 text-slate-700 dark:text-slate-200"
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 pl-8 pr-3 py-1.5 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary/20 text-slate-700 dark:text-slate-200"
                     />
                   </div>
                   <select
                     value={filterMapel}
                     onChange={(e) => setFilterMapel(e.target.value)}
-                    className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs rounded-xl px-2.5 py-2 outline-none focus:ring-2 focus:ring-emerald-500/20 text-slate-700 dark:text-slate-200 shrink-0"
+                    className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs rounded-xl px-2.5 py-2 outline-none focus:ring-2 focus:ring-primary/20 text-slate-700 dark:text-slate-200 shrink-0"
                   >
                     <option value="">Semua Mapel</option>
                     {dataMapel.map(m => (
@@ -2608,7 +2654,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                                 setSelectedJadwalBulk([]);
                               }
                             }}
-                            className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                            className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/50 cursor-pointer"
                           />
                         </th>
                         <th className="py-3 px-2 w-10 text-center">#</th>
@@ -2650,7 +2696,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                                     setSelectedJadwalBulk(prev => prev.filter(id => id !== j.id_jadwal));
                                   }
                                 }}
-                                className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/50 cursor-pointer"
                               />
                             </td>
                             <td className="py-3 px-2 text-center font-mono text-slate-400 text-xs">{idx + 1}</td>
@@ -2665,7 +2711,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                                 {new Date(j.waktu_mulai).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} - {new Date(j.waktu_selesai).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
                               </span>
                             </td>
-                            <td className="py-3 px-4 font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                            <td className="py-3 px-4 font-mono font-bold text-primary dark:text-primary-400">
                               {j.token || '-'}
                             </td>
                             <td className="py-3 px-4">
@@ -2676,7 +2722,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                                 {j.status_ujian === 'AKTIF' && (
                                   <button
                                     onClick={() => { setSelectedJadwal(j.id_jadwal); navigateTab('monitoring'); }}
-                                    className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 transition-colors"
+                                    className="px-2.5 py-1 rounded-lg text-xs font-bold bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 hover:bg-primary/15 transition-colors"
                                   >
                                     Monitoring
                                   </button>
@@ -2692,7 +2738,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                                 {j.status_ujian !== 'AKTIF' && j.status_ujian !== 'SELESAI' && (
                                   <button
                                     onClick={() => handleUpdateStatusUjian(j.id_jadwal, 'AKTIF')}
-                                    className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+                                    className="px-2.5 py-1 rounded-lg text-xs font-bold bg-primary text-white hover:bg-primary/90 transition-colors"
                                   >
                                     Mulai
                                   </button>
@@ -2715,7 +2761,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                                 )}
                                 <button
                                   onClick={() => openEditModal('jadwal', j)}
-                                  className="p-1 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                  className="p-1 text-primary hover:bg-primary/10 rounded-lg transition-colors"
                                   title="Edit"
                                 >
                                   <span className="material-symbols-outlined text-[18px]">edit</span>
@@ -2765,7 +2811,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                               setSelectedJadwalBulk(prev => prev.filter(id => id !== j.id_jadwal));
                             }
                           }}
-                          className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer shrink-0 mt-0.5 mr-0.5"
+                          className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/50 cursor-pointer shrink-0 mt-0.5 mr-0.5"
                         />
                         <div className="min-w-0 flex-1">
                           <h4 className="font-bold text-sm text-slate-800 dark:text-white truncate">{j.nama_mapel}</h4>
@@ -2776,14 +2822,14 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
 
                       <div className="flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-slate-100 dark:border-slate-700/60">
                         <span>{new Date(j.waktu_mulai).toLocaleDateString('id-ID')}</span>
-                        <span>Token: <strong className="font-mono text-emerald-600 dark:text-emerald-400">#{j.token || '-'}</strong></span>
+                        <span>Token: <strong className="font-mono text-primary dark:text-primary-400">#{j.token || '-'}</strong></span>
                       </div>
 
                       <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-slate-100 dark:border-slate-700/60 flex-wrap">
                         {j.status_ujian === 'AKTIF' && (
                           <button
                             onClick={() => { setSelectedJadwal(j.id_jadwal); navigateTab('monitoring'); }}
-                            className="px-3 py-1.5 bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 rounded-xl text-xs font-bold"
+                            className="px-3 py-1.5 bg-primary/10 text-primary dark:bg-primary/10 dark:text-primary-400 rounded-xl text-xs font-bold"
                           >
                             Monitoring
                           </button>
@@ -2799,7 +2845,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                         {j.status_ujian !== 'AKTIF' && j.status_ujian !== 'SELESAI' && (
                           <button
                             onClick={() => handleUpdateStatusUjian(j.id_jadwal, 'AKTIF')}
-                            className="px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-bold"
+                            className="px-3 py-1.5 bg-primary text-white rounded-xl text-xs font-bold"
                           >
                             Mulai Ujian
                           </button>
@@ -2822,7 +2868,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                         )}
                         <button
                           onClick={() => openEditModal('jadwal', j)}
-                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg"
+                          className="p-1.5 text-primary hover:bg-primary/10 rounded-lg"
                         >
                           <span className="material-symbols-outlined text-[18px]">edit</span>
                         </button>
@@ -2852,7 +2898,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   <button
                     onClick={() => handleBulkUpdateStatusUjian('AKTIF')}
                     disabled={isSubmitting}
-                    className="flex-1 md:flex-none px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 shadow-sm min-h-[44px]"
+                    className="flex-1 md:flex-none px-3.5 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 shadow-sm min-h-[44px]"
                   >
                     <span className="material-symbols-outlined text-[18px]">play_arrow</span>
                     <span>Mulai Semua</span>
@@ -2888,7 +2934,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
-                          isAktif ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400' :
+                          isAktif ? 'bg-primary/10 text-primary dark:bg-primary/10 dark:text-primary-400' :
                           isSelesai ? 'bg-slate-100 text-slate-500 dark:bg-slate-700' :
                           'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400'
                         }`}>
@@ -2910,7 +2956,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                           <button
                             onClick={() => handleUpdateStatusUjian(j.id_jadwal, 'AKTIF')}
                             disabled={isSubmitting}
-                            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all min-h-[44px]"
+                            className="px-3.5 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl text-xs font-bold transition-all min-h-[44px]"
                           >
                             Mulai
                           </button>
@@ -3008,12 +3054,12 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     </div>
 
                     <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex items-center gap-3.5">
-                      <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                      <div className="w-12 h-12 rounded-xl bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 flex items-center justify-center shrink-0">
                         <span className="material-symbols-outlined text-2xl animate-pulse">timer</span>
                       </div>
                       <div className="min-w-0">
                         <p className="text-xs font-bold text-slate-500 dark:text-slate-400 truncate">Sedang Ujian</p>
-                        <h4 className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{monitoringMetrics.mengerjakan}</h4>
+                        <h4 className="text-2xl font-black text-primary dark:text-primary-400">{monitoringMetrics.mengerjakan}</h4>
                       </div>
                     </div>
 
@@ -3047,7 +3093,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                           onClick={() => setMonitoringFilterStatus(st)}
                           className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap min-h-[38px] ${
                             monitoringFilterStatus === st
-                              ? 'bg-emerald-600 text-white shadow-xs'
+                              ? 'bg-primary text-white shadow-xs'
                               : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
                           }`}
                         >
@@ -3141,7 +3187,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                                     <div className="w-full">
                                       <div className="flex justify-between items-center text-[11px] mb-1 font-semibold">
                                         <span className="text-slate-500 dark:text-slate-400">{totalDijawab} / {totalSoal} Soal</span>
-                                        <span className={p.is_blocked ? 'text-rose-500 font-bold' : p.status_ujian === 'SELESAI' ? 'text-sky-600 font-bold' : 'text-emerald-600 font-bold'}>
+                                        <span className={p.is_blocked ? 'text-rose-500 font-bold' : p.status_ujian === 'SELESAI' ? 'text-sky-600 font-bold' : 'text-primary font-bold'}>
                                           {progressPercent}%
                                         </span>
                                       </div>
@@ -3150,7 +3196,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                                           className={`h-full rounded-full transition-all duration-500 ${
                                             p.is_blocked ? 'bg-rose-500' :
                                             p.status_ujian === 'SELESAI' ? 'bg-sky-500' :
-                                            'bg-emerald-500'
+                                            'bg-primary-400'
                                           }`}
                                           style={{ width: `${progressPercent}%` }}
                                         />
@@ -3177,7 +3223,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                                       {p.is_blocked ? (
                                         <button
                                           onClick={() => handleUnblock(p)}
-                                          className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 transition-colors"
+                                          className="px-2.5 py-1 rounded-lg text-xs font-bold bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 hover:bg-primary/15 transition-colors"
                                           title="Buka Blokir"
                                         >
                                           Buka Blokir
@@ -3251,12 +3297,12 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                             <div className="w-full">
                               <div className="flex justify-between items-center text-[11px] mb-1 font-semibold">
                                 <span className="text-slate-500 dark:text-slate-400">{totalDijawab} / {totalSoal} Soal</span>
-                                <span className="font-bold text-emerald-600 dark:text-emerald-400">{progressPercent}%</span>
+                                <span className="font-bold text-primary dark:text-primary-400">{progressPercent}%</span>
                               </div>
                               <div className="w-full bg-slate-100 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
                                 <div
                                   className={`h-full rounded-full transition-all duration-500 ${
-                                    p.is_blocked ? 'bg-rose-500' : p.status_ujian === 'SELESAI' ? 'bg-sky-500' : 'bg-emerald-500'
+                                    p.is_blocked ? 'bg-rose-500' : p.status_ujian === 'SELESAI' ? 'bg-sky-500' : 'bg-primary-400'
                                   }`}
                                   style={{ width: `${progressPercent}%` }}
                                 />
@@ -3268,7 +3314,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                               {p.is_blocked ? (
                                 <button
                                   onClick={() => handleUnblock(p)}
-                                  className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-xl text-xs font-bold"
+                                  className="px-3 py-1.5 bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 rounded-xl text-xs font-bold"
                                 >
                                   Buka Blokir
                                 </button>
@@ -3325,7 +3371,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   </button>
                   <button
                     onClick={exportToExcel}
-                    className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95 min-h-[44px]"
+                    className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95 min-h-[44px]"
                   >
                     <span className="material-symbols-outlined text-[18px]">download</span>
                     <span>Export Excel</span>
@@ -3346,7 +3392,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     </div>
                     <div className="text-right shrink-0">
                       <div className="text-[10px] uppercase tracking-wider font-bold text-slate-400">Total Skor</div>
-                      <div className="font-black text-xl text-emerald-600 dark:text-emerald-400">
+                      <div className="font-black text-xl text-primary dark:text-primary-400">
                         {l.total_nilai !== null ? l.total_nilai : l.nilai_auto}
                       </div>
                     </div>
@@ -3376,7 +3422,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 </div>
                 <button
                   onClick={() => openCreateModal('mapel')}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all active:scale-95 self-end sm:self-auto min-h-[44px]"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 self-end sm:self-auto min-h-[44px]"
                 >
                   <span className="material-symbols-outlined text-[18px]">add_circle</span>
                   <span>Tambah Mapel</span>
@@ -3393,7 +3439,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                       onClick={() => { setActiveTab('soal'); setFilterMapel(m.nama_mapel); fetchData('soal'); }}
                       className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
                     >
-                      <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 rounded-xl bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 flex items-center justify-center shrink-0">
                         <span className="material-symbols-outlined text-xl">menu_book</span>
                       </div>
                       <div className="min-w-0 flex-1">
@@ -3404,7 +3450,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     <div className="flex items-center gap-1 shrink-0">
                       <button
                         onClick={() => openEditModal('mapel', m)}
-                        className="w-8 h-8 rounded-lg flex items-center justify-center text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40"
+                        className="w-8 h-8 rounded-lg flex items-center justify-center text-primary hover:bg-primary/10 dark:hover:bg-primary/10"
                         title="Edit"
                       >
                         <span className="material-symbols-outlined text-[18px]">edit</span>
@@ -3445,7 +3491,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 </div>
                 <button
                   onClick={() => openCreateModal('kelas')}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all active:scale-95 self-end sm:self-auto min-h-[44px]"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 self-end sm:self-auto min-h-[44px]"
                 >
                   <span className="material-symbols-outlined text-[18px]">add_circle</span>
                   <span>Tambah Kelas</span>
@@ -3459,7 +3505,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex items-center justify-between gap-3"
                   >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 rounded-xl bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 flex items-center justify-center shrink-0">
                         <span className="material-symbols-outlined text-xl">meeting_room</span>
                       </div>
                       <div className="min-w-0 flex-1">
@@ -3472,7 +3518,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     <div className="flex items-center gap-1 shrink-0">
                       <button
                         onClick={() => openEditModal('kelas', k)}
-                        className="w-8 h-8 rounded-lg flex items-center justify-center text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40"
+                        className="w-8 h-8 rounded-lg flex items-center justify-center text-primary hover:bg-primary/10 dark:hover:bg-primary/10"
                         title="Edit"
                       >
                         <span className="material-symbols-outlined text-[18px]">edit</span>
@@ -3500,6 +3546,48 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* ================= TAB: SKEMA PENILAIAN DEFAULT SEKOLAH ================= */}
+          {activeTab === 'skema' && (
+            <div className="space-y-6 animate-fade-in-up max-w-4xl mx-auto">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg sm:text-xl flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary dark:text-primary-400">tune</span>
+                    <span>Skema Penilaian Default Sekolah</span>
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    Konfigurasikan acuan standar bobot penilaian ujian yang berlaku untuk seluruh guru dan mata pelajaran di sekolah.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-primary/10 text-primary dark:text-primary-400 border border-primary/20">
+                    NPSN: {user?.npsn}
+                  </span>
+                </div>
+              </div>
+
+              {skemaSuccessMsg && (
+                <div className="p-4 rounded-2xl bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800 flex items-center gap-3 text-xs sm:text-sm text-sky-800 dark:text-sky-200 animate-fade-in">
+                  <span className="material-symbols-outlined text-primary dark:text-primary-400 text-xl shrink-0">check_circle</span>
+                  <span className="font-semibold">{skemaSuccessMsg}</span>
+                </div>
+              )}
+
+              {isSkemaLoading ? (
+                <div className="p-12 flex flex-col items-center justify-center bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">
+                  <span className="material-symbols-outlined text-4xl animate-spin text-primary mb-3">progress_activity</span>
+                  <span className="text-xs sm:text-sm text-slate-500">Memuat konfigurasi skema penilaian default sekolah...</span>
+                </div>
+              ) : (
+                <SkemaPenilaianPanel
+                  isSchoolDefault={true}
+                  initialSkema={defaultSkemaSekolah}
+                  onSave={handleSaveDefaultSkema}
+                />
+              )}
             </div>
           )}
 
@@ -3547,7 +3635,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
 
                     <div className="pt-2 border-t border-slate-100 dark:border-slate-700/60 text-xs">
                       {s.jawaban_benar ? (
-                        <div className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                        <div className="font-semibold text-primary dark:text-primary-400 flex items-center gap-1">
                           <span className="material-symbols-outlined text-[16px]">check_circle</span>
                           Kunci: {s.jawaban_benar}
                         </div>
@@ -3594,7 +3682,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
               <div className="space-y-2.5">
                 {dataAudit.map((log) => (
                   <div key={log.id_audit} className="bg-white dark:bg-slate-800 rounded-2xl p-3.5 border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <div className="w-9 h-9 rounded-xl bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 flex items-center justify-center shrink-0 mt-0.5">
                       <span className="material-symbols-outlined text-lg">history</span>
                     </div>
                     <div className="min-w-0 flex-1">
@@ -3627,11 +3715,11 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
           {activeTab === 'akun' && (
             <div className="max-w-md mx-auto py-6 animate-fade-in-up flex flex-col items-center">
               <div className="relative group cursor-pointer" onClick={() => setIsAvatarModalOpen(true)}>
-                <div className="w-24 h-24 bg-emerald-50 dark:bg-emerald-950/40 rounded-full flex items-center justify-center mb-4 overflow-hidden border-4 border-white dark:border-slate-800 shadow-md">
+                <div className="w-24 h-24 bg-primary/10 dark:bg-primary/10 rounded-full flex items-center justify-center mb-4 overflow-hidden border-4 border-white dark:border-slate-800 shadow-md">
                   {user.foto_profil ? (
                     <img src={user.foto_profil} alt="Profile" className="w-full h-full object-cover" />
                   ) : (
-                    <span className="material-symbols-outlined text-4xl text-emerald-600">admin_panel_settings</span>
+                    <span className="material-symbols-outlined text-4xl text-primary">admin_panel_settings</span>
                   )}
                 </div>
                 <div className="absolute bottom-4 right-0 w-8 h-8 bg-white dark:bg-slate-700 rounded-full shadow flex items-center justify-center border border-slate-200 dark:border-slate-600 hover:bg-slate-50 transition-colors">
@@ -3648,7 +3736,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   className="w-full bg-white dark:bg-slate-800 p-4 rounded-2xl flex items-center justify-between border border-slate-200/80 dark:border-slate-700/80 shadow-sm active:scale-95 transition-all min-h-[44px]"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center text-blue-600">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 dark:bg-primary/10 flex items-center justify-center text-primary dark:text-primary-400">
                       <span className="material-symbols-outlined text-xl">person</span>
                     </div>
                     <div className="text-left">
@@ -3664,12 +3752,28 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   className="w-full bg-white dark:bg-slate-800 p-4 rounded-2xl flex items-center justify-between border border-slate-200/80 dark:border-slate-700/80 shadow-sm active:scale-95 transition-all min-h-[44px]"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center text-amber-600">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 dark:bg-primary/10 flex items-center justify-center text-primary dark:text-primary-400">
                       <span className="material-symbols-outlined text-xl">history</span>
                     </div>
                     <div className="text-left">
                       <h4 className="font-bold text-sm text-slate-800 dark:text-white">Log Aktivitas</h4>
                       <p className="text-xs text-slate-500">Riwayat jejak aksi sistem</p>
+                    </div>
+                  </div>
+                  <span className="material-symbols-outlined text-slate-400">chevron_right</span>
+                </button>
+
+                <button
+                  onClick={() => navigateTab('skema')}
+                  className="w-full bg-white dark:bg-slate-800 p-4 rounded-2xl flex items-center justify-between border border-slate-200/80 dark:border-slate-700/80 shadow-sm active:scale-95 transition-all min-h-[44px]"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 dark:bg-primary/10 flex items-center justify-center text-primary dark:text-primary-400">
+                      <span className="material-symbols-outlined text-xl">tune</span>
+                    </div>
+                    <div className="text-left">
+                      <h4 className="font-bold text-sm text-slate-800 dark:text-white">Atur Skema Penilaian Default</h4>
+                      <p className="text-xs text-slate-500">Format bobot penilaian acuan sekolah</p>
                     </div>
                   </div>
                   <span className="material-symbols-outlined text-slate-400">chevron_right</span>
@@ -3729,8 +3833,8 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   onClick={() => handleAvatarSelect(avatar)}
                   className={`w-full aspect-square rounded-2xl overflow-hidden border-2 transition-all ${
                     user.foto_profil === avatar
-                      ? 'border-emerald-600 ring-4 ring-emerald-500/20 shadow-md scale-105 bg-white'
-                      : 'border-slate-200 dark:border-slate-700 hover:border-emerald-500/50 bg-slate-50 dark:bg-slate-900'
+                      ? 'border-primary ring-4 ring-primary/20 shadow-md scale-105 bg-white'
+                      : 'border-slate-200 dark:border-slate-700 hover:border-primary/50 bg-slate-50 dark:bg-slate-900'
                   }`}
                 >
                   <img src={avatar} alt="Avatar" className="w-full h-full object-cover p-2" />

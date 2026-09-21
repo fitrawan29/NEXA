@@ -75,7 +75,7 @@ const ModalPeriksaUraian = ({ isOpen, logUjian, jawabanUraian = [], onClose, onS
                     dangerouslySetInnerHTML={{ __html: j.pertanyaan || j.soal || '-' }}
                   />
                   <div>
-                    <div className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 mb-1 uppercase tracking-wider">
+                    <div className="text-[11px] font-bold text-primary dark:text-primary-400 mb-1 uppercase tracking-wider">
                       Jawaban Siswa:
                     </div>
                     <div className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200/70 dark:border-slate-700 text-xs sm:text-sm text-slate-800 dark:text-slate-100 whitespace-pre-wrap">
@@ -92,7 +92,7 @@ const ModalPeriksaUraian = ({ isOpen, logUjian, jawabanUraian = [], onClose, onS
                       max={j.bobot || 100}
                       value={scores[itemKey] !== undefined ? scores[itemKey] : ''}
                       onChange={(e) => handleScoreChange(itemKey, e.target.value)}
-                      className="w-24 px-3 py-1.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                      className="w-24 px-3 py-1.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
                       placeholder="0"
                     />
                   </div>
@@ -111,7 +111,7 @@ const ModalPeriksaUraian = ({ isOpen, logUjian, jawabanUraian = [], onClose, onS
           </button>
           <button
             onClick={() => handleSave(false)}
-            className="px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all active:scale-95 flex items-center gap-1.5"
+            className="px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 flex items-center gap-1.5"
           >
             <span className="material-symbols-outlined text-[18px]">save</span>
             <span>Simpan Nilai Uraian</span>

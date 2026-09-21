@@ -59,11 +59,11 @@
   scrollbar-width: none;
 }
 
-/* Unified Focus Style using Emerald Brand Accent */
+/* Unified Focus Style using Dynamic Role Primary Accent */
 .academic-input:focus {
   outline: none;
-  border-color: #10b981;
-  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15);
+  border-color: rgb(var(--color-primary-500));
+  box-shadow: 0 0 0 4px rgb(var(--color-primary-500) / 0.15);
 }
 
 /* Authentication Slider */
@@ -138,3 +138,20 @@
   --color-primary-950: 46 16 101;
 }
 
+/* ==========================================================================
+   Milestone 2: Top Navbar Animated Notification Icon
+   ========================================================================== */
+@keyframes bell-shake {
+  0%, 100% { transform: rotate(0deg); }
+  15% { transform: rotate(14deg); }
+  30% { transform: rotate(-12deg); }
+  45% { transform: rotate(10deg); }
+  60% { transform: rotate(-8deg); }
+  75% { transform: rotate(4deg); }
+  85% { transform: rotate(-2deg); }
+}
+
+.animate-bell-shake {
+  animation: bell-shake 0.8s ease-in-out infinite;
+  transform-origin: top center;
+}

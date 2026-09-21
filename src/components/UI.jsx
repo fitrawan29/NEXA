@@ -55,7 +55,7 @@ export const EmptyState = ({
         <button
           type="button"
           onClick={action.onClick}
-          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white shadow-sm hover:shadow transition-all"
+          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-primary hover:bg-primary/90 active:scale-[0.98] text-white shadow-sm hover:shadow transition-all"
         >
           {action.icon && renderIcon(action.icon, 'text-[18px]')}
           <span>{action.label}</span>
@@ -68,7 +68,7 @@ export const EmptyState = ({
         <button
           type="button"
           onClick={onAction}
-          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white shadow-sm hover:shadow transition-all"
+          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-primary hover:bg-primary/90 active:scale-[0.98] text-white shadow-sm hover:shadow transition-all"
         >
           <span className="material-symbols-outlined text-[18px]">add</span>
           <span>{actionText}</span>
@@ -85,7 +85,7 @@ export const EmptyState = ({
       } ${className}`}
     >
       <div
-        className={`rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-100/80 dark:border-emerald-900/50 shadow-inner ${
+        className={`rounded-2xl bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 flex items-center justify-center border border-primary/20 dark:border-primary/20 shadow-inner ${
           compact ? 'w-14 h-14 mb-3' : 'w-20 h-20 mb-5'
         }`}
       >
@@ -533,7 +533,7 @@ export const Button = ({
   }[size] || 'text-xs sm:text-sm px-4 py-2.5 rounded-xl gap-2';
 
   const variantStyles = {
-    primary: 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:shadow dark:bg-emerald-600 dark:hover:bg-emerald-500',
+    primary: 'bg-primary hover:bg-primary/90 text-white shadow-sm hover:shadow',
     secondary: 'bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200',
     outline: 'bg-transparent border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200',
     ghost: 'bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300',
