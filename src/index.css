@@ -155,3 +155,147 @@
   animation: bell-shake 0.8s ease-in-out infinite;
   transform-origin: top center;
 }
+
+/* ==========================================================================
+   Print Document Architecture for CBT NEXA (A4 & F4 Compliant) - Requirement 4
+   ========================================================================== */
+
+@page {
+  size: A4 portrait;
+  margin: 12mm 15mm 12mm 15mm;
+}
+
+@media print {
+  /* 1. Reset Root & Hide All Screen UI */
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 11pt !important;
+    line-height: 1.35 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* 2. Hide Everything Outside the Print Document Container */
+  body * {
+    visibility: hidden;
+  }
+
+  /* 3. Make Document Container Visible and Expand to Full Page */
+  #print-document, #print-document * {
+    visibility: visible;
+  }
+
+  #print-document {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background: #ffffff !important;
+  }
+
+  /* 4. Page Margins Specifics */
+  @page {
+    size: A4 portrait;
+    margin: 12mm 15mm 12mm 15mm;
+  }
+
+  @page :left {
+    margin-left: 15mm;
+  }
+
+  @page :right {
+    margin-right: 15mm;
+  }
+
+  /* 5. Clean Page Break Controls */
+  .page-break {
+    page-break-before: always !important;
+    break-before: page !important;
+  }
+
+  .avoid-break {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* 6. Table Header & Row Repetition on Multi-Page Documents */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: auto !important;
+  }
+
+  thead {
+    display: table-header-group !important; /* Repeats table header on each page */
+  }
+
+  tfoot {
+    display: table-footer-group !important;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  th, td {
+    border: 1px solid #000000 !important;
+    padding: 5px 8px !important;
+    color: #000000 !important;
+  }
+
+  /* 7. Strict UI Element Suppression */
+  nav,
+  aside,
+  header,
+  footer,
+  .no-print,
+  button,
+  .bottom-bar,
+  .fixed,
+  .modal-backdrop,
+  #pwa-install-toast {
+    display: none !important;
+  }
+
+  /* 8. Ink Contrast & Border Enforcement */
+  .border-double-black {
+    border-bottom: 3px double #000000 !important;
+  }
+}
+
+/* ==========================================================================
+   Milestone R15: App Opening & Role Selection Interactive Animations
+   ========================================================================== */
+@keyframes roleCardIn {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes loginFormSlideIn {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes splashPulse {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 15px rgba(16, 185, 129, 0.4)); }
+  50% { transform: scale(1.05); filter: drop-shadow(0 0 25px rgba(16, 185, 129, 0.7)); }
+}
+
+.animate-role-grid {
+  animation: roleCardIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-role-in {
+  animation: loginFormSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-splash-pulse {
+  animation: splashPulse 1.8s ease-in-out infinite;
+}
+

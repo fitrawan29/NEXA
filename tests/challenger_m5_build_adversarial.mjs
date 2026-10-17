@@ -22,6 +22,7 @@ import zlib from 'node:zlib';
 import vm from 'node:vm';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -151,14 +152,27 @@ async function run() {
   // ---------------------------------------------------------------------------
   console.log('\n▶ [SECTION 4] ES Module Syntax & AST Integrity');
   const jsBundles = assetFiles.filter(f => f.endsWith('.js'));
+  const req = createRequire(path.join(kodeNexaDir, 'package.json'));
+  let babelParse = null;
+  try {
+    babelParse = req('@babel/parser').parse;
+  } catch (e) {}
   
   for (const jsFile of jsBundles) {
     const code = fs.readFileSync(path.join(assetsDir, jsFile), 'utf8');
     let syntaxOk = false;
     let errMsg = '';
     try {
-      new vm.SourceTextModule(code, { initializeImportMeta() {} });
-      syntaxOk = true;
+      if (typeof vm.SourceTextModule === 'function') {
+        new vm.SourceTextModule(code, { initializeImportMeta() {} });
+        syntaxOk = true;
+      } else if (babelParse) {
+        babelParse(code, { sourceType: 'module' });
+        syntaxOk = true;
+      } else {
+        new Function(code);
+        syntaxOk = true;
+      }
     } catch (err) {
       errMsg = err.message;
     }

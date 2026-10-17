@@ -13,8 +13,10 @@ import {
   EmptyState,
   CardSkeleton,
   safeJSONParse,
+  PasswordInput
 } from '../components/UI.jsx';
 import NotificationBell from '../components/NotificationBell.jsx';
+import { compressImageFile } from '../utils/imageHelper.js';
 
 /**
  * Calm countdown component: formatted time without aggressive flashing
@@ -47,7 +49,7 @@ const Countdown = ({ targetDate }) => {
   }, [targetDate]);
 
   return (
-    <span className={`font-mono text-xs font-semibold ${isUrgent ? 'text-amber-600 dark:text-amber-400 animate-pulse' : 'text-slate-500 dark:text-slate-400'}`}>
+    <span className={`font-mono text-xs font-semibold ${isUrgent ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400'}`}>
       {timeLeft}
     </span>
   );
@@ -99,7 +101,7 @@ const ProgressChart = ({ data }) => {
   );
 };
 
-const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) => {
+const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIsDarkMode }) => {
   const currentUserId = user?.id_user || user?.id_siswa;
 
   const api = (action, p = {}) => {
@@ -134,14 +136,6 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
   const [detailNilaiModal, setDetailNilaiModal] = useState(null);
 
-  const PRESET_AVATARS = [
-    "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&backgroundColor=b6e3f4",
-    "https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka&backgroundColor=c0aede",
-    "https://api.dicebear.com/7.x/avataaars/svg?seed=George&backgroundColor=ffdfbf",
-    "https://api.dicebear.com/7.x/avataaars/svg?seed=Leo&backgroundColor=d1d4f9",
-    "https://api.dicebear.com/7.x/avataaars/svg?seed=Mia&backgroundColor=f6e3d4"
-  ];
-
   useEffect(() => {
     loadPengumuman();
     loadRiwayat();
@@ -163,6 +157,14 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
     return () => clearInterval(interval);
   }, [user, currentUserId]);
 
+  // Background polling for exam schedule (15000ms / 15 seconds)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadJadwal(false);
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [currentUserId]);
+
   const loadPengumuman = async () => {
     const res = await api('get_pengumuman', { role: 'siswa' });
     if (res.status === 'success') {
@@ -180,11 +182,11 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
     if (res.status === 'success') setDataLeaderboard(res.data || []);
   };
 
-  const loadJadwal = async () => {
-    setIsLoading(true);
+  const loadJadwal = async (showLoading = true) => {
+    if (showLoading) setIsLoading(true);
     const res = await api('get_jadwal', { id_siswa: currentUserId });
     if (res.status === 'success') setJadwal(res.data || []);
-    setIsLoading(false);
+    if (showLoading) setIsLoading(false);
   };
 
   const handleSaveProfile = async (e) => {
@@ -206,10 +208,11 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
 
   const handleAvatarSelect = async (url) => {
     setIsLoading(true);
-    const res = await api('update_profil_siswa', { id_siswa: currentUserId, foto_profil: url });
+    const res = await api('update_profil_siswa', { id_siswa: currentUserId, npsn: user.npsn, foto_profil: url });
     setIsLoading(false);
     if (res.status === 'success') {
       user.foto_profil = url;
+      if (onUpdateUser) onUpdateUser({ foto_profil: url });
       showMessage('Sukses', 'Foto profil berhasil diperbarui', 'success');
       setIsAvatarModalOpen(false);
     } else {
@@ -489,7 +492,7 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
 
             {/* User Profile Summary & Utilities */}
             <div className="flex items-center gap-2">
-              <NotificationBell role="siswa" />
+              <NotificationBell role="siswa" npsn={user?.npsn} user={user} />
               {/* Dark Mode Toggle */}
               <button
                 type="button"
@@ -548,7 +551,7 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
           <div className="flex items-center gap-3 min-w-0">
             <div
               onClick={() => setIsAvatarModalOpen(true)}
-              className="w-13 h-13 rounded-2xl bg-white/20 border-2 border-white/50 overflow-hidden shrink-0 flex items-center justify-center cursor-pointer shadow-sm active:scale-95 transition-transform"
+              className="w-12 h-12 rounded-2xl bg-white/20 border-2 border-white/50 overflow-hidden shrink-0 flex items-center justify-center cursor-pointer shadow-sm active:scale-95 transition-transform"
             >
               {user.foto_profil ? (
                 <img src={user.foto_profil} alt="Profile" className="w-full h-full object-cover bg-white" />
@@ -570,7 +573,7 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
           </div>
 
           <div className="flex items-center gap-1.5">
-            <NotificationBell role="siswa" variant="white" />
+            <NotificationBell role="siswa" variant="white" npsn={user?.npsn} user={user} />
             <button
               type="button"
               onClick={() => setIsDarkMode(!isDarkMode)}
@@ -1257,16 +1260,12 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
             <form onSubmit={handleSaveProfile} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold mb-2 text-slate-600 dark:text-slate-300">Password Baru</label>
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">lock</span>
-                  <input
-                    name="password"
-                    type="password"
-                    required
-                    className="w-full rounded-xl border p-3 pl-10 dark:bg-slate-900 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm min-h-[44px]"
-                    placeholder="Ketik password baru"
-                  />
-                </div>
+                <PasswordInput
+                  name="password"
+                  required
+                  placeholder="Ketik password baru"
+                  className="w-full rounded-xl border p-3 dark:bg-slate-900 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm min-h-[44px]"
+                />
               </div>
               <Button
                 type="submit"
@@ -1283,16 +1282,16 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
       )}
 
       {/* ------------------------------------------------------------- */}
-      {/* MODAL: PILIH AVATAR                                           */}
+      {/* MODAL: UPLOAD FOTO PROFIL                                     */}
       {/* ------------------------------------------------------------- */}
       {isAvatarModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
           <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onClick={() => setIsAvatarModalOpen(false)}></div>
-          <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-sm relative z-10 p-6 shadow-2xl animate-fade-in-up border border-slate-200 dark:border-slate-700">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-sm relative z-10 p-5 sm:p-6 shadow-2xl animate-fade-in-up border border-slate-200 dark:border-slate-700">
             <div className="flex justify-between items-center mb-5">
               <div>
-                <h3 className="font-bold text-lg text-slate-800 dark:text-white">Pilih Avatar</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Pilih karakter profil favoritmu</p>
+                <h3 className="font-bold text-base sm:text-lg text-slate-800 dark:text-white">Foto Profil</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Unggah foto profil dari perangkat Anda</p>
               </div>
               <button
                 type="button"
@@ -1302,20 +1301,34 @@ const SiswaView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) =
                 <span className="material-symbols-outlined text-[18px]">close</span>
               </button>
             </div>
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              {PRESET_AVATARS.map((url, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handleAvatarSelect(url)}
-                  className={`rounded-2xl overflow-hidden border-4 transition-all hover:scale-105 min-h-[44px] ${
-                    user.foto_profil === url
-                      ? 'border-primary shadow-md shadow-primary/30'
-                      : 'border-transparent hover:border-slate-200 dark:hover:border-slate-600 bg-slate-50 dark:bg-slate-700'
-                  }`}
-                >
-                  <img src={url} alt={`Avatar ${idx + 1}`} className="w-full h-auto" />
-                </button>
-              ))}
+            <div className="flex flex-col items-center gap-4 py-3">
+              <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-primary/20 bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
+                {user.foto_profil ? (
+                  <img src={user.foto_profil} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="material-symbols-outlined text-4xl text-slate-400">person</span>
+                )}
+              </div>
+              <label className="cursor-pointer px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-sm transition-all active:scale-95">
+                <span className="material-symbols-outlined text-lg">upload</span>
+                <span>Pilih Foto dari Perangkat</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    try {
+                      const dataUrl = await compressImageFile(file);
+                      await handleAvatarSelect(dataUrl);
+                    } catch (err) {
+                      showMessage('Gagal', err.message, 'error');
+                    }
+                  }}
+                />
+              </label>
+              <p className="text-[11px] text-slate-400 text-center">Format JPEG/PNG, otomatis dikompresi ke resolusi optimal.</p>
             </div>
           </div>
         </div>

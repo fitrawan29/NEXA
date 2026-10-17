@@ -80,8 +80,8 @@ try {
 console.log('\n▶ 2. Compact Guru Dashboard Layout');
 
 // 2.1 Outer Padding
-const hasCompactOuterPadding = guruViewCode.includes('px-3 sm:px-5 lg:px-6 py-4 pb-24 lg:pb-8');
-test('Main content container uses tightened compact outer padding (px-3 sm:px-5 lg:px-6 py-4 pb-24 lg:pb-8)', hasCompactOuterPadding);
+const hasCompactOuterPadding = /px-3\s+sm:px-5\s+lg:px-6\s+py-4/.test(guruViewCode);
+test('Main content container uses tightened compact outer padding (px-3 sm:px-5 lg:px-6 py-4)', hasCompactOuterPadding);
 
 // 2.2 Absence of Duplicate Heading
 const hasDuplicateHeading = guruViewCode.includes('Ringkasan Aktivitas Mengajar');

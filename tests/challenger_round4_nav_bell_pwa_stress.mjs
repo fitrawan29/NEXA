@@ -281,44 +281,40 @@ test('C2.1', 'formatBadgeCount boundary analysis: null on <= 0, exact string on 
   return true;
 });
 
-test('C2.2', 'NotificationBell state machine: 100 rapid simulate-toggle cycles maintain strict boolean consistency', () => {
-  // Emulate NotificationBell internal state logic
+test('C2.2', 'NotificationBell AST & State: simulation removed, default empty state, and mark-all-as-read consistency', () => {
+  const content = fs.readFileSync(path.join(srcDir, 'components/NotificationBell.jsx'), 'utf-8');
+  if (content.includes('Simulasikan Belum Dibaca') || content.includes('handleSimulateToggle')) {
+    throw new Error('Simulation button or handleSimulateToggle still present in NotificationBell.jsx');
+  }
+  if (content.includes('DEFAULT_NOTIFICATIONS_BY_ROLE') || content.includes('GENERIC_DEFAULT_NOTIFICATIONS')) {
+    throw new Error('Hardcoded dummy notifications still present in NotificationBell.jsx');
+  }
+  if (!content.includes('Tidak ada notifikasi saat ini')) {
+    throw new Error('Empty state message missing in NotificationBell.jsx');
+  }
+
+  // State machine verification for empty default and real notifications
+  let emptyNotifications = [];
+  let unreadEmpty = emptyNotifications.filter(n => !n.isRead).length;
+  if (unreadEmpty !== 0 || formatBadgeCount(unreadEmpty) !== null) {
+    throw new Error('Default empty state must produce 0 unread and null badge count');
+  }
+
+  // State machine verification when notifications are added and markAllAsRead is invoked
   let notifications = [
-    { id: 'adm-1', title: 'Jadwal Ujian Baru', isRead: false },
-    { id: 'adm-2', title: 'Verifikasi Siswa Baru', isRead: false },
-    { id: 'adm-3', title: 'Pencadangan Berhasil', isRead: false }
+    { id: 'real-1', title: 'Ujian Nasional', isRead: false },
+    { id: 'real-2', title: 'Pengumuman Kelulusan', isRead: false }
   ];
-
-  const simulateToggle = () => {
-    const anyUnread = notifications.some(n => !n.isRead);
-    if (anyUnread) {
-      notifications = notifications.map(n => ({ ...n, isRead: true }));
-    } else {
-      notifications = notifications.map((n, idx) => idx < 3 ? { ...n, isRead: false } : n);
-    }
-  };
-
-  // Initially 3 unread
   let unreadCount = notifications.filter(n => !n.isRead).length;
-  if (unreadCount !== 3) throw new Error('Initial unread count should be 3');
+  if (unreadCount !== 2 || formatBadgeCount(unreadCount) !== '2') {
+    throw new Error('Initial unread count should be 2');
+  }
 
-  // 100 rapid cycles
-  for (let cycle = 1; cycle <= 100; cycle++) {
-    simulateToggle();
-    unreadCount = notifications.filter(n => !n.isRead).length;
-    const hasUnread = unreadCount > 0;
-
-    if (cycle % 2 === 1) {
-      // Odd cycle: all marked read
-      if (unreadCount !== 0 || hasUnread !== false) {
-        throw new Error(`Cycle ${cycle}: Expected 0 unread, got ${unreadCount}`);
-      }
-    } else {
-      // Even cycle: restored to 3 unread
-      if (unreadCount !== 3 || hasUnread !== true) {
-        throw new Error(`Cycle ${cycle}: Expected 3 unread, got ${unreadCount}`);
-      }
-    }
+  // Mark all as read
+  notifications = notifications.map(n => ({ ...n, isRead: true }));
+  unreadCount = notifications.filter(n => !n.isRead).length;
+  if (unreadCount !== 0 || formatBadgeCount(unreadCount) !== null) {
+    throw new Error('Expected 0 unread after markAllAsRead');
   }
 
   return true;

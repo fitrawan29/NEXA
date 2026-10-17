@@ -558,6 +558,49 @@ export const Button = ({
   );
 };
 
+/**
+ * PasswordInput
+ * Input password terpadu dengan tombol toggle visibilitas (ikon mata).
+ * Mendukung controlled & uncontrolled inputs, ikon prefix kustom, dan backward-compatibility.
+ */
+export const PasswordInput = ({
+  className = '',
+  wrapperClassName = 'relative w-full',
+  icon,
+  rightButtonClassName = '',
+  type: _overrideType,
+  ...props
+}) => {
+  const [showPassword, setShowPassword] = React.useState(false);
+
+  return (
+    <div className={wrapperClassName}>
+      {icon && (
+        <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 text-[18px] pointer-events-none select-none">
+          {icon}
+        </span>
+      )}
+      <input
+        type={showPassword ? 'text' : 'password'}
+        className={`${className} ${icon ? 'pl-9' : ''} pr-10`}
+        {...props}
+      />
+      <button
+        type="button"
+        tabIndex={-1}
+        onClick={() => setShowPassword((prev) => !prev)}
+        className={`absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors flex items-center justify-center select-none ${rightButtonClassName}`}
+        aria-label={showPassword ? 'Sembunyikan password' : 'Lihat password'}
+        title={showPassword ? 'Sembunyikan password' : 'Lihat password'}
+      >
+        <span className="material-symbols-outlined text-[18px]">
+          {showPassword ? 'visibility_off' : 'visibility'}
+        </span>
+      </button>
+    </div>
+  );
+};
+
 // Aliases
 export const Badge = StatusBadge;
 
@@ -575,6 +618,7 @@ if (typeof window !== 'undefined') {
   window.CardContent = CardContent;
   window.CardFooter = CardFooter;
   window.Button = Button;
+  window.PasswordInput = PasswordInput;
   window.safeJSONParse = window.safeJSONParse || safeJSONParse;
 }
 
@@ -591,5 +635,7 @@ export default {
   CardContent,
   CardFooter,
   Button,
+  PasswordInput,
   safeJSONParse,
 };
+

@@ -126,7 +126,7 @@ const saHeaderSlice = superAdminCode.substring(
 const saHeaderHasFlexShrink0 = saHeaderSlice.includes('flex-shrink-0') || saHeaderSlice.includes('shrink-0');
 // Note: In SuperAdminView, line 181 has `bg-[#3ecf8e] rounded-none px-6 pt-4 pb-4 relative text-white shadow-md z-0` without flex-shrink-0.
 // Line 184 has flex-shrink-0 on the avatar circle, but the outer header container lacks flex-shrink-0!
-const saHeaderOuterDivMatches = saHeaderSlice.match(/<div\s+className="([^"]*bg-\[#3ecf8e\][^"]*)"/);
+const saHeaderOuterDivMatches = saHeaderSlice.match(/<div\s+className="([^"]*bg-(?:primary|\[#3ecf8e\])[^"]*)"/);
 const saHeaderOuterClasses = saHeaderOuterDivMatches ? saHeaderOuterDivMatches[1] : '';
 const saHeaderOuterHasShrink0 = saHeaderOuterClasses.includes('flex-shrink-0') || saHeaderOuterClasses.includes('shrink-0');
 

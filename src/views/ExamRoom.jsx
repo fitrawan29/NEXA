@@ -2,6 +2,7 @@ import { fetchAPI } from '../api.js';
 import React, { useState, useEffect, useRef } from 'react';
 import Loader from '../components/Loader.jsx';
 import Modal from '../components/Modal.jsx';
+import DigitalSignatureModal from '../components/DigitalSignatureModal.jsx';
 
 function mulberry32(a) {
   return function() {
@@ -34,21 +35,44 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
   const [soal, setSoal] = useState([]);
   const [narasiMap, setNarasiMap] = useState({});
   const [jawabanSiswa, setJawabanSiswa] = useState(() => {
-    const saved = localStorage.getItem(`nexa_ans_${idLog}`);
-    if (!saved) return {};
-    if (typeof window !== 'undefined' && window.safeJSONParse) {
-      return window.safeJSONParse(saved, {});
-    }
     try {
-      return JSON.parse(saved);
-    } catch (e) {
-      return {};
-    }
+      if (typeof localStorage !== 'undefined') {
+        const saved = localStorage.getItem(`nexa_ans_${idLog}`);
+        if (!saved) return {};
+        if (typeof window !== 'undefined' && window.safeJSONParse) {
+          return window.safeJSONParse(saved, {});
+        }
+        return JSON.parse(saved);
+      }
+    } catch (e) {}
+    return {};
   });
   const [raguRagu, setRaguRagu] = useState({});
   const [currentIndex, setCurrentIndex] = useState(0);
   const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'unanswered' | 'flagged' | 'answered'
-  const [isLoading, setIsLoading] = useState(true);
+
+  // Student Digital Signature Gating State (Requirement 1)
+  const [hasSigned, setHasSigned] = useState(() => {
+    if (dataLog?.tanda_tangan || dataLog?.has_signed) return true;
+    try {
+      const sess = JSON.parse(sessionStorage.getItem('nexa_active_exam') || '{}');
+      if (sess?.dataLog?.tanda_tangan || sess?.dataLog?.has_signed || sess?.has_signed) {
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  });
+  const [isSigningSubmitting, setIsSigningSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(() => {
+    if (dataLog?.tanda_tangan || dataLog?.has_signed) return true;
+    try {
+      const sess = JSON.parse(sessionStorage.getItem('nexa_active_exam') || '{}');
+      if (sess?.dataLog?.tanda_tangan || sess?.dataLog?.has_signed || sess?.has_signed) {
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  });
   const initialViolations = (dataLog && dataLog.pelanggaran) || 0;
   const initialBlocked = Boolean((dataLog && dataLog.is_blocked) || initialViolations >= 3);
   const [violationCount, setViolationCount] = useState(initialViolations);
@@ -69,7 +93,19 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
   const windowBlurTimerRef = useRef(null);
   const gracePeriodTimer = useRef(null);
 
+  const cancelGracePeriod = () => {
+    if (gracePeriodTimer.current) {
+      clearTimeout(gracePeriodTimer.current);
+      gracePeriodTimer.current = null;
+    }
+    if (windowBlurTimerRef.current) {
+      clearTimeout(windowBlurTimerRef.current);
+      windowBlurTimerRef.current = null;
+    }
+  };
+
   const triggerStrike3Kick = () => {
+    cancelGracePeriod();
     setIsBlocked(true);
     isBlockedRef.current = true;
     setIsSubmitting(true);
@@ -101,6 +137,60 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
     }, 3000);
   };
 
+  const handleSignatureSubmit = async (signatureDataUrl) => {
+    setIsSigningSubmitting(true);
+    try {
+      const res = await api('submit_absensi_siswa', {
+        id_jadwal: jadwal?.id_jadwal,
+        id_siswa: currentUserId,
+        id_ruang: user?.ruang || jadwal?.ruang || null,
+        id_log: idLog,
+        tanda_tangan: signatureDataUrl,
+        npsn: user?.npsn
+      });
+
+      if (res.status === 'success') {
+        // Natural user click gesture: trigger fullscreen if lockdown mode is active
+        if (jadwal?.browser_lockdown && document.documentElement && document.documentElement.requestFullscreen && !document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        }
+
+        // Update sessionStorage immediately so refresh retains signature
+        try {
+          const currentSession = JSON.parse(sessionStorage.getItem('nexa_active_exam') || '{}');
+          if (currentSession) {
+            if (!currentSession.dataLog) currentSession.dataLog = {};
+            currentSession.dataLog.tanda_tangan = signatureDataUrl;
+            currentSession.dataLog.status_kehadiran = 'HADIR';
+            currentSession.dataLog.has_signed = true;
+            currentSession.has_signed = true;
+            sessionStorage.setItem('nexa_active_exam', JSON.stringify(currentSession));
+          }
+        } catch (e) {
+          console.error('Failed to update sessionStorage:', e);
+        }
+
+        setIsSigningSubmitting(false);
+        setIsLoading(true);
+        setHasSigned(true);
+        if (showMessage) {
+          showMessage('Kehadiran Terkonfirmasi', 'Tanda tangan Anda berhasil disimpan. Selamat mengerjakan ujian!', 'success');
+        }
+      } else {
+        setIsSigningSubmitting(false);
+        if (showMessage) {
+          showMessage('Gagal Menyimpan Kehadiran', res.message || 'Terjadi kesalahan saat menyimpan tanda tangan.', 'error');
+        }
+      }
+    } catch (err) {
+      setIsSigningSubmitting(false);
+      if (showMessage) {
+        showMessage('Kesalahan Jaringan', err.message || 'Tidak dapat terhubung ke server.', 'error');
+      }
+    }
+  };
+
+  // Initial mount: Check strike/block status and sync signed status from server
   useEffect(() => {
     if (initialBlocked || initialViolations >= 3) {
       triggerStrike3Kick();
@@ -115,10 +205,31 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
           setViolationCount(strikes);
           if (blocked) {
             triggerStrike3Kick();
+            return;
+          }
+          if (res.has_signed || res.data.tanda_tangan) {
+            setHasSigned(true);
+            try {
+              const currentSession = JSON.parse(sessionStorage.getItem('nexa_active_exam') || '{}');
+              if (currentSession) {
+                if (!currentSession.dataLog) currentSession.dataLog = {};
+                currentSession.dataLog.tanda_tangan = res.data.tanda_tangan || currentSession.dataLog.tanda_tangan;
+                currentSession.dataLog.status_kehadiran = 'HADIR';
+                currentSession.dataLog.has_signed = true;
+                currentSession.has_signed = true;
+                sessionStorage.setItem('nexa_active_exam', JSON.stringify(currentSession));
+              }
+            } catch (e) {}
           }
         }
       }).catch((err) => console.warn('Sync exam log error:', err));
     }
+  }, []);
+
+  // Active exam initialization: runs ONLY once student has signed (Double-Gating)
+  useEffect(() => {
+    if (!hasSigned) return;
+    if (isBlockedRef.current || isSubmittingRef.current) return;
 
     fetchSoal();
     let wakeLock = null;
@@ -132,8 +243,36 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
     requestWakeLock();
     setupAntiCheat();
 
-    const calculateTimeLeft = (endTimeStr) => {
-      const diff = new Date(endTimeStr).getTime() - new Date().getTime();
+    // =========================================================================
+    // Server Time Guard (Clock Anti-Tampering & Monotonic Countdown)
+    // =========================================================================
+    let serverOffsetMs = 0;
+    let perfStart = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    const endMs = new Date(jadwal.waktu_selesai).getTime();
+    let initialRemainingMs = Math.max(0, endMs - Date.now());
+
+    const fetchServerOffset = async () => {
+      try {
+        if (typeof window !== 'undefined' && window.location) {
+          const tStart = Date.now();
+          const res = await fetch(window.location.href, { method: 'HEAD', cache: 'no-store' });
+          const tEnd = Date.now();
+          const dateHeader = res.headers && res.headers.get('date');
+          if (dateHeader) {
+            const serverMs = new Date(dateHeader).getTime();
+            const latency = Math.max(0, (tEnd - tStart) / 2);
+            return (serverMs + latency) - tEnd;
+          }
+        }
+      } catch (e) {
+        console.warn('Server Time Guard: fallback to local clock', e);
+      }
+      return 0;
+    };
+
+    const calculateTimeLeft = () => {
+      const elapsedMonotonic = ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - perfStart;
+      const diff = Math.max(0, initialRemainingMs - elapsedMonotonic);
       if (diff <= 0) return { total: 0, hours: 0, minutes: 0, seconds: 0 };
       return {
         total: diff,
@@ -143,8 +282,22 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
       };
     };
 
+    // Initial render tick
+    setTimeLeft(calculateTimeLeft());
+
+    // Sync with server date header and update remaining baseline
+    fetchServerOffset().then((offset) => {
+      if (offset !== 0) {
+        serverOffsetMs = offset;
+        const correctedNow = Date.now() + offset;
+        initialRemainingMs = Math.max(0, endMs - correctedNow);
+        perfStart = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        setTimeLeft(calculateTimeLeft());
+      }
+    });
+
     const timerInterval = setInterval(() => {
-      const remaining = calculateTimeLeft(jadwal.waktu_selesai);
+      const remaining = calculateTimeLeft();
       setTimeLeft(remaining);
 
       if (remaining.total <= 0 && !isSubmittingRef.current && !isBlockedRef.current) {
@@ -166,16 +319,16 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
 
     return () => {
       clearInterval(timerInterval);
-      if (gracePeriodTimer.current) clearTimeout(gracePeriodTimer.current);
-      if (windowBlurTimerRef.current) clearTimeout(windowBlurTimerRef.current);
+      cancelGracePeriod();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       window.removeEventListener('blur', handleWindowBlur);
+      window.removeEventListener('focus', handleWindowFocus);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       if (wakeLock) wakeLock.release().catch(()=>{});
     };
-  }, []);
+  }, [hasSigned]);
 
   useEffect(() => {
     if (window.MathJax) {
@@ -186,7 +339,9 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
   }, [currentIndex, soal]);
 
   const fetchSoal = async () => {
-    const res = await api('get_soal_ujian', { id_jadwal: jadwal.id_jadwal, id_log: idLog });
+    setIsLoading(true);
+    const activeNpsn = user?.npsn || jadwal?.npsn;
+    const res = await api('get_soal_ujian', { id_jadwal: jadwal.id_jadwal, id_log: idLog, npsn: activeNpsn });
     if (res.status === 'success') {
       if (res.logStatus) {
         const strikes = res.logStatus.pelanggaran || 0;
@@ -219,6 +374,8 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
 
       setSoal(parsedSoal);
       if (res.narasiMap) setNarasiMap(res.narasiMap);
+    } else if (res.need_signature) {
+      setHasSigned(false);
     }
     setIsLoading(false);
   };
@@ -226,7 +383,8 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
   const reportViolation = async (reason = 'Meninggalkan halaman ujian') => {
     if (isBlockedRef.current || isSubmittingRef.current) return;
 
-    const res = await api('catat_pelanggaran', { id_log: idLog, alasan: reason });
+    const activeNpsn = user?.npsn || jadwal?.npsn;
+    const res = await api('catat_pelanggaran', { id_log: idLog, alasan: reason, npsn: activeNpsn });
     if (res.status === 'success') {
       const strikes = res.pelanggaran_saat_ini;
       setViolationCount(strikes);
@@ -289,27 +447,66 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
     }
     lastViolationTimeRef.current = now;
     reportViolation(reason);
+    if (jadwal?.browser_lockdown) {
+      setBlurOverlay(true);
+    }
     enforceFullscreen();
   };
 
+  const scheduleSecurityViolation = (reason) => {
+    if (isSubmittingRef.current || isBlockedRef.current) return;
+    if (gracePeriodTimer.current || windowBlurTimerRef.current) return;
+
+    // 3000ms grace period: cancels if student returns within 3 seconds
+    const timer = setTimeout(() => {
+      gracePeriodTimer.current = null;
+      windowBlurTimerRef.current = null;
+      handleSecurityViolation(reason);
+    }, 3000);
+
+    gracePeriodTimer.current = timer;
+    windowBlurTimerRef.current = timer;
+  };
+
   const triggerViolationImmediate = (reason) => {
+    cancelGracePeriod();
     handleSecurityViolation(reason || 'Meninggalkan halaman ujian');
   };
 
   const handleVisibilityChange = () => {
     if (document.hidden) {
-      handleSecurityViolation('Terdeteksi keluar dari layar ujian (visibility hidden)');
+      scheduleSecurityViolation('Terdeteksi keluar dari layar ujian (visibility hidden)');
+    } else {
+      if (jadwal?.browser_lockdown && document.documentElement?.requestFullscreen && !document.fullscreenElement) {
+        setBlurOverlay(true);
+        enforceFullscreen();
+      } else {
+        cancelGracePeriod();
+      }
     }
   };
 
   const handleFullscreenChange = () => {
     if (!document.fullscreenElement && jadwal?.browser_lockdown) {
-      handleSecurityViolation('Terdeteksi keluar dari mode layar penuh (fullscreen exit)');
+      setBlurOverlay(true);
+      scheduleSecurityViolation('Terdeteksi keluar dari mode layar penuh (fullscreen exit)');
+    } else if (document.fullscreenElement) {
+      cancelGracePeriod();
+      setBlurOverlay(false);
     }
   };
 
   const handleWindowBlur = () => {
-    handleSecurityViolation('Terdeteksi keluar dari layar ujian (window blur)');
+    scheduleSecurityViolation('Terdeteksi keluar dari layar ujian (window blur)');
+  };
+
+  const handleWindowFocus = () => {
+    if (jadwal?.browser_lockdown && document.documentElement?.requestFullscreen && !document.fullscreenElement) {
+      setBlurOverlay(true);
+      enforceFullscreen();
+    } else {
+      cancelGracePeriod();
+    }
   };
 
   const setupAntiCheat = () => {
@@ -318,9 +515,11 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
       document.addEventListener('fullscreenchange', handleFullscreenChange);
     }
     window.addEventListener('blur', handleWindowBlur);
+    window.addEventListener('focus', handleWindowFocus);
   };
 
   const returnToExam = () => {
+    cancelGracePeriod();
     setBlurOverlay(false);
     enforceFullscreen();
   };
@@ -362,6 +561,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
 
   const executeSubmitExam = async (isAuto = false) => {
     setConfirmModal({ isOpen: false });
+    cancelGracePeriod();
     if (isSubmittingRef.current) return;
 
     if (!isAuto && !navigator.onLine) {
@@ -378,11 +578,13 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
       jawaban: jawabanSiswa[key]
     }));
 
+    const activeNpsn = user?.npsn || jadwal?.npsn;
     const res = await api('submit_ujian', {
       id_log: idLog,
       id_jadwal: jadwal.id_jadwal,
       id_siswa: currentUserId,
-      jawaban: formattedJawaban
+      jawaban: formattedJawaban,
+      npsn: activeNpsn
     });
 
     if (document.fullscreenElement) document.exitFullscreen().catch(() => { });
@@ -540,20 +742,42 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
     }
   };
 
-  if (isLoading) {
+  if (isBlocked) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col items-center justify-center">
-        <Loader text="Menyiapkan Soal dan Enkripsi Sesi..." />
+      <div className="min-h-[100dvh] bg-rose-600 flex flex-col items-center justify-center p-6 text-center text-white space-y-4">
+        <span className="material-symbols-outlined text-[80px]">block</span>
+        <h1 className="text-2xl sm:text-3xl font-black">AKUN DIBLOKIR</h1>
+        <p className="text-sm sm:text-base max-w-md">Sistem mendeteksi kecurangan. Hubungi proktor / pengawas ujian untuk membuka akses Anda.</p>
       </div>
     );
   }
 
-  if (isBlocked) {
+  // Student Digital Signature Gate (Requirement 1)
+  // Blocks question rendering, palette, timer, and anti-cheat until student submits signature
+  if (!hasSigned) {
     return (
-      <div className="min-h-screen bg-rose-600 flex flex-col items-center justify-center p-6 text-center text-white space-y-4">
-        <span className="material-symbols-outlined text-[80px]">block</span>
-        <h1 className="text-2xl sm:text-3xl font-black">AKUN DIBLOKIR</h1>
-        <p className="text-sm sm:text-base max-w-md">Sistem mendeteksi kecurangan. Hubungi proktor / pengawas ujian untuk membuka akses Anda.</p>
+      <DigitalSignatureModal
+        isOpen={true}
+        studentInfo={{
+          nama: user?.nama_lengkap || user?.username,
+          nisn: user?.nisn || currentUserId,
+          kelas: user?.kelas || jadwal?.target_kelas || '-',
+          nama_mapel: jadwal?.mata_pelajaran?.nama_mapel || jadwal?.nama_mapel || 'Ujian CBT',
+          nama_guru: jadwal?.nama_guru,
+          ruang: user?.ruang || jadwal?.ruang || 'Ruang Ujian',
+          judul_ujian: jadwal?.nama_ujian || jadwal?.nama_mapel
+        }}
+        onSubmit={handleSignatureSubmit}
+        onCancel={onFinish}
+        isSubmitting={isSigningSubmitting}
+      />
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-[100dvh] bg-slate-50 dark:bg-slate-900 flex flex-col items-center justify-center">
+        <Loader text="Menyiapkan Soal dan Enkripsi Sesi..." />
       </div>
     );
   }
@@ -671,7 +895,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
 
   return (
     <div 
-      className="text-slate-800 dark:text-slate-100 bg-slate-50 dark:bg-slate-900 h-screen flex flex-col overflow-hidden select-none transition-colors duration-300" 
+      className="text-slate-800 dark:text-slate-100 bg-slate-50 dark:bg-slate-900 h-[100dvh] flex flex-col overflow-hidden select-none transition-colors duration-300" 
       ref={examContainerRef} 
       onClick={enforceFullscreen}
     >
@@ -746,7 +970,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
         <div className="flex items-center gap-2 sm:gap-3">
           <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border font-mono font-bold text-xs sm:text-sm tracking-wider transition-colors ${
             timeLeft.total < 60000 
-              ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800 animate-pulse'
+              ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800'
               : timeLeft.total < 300000 
               ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800'
               : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'

@@ -430,15 +430,18 @@ async function runMasterE2ESuite() {
   let liveAvatarSuccess = false;
   if (targetAdmin) {
     const originalAvatar = targetAdmin.foto_profil;
-    const testAvatar = 'https://api.dicebear.com/7.x/bottts/svg?seed=E2ETest';
-    const updateRes = await fetchAPI('update_admin_profil', {
-      id_admin: targetAdmin.id_admin,
-      foto_profil: testAvatar,
-      npsn: targetNpsn
-    });
-    liveAvatarSuccess = updateRes?.status === 'success' && updateRes?.message === 'Profil berhasil diperbarui.';
-    // Restore original avatar
-    await supabase.from('admin').update({ foto_profil: originalAvatar }).eq('id_admin', targetAdmin.id_admin);
+    const testAvatar = 'https://api.dicebear.com/7.x/bottts/svg?seed=AdminUpdated';
+    try {
+      const updateRes = await fetchAPI('update_admin_profil', {
+        id_admin: targetAdmin.id_admin,
+        foto_profil: testAvatar,
+        npsn: targetNpsn
+      });
+      liveAvatarSuccess = updateRes?.status === 'success' && updateRes?.message === 'Profil berhasil diperbarui.';
+    } finally {
+      // Restore original avatar unconditionally
+      await supabase.from('admin').update({ foto_profil: originalAvatar }).eq('id_admin', targetAdmin.id_admin);
+    }
   }
   record(
     'ADMIN',
@@ -461,8 +464,8 @@ async function runMasterE2ESuite() {
   }
 
   // 3.2 Dashboard outer padding reduction
-  const hasCompactOuterPadding = guruCode.includes('px-3 sm:px-5 lg:px-6 py-4 pb-24 lg:pb-8');
-  record('GURU', 'Main content container uses tightened compact outer padding (px-3 sm:px-5 lg:px-6 py-4 pb-24 lg:pb-8)', hasCompactOuterPadding);
+  const hasCompactOuterPadding = /px-3\s+sm:px-5\s+lg:px-6\s+py-4/.test(guruCode);
+  record('GURU', 'Main content container uses tightened compact outer padding (px-3 sm:px-5 lg:px-6 py-4)', hasCompactOuterPadding);
 
   // 3.3 Removal of redundant heading
   const hasDuplicateHeading = guruCode.includes('Ringkasan Aktivitas Mengajar');

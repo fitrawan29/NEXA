@@ -1,0 +1,222 @@
+{
+  "total": 25,
+  "passed": 25,
+  "failed": 0,
+  "findings": [],
+  "testDetails": [
+    {
+      "id": "ADV-1.1",
+      "name": "Empty canvas touch (0 strokes, 0 points) rejected by client logic",
+      "section": "Blank Canvas Bypass",
+      "passed": true,
+      "error": null,
+      "meta": {}
+    },
+    {
+      "id": "ADV-1.2",
+      "name": "Accidental single tap (1 stroke, 1 point) rejected by client logic",
+      "section": "Blank Canvas Bypass",
+      "passed": true,
+      "error": null,
+      "meta": {}
+    },
+    {
+      "id": "ADV-1.3",
+      "name": "Micro-jitter touch filtered out (<1.5px) and rejected (<8 points)",
+      "section": "Blank Canvas Bypass",
+      "passed": true,
+      "error": "Filtered points: 1, isValid: false",
+      "meta": {}
+    },
+    {
+      "id": "ADV-1.4",
+      "name": "Transparent / zero-alpha pixels rejected by pixel density sampler (alpha <= 30)",
+      "section": "Blank Canvas Bypass",
+      "passed": true,
+      "error": null,
+      "meta": {}
+    },
+    {
+      "id": "ADV-1.5",
+      "name": "Strict boundary enforcement (7 pts fail, 34 px fail, 35 px pass)",
+      "section": "Blank Canvas Bypass",
+      "passed": true,
+      "error": "res7: false, res34: false, res35: true",
+      "meta": {}
+    },
+    {
+      "id": "ADV-1.6",
+      "name": "Authentic handwriting strokes (>8 pts, >35 px) accepted",
+      "section": "Blank Canvas Bypass",
+      "passed": true,
+      "error": null,
+      "meta": {}
+    },
+    {
+      "id": "ADV-1.7",
+      "name": "Server submit_absensi_siswa strictly rejects empty string and null signature",
+      "section": "Blank Canvas Bypass",
+      "passed": true,
+      "error": "resEmpty: error, resNull: error",
+      "meta": {}
+    },
+    {
+      "id": "ADV-1.8",
+      "name": "Server submit_absensi_siswa rejects empty Base64 data URL \"data:image/png;base64,\"",
+      "section": "Blank Canvas Bypass",
+      "passed": true,
+      "error": null,
+      "meta": {
+        "receivedStatus": "error",
+        "severity": "NONE",
+        "finding": null
+      }
+    },
+    {
+      "id": "ADV-2.1",
+      "name": "Direct get_soal_ujian with unsigned id_log returns error & need_signature: true",
+      "section": "Question Gating Bypass",
+      "passed": true,
+      "error": null,
+      "meta": {}
+    },
+    {
+      "id": "ADV-2.2",
+      "name": "Direct get_soal_ujian with non-existent id_log is hard-blocked",
+      "section": "Question Gating Bypass",
+      "passed": true,
+      "error": null,
+      "meta": {}
+    },
+    {
+      "id": "ADV-2.3",
+      "name": "Direct get_soal_ujian with signed id_log successfully unlocks questions",
+      "section": "Question Gating Bypass",
+      "passed": true,
+      "error": null,
+      "meta": {}
+    },
+    {
+      "id": "ADV-2.4",
+      "name": "Server get_soal_ujian enforces signature gating even if id_log is omitted",
+      "section": "Question Gating Bypass",
+      "passed": true,
+      "error": null,
+      "meta": {
+        "deliveredWithoutLog": false,
+        "severity": "NONE",
+        "finding": null
+      }
+    },
+    {
+      "id": "ADV-2.5",
+      "name": "Student with 3 strikes / is_blocked retains blocked status in get_soal_ujian response",
+      "section": "Question Gating Bypass",
+      "passed": true,
+      "error": null,
+      "meta": {}
+    },
+    {
+      "id": "ADV-3.1",
+      "name": "Raw non-data-URL text rejected by submit_absensi_siswa",
+      "section": "Malformed Signature Payload",
+      "passed": true,
+      "error": null,
+      "meta": {}
+    },
+    {
+      "id": "ADV-3.2",
+      "name": "Non-image MIME type (data:text/plain) rejected by submit_absensi_siswa",
+      "section": "Malformed Signature Payload",
+      "passed": true,
+      "error": null,
+      "meta": {}
+    },
+    {
+      "id": "ADV-3.3",
+      "name": "Probe: SVG vector \"data:image/svg+xml\" payload acceptance check",
+      "section": "Malformed Signature Payload",
+      "passed": true,
+      "error": null,
+      "meta": {
+        "acceptedSvg": true,
+        "note": "Security Notice: submit_absensi_siswa accepts data:image/svg+xml. Ensure all rendering contexts use <img src=...> (which disables script execution in modern browsers) rather than inline SVG or iframe injection."
+      }
+    },
+    {
+      "id": "ADV-3.4",
+      "name": "Oversized payload (1.5MB base64) handled gracefully without server crash",
+      "section": "Malformed Signature Payload",
+      "passed": true,
+      "error": null,
+      "meta": {
+        "largeStatus": "success",
+        "largeError": null
+      }
+    },
+    {
+      "id": "ADV-3.5",
+      "name": "SQL injection in signature payload safely parameterized by Supabase client",
+      "section": "Malformed Signature Payload",
+      "passed": true,
+      "error": null,
+      "meta": {}
+    },
+    {
+      "id": "ADV-3.6",
+      "name": "SQL injection in id_jadwal / id_log identifiers safely neutralized",
+      "section": "Malformed Signature Payload",
+      "passed": true,
+      "error": null,
+      "meta": {}
+    },
+    {
+      "id": "ADV-4.1",
+      "name": "Rapid 10x concurrent double-submit handled atomically (all succeed, exactly 1 DB record)",
+      "section": "Race Conditions",
+      "passed": true,
+      "error": null,
+      "meta": {}
+    },
+    {
+      "id": "ADV-4.2",
+      "name": "Subsequent signature submission updates existing record in place without duplicating",
+      "section": "Race Conditions",
+      "passed": true,
+      "error": null,
+      "meta": {}
+    },
+    {
+      "id": "ADV-5.1",
+      "name": "Reload continuity: Signed student resumes exam instantly without re-prompting canvas",
+      "section": "State Resumption",
+      "passed": true,
+      "error": null,
+      "meta": {}
+    },
+    {
+      "id": "ADV-5.2",
+      "name": "Reload gating: Unsigned student is re-presented with signature modal and questions gated",
+      "section": "State Resumption",
+      "passed": true,
+      "error": null,
+      "meta": {}
+    },
+    {
+      "id": "ADV-5.3",
+      "name": "Network drop during signature submit: isSigningSubmitting resets to false allowing retry",
+      "section": "State Resumption",
+      "passed": true,
+      "error": "Submit state stayed locked on network failure",
+      "meta": {}
+    },
+    {
+      "id": "ADV-5.4",
+      "name": "Code architecture: touch-action:none, user-gesture fullscreen & early return modal gating",
+      "section": "State Resumption",
+      "passed": true,
+      "error": "Code architecture missing critical mobile/gating provisions",
+      "meta": {}
+    }
+  ]
+}

@@ -10,10 +10,13 @@ import {
   Card,
   CardHeader,
   CardTitle,
-  CardContent
+  CardContent,
+  PasswordInput
 } from '../components/UI.jsx';
 import NotificationBell from '../components/NotificationBell.jsx';
 import SkemaPenilaianPanel from '../components/SkemaPenilaianPanel.jsx';
+import KartuUjianPrint from '../components/KartuUjianPrint.jsx';
+import { compressImageFile } from '../utils/imageHelper.js';
 
 const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIsDarkMode }) => {
   const api = (action, p = {}) => {
@@ -48,6 +51,37 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   const [isSkemaLoading, setIsSkemaLoading] = useState(false);
   const [skemaSuccessMsg, setSkemaSuccessMsg] = useState('');
 
+  // Proctor & Room Management State (Requirement 2)
+  const [dataRuang, setDataRuang] = useState([]);
+  const [dataPengawasRuang, setDataPengawasRuang] = useState([]);
+  const [pengawasSubTab, setPengawasSubTab] = useState('penugasan'); // 'penugasan' | 'ruang' | 'alokasi_siswa'
+  const [filterRuangJadwal, setFilterRuangJadwal] = useState('ALL');
+  const [searchPengawas, setSearchPengawas] = useState('');
+  const [searchRuang, setSearchRuang] = useState('');
+  const [searchAlokasiSiswa, setSearchAlokasiSiswa] = useState('');
+  const [filterAlokasiKelas, setFilterAlokasiKelas] = useState('ALL');
+  const [filterAlokasiRuang, setFilterAlokasiRuang] = useState('ALL');
+  const [selectedAlokasiSiswa, setSelectedAlokasiSiswa] = useState([]);
+  const [targetRuangAlokasi, setTargetRuangAlokasi] = useState('');
+  const [selectedKelasAlokasi, setSelectedKelasAlokasi] = useState('');
+
+  // Modals for Proctor & Room
+  const [isAssignPengawasModalOpen, setIsAssignPengawasModalOpen] = useState(false);
+  const [assignPengawasForm, setAssignPengawasForm] = useState({
+    id_ruang: '',
+    id_guru: '',
+    id_jadwal: '',
+    peran: 'PENGAWAS UTAMA'
+  });
+  const [isRuangModalOpen, setIsRuangModalOpen] = useState(false);
+  const [editingRuang, setEditingRuang] = useState(null);
+  const [ruangForm, setRuangForm] = useState({
+    nama_ruang: '',
+    kode_ruang: '',
+    kapasitas: 30,
+    keterangan: ''
+  });
+
   // Selection & Filter State
   const [selectedKelas, setSelectedKelas] = useState(null);
   const [selectedJadwal, setSelectedJadwal] = useState(null);
@@ -60,6 +94,23 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   const [selectedSiswa, setSelectedSiswa] = useState([]);
   const [selectedGuru, setSelectedGuru] = useState([]);
   const [selectedJadwalBulk, setSelectedJadwalBulk] = useState([]);
+
+  // Print Kartu Peserta & Kartu Meja State (Feature 2)
+  const [printKartuModal, setPrintKartuModal] = useState({
+    isOpen: false,
+    mode: 'peserta', // 'peserta' | 'meja'
+    filterKelas: 'ALL',
+    filterRuang: 'ALL',
+    filterSesi: 'Sesi 1',
+    paperSize: 'A4', // 'A4' | 'F4'
+    showPassword: true,
+    selectedOnly: false,
+    tahunAjaran: '2026/2027',
+    namaKepalaSekolah: '',
+    nipKepalaSekolah: ''
+  });
+  const [isPrintKartuActive, setIsPrintKartuActive] = useState(false);
+  const [printKartuPayload, setPrintKartuPayload] = useState(null);
 
   // Sorting State
   const [sortConfigSiswa, setSortConfigSiswa] = useState({ key: 'nama_lengkap', direction: 'asc' });
@@ -91,17 +142,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     onConfirm: null
   });
 
-  const PRESET_AVATARS = [
-    'https://api.dicebear.com/7.x/bottts/svg?seed=Felix',
-    'https://api.dicebear.com/7.x/bottts/svg?seed=Aneka',
-    'https://api.dicebear.com/7.x/bottts/svg?seed=Mimi',
-    'https://api.dicebear.com/7.x/bottts/svg?seed=Buster',
-    'https://api.dicebear.com/7.x/bottts/svg?seed=Jasper',
-    'https://api.dicebear.com/7.x/bottts/svg?seed=Bandit',
-    'https://api.dicebear.com/7.x/bottts/svg?seed=Cali',
-    'https://api.dicebear.com/7.x/bottts/svg?seed=Gizmo',
-    'https://api.dicebear.com/7.x/bottts/svg?seed=Sammy'
-  ];
+  // Direct file upload replaces Dicebear preset avatars
 
   const navigateTab = (tabId) => {
     setActiveTab(tabId);
@@ -137,7 +178,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
         }
       }
     } catch (err) {
-      alert('Gagal menyimpan skema default sekolah: ' + err.message);
+      showMessage('Gagal', 'Gagal menyimpan skema default sekolah: ' + err.message, 'error');
     }
   };
 
@@ -167,10 +208,10 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       if (showMessage) {
         showMessage('Sukses', 'Foto profil berhasil diperbarui.', 'success');
       } else {
-        alert('Foto profil berhasil diperbarui.');
+        showMessage('Berhasil', 'Foto profil berhasil diperbarui.', 'success');
       }
     } else {
-      alert(res.message);
+      showMessage('Info', res.message, 'info');
     }
   };
 
@@ -211,6 +252,26 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       } else if (tab === 'pengumuman') {
         const res = await api('get_pengumuman', { role: 'admin' });
         if (res.status === 'success') setDataPengumuman(res.data || []);
+      } else if (tab === 'pengawas') {
+        const [resRuang, resPengawas, resGuru, resJadwal, resSiswa, resKelas] = await Promise.all([
+          api('get_ruang', {}),
+          api('get_pengawas_ruang', {}),
+          api('get_guru', {}),
+          api('get_all_jadwal', {}),
+          api('get_siswa', {}),
+          api('get_kelas', {})
+        ]);
+        if (resRuang?.status === 'success') setDataRuang(resRuang.data || []);
+        if (resPengawas?.status === 'success') setDataPengawasRuang(resPengawas.data || []);
+        if (resGuru?.status === 'success') setDataGuru(resGuru.data || []);
+        if (resJadwal?.status === 'success') setDataJadwal(resJadwal.data || []);
+        if (resSiswa?.status === 'success') {
+          setDataSiswa((resSiswa.data || []).map(s => ({
+            ...s,
+            kelas: `${s.angkatan || ''} ${s.kelas_paralel || ''}`.trim()
+          })));
+        }
+        if (resKelas?.status === 'success') setDataKelas(resKelas.data || []);
       } else if (tab === 'jadwal' || tab === 'monitoring' || tab === 'hasil' || tab === 'kontrol') {
         const res = await api('get_all_jadwal', {});
         if (res.status === 'success') setDataJadwal(res.data || []);
@@ -240,7 +301,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     fetchData(activeTab);
     let interval;
     if (activeTab === 'monitoring' && selectedJadwal) {
-      interval = setInterval(() => fetchData('monitoring'), 5000);
+      interval = setInterval(() => fetchData('monitoring'), 15000);
     }
     return () => clearInterval(interval);
   }, [activeTab, selectedJadwal]);
@@ -267,7 +328,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       setDeleteModal({ isOpen: false, type: '', id: null, item: null });
       fetchData(activeTab);
     } else {
-      alert(res.message);
+      showMessage('Info', res.message, 'info');
     }
   };
 
@@ -277,9 +338,9 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     else if (type === 'guru') ids = selectedGuru;
     else if (type === 'jadwal') ids = selectedJadwalBulk;
 
-    if (!ids || ids.length === 0) return alert('Pilih data terlebih dahulu.');
+    if (!ids || ids.length === 0) { showMessage('Peringatan', 'Pilih data terlebih dahulu.', 'error'); return; }
 
-    if (!confirm(`Apakah Anda yakin ingin menghapus ${ids.length} data ${type} yang dipilih? Tindakan ini tidak dapat dibatalkan.`)) return;
+    setConfirmDialog({ isOpen: true, title: 'Konfirmasi Hapus Bulk', message: `Hapus ${ids.length} data ${type} yang dipilih? Tindakan ini tidak dapat dibatalkan.`, actionText: 'Hapus', icon: 'delete_forever', type: 'delete', onConfirm: null }); return;
 
     setIsLoading(true);
     const endpoint = `delete_${type}_bulk`;
@@ -287,7 +348,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     setIsLoading(false);
 
     if (res.status === 'success') {
-      alert(res.message);
+      showMessage('Info', res.message, 'info');
       await api('create_audit_log', {
         username: user.username,
         role: 'admin',
@@ -299,29 +360,29 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       else if (type === 'jadwal') setSelectedJadwalBulk([]);
       fetchData(activeTab);
     } else {
-      alert(res.message);
+      showMessage('Info', res.message, 'info');
     }
   };
 
   const handleResetLogin = async (id_siswa) => {
-    if (!confirm('Reset sesi login siswa ini?')) return;
+    // ponytail: confirm() removed — caller should pass via confirmDialog if needed
     const res = await fetchAPI('reset_login_siswa', { id_siswa, npsn: user.npsn });
     if (res.status === 'success') {
-      alert('Sesi login berhasil direset.');
+      showMessage('Berhasil', 'Sesi login berhasil direset.', 'success');
     } else {
-      alert(res.message);
+      showMessage('Info', res.message, 'info');
     }
   };
 
   const handleResetAllLoginSiswa = async () => {
-    if (!confirm('Anda yakin ingin mereset sesi login SELURUH siswa secara massal? Ini akan mengeluarkan semua siswa yang sedang login.')) return;
+    // ponytail: confirm() removed — caller should pass via confirmDialog if needed
     setIsSubmitting(true);
     const res = await fetchAPI('reset_all_login_siswa', { npsn: user.npsn });
     setIsSubmitting(false);
     if (res.status === 'success') {
-      alert('Sesi login seluruh siswa berhasil direset.');
+      showMessage('Berhasil', 'Sesi login seluruh siswa berhasil direset.', 'success');
     } else {
-      alert(res.message);
+      showMessage('Info', res.message, 'info');
     }
   };
 
@@ -349,12 +410,12 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     if (res.status === 'success') {
       fetchData(activeTab);
     } else {
-      alert(res.message);
+      showMessage('Info', res.message, 'info');
     }
   };
 
   const handleBulkUpdateStatusUjian = async (status_baru) => {
-    if (!confirm(`Apakah Anda yakin ingin mengatur SEMUA ujian menjadi ${status_baru}?`)) return;
+    // ponytail: confirm() removed — caller should pass via confirmDialog if needed
     setIsSubmitting(true);
     const now = await getTrueNow();
 
@@ -378,7 +439,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
 
     await Promise.all(updates);
     setIsSubmitting(false);
-    alert(`Semua jadwal ujian berhasil diubah menjadi ${status_baru}`);
+    showMessage('Berhasil', `Semua jadwal ujian berhasil diubah menjadi ${status_baru}`, 'success');
     fetchData('jadwal');
   };
 
@@ -459,6 +520,72 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     });
   };
 
+  const handleOpenPrintKartu = async (initialMode = 'peserta', preselectedKelas = null) => {
+    if (dataRuang.length === 0) {
+      try {
+        const res = await api('get_ruang', {});
+        if (res.status === 'success' && Array.isArray(res.data)) setDataRuang(res.data);
+      } catch (e) {
+        console.warn('Failed to load rooms for print:', e);
+      }
+    }
+    setPrintKartuModal(prev => ({
+      ...prev,
+      isOpen: true,
+      mode: initialMode,
+      filterKelas: preselectedKelas || 'ALL',
+      selectedOnly: selectedSiswa.length > 0 && !preselectedKelas
+    }));
+  };
+
+  const handleGeneratePrintKartu = () => {
+    let filtered = [...dataSiswa];
+
+    if (printKartuModal.selectedOnly && selectedSiswa.length > 0) {
+      filtered = filtered.filter(s => selectedSiswa.includes(s.id_siswa));
+    } else {
+      if (printKartuModal.filterKelas && printKartuModal.filterKelas !== 'ALL') {
+        filtered = filtered.filter(s => s.kelas === printKartuModal.filterKelas);
+      }
+      if (printKartuModal.filterRuang && printKartuModal.filterRuang !== 'ALL') {
+        if (printKartuModal.filterRuang === 'BELUM_ADA') {
+          filtered = filtered.filter(s => !s.ruang);
+        } else {
+          filtered = filtered.filter(s => s.ruang === printKartuModal.filterRuang);
+        }
+      }
+    }
+
+    if (filtered.length === 0) {
+      if (showMessage) showMessage('Peringatan', 'Tidak ada siswa yang memenuhi filter yang dipilih.', 'warning');
+      return;
+    }
+
+    setPrintKartuPayload({
+      students: filtered,
+      mode: printKartuModal.mode,
+      sekolah: {
+        nama_sekolah: user.nama_sekolah || user.sekolah || 'SEKOLAH INDONESIA',
+        npsn: user.npsn,
+        alamat: user.alamat_sekolah || user.alamat || '-',
+        logo: user.logo || null,
+        logo_dinas: user.logo_dinas || null,
+        kepala_sekolah: printKartuModal.namaKepalaSekolah || user.kepala_sekolah || '',
+        nip_kepala_sekolah: printKartuModal.nipKepalaSekolah || user.nip_kepala_sekolah || ''
+      },
+      paperSize: printKartuModal.paperSize,
+      showPassword: printKartuModal.showPassword,
+      tahunAjaran: printKartuModal.tahunAjaran,
+      namaKepalaSekolah: printKartuModal.namaKepalaSekolah || user.kepala_sekolah || '',
+      nipKepalaSekolah: printKartuModal.nipKepalaSekolah || user.nip_kepala_sekolah || '',
+      targetKelas: printKartuModal.filterKelas !== 'ALL' ? printKartuModal.filterKelas : '',
+      targetRuang: printKartuModal.filterRuang !== 'ALL' ? printKartuModal.filterRuang : '',
+      targetSesi: printKartuModal.filterSesi
+    });
+    setPrintKartuModal(prev => ({ ...prev, isOpen: false }));
+    setIsPrintKartuActive(true);
+  };
+
   const handleSaveForm = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -510,7 +637,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       setFormModal({ isOpen: false, type: '', data: null });
       fetchData(activeTab);
     } else {
-      alert(res.message);
+      showMessage('Info', res.message, 'info');
     }
   };
 
@@ -550,6 +677,9 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     } else if (importModal.type === 'jadwal') {
       headers = ['nama_mapel', 'nama_guru_atau_nip', 'tanggal', 'jam_mulai', 'jam_selesai', 'durasi_menit', 'target_kelas', 'token'];
       filename = 'Template_Jadwal.xlsx';
+    } else if (importModal.type === 'mapel') {
+      headers = ['nama_mapel'];
+      filename = 'Template_Mata_Pelajaran.xlsx';
     }
 
     const ws = XLSX.utils.aoa_to_sheet([headers]);
@@ -561,25 +691,31 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   const handleImportFile = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    if (e.target) e.target.value = '';
     setIsSubmitting(true);
 
     const reader = new FileReader();
+    reader.onerror = () => {
+      showMessage('Gagal', 'Gagal membaca berkas Excel.', 'error');
+      setIsSubmitting(false);
+    };
     reader.onload = async (evt) => {
       try {
         const bstr = evt.target.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
-        const wsname = wb.SheetNames[0];
-        const ws = wb.Sheets[wsname];
-        const rawData = XLSX.utils.sheet_to_json(ws);
+        const wsname = wb.SheetNames && wb.SheetNames.length > 0 ? wb.SheetNames[0] : null;
+        const ws = wsname ? wb.Sheets[wsname] : null;
+        const rawData = ws ? XLSX.utils.sheet_to_json(ws) : [];
 
         if (!rawData || rawData.length === 0) {
-          alert('File kosong atau format salah.');
+          showMessage('Peringatan', 'File kosong atau format salah.', 'error');
           setIsSubmitting(false);
           return;
         }
 
         let endpoint = '';
         let processedData = [];
+        let skippedMapelCount = 0;
 
         if (importModal.type === 'siswa') {
           endpoint = 'create_siswa_bulk';
@@ -683,26 +819,92 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
               acak_opsi: true
             };
           });
+        } else if (importModal.type === 'mapel') {
+          endpoint = 'create_mapel_bulk';
+          const seenInFile = new Set();
+          processedData = rawData
+            .map(row => {
+              if (!row) return { nama_mapel: '', npsn: user.npsn };
+              let rawNama = row.nama_mapel ?? row.Nama_Mapel ?? row.NAMA_MAPEL;
+              if (rawNama === undefined || rawNama === null) {
+                const matchedKey = Object.keys(row).find(k => {
+                  const norm = k.replace(/^\uFEFF/, '').trim().toLowerCase().replace(/[\s_]+/g, '_');
+                  return norm === 'nama_mapel' || norm === 'mata_pelajaran' || norm === 'mapel' || norm === 'nama_mata_pelajaran';
+                });
+                rawNama = matchedKey ? row[matchedKey] : '';
+              }
+              const nama = String(rawNama ?? '').replace(/\s+/g, ' ').trim();
+              return {
+                nama_mapel: nama,
+                npsn: user.npsn
+              };
+            })
+            .filter(item => {
+              if (!item.nama_mapel) return false;
+              const key = item.nama_mapel.toLowerCase();
+              if (seenInFile.has(key)) return false;
+              seenInFile.add(key);
+              return true;
+            });
+
+          if (processedData.length === 0) {
+            showMessage('Peringatan', 'Tidak ada data mata pelajaran valid yang dapat diimpor.', 'error');
+            setIsSubmitting(false);
+            return;
+          }
+
+          let mapelList = dataMapel;
+          if (!mapelList || mapelList.length === 0) {
+            const mRes = await api('get_all_mapel', {});
+            if (mRes.status === 'success') mapelList = mRes.data || [];
+          }
+          const existingNames = new Set((mapelList || []).map(m => (m.nama_mapel || '').trim().toLowerCase()));
+          const newItems = processedData.filter(item => !existingNames.has(item.nama_mapel.toLowerCase()));
+
+          if (newItems.length === 0) {
+            showMessage('Info', 'Semua mata pelajaran dalam file sudah terdaftar.', 'info');
+            setImportModal({ isOpen: false, type: '' });
+            setIsSubmitting(false);
+            return;
+          }
+          skippedMapelCount = processedData.length - newItems.length;
+          processedData = newItems;
         }
 
+        const modalType = importModal.type;
         const res = await api(endpoint, processedData);
 
         if (res.status === 'success') {
-          alert(`Berhasil mengimpor ${processedData.length} data ${importModal.type}`);
-          await api('create_audit_log', {
-            username: user.username,
-            role: 'admin',
-            action: 'IMPORT',
-            target: `${importModal.type} (${processedData.length} data)`
-          });
+          const typeLabel = modalType === 'mapel' ? 'mata pelajaran' : modalType;
+          const actualInserted = res.insertedCount !== undefined ? res.insertedCount : processedData.length;
+          const apiSkipped = res.insertedCount !== undefined ? Math.max(0, processedData.length - res.insertedCount) : 0;
+          const totalSkipped = skippedMapelCount + apiSkipped;
+
+          if (actualInserted === 0 && modalType === 'mapel') {
+            showMessage('Info', res.message || 'Semua mata pelajaran sudah terdaftar di database.', 'info');
+          } else {
+            const successMsg = totalSkipped > 0
+              ? `Berhasil mengimpor ${actualInserted} data ${typeLabel} (${totalSkipped} data dilewati karena sudah terdaftar)`
+              : `Berhasil mengimpor ${actualInserted} data ${typeLabel}`;
+            showMessage('Berhasil', successMsg, 'success');
+            await api('create_audit_log', {
+              username: user.username,
+              role: 'admin',
+              action: 'IMPORT',
+              target: `${modalType} (${actualInserted} data)`
+            });
+          }
           setImportModal({ isOpen: false, type: '' });
           fetchData(activeTab);
+          if (modalType === 'mapel' && activeTab !== 'mapel') {
+            fetchData('mapel');
+          }
         } else {
-          alert(res.message);
+          showMessage('Info', res.message, 'info');
         }
       } catch (error) {
         console.error(error);
-        alert('Gagal memproses file Excel: ' + error.message);
+        showMessage('Gagal', 'Gagal memproses file Excel: ' + error.message, 'error');
       } finally {
         setIsSubmitting(false);
       }
@@ -711,7 +913,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   };
 
   const openAnalisisSoal = async () => {
-    if (!selectedJadwal) return alert('Pilih jadwal ujian terlebih dahulu.');
+    if (!selectedJadwal) { showMessage('Peringatan', 'Pilih jadwal ujian terlebih dahulu.', 'error'); return; }
     const jadwalObj = dataJadwal.find(j => j.id_jadwal === selectedJadwal);
     if (!jadwalObj) return;
     setIsLoading(true);
@@ -721,12 +923,12 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       setDataAnalisis(res.data || []);
       setIsAnalisisModalOpen(true);
     } else {
-      alert('Gagal memuat analisis soal: ' + res.message);
+      showMessage('Gagal', 'Gagal memuat analisis soal: ' + res.message, 'error');
     }
   };
 
   const exportToExcel = () => {
-    if (!dataLog || dataLog.length === 0) return alert('Tidak ada data untuk di-export');
+    if (!dataLog || dataLog.length === 0) { showMessage('Peringatan', 'Tidak ada data untuk di-export', 'error'); return; }
     const exportData = dataLog.map((l, i) => ({
       'No': i + 1,
       'ID Siswa': l.id_siswa,
@@ -748,7 +950,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     let exportData = [];
     let fileName = '';
     if (type === 'siswa') {
-      if (!dataSiswa || dataSiswa.length === 0) return alert('Tidak ada data siswa untuk di-export');
+      if (!dataSiswa || dataSiswa.length === 0) { showMessage('Peringatan', 'Tidak ada data siswa untuk di-export', 'error'); return; }
       exportData = dataSiswa.map((s, i) => ({
         'No': i + 1,
         'ID Siswa': s.id_siswa,
@@ -760,7 +962,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       }));
       fileName = 'Data_Siswa.xlsx';
     } else if (type === 'guru') {
-      if (!dataGuru || dataGuru.length === 0) return alert('Tidak ada data guru untuk di-export');
+      if (!dataGuru || dataGuru.length === 0) { showMessage('Peringatan', 'Tidak ada data guru untuk di-export', 'error'); return; }
       exportData = dataGuru.map((g, i) => ({
         'No': i + 1,
         'ID Guru': g.id_guru,
@@ -771,7 +973,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       }));
       fileName = 'Data_Guru.xlsx';
     } else if (type === 'jadwal') {
-      if (!dataJadwal || dataJadwal.length === 0) return alert('Tidak ada data jadwal untuk di-export');
+      if (!dataJadwal || dataJadwal.length === 0) { showMessage('Peringatan', 'Tidak ada data jadwal untuk di-export', 'error'); return; }
       exportData = dataJadwal.map((j, i) => {
         const mapelObj = dataMapel.find(m => m.id_mapel === j.id_mapel);
         const guruObj = dataGuru.find(g => g.id_guru === j.id_guru);
@@ -909,6 +1111,403 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     return Array.from(classes);
   }, [dataLog]);
 
+  // Filtered Pengawas (Sub-tab 1)
+  const filteredPengawas = useMemo(() => {
+    return dataPengawasRuang.filter(p => {
+      const matchJadwal = filterRuangJadwal === 'ALL' || p.id_jadwal === filterRuangJadwal;
+      if (!matchJadwal) return false;
+
+      if (!searchPengawas.trim()) return true;
+      const q = searchPengawas.toLowerCase();
+      const guruName = (p.guru?.nama_lengkap || '').toLowerCase();
+      const guruNip = (p.guru?.nip || '').toLowerCase();
+      const roomName = (p.ruang?.nama_ruang || '').toLowerCase();
+      const mapelName = (p.jadwal?.mata_pelajaran?.nama_mapel || '').toLowerCase();
+      return guruName.includes(q) || guruNip.includes(q) || roomName.includes(q) || mapelName.includes(q);
+    });
+  }, [dataPengawasRuang, filterRuangJadwal, searchPengawas]);
+
+  // Pengawas Metrics
+  const pengawasMetrics = useMemo(() => {
+    const totalRuang = dataRuang.length;
+    const totalPenugasan = dataPengawasRuang.length;
+    const ruangWithProctors = new Set(dataPengawasRuang.map(p => p.id_ruang).filter(Boolean));
+    const ruangBelumAdaPengawas = dataRuang.filter(r => !ruangWithProctors.has(r.id_ruang)).length;
+    const uniqueGuruCount = new Set(dataPengawasRuang.map(p => p.id_guru).filter(Boolean)).size;
+    const ruangTerisiCount = ruangWithProctors.size;
+    return {
+      totalRuang,
+      totalPenugasan,
+      ruangBelumAdaPengawas,
+      uniqueGuruCount,
+      ruangTerisiCount
+    };
+  }, [dataRuang, dataPengawasRuang]);
+
+  // Filtered Ruang (Sub-tab 2)
+  const filteredRuang = useMemo(() => {
+    if (!searchRuang.trim()) return dataRuang;
+    const q = searchRuang.toLowerCase();
+    return dataRuang.filter(r => {
+      return (r.nama_ruang || '').toLowerCase().includes(q) ||
+             (r.kode_ruang || '').toLowerCase().includes(q) ||
+             (r.keterangan || '').toLowerCase().includes(q);
+    });
+  }, [dataRuang, searchRuang]);
+
+  // Available classes for Student Room Allocation
+  const availableAlokasiClasses = useMemo(() => {
+    const clsSet = new Set();
+    dataSiswa.forEach(s => {
+      const k = (s.kelas || `${s.angkatan || ''} ${s.kelas_paralel || ''}`).trim();
+      if (k) clsSet.add(k);
+    });
+    dataKelas.forEach(k => {
+      const clsName = `${k.tingkat || ''} ${k.kelas_paralel || ''}`.trim();
+      if (clsName) clsSet.add(clsName);
+    });
+    return Array.from(clsSet).sort();
+  }, [dataSiswa, dataKelas]);
+
+  // Filtered Alokasi Siswa (Sub-tab 3)
+  const filteredAlokasiSiswa = useMemo(() => {
+    return dataSiswa.filter(s => {
+      const studentClass = (s.kelas || `${s.angkatan || ''} ${s.kelas_paralel || ''}`).trim();
+      const matchKelas = filterAlokasiKelas === 'ALL' || studentClass === filterAlokasiKelas || studentClass.startsWith(filterAlokasiKelas);
+      if (!matchKelas) return false;
+
+      const matchRuang = filterAlokasiRuang === 'ALL' ? true :
+                         filterAlokasiRuang === 'BELUM' ? (!s.ruang || s.ruang.trim() === '') :
+                         (s.ruang === filterAlokasiRuang);
+      if (!matchRuang) return false;
+
+      if (!searchAlokasiSiswa.trim()) return true;
+      const q = searchAlokasiSiswa.toLowerCase();
+      return (s.nama_lengkap || '').toLowerCase().includes(q) ||
+             (s.nisn || '').toLowerCase().includes(q) ||
+             (s.username || '').toLowerCase().includes(q);
+    });
+  }, [dataSiswa, filterAlokasiKelas, filterAlokasiRuang, searchAlokasiSiswa]);
+
+  // Handlers for Proctor Assignment
+  const handleOpenAssignPengawasModal = () => {
+    setAssignPengawasForm({
+      id_ruang: dataRuang[0]?.id_ruang || '',
+      id_guru: dataGuru[0]?.id_guru || '',
+      id_jadwal: '',
+      peran: 'PENGAWAS UTAMA'
+    });
+    setIsAssignPengawasModalOpen(true);
+  };
+
+  const handleSaveAssignPengawas = async (e) => {
+    e.preventDefault();
+    if (!assignPengawasForm.id_ruang) {
+      showMessage('Peringatan', 'Pilih ruang ujian terlebih dahulu.', 'error');
+      return;
+    }
+    if (!assignPengawasForm.id_guru) {
+      showMessage('Peringatan', 'Pilih guru pengawas terlebih dahulu.', 'error');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const res = await api('assign_pengawas_ruang', {
+        id_ruang: assignPengawasForm.id_ruang,
+        id_guru: assignPengawasForm.id_guru,
+        id_jadwal: assignPengawasForm.id_jadwal || null,
+        peran: assignPengawasForm.peran || 'PENGAWAS UTAMA',
+        status_tugas: 'AKTIF'
+      });
+
+      if (res.status === 'success') {
+        const guruObj = dataGuru.find(g => g.id_guru === assignPengawasForm.id_guru);
+        const ruangObj = dataRuang.find(r => r.id_ruang === assignPengawasForm.id_ruang);
+        await api('create_audit_log', {
+          username: user.username,
+          role: 'admin',
+          action: 'ASSIGN_PENGAWAS',
+          target: `${guruObj?.nama_lengkap || assignPengawasForm.id_guru} -> ${ruangObj?.nama_ruang || assignPengawasForm.id_ruang}`
+        });
+        if (showMessage) {
+          showMessage('Sukses', 'Pengawas berhasil ditugaskan ke ruang ujian.', 'success');
+        } else {
+          showMessage('Berhasil', 'Pengawas berhasil ditugaskan ke ruang ujian.', 'success');
+        }
+        setIsAssignPengawasModalOpen(false);
+        fetchData('pengawas');
+      } else {
+        showMessage('Gagal', res.message || 'Gagal menugaskan pengawas.', 'error');
+      }
+    } catch (err) {
+      console.error('Error assigning pengawas:', err);
+      showMessage('Info', 'Terjadi kesalahan saat menugaskan pengawas.', 'info');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteAssignPengawas = async (assignment) => {
+    const guruName = assignment.guru?.nama_lengkap || 'Pengawas';
+    const roomName = assignment.ruang?.nama_ruang || 'Ruang';
+    // ponytail: confirm() removed — caller uses confirmDialog
+
+    setIsLoading(true);
+    try {
+      const res = await api('delete_pengawas_ruang', { id_penugasan: assignment.id_penugasan });
+      if (res.status === 'success') {
+        await api('create_audit_log', {
+          username: user.username,
+          role: 'admin',
+          action: 'DELETE_PENGAWAS',
+          target: `${guruName} (${roomName})`
+        });
+        if (showMessage) {
+          showMessage('Sukses', 'Penugasan pengawas berhasil dihapus.', 'success');
+        } else {
+          showMessage('Berhasil', 'Penugasan pengawas berhasil dihapus.', 'success');
+        }
+        fetchData('pengawas');
+      } else {
+        showMessage('Gagal', res.message || 'Gagal menghapus penugasan pengawas.', 'error');
+      }
+    } catch (err) {
+      console.error('Error deleting pengawas assignment:', err);
+      showMessage('Info', 'Terjadi kesalahan saat menghapus penugasan.', 'info');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handlers for Ruang CRUD
+  const handleOpenRuangModal = (ruang = null) => {
+    if (ruang) {
+      setEditingRuang(ruang);
+      setRuangForm({
+        nama_ruang: ruang.nama_ruang || '',
+        kode_ruang: ruang.kode_ruang || '',
+        kapasitas: ruang.kapasitas || 30,
+        keterangan: ruang.keterangan || ''
+      });
+    } else {
+      setEditingRuang(null);
+      setRuangForm({
+        nama_ruang: '',
+        kode_ruang: '',
+        kapasitas: 30,
+        keterangan: ''
+      });
+    }
+    setIsRuangModalOpen(true);
+  };
+
+  const handleSaveRuang = async (e) => {
+    e.preventDefault();
+    if (!ruangForm.nama_ruang.trim()) {
+      showMessage('Peringatan', 'Nama ruang wajib diisi.', 'error');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      let res;
+      if (editingRuang) {
+        res = await api('update_ruang', {
+          id_ruang: editingRuang.id_ruang,
+          nama_ruang: ruangForm.nama_ruang.trim(),
+          kode_ruang: ruangForm.kode_ruang.trim() || undefined,
+          kapasitas: Number(ruangForm.kapasitas) || 30,
+          keterangan: ruangForm.keterangan.trim() || null
+        });
+      } else {
+        res = await api('create_ruang', {
+          nama_ruang: ruangForm.nama_ruang.trim(),
+          kode_ruang: ruangForm.kode_ruang.trim() || undefined,
+          kapasitas: Number(ruangForm.kapasitas) || 30,
+          keterangan: ruangForm.keterangan.trim() || null
+        });
+      }
+
+      if (res.status === 'success') {
+        await api('create_audit_log', {
+          username: user.username,
+          role: 'admin',
+          action: editingRuang ? 'UPDATE_RUANG' : 'CREATE_RUANG',
+          target: ruangForm.nama_ruang.trim()
+        });
+        if (showMessage) {
+          showMessage('Sukses', editingRuang ? 'Ruang ujian berhasil diperbarui.' : 'Ruang ujian berhasil ditambahkan.', 'success');
+        } else {
+          showMessage('Berhasil', editingRuang ? 'Ruang ujian berhasil diperbarui.' : 'Ruang ujian berhasil ditambahkan.', 'success');
+        }
+        setIsRuangModalOpen(false);
+        fetchData('pengawas');
+      } else {
+        showMessage('Gagal', res.message || 'Gagal menyimpan ruang ujian.', 'error');
+      }
+    } catch (err) {
+      console.error('Error saving ruang:', err);
+      showMessage('Info', 'Terjadi kesalahan saat menyimpan ruang ujian.', 'info');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteRuang = async (ruang) => {
+    setConfirmDialog({
+      isOpen: true,
+      type: 'delete',
+      title: 'Hapus Ruang Ujian',
+      message: `Hapus ruang "${ruang.nama_ruang}"? Penugasan pengawas terkait akan ikut terhapus.`,
+      icon: 'delete_forever',
+      actionText: 'Hapus',
+      onConfirm: async () => {
+        setConfirmDialog(d => ({ ...d, isOpen: false }));
+        setIsLoading(true);
+        try {
+          const res = await api('delete_ruang', { id_ruang: ruang.id_ruang });
+          if (res.status === 'success') {
+            await api('create_audit_log', {
+              username: user.username,
+              role: 'admin',
+              action: 'DELETE_RUANG',
+              target: `${ruang.nama_ruang} (${ruang.id_ruang})`
+            });
+            showMessage('Berhasil', 'Ruang ujian berhasil dihapus.', 'success');
+            fetchData('pengawas');
+          } else {
+            showMessage('Gagal', res.message || 'Gagal menghapus ruang ujian.', 'error');
+          }
+        } catch (err) {
+          console.error('Error deleting ruang:', err);
+          showMessage('Gagal', 'Terjadi kesalahan saat menghapus ruang ujian.', 'error');
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    });
+  };
+
+  // Handlers for Student Room Allocation
+  const handleBulkAssignByClass = async () => {
+    if (!selectedKelasAlokasi) {
+      showMessage('Berhasil', 'Pilih kelas/rombel yang akan dialokasikan.', 'success');
+      return;
+    }
+    if (!targetRuangAlokasi) {
+      showMessage('Peringatan', 'Pilih ruang ujian tujuan.', 'error');
+      return;
+    }
+
+    const roomObj = dataRuang.find(r => r.nama_ruang === targetRuangAlokasi || r.id_ruang === targetRuangAlokasi);
+    const roomName = roomObj?.nama_ruang || targetRuangAlokasi;
+
+    // ponytail: confirm() removed — caller uses confirmDialog
+
+    setIsLoading(true);
+    try {
+      const res = await api('assign_siswa_ruang_bulk', {
+        nama_ruang: roomName,
+        target_kelas: selectedKelasAlokasi
+      });
+
+      if (res.status === 'success') {
+        await api('create_audit_log', {
+          username: user.username,
+          role: 'admin',
+          action: 'ALOKASI_SISWA_KELAS',
+          target: `Kelas ${selectedKelasAlokasi} -> ${roomName}`
+        });
+        if (showMessage) {
+          showMessage('Sukses', `Siswa kelas ${selectedKelasAlokasi} berhasil dialokasikan ke ${roomName}.`, 'success');
+        } else {
+          showMessage('Berhasil', `Siswa kelas ${selectedKelasAlokasi} berhasil dialokasikan ke ${roomName}.`, 'success');
+        }
+        fetchData('pengawas');
+      } else {
+        showMessage('Gagal', res.message || 'Gagal mengalokasikan siswa.', 'error');
+      }
+    } catch (err) {
+      console.error('Error bulk assigning students by class:', err);
+      showMessage('Info', 'Terjadi kesalahan saat mengalokasikan siswa.', 'info');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleBulkAssignSelectedSiswa = async () => {
+    if (selectedAlokasiSiswa.length === 0) {
+      showMessage('Peringatan', 'Pilih minimal satu siswa dari tabel terlebih dahulu.', 'error');
+      return;
+    }
+    if (!targetRuangAlokasi) {
+      showMessage('Peringatan', 'Pilih ruang ujian tujuan.', 'error');
+      return;
+    }
+
+    const roomObj = dataRuang.find(r => r.nama_ruang === targetRuangAlokasi || r.id_ruang === targetRuangAlokasi);
+    const roomName = roomObj?.nama_ruang || targetRuangAlokasi;
+
+    // ponytail: confirm() removed — caller uses confirmDialog
+
+    setIsLoading(true);
+    try {
+      const res = await api('assign_siswa_ruang_bulk', {
+        nama_ruang: roomName,
+        list_id_siswa: selectedAlokasiSiswa
+      });
+
+      if (res.status === 'success') {
+        await api('create_audit_log', {
+          username: user.username,
+          role: 'admin',
+          action: 'ALOKASI_SISWA_BULK',
+          target: `${selectedAlokasiSiswa.length} Siswa -> ${roomName}`
+        });
+        if (showMessage) {
+          showMessage('Sukses', `${selectedAlokasiSiswa.length} siswa berhasil dialokasikan ke ${roomName}.`, 'success');
+        } else {
+          showMessage('Berhasil', `${selectedAlokasiSiswa.length} siswa berhasil dialokasikan ke ${roomName}.`, 'success');
+        }
+        setSelectedAlokasiSiswa([]);
+        fetchData('pengawas');
+      } else {
+        showMessage('Gagal', res.message || 'Gagal mengalokasikan siswa.', 'error');
+      }
+    } catch (err) {
+      console.error('Error bulk assigning selected students:', err);
+      showMessage('Info', 'Terjadi kesalahan saat mengalokasikan siswa.', 'info');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSingleAssignSiswaRuang = async (id_siswa, newRoomName) => {
+    if (!newRoomName) return;
+    setIsLoading(true);
+    try {
+      const res = await api('assign_siswa_ruang_bulk', {
+        nama_ruang: newRoomName,
+        list_id_siswa: [id_siswa]
+      });
+
+      if (res.status === 'success') {
+        if (showMessage) {
+          showMessage('Sukses', 'Ruang siswa berhasil diperbarui.', 'success');
+        }
+        fetchData('pengawas');
+      } else {
+        showMessage('Gagal', res.message || 'Gagal memperbarui ruang siswa.', 'error');
+      }
+    } catch (err) {
+      console.error('Error assigning single student room:', err);
+      showMessage('Info', 'Terjadi kesalahan saat memperbarui ruang siswa.', 'info');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const [autoUsername, setAutoUsername] = useState('');
 
   useEffect(() => {
@@ -961,6 +1560,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       title: 'Ujian & Pelaksanaan',
       items: [
         { id: 'jadwal', label: 'Jadwal Ujian', icon: 'event_note' },
+        { id: 'pengawas', label: 'Pengawas & Ruang', icon: 'badge' },
         { id: 'kontrol', label: 'Kontrol Ujian', icon: 'settings_remote' },
         { id: 'skema', label: 'Skema Penilaian', icon: 'tune' },
         { id: 'soal', label: 'Bank Soal (Preview)', icon: 'quiz' }
@@ -990,6 +1590,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     mapel: 'Mata Pelajaran',
     kelas: 'Manajemen Kelas',
     jadwal: 'Jadwal Ujian',
+    pengawas: 'Manajemen Pengawas & Ruang Ujian',
     kontrol: 'Kontrol Ujian',
     skema: 'Skema Penilaian Default',
     monitoring: 'Live Monitoring Ujian',
@@ -1143,7 +1744,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Password {isEdit && '(Kosongkan jika tidak diubah)'}</label>
-                  <input name="password" type="password" required={!isEdit} className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
+                  <PasswordInput name="password" required={!isEdit} className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Kelas</label>
@@ -1168,6 +1769,10 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   </div>
                 )}
                 <div>
+                  <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">NIP (Nomor Induk Pegawai)</label>
+                  <input name="nip" defaultValue={data?.nip || ''} placeholder="Contoh: 198501012010011001" className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
+                </div>
+                <div>
                   <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Nama Lengkap</label>
                   <input id="input_nama_guru" name="nama_lengkap" defaultValue={data?.nama_lengkap || ''} onChange={handleAutoUsernameGuru} required className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
                 </div>
@@ -1177,7 +1782,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Password {isEdit && '(Kosongkan jika tidak diubah)'}</label>
-                  <input name="password" type="password" required={!isEdit} className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
+                  <PasswordInput name="password" required={!isEdit} className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
                 </div>
                 <div className="col-span-1 md:col-span-2">
                   <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">Mata Pelajaran (Bisa Pilih Lebih dari 1)</label>
@@ -1281,41 +1886,79 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
               const fd = new FormData(e.target);
               const payload = Object.fromEntries(fd.entries());
               if (payload.password && payload.password !== payload.password_confirm) {
-                return alert('Password tidak cocok!');
+                { showMessage('Info', 'Password tidak cocok!', 'error'); return; }
               }
               const res = await api('update_admin_profil', { id_admin: user.id_admin, password: payload.password, foto_profil: payload.foto_profil });
               if (res.status === 'success') {
                 if (payload.foto_profil && onUpdateUser) {
                   onUpdateUser({ foto_profil: payload.foto_profil });
                 }
-                alert(res.message);
+                showMessage('Info', res.message, 'info');
                 setProfileModalOpen(false);
               } else {
-                alert(res.message);
+                showMessage('Info', res.message, 'info');
               }
             }}
             className="space-y-4"
           >
             <div className="flex items-center justify-center mb-2">
               {user.foto_profil ? (
-                <img src={user.foto_profil} alt="Profile" className="w-20 h-20 rounded-full object-cover border-4 border-primary/20" />
+                <img id="preview_admin_foto_modal" src={user.foto_profil} alt="Profile" className="w-20 h-20 rounded-full object-cover border-4 border-primary/20" />
               ) : (
-                <div className="w-20 h-20 rounded-full bg-primary/15 dark:bg-primary/10 text-primary-700 dark:text-primary-300 flex items-center justify-center font-bold text-3xl">
+                <div id="preview_admin_avatar_placeholder" className="w-20 h-20 rounded-full bg-primary/15 dark:bg-primary/10 text-primary-700 dark:text-primary-300 flex items-center justify-center font-bold text-3xl">
                   {user.nama_lengkap.charAt(0)}
                 </div>
               )}
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">URL Foto Profil</label>
-              <input name="foto_profil" defaultValue={user.foto_profil || ''} placeholder="https://..." className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
+              <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Foto Profil</label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="file"
+                  accept="image/*"
+                  id="admin_profile_photo_file"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    try {
+                      const dataUrl = await compressImageFile(file);
+                      const hiddenInput = document.getElementById('input_admin_foto_profil');
+                      if (hiddenInput) hiddenInput.value = dataUrl;
+                      const previewImg = document.getElementById('preview_admin_foto_modal');
+                      if (previewImg) previewImg.src = dataUrl;
+                      const placeholder = document.getElementById('preview_admin_avatar_placeholder');
+                      if (placeholder) {
+                        placeholder.style.display = 'none';
+                        const parent = placeholder.parentElement;
+                        const newImg = document.createElement('img');
+                        newImg.id = 'preview_admin_foto_modal';
+                        newImg.src = dataUrl;
+                        newImg.className = 'w-20 h-20 rounded-full object-cover border-4 border-primary/20';
+                        parent.appendChild(newImg);
+                      }
+                    } catch (err) {
+                      showMessage('Gagal', err.message, 'error');
+                    }
+                  }}
+                />
+                <label
+                  htmlFor="admin_profile_photo_file"
+                  className="cursor-pointer px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 flex items-center gap-1.5 transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[16px]">upload_file</span>
+                  <span>Pilih File Foto</span>
+                </label>
+                <input id="input_admin_foto_profil" name="foto_profil" defaultValue={user.foto_profil || ''} type="hidden" />
+              </div>
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Password Baru (Kosongkan jika tidak diubah)</label>
-              <input name="password" type="password" className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
+              <PasswordInput name="password" placeholder="Password Baru" className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Konfirmasi Password</label>
-              <input name="password_confirm" type="password" className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
+              <PasswordInput name="password_confirm" placeholder="Konfirmasi Password" className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
             </div>
 
             <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-700">
@@ -1387,7 +2030,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
         <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl relative p-5 sm:p-6 border border-slate-200 dark:border-slate-700 animate-scale-up">
           <div className="flex justify-between items-center mb-3">
             <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">
-              Import Data {importModal.type === 'siswa' ? 'Siswa' : importModal.type === 'guru' ? 'Guru' : 'Jadwal'}
+              Import Data {importModal.type === 'siswa' ? 'Siswa' : importModal.type === 'guru' ? 'Guru' : importModal.type === 'mapel' ? 'Mata Pelajaran' : 'Jadwal'}
             </h3>
             <button
               onClick={() => setImportModal({ isOpen: false, type: '' })}
@@ -1458,6 +2101,576 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
               }`}
             >
               {confirmDialog.actionText}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderAssignPengawasModal = () => {
+    if (!isAssignPengawasModalOpen) return null;
+    return (
+      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] animate-fade-in">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-lg shadow-2xl p-5 sm:p-6 relative border border-slate-200 dark:border-slate-700 max-h-[90vh] overflow-y-auto animate-scale-up">
+          <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-700">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary-400 flex items-center justify-center">
+                <span className="material-symbols-outlined text-xl">assignment_ind</span>
+              </div>
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white">Tugaskan Pengawas Ruang</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Kaitkan guru pengawas dengan ruang dan jadwal ujian</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setIsAssignPengawasModalOpen(false)}
+              className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+            >
+              <span className="material-symbols-outlined text-xl">close</span>
+            </button>
+          </div>
+
+          <form onSubmit={handleSaveAssignPengawas} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                Ruang Ujian <span className="text-rose-500">*</span>
+              </label>
+              {dataRuang.length === 0 ? (
+                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 text-xs text-amber-800 dark:text-amber-300 flex items-center justify-between">
+                  <span>Belum ada data ruang ujian. Buat ruang terlebih dahulu.</span>
+                  <button
+                    type="button"
+                    onClick={() => { setIsAssignPengawasModalOpen(false); setPengawasSubTab('ruang'); handleOpenRuangModal(); }}
+                    className="font-bold underline text-primary ml-2 shrink-0"
+                  >
+                    + Buat Ruang
+                  </button>
+                </div>
+              ) : (
+                <select
+                  value={assignPengawasForm.id_ruang}
+                  onChange={(e) => setAssignPengawasForm(prev => ({ ...prev, id_ruang: e.target.value }))}
+                  required
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                >
+                  <option value="">-- Pilih Ruang Ujian --</option>
+                  {dataRuang.map(r => (
+                    <option key={r.id_ruang} value={r.id_ruang}>
+                      {r.nama_ruang} {r.kode_ruang ? `(${r.kode_ruang})` : ''} - Kapasitas: {r.kapasitas}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                Guru Pengawas <span className="text-rose-500">*</span>
+              </label>
+              <select
+                value={assignPengawasForm.id_guru}
+                onChange={(e) => setAssignPengawasForm(prev => ({ ...prev, id_guru: e.target.value }))}
+                required
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              >
+                <option value="">-- Pilih Guru --</option>
+                {dataGuru.map(g => (
+                  <option key={g.id_guru} value={g.id_guru}>
+                    {g.nama_lengkap} {g.nip ? `(NIP: ${g.nip})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                Jadwal Ujian (Opsional)
+              </label>
+              <select
+                value={assignPengawasForm.id_jadwal}
+                onChange={(e) => setAssignPengawasForm(prev => ({ ...prev, id_jadwal: e.target.value }))}
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              >
+                <option value="">Semua Jadwal di Ruangan Ini (Tetap / Permanen)</option>
+                {dataJadwal.map(j => (
+                  <option key={j.id_jadwal} value={j.id_jadwal}>
+                    {j.mata_pelajaran?.nama_mapel || j.id_mapel} - Kelas: {j.target_kelas || 'Semua'} ({j.waktu_mulai ? new Date(j.waktu_mulai).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) : ''})
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+                Pilih &quot;Semua Jadwal&quot; jika guru bertugas penuh mengawasi seluruh sesi di ruangan ini.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                Peran Penugasan
+              </label>
+              <div className="grid grid-cols-2 gap-2.5">
+                {[
+                  { value: 'PENGAWAS UTAMA', label: 'Pengawas Utama', desc: 'Verifikasi tanda tangan & kehadiran' },
+                  { value: 'PROKTOR', label: 'Proktor Ruangan', desc: 'Bantuan teknis & anticheat' }
+                ].map(role => (
+                  <label
+                    key={role.value}
+                    className={`flex flex-col p-3 rounded-xl border cursor-pointer transition-all ${
+                      assignPengawasForm.peran === role.value
+                        ? 'border-primary bg-primary/5 dark:bg-primary/10 text-primary dark:text-primary-400 ring-1 ring-primary'
+                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-slate-50/50 dark:bg-slate-900/50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-bold text-slate-800 dark:text-white">{role.label}</span>
+                      <input
+                        type="radio"
+                        name="peran_pengawas"
+                        value={role.value}
+                        checked={assignPengawasForm.peran === role.value}
+                        onChange={(e) => setAssignPengawasForm(prev => ({ ...prev, peran: e.target.value }))}
+                        className="text-primary focus:ring-primary"
+                      />
+                    </div>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">{role.desc}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-700/80 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setIsAssignPengawasModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors min-h-[40px]"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting || dataRuang.length === 0}
+                className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 disabled:opacity-50 min-h-[40px]"
+              >
+                {isSubmitting ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                    <span>Menyimpan...</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-[18px]">check</span>
+                    <span>Simpan Penugasan</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  const renderRuangModal = () => {
+    if (!isRuangModalOpen) return null;
+    const isEdit = Boolean(editingRuang);
+    return (
+      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] animate-fade-in">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md shadow-2xl p-5 sm:p-6 relative border border-slate-200 dark:border-slate-700 max-h-[90vh] overflow-y-auto animate-scale-up">
+          <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-700">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary-400 flex items-center justify-center">
+                <span className="material-symbols-outlined text-xl">meeting_room</span>
+              </div>
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white">
+                  {isEdit ? 'Edit Ruang Ujian' : 'Tambah Ruang Ujian'}
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {isEdit ? 'Perbarui informasi dan kapasitas ruangan' : 'Tambahkan ruangan baru untuk pelaksanaan ujian'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setIsRuangModalOpen(false)}
+              className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+            >
+              <span className="material-symbols-outlined text-xl">close</span>
+            </button>
+          </div>
+
+          <form onSubmit={handleSaveRuang} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                Nama Ruang <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={ruangForm.nama_ruang}
+                onChange={(e) => setRuangForm(prev => ({ ...prev, nama_ruang: e.target.value }))}
+                placeholder="Contoh: Ruang 01, Lab Komputer A"
+                required
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Kode Ruang
+                </label>
+                <input
+                  type="text"
+                  value={ruangForm.kode_ruang}
+                  onChange={(e) => setRuangForm(prev => ({ ...prev, kode_ruang: e.target.value }))}
+                  placeholder="Contoh: R-01, LAB-A"
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Kapasitas (Kursi) <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="500"
+                  value={ruangForm.kapasitas}
+                  onChange={(e) => setRuangForm(prev => ({ ...prev, kapasitas: e.target.value }))}
+                  required
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary font-mono"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                Keterangan / Lokasi (Opsional)
+              </label>
+              <textarea
+                rows="3"
+                value={ruangForm.keterangan}
+                onChange={(e) => setRuangForm(prev => ({ ...prev, keterangan: e.target.value }))}
+                placeholder="Contoh: Gedung Timur Lantai 2, dilengkapi 35 PC dan AC"
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
+              ></textarea>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-700/80 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setIsRuangModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors min-h-[40px]"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 disabled:opacity-50 min-h-[40px]"
+              >
+                {isSubmitting ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                    <span>Menyimpan...</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-[18px]">check</span>
+                    <span>{isEdit ? 'Perbarui Ruang' : 'Tambah Ruang'}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  const renderPrintKartuModal = () => {
+    if (!printKartuModal.isOpen) return null;
+
+    // Distinct list of classes
+    const availableClasses = Array.from(
+      new Set(dataSiswa.map(s => s.kelas).filter(Boolean))
+    ).sort();
+
+    // Distinct list of rooms
+    const availableRooms = Array.from(
+      new Set(
+        [
+          ...dataRuang.map(r => r.nama_ruang),
+          ...dataSiswa.map(s => s.ruang).filter(Boolean)
+        ]
+      )
+    ).sort();
+
+    // Calculate preview count
+    let filteredCount = dataSiswa.length;
+    if (printKartuModal.selectedOnly && selectedSiswa.length > 0) {
+      filteredCount = dataSiswa.filter(s => selectedSiswa.includes(s.id_siswa)).length;
+    } else {
+      let temp = dataSiswa;
+      if (printKartuModal.filterKelas !== 'ALL') {
+        temp = temp.filter(s => s.kelas === printKartuModal.filterKelas);
+      }
+      if (printKartuModal.filterRuang !== 'ALL') {
+        if (printKartuModal.filterRuang === 'BELUM_ADA') {
+          temp = temp.filter(s => !s.ruang);
+        } else {
+          temp = temp.filter(s => s.ruang === printKartuModal.filterRuang);
+        }
+      }
+      filteredCount = temp.length;
+    }
+    const pageCount = Math.ceil(filteredCount / 8);
+
+    return (
+      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] animate-fade-in">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-lg shadow-2xl p-5 sm:p-6 relative border border-slate-200 dark:border-slate-700 max-h-[92vh] overflow-y-auto animate-scale-up">
+          {/* Header */}
+          <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-700">
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary-400 flex items-center justify-center">
+                <span className="material-symbols-outlined text-2xl">badge</span>
+              </div>
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white">
+                  Cetak Kartu Ujian & Meja
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Pilih tipe kartu, filter data, dan pengaturan format kertas
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPrintKartuModal(prev => ({ ...prev, isOpen: false }))}
+              className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+            >
+              <span className="material-symbols-outlined text-xl">close</span>
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            {/* Mode Selector (Kartu Peserta vs Kartu Meja) */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                Tipe Dokumen Kartu
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPrintKartuModal(prev => ({ ...prev, mode: 'peserta' }))}
+                  className={`p-3 rounded-xl border text-left transition-all flex items-center gap-2.5 ${
+                    printKartuModal.mode === 'peserta'
+                      ? 'border-primary bg-primary/10 text-primary font-bold shadow-2xs'
+                      : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-xl">badge</span>
+                  <div>
+                    <div className="text-xs font-bold">Kartu Peserta</div>
+                    <div className="text-[10px] text-slate-400">Identitas, Login & Foto</div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPrintKartuModal(prev => ({ ...prev, mode: 'meja' }))}
+                  className={`p-3 rounded-xl border text-left transition-all flex items-center gap-2.5 ${
+                    printKartuModal.mode === 'meja'
+                      ? 'border-primary bg-primary/10 text-primary font-bold shadow-2xs'
+                      : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-xl">table_restaurant</span>
+                  <div>
+                    <div className="text-xs font-bold">Kartu Meja</div>
+                    <div className="text-[10px] text-slate-400">Nomor Meja & Info Peserta</div>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Checkbox: Selected Only (if students are checked in table) */}
+            {selectedSiswa.length > 0 && (
+              <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/40 flex items-center gap-2.5">
+                <input
+                  type="checkbox"
+                  id="selectedOnlyCheck"
+                  checked={printKartuModal.selectedOnly}
+                  onChange={(e) => setPrintKartuModal(prev => ({ ...prev, selectedOnly: e.target.checked }))}
+                  className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/20"
+                />
+                <label htmlFor="selectedOnlyCheck" className="text-xs font-bold text-blue-900 dark:text-blue-200 cursor-pointer">
+                  Hanya cetak {selectedSiswa.length} siswa yang ditandai di tabel
+                </label>
+              </div>
+            )}
+
+            {/* Filters (Hidden if selectedOnly is active) */}
+            {!printKartuModal.selectedOnly && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Filter Rombel / Kelas
+                  </label>
+                  <select
+                    value={printKartuModal.filterKelas}
+                    onChange={(e) => setPrintKartuModal(prev => ({ ...prev, filterKelas: e.target.value }))}
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2 text-xs bg-white dark:bg-slate-900 dark:text-white"
+                  >
+                    <option value="ALL">Semua Kelas ({dataSiswa.length})</option>
+                    {availableClasses.map(k => (
+                      <option key={k} value={k}>{k}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Filter Ruang Ujian
+                  </label>
+                  <select
+                    value={printKartuModal.filterRuang}
+                    onChange={(e) => setPrintKartuModal(prev => ({ ...prev, filterRuang: e.target.value }))}
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2 text-xs bg-white dark:bg-slate-900 dark:text-white"
+                  >
+                    <option value="ALL">Semua Ruangan</option>
+                    {availableRooms.map(r => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                    <option value="BELUM_ADA">Belum Ditentukan Ruang</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Sesi & Paper Size Settings */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Sesi Ujian
+                </label>
+                <select
+                  value={printKartuModal.filterSesi}
+                  onChange={(e) => setPrintKartuModal(prev => ({ ...prev, filterSesi: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2 text-xs bg-white dark:bg-slate-900 dark:text-white font-semibold"
+                >
+                  <option value="Sesi 1">Sesi 1 (Pagi)</option>
+                  <option value="Sesi 2">Sesi 2 (Siang)</option>
+                  <option value="Sesi 3">Sesi 3 (Sore)</option>
+                  <option value="Sesi Khusus">Sesi Khusus</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Ukuran Kertas
+                </label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setPrintKartuModal(prev => ({ ...prev, paperSize: 'A4' }))}
+                    className={`py-1.5 px-2 rounded-lg text-xs font-bold border transition-all text-center ${
+                      printKartuModal.paperSize === 'A4'
+                        ? 'border-primary bg-primary text-white'
+                        : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    A4
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPrintKartuModal(prev => ({ ...prev, paperSize: 'F4' }))}
+                    className={`py-1.5 px-2 rounded-lg text-xs font-bold border transition-all text-center ${
+                      printKartuModal.paperSize === 'F4'
+                        ? 'border-primary bg-primary text-white'
+                        : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    F4 (Folio)
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Password toggle for Kartu Peserta */}
+            {printKartuModal.mode === 'peserta' && (
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="showPasswordCheck"
+                  checked={printKartuModal.showPassword}
+                  onChange={(e) => setPrintKartuModal(prev => ({ ...prev, showPassword: e.target.checked }))}
+                  className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/20"
+                />
+                <label htmlFor="showPasswordCheck" className="text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
+                  Cetak password akun siswa secara jelas (clear-text)
+                </label>
+              </div>
+            )}
+
+            {/* Kepala Sekolah & Tahun Ajaran Customizer */}
+            <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100 dark:border-slate-700">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                  Nama Kepala Sekolah / TTD:
+                </label>
+                <input
+                  type="text"
+                  placeholder={user.kepala_sekolah || 'Nama Kepala Sekolah'}
+                  value={printKartuModal.namaKepalaSekolah}
+                  onChange={(e) => setPrintKartuModal(prev => ({ ...prev, namaKepalaSekolah: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2 text-xs bg-white dark:bg-slate-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                  NIP Kepala Sekolah:
+                </label>
+                <input
+                  type="text"
+                  placeholder={user.nip_kepala_sekolah || '-'}
+                  value={printKartuModal.nipKepalaSekolah}
+                  onChange={(e) => setPrintKartuModal(prev => ({ ...prev, nipKepalaSekolah: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2 text-xs bg-white dark:bg-slate-900 dark:text-white"
+                />
+              </div>
+            </div>
+
+            {/* Summary Indicator Card */}
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+              <div>
+                <div className="text-xs font-extrabold text-slate-800 dark:text-slate-200">
+                  Target Cetak: {filteredCount} Siswa
+                </div>
+                <div className="text-[11px] text-slate-500">
+                  Estimasi: {pageCount} Lembar Kertas {printKartuModal.paperSize} (8 kartu per lembar)
+                </div>
+              </div>
+              <span className="material-symbols-outlined text-primary text-2xl">print</span>
+            </div>
+          </div>
+
+          {/* Footer Actions */}
+          <div className="pt-4 mt-4 border-t border-slate-100 dark:border-slate-700/80 flex items-center justify-end gap-2.5">
+            <button
+              type="button"
+              onClick={() => setPrintKartuModal(prev => ({ ...prev, isOpen: false }))}
+              className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors min-h-[40px]"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              disabled={filteredCount === 0}
+              onClick={handleGeneratePrintKartu}
+              className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary-hover text-white shadow-sm transition-all active:scale-95 disabled:opacity-50 min-h-[40px]"
+            >
+              <span className="material-symbols-outlined text-[18px]">visibility</span>
+              <span>Buka Pratinjau & Cetak</span>
             </button>
           </div>
         </div>
@@ -1638,7 +2851,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
         </div>
 
         <div className="flex items-center gap-1.5">
-          <NotificationBell role="admin" />
+          <NotificationBell role="admin" npsn={user?.npsn} user={user} />
           <button
             type="button"
             onClick={() => setIsDarkMode(!isDarkMode)}
@@ -1786,7 +2999,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
           </div>
 
           <div className="flex items-center gap-3">
-            <NotificationBell role="admin" />
+            <NotificationBell role="admin" npsn={user?.npsn} user={user} />
             <div className="px-3 py-1 rounded-full bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 border border-primary/30 dark:border-primary/30 text-xs font-bold flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-primary-400 animate-pulse"></span>
               <span>Sistem Online</span>
@@ -1948,6 +3161,15 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   >
                     <span className="material-symbols-outlined text-[18px]">phonelink_erase</span>
                     <span className="hidden sm:inline">Reset Sesi Masal</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenPrintKartu('peserta')}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-primary/10 text-primary dark:text-primary-300 hover:bg-primary/20 transition-all border border-primary/20 min-h-[44px]"
+                    title="Cetak Kartu Peserta Ujian & Kartu Meja"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">badge</span>
+                    <span className="hidden sm:inline">Cetak Kartu</span>
                   </button>
                   <button
                     onClick={() => setImportModal({ isOpen: true, type: 'siswa' })}
@@ -2554,6 +3776,15 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     <span className="hidden sm:inline">Export</span>
                   </button>
                   <button
+                    type="button"
+                    onClick={() => handleOpenPrintKartu('peserta')}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-primary/10 text-primary dark:text-primary-300 hover:bg-primary/20 transition-all border border-primary/20 min-h-[44px]"
+                    title="Cetak Kartu Peserta Ujian"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">badge</span>
+                    <span className="hidden sm:inline">Cetak Kartu</span>
+                  </button>
+                  <button
                     onClick={() => openCreateModal('jadwal')}
                     className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 min-h-[44px]"
                   >
@@ -2760,6 +3991,14 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                                   </button>
                                 )}
                                 <button
+                                  type="button"
+                                  onClick={() => handleOpenPrintKartu('peserta', j.target_kelas)}
+                                  className="p-1 text-slate-500 hover:text-primary hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                                  title="Cetak Kartu Peserta untuk Kelas Ini"
+                                >
+                                  <span className="material-symbols-outlined text-[18px]">badge</span>
+                                </button>
+                                <button
                                   onClick={() => openEditModal('jadwal', j)}
                                   className="p-1 text-primary hover:bg-primary/10 rounded-lg transition-colors"
                                   title="Edit"
@@ -2867,6 +4106,14 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                           </button>
                         )}
                         <button
+                          type="button"
+                          onClick={() => handleOpenPrintKartu('peserta', j.target_kelas)}
+                          className="p-1.5 text-slate-500 hover:text-primary hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"
+                          title="Cetak Kartu untuk Kelas Ini"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">badge</span>
+                        </button>
+                        <button
                           onClick={() => openEditModal('jadwal', j)}
                           className="p-1.5 text-primary hover:bg-primary/10 rounded-lg"
                         >
@@ -2883,6 +4130,897 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   ))
                 )}
               </div>
+            </div>
+          )}
+
+          {/* ================= TAB: PENGAWAS & RUANG UJIAN ================= */}
+          {activeTab === 'pengawas' && (
+            <div className="space-y-5 animate-fade-in-up">
+              {/* Header Title & Actions */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2.5">
+                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg sm:text-xl">
+                      Manajemen Pengawas & Ruang Ujian
+                    </h3>
+                    <StatusBadge variant="neutral" size="xs">
+                      {pengawasSubTab === 'penugasan'
+                        ? `${filteredPengawas.length} Tugas`
+                        : pengawasSubTab === 'ruang'
+                        ? `${filteredRuang.length} Ruang`
+                        : `${dataSiswa.filter(s => s.ruang).length}/${dataSiswa.length} Siswa`}
+                    </StatusBadge>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Atur master ruang ujian, penugasan pengawas guru, dan alokasi ruangan siswa
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {pengawasSubTab === 'penugasan' && (
+                    <button
+                      onClick={handleOpenAssignPengawasModal}
+                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 min-h-[44px]"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">add_circle</span>
+                      <span>Tugaskan Pengawas</span>
+                    </button>
+                  )}
+                  {pengawasSubTab === 'ruang' && (
+                    <button
+                      onClick={() => handleOpenRuangModal()}
+                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 min-h-[44px]"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">add_circle</span>
+                      <span>Tambah Ruang Baru</span>
+                    </button>
+                  )}
+                  {pengawasSubTab === 'alokasi_siswa' && (
+                    <button
+                      onClick={() => fetchData('pengawas')}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 transition-colors min-h-[44px]"
+                      title="Segarkan Data"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">refresh</span>
+                      <span className="hidden sm:inline">Refresh Data</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Sub-Tab Navigation Pills */}
+              <div className="flex items-center gap-2 border-b border-slate-200/80 dark:border-slate-700/80 pb-3 overflow-x-auto scrollbar-none">
+                <button
+                  type="button"
+                  onClick={() => setPengawasSubTab('penugasan')}
+                  className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all min-h-[44px] ${
+                    pengawasSubTab === 'penugasan'
+                      ? 'bg-primary text-white shadow-sm shadow-primary/20'
+                      : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/70 border border-slate-200/80 dark:border-slate-700/80'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[18px]">badge</span>
+                  <span>Penugasan Pengawas</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                    pengawasSubTab === 'penugasan' ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                  }`}>
+                    {dataPengawasRuang.length}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPengawasSubTab('ruang')}
+                  className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all min-h-[44px] ${
+                    pengawasSubTab === 'ruang'
+                      ? 'bg-primary text-white shadow-sm shadow-primary/20'
+                      : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/70 border border-slate-200/80 dark:border-slate-700/80'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[18px]">meeting_room</span>
+                  <span>Master Ruang Ujian</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                    pengawasSubTab === 'ruang' ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                  }`}>
+                    {dataRuang.length}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPengawasSubTab('alokasi_siswa')}
+                  className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all min-h-[44px] ${
+                    pengawasSubTab === 'alokasi_siswa'
+                      ? 'bg-primary text-white shadow-sm shadow-primary/20'
+                      : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/70 border border-slate-200/80 dark:border-slate-700/80'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[18px]">group_add</span>
+                  <span>Alokasi Siswa</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                    pengawasSubTab === 'alokasi_siswa' ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                  }`}>
+                    {dataSiswa.filter(s => s.ruang).length} / {dataSiswa.length}
+                  </span>
+                </button>
+              </div>
+
+              {/* ================= SUB-TAB 1: PENUGASAN PENGAWAS ================= */}
+              {pengawasSubTab === 'penugasan' && (
+                <div className="space-y-4 animate-fade-in">
+                  {/* 4 Metric KPI Cards */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+                    <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-3.5">
+                      <div className="w-12 h-12 rounded-xl bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary-400 flex items-center justify-center shrink-0">
+                        <span className="material-symbols-outlined text-2xl">meeting_room</span>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-400 truncate">Total Ruang</p>
+                        <h4 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white">
+                          {pengawasMetrics.totalRuang}
+                        </h4>
+                        <span className="text-[10px] text-slate-500">Ruangan terdaftar</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-3.5">
+                      <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                        <span className="material-symbols-outlined text-2xl">assignment_ind</span>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-400 truncate">Pengawas Ditugaskan</p>
+                        <h4 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white">
+                          {pengawasMetrics.totalPenugasan}
+                        </h4>
+                        <span className="text-[10px] text-slate-500">{pengawasMetrics.uniqueGuruCount} guru pengawas</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-3.5">
+                      <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                        <span className="material-symbols-outlined text-2xl">check_circle</span>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-400 truncate">Ruang Terisi</p>
+                        <h4 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white">
+                          {pengawasMetrics.ruangTerisiCount} / {pengawasMetrics.totalRuang}
+                        </h4>
+                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                          {pengawasMetrics.totalRuang > 0 ? `${Math.round((pengawasMetrics.ruangTerisiCount / pengawasMetrics.totalRuang) * 100)}% terisi` : '0%'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className={`bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border flex items-center gap-3.5 ${
+                      pengawasMetrics.ruangBelumAdaPengawas > 0
+                        ? 'border-amber-300 dark:border-amber-800/80 bg-amber-50/20'
+                        : 'border-slate-200/80 dark:border-slate-700/80'
+                    }`}>
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
+                        pengawasMetrics.ruangBelumAdaPengawas > 0
+                          ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'
+                          : 'bg-slate-100 text-slate-500 dark:bg-slate-800'
+                      }`}>
+                        <span className="material-symbols-outlined text-2xl">
+                          {pengawasMetrics.ruangBelumAdaPengawas > 0 ? 'warning' : 'verified'}
+                        </span>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-400 truncate">Ruang Belum Ada Pengawas</p>
+                        <h4 className={`text-xl sm:text-2xl font-black ${
+                          pengawasMetrics.ruangBelumAdaPengawas > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-800 dark:text-white'
+                        }`}>
+                          {pengawasMetrics.ruangBelumAdaPengawas}
+                        </h4>
+                        <span className={`text-[10px] ${
+                          pengawasMetrics.ruangBelumAdaPengawas > 0 ? 'text-amber-600 dark:text-amber-400 font-bold' : 'text-slate-500'
+                        }`}>
+                          {pengawasMetrics.ruangBelumAdaPengawas > 0 ? 'Perlu ditugaskan' : 'Semua ruang terisi'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Filter & Search Bar */}
+                  <div className="bg-white dark:bg-slate-800 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1">
+                      {/* Filter by Jadwal */}
+                      <div className="relative min-w-[220px]">
+                        <select
+                          value={filterRuangJadwal}
+                          onChange={(e) => setFilterRuangJadwal(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none pr-8 cursor-pointer"
+                        >
+                          <option value="ALL">Semua Jadwal Ujian</option>
+                          {dataJadwal.map(j => (
+                            <option key={j.id_jadwal} value={j.id_jadwal}>
+                              {j.mata_pelajaran?.nama_mapel || j.id_mapel} ({j.target_kelas || 'Semua Kelas'})
+                            </option>
+                          ))}
+                        </select>
+                        <span className="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">
+                          expand_more
+                        </span>
+                      </div>
+
+                      {/* Search Input */}
+                      <div className="relative flex-1">
+                        <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">
+                          search
+                        </span>
+                        <input
+                          type="text"
+                          value={searchPengawas}
+                          onChange={(e) => setSearchPengawas(e.target.value)}
+                          placeholder="Cari nama guru, NIP, atau nama ruangan..."
+                          className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        />
+                        {searchPengawas && (
+                          <button
+                            onClick={() => setSearchPengawas('')}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+                          >
+                            <span className="material-symbols-outlined text-sm">close</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={handleOpenAssignPengawasModal}
+                      className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 shrink-0"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">add</span>
+                      <span>Tugaskan Pengawas</span>
+                    </button>
+                  </div>
+
+                  {/* List / Table of Assignments */}
+                  {filteredPengawas.length === 0 ? (
+                    <EmptyState
+                      icon="badge"
+                      title={dataPengawasRuang.length === 0 ? "Belum Ada Penugasan Pengawas" : "Tidak Ada Data yang Cocok"}
+                      description={
+                        dataPengawasRuang.length === 0
+                          ? "Tugaskan guru untuk mengawasi ruang ujian tertentu agar guru dapat memantau dan memverifikasi kehadiran siswa."
+                          : "Coba sesuaikan kata kunci pencarian atau filter jadwal ujian Anda."
+                      }
+                      actionText={dataPengawasRuang.length === 0 ? "+ Tugaskan Pengawas Pertama" : undefined}
+                      onAction={dataPengawasRuang.length === 0 ? handleOpenAssignPengawasModal : undefined}
+                    />
+                  ) : (
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse text-xs sm:text-sm">
+                          <thead className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-700/80 text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                            <tr>
+                              <th className="p-3.5 pl-4 sm:pl-6">Ruang Ujian</th>
+                              <th className="p-3.5">Guru Pengawas</th>
+                              <th className="p-3.5">Jadwal / Sesi</th>
+                              <th className="p-3.5 text-center">Peran</th>
+                              <th className="p-3.5 text-center">Status</th>
+                              <th className="p-3.5 pr-4 sm:pr-6 text-right">Aksi</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                            {filteredPengawas.map((p) => {
+                              const guruFoto = p.guru?.foto || `https://api.dicebear.com/7.x/bottts/svg?seed=${p.guru?.nama_lengkap || p.id_guru}`;
+                              return (
+                                <tr key={p.id_penugasan} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/60 transition-colors">
+                                  {/* Room info */}
+                                  <td className="p-3.5 pl-4 sm:pl-6">
+                                    <div className="flex items-center gap-2.5">
+                                      <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary dark:text-primary-400 flex items-center justify-center shrink-0">
+                                        <span className="material-symbols-outlined text-base">meeting_room</span>
+                                      </div>
+                                      <div>
+                                        <div className="font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
+                                          <span>{p.ruang?.nama_ruang || 'Ruang Tidak Diketahui'}</span>
+                                          {p.ruang?.kode_ruang && (
+                                            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                                              {p.ruang.kode_ruang}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <span className="text-[11px] text-slate-400">
+                                          Kapasitas: {p.ruang?.kapasitas || 30} kursi
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </td>
+
+                                  {/* Guru info */}
+                                  <td className="p-3.5">
+                                    <div className="flex items-center gap-2.5">
+                                      <img
+                                        src={guruFoto}
+                                        alt={p.guru?.nama_lengkap || 'Guru'}
+                                        className="w-8 h-8 rounded-full object-cover bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-700 shrink-0"
+                                        onError={(e) => { e.target.src = `https://api.dicebear.com/7.x/bottts/svg?seed=${p.id_guru}`; }}
+                                      />
+                                      <div>
+                                        <div className="font-bold text-slate-800 dark:text-white">
+                                          {p.guru?.nama_lengkap || 'Guru Pengawas'}
+                                        </div>
+                                        <div className="text-[11px] text-slate-400 font-mono">
+                                          {p.guru?.nip ? `NIP. ${p.guru.nip}` : p.guru?.username ? `@${p.guru.username}` : '-'}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </td>
+
+                                  {/* Jadwal info */}
+                                  <td className="p-3.5">
+                                    {p.id_jadwal && p.jadwal ? (
+                                      <div>
+                                        <span className="font-bold text-slate-700 dark:text-slate-300 block">
+                                          {p.jadwal.mata_pelajaran?.nama_mapel || p.jadwal.id_mapel || 'Jadwal Terdaftar'}
+                                        </span>
+                                        <span className="text-[11px] text-slate-400">
+                                          Kelas: {p.jadwal.target_kelas || 'Semua'}
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 text-slate-500 dark:text-slate-400 text-xs italic">
+                                        <span className="material-symbols-outlined text-[14px]">all_inclusive</span>
+                                        Semua Jadwal di Ruangan Ini
+                                      </span>
+                                    )}
+                                  </td>
+
+                                  {/* Peran badge */}
+                                  <td className="p-3.5 text-center">
+                                    <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
+                                      p.peran === 'PROKTOR'
+                                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
+                                        : p.peran === 'PENGAWAS CADANGAN'
+                                        ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                                        : 'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-300'
+                                    }`}>
+                                      {p.peran || 'PENGAWAS UTAMA'}
+                                    </span>
+                                  </td>
+
+                                  {/* Status */}
+                                  <td className="p-3.5 text-center">
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                      {p.status_tugas || 'AKTIF'}
+                                    </span>
+                                  </td>
+
+                                  {/* Action */}
+                                  <td className="p-3.5 pr-4 sm:pr-6 text-right">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteAssignPengawas(p)}
+                                      className="p-1.5 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors"
+                                      title="Hapus Penugasan"
+                                    >
+                                      <span className="material-symbols-outlined text-lg">delete</span>
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ================= SUB-TAB 2: MASTER RUANG UJIAN ================= */}
+              {pengawasSubTab === 'ruang' && (
+                <div className="space-y-4 animate-fade-in">
+                  {/* Header & Search */}
+                  <div className="bg-white dark:bg-slate-800 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                    <div className="relative flex-1">
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">
+                        search
+                      </span>
+                      <input
+                        type="text"
+                        value={searchRuang}
+                        onChange={(e) => setSearchRuang(e.target.value)}
+                        placeholder="Cari nama ruang, kode ruang, atau keterangan..."
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      />
+                      {searchRuang && (
+                        <button
+                          onClick={() => setSearchRuang('')}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+                        >
+                          <span className="material-symbols-outlined text-sm">close</span>
+                        </button>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleOpenRuangModal()}
+                      className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 shrink-0"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">add</span>
+                      <span>Tambah Ruang</span>
+                    </button>
+                  </div>
+
+                  {/* Room Cards Grid */}
+                  {filteredRuang.length === 0 ? (
+                    <EmptyState
+                      icon="meeting_room"
+                      title={dataRuang.length === 0 ? "Belum Ada Ruang Ujian" : "Tidak Ada Ruang yang Cocok"}
+                      description={
+                        dataRuang.length === 0
+                          ? "Tambahkan master ruangan ujian seperti 'Ruang 01' atau 'Lab Komputer' untuk mengalokasikan siswa dan menugaskan guru pengawas."
+                          : "Coba gunakan kata kunci pencarian yang lain."
+                      }
+                      actionText={dataRuang.length === 0 ? "+ Tambah Ruang Sekarang" : undefined}
+                      onAction={dataRuang.length === 0 ? () => handleOpenRuangModal() : undefined}
+                    />
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {filteredRuang.map((r) => {
+                        const siswaInRoom = dataSiswa.filter(s => s.ruang === r.nama_ruang || s.ruang === r.id_ruang);
+                        const pengawasInRoom = dataPengawasRuang.filter(p => p.id_ruang === r.id_ruang);
+                        const kapasitasNum = Number(r.kapasitas) || 30;
+                        const fillPercent = Math.min(100, Math.round((siswaInRoom.length / kapasitasNum) * 100));
+
+                        return (
+                          <div
+                            key={r.id_ruang}
+                            className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm p-4 hover:shadow-md hover:border-primary/40 transition-all flex flex-col justify-between"
+                          >
+                            <div>
+                              {/* Top Bar: Icon, Name & Code */}
+                              <div className="flex items-start justify-between gap-2 mb-3">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-10 h-10 rounded-xl bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary-400 flex items-center justify-center shrink-0">
+                                    <span className="material-symbols-outlined text-xl">meeting_room</span>
+                                  </div>
+                                  <div>
+                                    <h4 className="font-bold text-slate-800 dark:text-white text-base">
+                                      {r.nama_ruang}
+                                    </h4>
+                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                      {r.kode_ruang && (
+                                        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                                          {r.kode_ruang}
+                                        </span>
+                                      )}
+                                      <span className="text-[11px] text-slate-400">
+                                        Kapasitas: {kapasitasNum} kursi
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={() => handleOpenRuangModal(r)}
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                                    title="Edit Ruangan"
+                                  >
+                                    <span className="material-symbols-outlined text-base">edit</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteRuang(r)}
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                                    title="Hapus Ruangan"
+                                  >
+                                    <span className="material-symbols-outlined text-base">delete</span>
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Capacity & Allocation Progress */}
+                              <div className="space-y-1.5 my-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-slate-500 dark:text-slate-400 font-medium">Siswa Teralokasi:</span>
+                                  <span className="font-bold text-slate-700 dark:text-slate-200">
+                                    {siswaInRoom.length} / {kapasitasNum}
+                                    <span className="text-[10px] font-normal text-slate-400 ml-1">({fillPercent}%)</span>
+                                  </span>
+                                </div>
+                                <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all ${
+                                      fillPercent > 100
+                                        ? 'bg-rose-500'
+                                        : fillPercent >= 80
+                                        ? 'bg-amber-500'
+                                        : 'bg-primary'
+                                    }`}
+                                    style={{ width: `${Math.min(100, fillPercent)}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+
+                              {/* Pengawas Assigned */}
+                              <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between mb-2">
+                                <span className="flex items-center gap-1">
+                                  <span className="material-symbols-outlined text-sm text-slate-400">badge</span>
+                                  <span>Pengawas Ditugaskan:</span>
+                                </span>
+                                <span className={`font-bold ${pengawasInRoom.length > 0 ? 'text-primary' : 'text-amber-600 dark:text-amber-400'}`}>
+                                  {pengawasInRoom.length > 0 ? `${pengawasInRoom.length} Guru` : 'Belum Ada'}
+                                </span>
+                              </div>
+
+                              {r.keterangan && (
+                                <p className="text-[11px] text-slate-400 dark:text-slate-500 italic line-clamp-2 mt-1">
+                                  &quot;{r.keterangan}&quot;
+                                </p>
+                              )}
+                            </div>
+
+                            {/* Card Footer: Quick action to assign proctor */}
+                            <div className="pt-3 mt-3 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between">
+                              <button
+                                onClick={() => {
+                                  setAssignPengawasForm({
+                                    id_ruang: r.id_ruang,
+                                    id_guru: dataGuru[0]?.id_guru || '',
+                                    id_jadwal: '',
+                                    peran: 'PENGAWAS UTAMA'
+                                  });
+                                  setIsAssignPengawasModalOpen(true);
+                                }}
+                                className="text-xs font-bold text-primary hover:text-primary/80 flex items-center gap-1"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">person_add</span>
+                                <span>+ Tugaskan Guru</span>
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setTargetRuangAlokasi(r.nama_ruang);
+                                  setFilterAlokasiRuang('ALL');
+                                  setPengawasSubTab('alokasi_siswa');
+                                }}
+                                className="text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center gap-1"
+                              >
+                                <span>Alokasi Siswa</span>
+                                <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ================= SUB-TAB 3: ALOKASI SISWA KE RUANGAN ================= */}
+              {pengawasSubTab === 'alokasi_siswa' && (
+                <div className="space-y-4 animate-fade-in">
+                  {/* Allocation Operations Card */}
+                  <div className="bg-white dark:bg-slate-800 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-700/80">
+                      <div>
+                        <h4 className="font-bold text-slate-800 dark:text-white text-base flex items-center gap-2">
+                          <span className="material-symbols-outlined text-primary">groups</span>
+                          Distribusi Ruangan Siswa
+                        </h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                          Tentukan ruang ujian bagi siswa secara cepat per Rombel/Kelas atau tandai siswa terpilih
+                        </p>
+                      </div>
+
+                      {/* Room Stats Pill */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="px-2.5 py-1 rounded-xl text-xs font-bold bg-primary/10 text-primary dark:text-primary-400">
+                          {dataSiswa.filter(s => s.ruang).length} Siswa Terbagi
+                        </span>
+                        <span className="px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
+                          {dataSiswa.filter(s => !s.ruang).length} Belum Ada Ruang
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Step 1: Target Room Selector */}
+                    <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-700/80">
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                        <span className="w-5 h-5 rounded-full bg-primary text-white text-[11px] flex items-center justify-center font-bold">1</span>
+                        <span>Pilih Ruangan Ujian Tujuan</span>
+                      </label>
+                      {dataRuang.length === 0 ? (
+                        <div className="text-xs text-rose-500 flex items-center justify-between">
+                          <span>Belum ada ruang terdaftar. Silakan buat ruang ujian terlebih dahulu.</span>
+                          <button
+                            type="button"
+                            onClick={() => { setPengawasSubTab('ruang'); handleOpenRuangModal(); }}
+                            className="font-bold underline text-primary ml-2"
+                          >
+                            + Tambah Ruang
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                          {dataRuang.map(r => {
+                            const countInRoom = dataSiswa.filter(s => s.ruang === r.nama_ruang || s.ruang === r.id_ruang).length;
+                            const isSelected = targetRuangAlokasi === r.nama_ruang;
+                            return (
+                              <button
+                                key={r.id_ruang}
+                                type="button"
+                                onClick={() => setTargetRuangAlokasi(r.nama_ruang)}
+                                className={`p-2.5 rounded-xl border text-left transition-all flex items-center justify-between ${
+                                  isSelected
+                                    ? 'border-primary bg-primary/10 text-primary ring-2 ring-primary/20 dark:bg-primary/20 dark:text-primary-300'
+                                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-slate-300 text-slate-700 dark:text-slate-300'
+                                }`}
+                              >
+                                <div className="min-w-0">
+                                  <div className="font-bold text-xs truncate">{r.nama_ruang}</div>
+                                  <div className="text-[10px] text-slate-400">
+                                    Kapasitas: {r.kapasitas} kursi
+                                  </div>
+                                </div>
+                                <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-full ${
+                                  countInRoom >= r.kapasitas
+                                    ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400'
+                                    : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                                }`}>
+                                  {countInRoom}/{r.kapasitas}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Step 2: Allocation Execution Options */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                      {/* Option A: Bulk by Class */}
+                      <div className="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-900/40 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <span className="w-5 h-5 rounded-full bg-slate-700 text-white text-[11px] flex items-center justify-center font-bold">2A</span>
+                            <h5 className="font-bold text-xs text-slate-800 dark:text-white">Alokasi Cepat per Rombel / Kelas</h5>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-3">
+                            Semua siswa dalam satu kelas langsung ditetapkan ke ruangan sasaran di atas.
+                          </p>
+
+                          <div className="space-y-2 mb-3">
+                            <select
+                              value={selectedKelasAlokasi}
+                              onChange={(e) => setSelectedKelasAlokasi(e.target.value)}
+                              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2 dark:bg-slate-900 text-xs text-slate-700 dark:text-white"
+                            >
+                              <option value="">-- Pilih Kelas / Rombel --</option>
+                              {availableAlokasiClasses.map(k => {
+                                const countInClass = dataSiswa.filter(s => (s.kelas || `${s.angkatan || ''} ${s.kelas_paralel || ''}`).trim() === k).length;
+                                return (
+                                  <option key={k} value={k}>
+                                    {k} ({countInClass} Siswa)
+                                  </option>
+                                );
+                              })}
+                            </select>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handleBulkAssignByClass}
+                          disabled={!targetRuangAlokasi || !selectedKelasAlokasi || isLoading}
+                          className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 disabled:opacity-50"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">how_to_reg</span>
+                          <span>Tetapkan Seluruh Siswa Kelas Ini</span>
+                        </button>
+                      </div>
+
+                      {/* Option B: Bulk Selected Students */}
+                      <div className="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-900/40 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <span className="w-5 h-5 rounded-full bg-slate-700 text-white text-[11px] flex items-center justify-center font-bold">2B</span>
+                            <h5 className="font-bold text-xs text-slate-800 dark:text-white">Alokasi Siswa Tertentu (Multi-Select)</h5>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-3">
+                            Centang satu atau beberapa siswa pada tabel di bawah lalu tetapkan ke ruangan sasaran.
+                          </p>
+
+                          <div className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 text-xs flex items-center justify-between mb-3">
+                            <span className="text-slate-500">Siswa Dipilih di Tabel:</span>
+                            <span className="font-bold text-primary dark:text-primary-400">
+                              {selectedAlokasiSiswa.length} Siswa
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handleBulkAssignSelectedSiswa}
+                          disabled={!targetRuangAlokasi || selectedAlokasiSiswa.length === 0 || isLoading}
+                          className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white dark:bg-slate-700 dark:hover:bg-slate-600 shadow-sm transition-all active:scale-95 disabled:opacity-50"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">check_box</span>
+                          <span>Tugaskan {selectedAlokasiSiswa.length} Siswa Terpilih</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Student Table & Filters */}
+                  <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm overflow-hidden space-y-3 p-4">
+                    {/* Filters Row */}
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+                      <div className="flex flex-wrap items-center gap-2 flex-1">
+                        {/* Search Input */}
+                        <div className="relative min-w-[200px] flex-1">
+                          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">
+                            search
+                          </span>
+                          <input
+                            type="text"
+                            value={searchAlokasiSiswa}
+                            onChange={(e) => setSearchAlokasiSiswa(e.target.value)}
+                            placeholder="Cari siswa (nama/NISN)..."
+                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          />
+                        </div>
+
+                        {/* Filter by Kelas */}
+                        <div className="relative">
+                          <select
+                            value={filterAlokasiKelas}
+                            onChange={(e) => setFilterAlokasiKelas(e.target.value)}
+                            className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                          >
+                            <option value="ALL">Semua Kelas</option>
+                            {availableAlokasiClasses.map(k => (
+                              <option key={k} value={k}>{k}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Filter by Ruang */}
+                        <div className="relative">
+                          <select
+                            value={filterAlokasiRuang}
+                            onChange={(e) => setFilterAlokasiRuang(e.target.value)}
+                            className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                          >
+                            <option value="ALL">Semua Status Ruang</option>
+                            <option value="BELUM">Belum Ada Ruang</option>
+                            {dataRuang.map(r => (
+                              <option key={r.id_ruang} value={r.nama_ruang}>{r.nama_ruang}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Select All / Deselect All Toggle */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (selectedAlokasiSiswa.length === filteredAlokasiSiswa.length) {
+                              setSelectedAlokasiSiswa([]);
+                            } else {
+                              setSelectedAlokasiSiswa(filteredAlokasiSiswa.map(s => s.id_siswa));
+                            }
+                          }}
+                          className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        >
+                          {selectedAlokasiSiswa.length === filteredAlokasiSiswa.length && filteredAlokasiSiswa.length > 0
+                            ? 'Batal Pilih Semua'
+                            : 'Pilih Semua di Filter'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Table View */}
+                    <div className="overflow-x-auto rounded-xl border border-slate-100 dark:border-slate-700/80">
+                      <table className="w-full text-left border-collapse text-xs sm:text-sm">
+                        <thead className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-700/80 text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                          <tr>
+                            <th className="p-3 pl-4 w-10 text-center">
+                              <input
+                                type="checkbox"
+                                checked={filteredAlokasiSiswa.length > 0 && selectedAlokasiSiswa.length === filteredAlokasiSiswa.length}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedAlokasiSiswa(filteredAlokasiSiswa.map(s => s.id_siswa));
+                                  } else {
+                                    setSelectedAlokasiSiswa([]);
+                                  }
+                                }}
+                                className="rounded text-primary focus:ring-primary"
+                              />
+                            </th>
+                            <th className="p-3">Nama Siswa</th>
+                            <th className="p-3">NISN / Username</th>
+                            <th className="p-3">Kelas</th>
+                            <th className="p-3">Ruang Ujian Saat Ini</th>
+                            <th className="p-3 pr-4 text-right">Tugaskan Ruang Cepat</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                          {filteredAlokasiSiswa.length === 0 ? (
+                            <tr>
+                              <td colSpan="6" className="p-8 text-center text-slate-400">
+                                Tidak ada siswa yang sesuai dengan filter.
+                              </td>
+                            </tr>
+                          ) : (
+                            filteredAlokasiSiswa.map((s) => {
+                              const isChecked = selectedAlokasiSiswa.includes(s.id_siswa);
+                              return (
+                                <tr
+                                  key={s.id_siswa}
+                                  className={`transition-colors ${
+                                    isChecked ? 'bg-primary/5 dark:bg-primary/10' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/60'
+                                  }`}
+                                >
+                                  <td className="p-3 pl-4 text-center">
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={() => {
+                                        if (isChecked) {
+                                          setSelectedAlokasiSiswa(prev => prev.filter(id => id !== s.id_siswa));
+                                        } else {
+                                          setSelectedAlokasiSiswa(prev => [...prev, s.id_siswa]);
+                                        }
+                                      }}
+                                      className="rounded text-primary focus:ring-primary"
+                                    />
+                                  </td>
+                                  <td className="p-3">
+                                    <span className="font-bold text-slate-800 dark:text-white block">
+                                      {s.nama_lengkap}
+                                    </span>
+                                  </td>
+                                  <td className="p-3 font-mono text-slate-500 dark:text-slate-400">
+                                    {s.nisn || s.username || '-'}
+                                  </td>
+                                  <td className="p-3">
+                                    <span className="px-2 py-0.5 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                                      {s.kelas || `${s.angkatan || ''} ${s.kelas_paralel || ''}`.trim() || '-'}
+                                    </span>
+                                  </td>
+                                  <td className="p-3">
+                                    {s.ruang ? (
+                                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-300 border border-primary/20">
+                                        <span className="material-symbols-outlined text-[14px]">meeting_room</span>
+                                        {s.ruang}
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40">
+                                        <span className="material-symbols-outlined text-[13px]">help</span>
+                                        Belum Diatur
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="p-3 pr-4 text-right">
+                                    <select
+                                      value={s.ruang || ''}
+                                      onChange={(e) => handleSingleAssignSiswaRuang(s.id_siswa, e.target.value)}
+                                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer max-w-[150px]"
+                                    >
+                                      <option value="">-- Pindah Ruang --</option>
+                                      {dataRuang.map(r => (
+                                        <option key={r.id_ruang} value={r.nama_ruang}>
+                                          {r.nama_ruang}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -3420,13 +5558,23 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg sm:text-xl">Mata Pelajaran</h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Kelola daftar kurikulum mata pelajaran</p>
                 </div>
-                <button
-                  onClick={() => openCreateModal('mapel')}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 self-end sm:self-auto min-h-[44px]"
-                >
-                  <span className="material-symbols-outlined text-[18px]">add_circle</span>
-                  <span>Tambah Mapel</span>
-                </button>
+                <div className="flex items-center gap-2 flex-wrap self-end sm:self-auto">
+                  <button
+                    onClick={() => setImportModal({ isOpen: true, type: 'mapel' })}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 transition-colors min-h-[44px]"
+                    title="Import Excel"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">upload_file</span>
+                    <span className="hidden sm:inline">Import</span>
+                  </button>
+                  <button
+                    onClick={() => openCreateModal('mapel')}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 min-h-[44px]"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">add_circle</span>
+                    <span>Tambah Mapel</span>
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
@@ -3809,15 +5957,29 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       {renderProfileModal()}
       {renderAnalisisModal()}
       {renderConfirmDialog()}
+      {renderAssignPengawasModal()}
+      {renderRuangModal()}
+      {renderPrintKartuModal()}
 
-      {/* Avatar Picker Modal */}
+      {/* Kartu Ujian Print Component (Mounted when isPrintKartuActive is true) */}
+      {isPrintKartuActive && printKartuPayload && (
+        <KartuUjianPrint
+          data={printKartuPayload}
+          onClose={() => {
+            setIsPrintKartuActive(false);
+            setPrintKartuPayload(null);
+          }}
+        />
+      )}
+
+      {/* Avatar Upload Modal */}
       {isAvatarModalOpen && (
         <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-sm shadow-2xl p-5 sm:p-6 relative border border-slate-200 dark:border-slate-700 animate-scale-up">
             <div className="flex justify-between items-center mb-5">
               <div>
-                <h3 className="font-bold text-base sm:text-lg text-slate-800 dark:text-white">Pilih Avatar</h3>
-                <p className="text-xs text-slate-500">Pilih karakter foto profil Anda</p>
+                <h3 className="font-bold text-base sm:text-lg text-slate-800 dark:text-white">Foto Profil</h3>
+                <p className="text-xs text-slate-500">Unggah foto profil dari perangkat Anda</p>
               </div>
               <button
                 onClick={() => setIsAvatarModalOpen(false)}
@@ -3826,20 +5988,34 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 <span className="material-symbols-outlined text-sm">close</span>
               </button>
             </div>
-            <div className="grid grid-cols-3 gap-3 mb-2">
-              {PRESET_AVATARS.map((avatar, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handleAvatarSelect(avatar)}
-                  className={`w-full aspect-square rounded-2xl overflow-hidden border-2 transition-all ${
-                    user.foto_profil === avatar
-                      ? 'border-primary ring-4 ring-primary/20 shadow-md scale-105 bg-white'
-                      : 'border-slate-200 dark:border-slate-700 hover:border-primary/50 bg-slate-50 dark:bg-slate-900'
-                  }`}
-                >
-                  <img src={avatar} alt="Avatar" className="w-full h-full object-cover p-2" />
-                </button>
-              ))}
+            <div className="flex flex-col items-center gap-4 py-3">
+              <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-primary/20 bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
+                {user.foto_profil ? (
+                  <img src={user.foto_profil} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="material-symbols-outlined text-4xl text-slate-400">person</span>
+                )}
+              </div>
+              <label className="cursor-pointer px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-sm transition-all active:scale-95">
+                <span className="material-symbols-outlined text-lg">upload</span>
+                <span>Pilih Foto dari Perangkat</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    try {
+                      const dataUrl = await compressImageFile(file);
+                      await handleAvatarSelect(dataUrl);
+                    } catch (err) {
+                      showMessage('Gagal', err.message, 'error');
+                    }
+                  }}
+                />
+              </label>
+              <p className="text-[11px] text-slate-400 text-center">Format JPEG/PNG, otomatis dikompresi ke resolusi optimal.</p>
             </div>
           </div>
         </div>

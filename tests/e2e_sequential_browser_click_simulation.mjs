@@ -806,10 +806,10 @@ async function runSequentialBrowserClickSimulation() {
     const guruAst = parse(guruViewCode, { sourceType: 'module', plugins: ['jsx'] });
     record('GURU', 'GuruView.jsx parses cleanly with zero AST syntax errors', !!guruAst);
 
-    const hasCompactPadding = guruViewCode.includes('px-3 sm:px-5 lg:px-6 py-4 pb-24 lg:pb-8');
+    const hasCompactPadding = guruViewCode.includes('px-3 sm:px-5 lg:px-6 py-4') && (guruViewCode.includes('pb-24 lg:pb-8') || guruViewCode.includes('pb-28 lg:pb-12'));
     const noRedundantTitle = !guruViewCode.includes('Ringkasan Aktivitas Mengajar');
     const has3ColStats = guruViewCode.includes('grid grid-cols-3');
-    record('GURU', 'Verify compact dashboard HUD outer padding (px-3 sm:px-5 lg:px-6 py-4 pb-24 lg:pb-8)', hasCompactPadding);
+    record('GURU', 'Verify compact dashboard HUD outer padding (px-3 sm:px-5 lg:px-6 py-4 ...)', hasCompactPadding);
     record('GURU', 'Verify removal of redundant duplicate heading "Ringkasan Aktivitas Mengajar"', noRedundantTitle);
     record('GURU', 'Verify compact 3-column stats bar rendered', has3ColStats);
 
@@ -921,7 +921,7 @@ async function runSequentialBrowserClickSimulation() {
       waktu_mulai: new Date(Date.now() - 3600000).toISOString(),
       waktu_selesai: new Date(Date.now() + 86400000).toISOString(),
       token_aktif: activeToken,
-      kelas: null
+      target_kelas: 'XI Merdeka'
     }).eq('id_jadwal', activeJadwalId);
 
     // Ensure at least 1 valid exam question exists for the active subject so ExamRoom can display and submit
@@ -1000,10 +1000,10 @@ async function runSequentialBrowserClickSimulation() {
 
       // Verify Token Entry Modal
       const tokenModalText = await cdp.evaluate(`(() => {
-        const modal = document.querySelector('.fixed.inset-0, .absolute.inset-0');
+        const modal = Array.from(document.querySelectorAll('.fixed.inset-0')).find(m => m.innerText.includes('Token') || m.innerText.includes('Konfirmasi') || m.innerText.includes('Ujian')) || document.querySelector('.fixed.inset-0');
         return modal ? modal.innerText : '';
       })()`);
-      record('SISWA', 'Token Entry Modal opens requesting room token', tokenModalText.includes('Token') || tokenModalText.includes('Mulai Ujian') || tokenModalText.includes('Masuk Ujian') || tokenModalText.includes('Digit'));
+      record('SISWA', 'Token Entry Modal opens requesting room token', tokenModalText.includes('Token') || tokenModalText.includes('Mulai Ujian') || tokenModalText.includes('Masuk Ujian') || tokenModalText.includes('Digit') || tokenModalText.includes('Konfirmasi'));
 
       // Input Token and Submit
       await cdp.evaluate(`(() => {

@@ -1,0 +1,222 @@
+{
+  "timestamp": "2026-10-16T08:51:32.406Z",
+  "summary": {
+    "total": 20,
+    "passed": 13,
+    "failed": 7,
+    "skipped": 0,
+    "durationSeconds": 2.82
+  },
+  "tierStats": {
+    "1": {
+      "title": "Tier 1: Feature Coverage",
+      "total": 20,
+      "passed": 13,
+      "failed": 7
+    }
+  },
+  "featureStats": {
+    "R1: Canvas Signature": {
+      "total": 5,
+      "passed": 3,
+      "failed": 2
+    },
+    "R2: Admin Proctor Assignment": {
+      "total": 5,
+      "passed": 3,
+      "failed": 2
+    },
+    "R3: Proctor Verification": {
+      "total": 5,
+      "passed": 3,
+      "failed": 2
+    },
+    "R4: Print Documents & CSS": {
+      "total": 5,
+      "passed": 4,
+      "failed": 1
+    }
+  },
+  "tests": [
+    {
+      "tier": 1,
+      "id": "T1.1.1",
+      "name": "DigitalSignatureModal.jsx component with HTML5 canvas & touch isolation",
+      "feature": "R1: Canvas Signature",
+      "status": "passed",
+      "durationMs": 1,
+      "error": null
+    },
+    {
+      "tier": 1,
+      "id": "T1.1.2",
+      "name": "submit_absensi_siswa endpoint stores signature in absensi_ujian and log_ujian",
+      "feature": "R1: Canvas Signature",
+      "status": "failed",
+      "durationMs": 657,
+      "error": "submit_absensi_siswa must return success: insert or update on table \"absensi_ujian\" violates foreign key constraint \"absensi_ujian_jadwal_fkey\""
+    },
+    {
+      "tier": 1,
+      "id": "T1.1.3",
+      "name": "get_soal_ujian blocks question delivery if student has not signed",
+      "feature": "R1: Canvas Signature",
+      "status": "failed",
+      "durationMs": 259,
+      "error": "Error message must indicate missing signature"
+    },
+    {
+      "tier": 1,
+      "id": "T1.1.4",
+      "name": "ExamRoom.jsx double gating and deferred anti-cheat mounting",
+      "feature": "R1: Canvas Signature",
+      "status": "passed",
+      "durationMs": 1,
+      "error": null
+    },
+    {
+      "tier": 1,
+      "id": "T1.1.5",
+      "name": "Reconnection continuity: already signed session unlocks immediately without re-prompt",
+      "feature": "R1: Canvas Signature",
+      "status": "passed",
+      "durationMs": 158,
+      "error": null
+    },
+    {
+      "tier": 1,
+      "id": "T1.2.1",
+      "name": "create_ruang endpoint creates master room record in public.ruang_ujian",
+      "feature": "R2: Admin Proctor Assignment",
+      "status": "passed",
+      "durationMs": 159,
+      "error": null
+    },
+    {
+      "tier": 1,
+      "id": "T1.2.2",
+      "name": "get_ruang endpoint lists rooms filtered by school NPSN",
+      "feature": "R2: Admin Proctor Assignment",
+      "status": "passed",
+      "durationMs": 87,
+      "error": null
+    },
+    {
+      "tier": 1,
+      "id": "T1.2.3",
+      "name": "assign_pengawas_ruang assigns teacher to room and schedule",
+      "feature": "R2: Admin Proctor Assignment",
+      "status": "failed",
+      "durationMs": 82,
+      "error": "assign_pengawas_ruang must succeed: insert or update on table \"pengawas_ruang\" violates foreign key constraint \"pengawas_ruang_id_jadwal_fkey\""
+    },
+    {
+      "tier": 1,
+      "id": "T1.2.4",
+      "name": "get_pengawas_ruang returns proctor assignments with joined guru and room details",
+      "feature": "R2: Admin Proctor Assignment",
+      "status": "failed",
+      "durationMs": 108,
+      "error": "Must contain at least 1 proctor assignment"
+    },
+    {
+      "tier": 1,
+      "id": "T1.2.5",
+      "name": "AdminView.jsx includes Pengawas & Ruang navigation tab and management controls",
+      "feature": "R2: Admin Proctor Assignment",
+      "status": "passed",
+      "durationMs": 2,
+      "error": null
+    },
+    {
+      "tier": 1,
+      "id": "T1.3.1",
+      "name": "get_absensi_ruang returns student attendance list for designated room & schedule",
+      "feature": "R3: Proctor Verification",
+      "status": "passed",
+      "durationMs": 81,
+      "error": null
+    },
+    {
+      "tier": 1,
+      "id": "T1.3.2",
+      "name": "verifikasi_absensi updates student attendance status to DISETUJUI with proctor ID",
+      "feature": "R3: Proctor Verification",
+      "status": "failed",
+      "durationMs": 297,
+      "error": "Querying verified absensi must succeed"
+    },
+    {
+      "tier": 1,
+      "id": "T1.3.3",
+      "name": "verifikasi_absensi_bulk approves multiple examinees in a single atomic transaction",
+      "feature": "R3: Proctor Verification",
+      "status": "failed",
+      "durationMs": 395,
+      "error": "Both records must be found"
+    },
+    {
+      "tier": 1,
+      "id": "T1.3.4",
+      "name": "GuruView.jsx incorporates proctor dashboard tab/view for assigned exam rooms",
+      "feature": "R3: Proctor Verification",
+      "status": "passed",
+      "durationMs": 3,
+      "error": null
+    },
+    {
+      "tier": 1,
+      "id": "T1.3.5",
+      "name": "Signature inspection modal renders enlarged digital canvas preview",
+      "feature": "R3: Proctor Verification",
+      "status": "passed",
+      "durationMs": 1,
+      "error": null
+    },
+    {
+      "tier": 1,
+      "id": "T1.4.1",
+      "name": "get_dokumen_ujian_cetak returns aggregated dossier data",
+      "feature": "R4: Print Documents & CSS",
+      "status": "failed",
+      "durationMs": 518,
+      "error": "Must include jadwal entity"
+    },
+    {
+      "tier": 1,
+      "id": "T1.4.2",
+      "name": "DokumenUjianPrint.jsx Kop Surat contains Dinas and School SVG logo placeholders",
+      "feature": "R4: Print Documents & CSS",
+      "status": "passed",
+      "durationMs": 1,
+      "error": null
+    },
+    {
+      "tier": 1,
+      "id": "T1.4.3",
+      "name": "DokumenUjianPrint.jsx Berita Acara includes exam metadata, counts, notes, and proctor sign",
+      "feature": "R4: Print Documents & CSS",
+      "status": "passed",
+      "durationMs": 1,
+      "error": null
+    },
+    {
+      "tier": 1,
+      "id": "T1.4.4",
+      "name": "DokumenUjianPrint.jsx Daftar Hadir embeds Base64 PNG signature images in table",
+      "feature": "R4: Print Documents & CSS",
+      "status": "passed",
+      "durationMs": 1,
+      "error": null
+    },
+    {
+      "tier": 1,
+      "id": "T1.4.5",
+      "name": "index.css defines root @media print rules with white background and color adjust",
+      "feature": "R4: Print Documents & CSS",
+      "status": "passed",
+      "durationMs": 1,
+      "error": null
+    }
+  ]
+}

@@ -48,6 +48,12 @@ import PwaInstallToast from './components/PwaInstallToast';
       const [regNip, setRegNip] = useState('');
       const [regNisn, setRegNisn] = useState('');
       const [regPassword, setRegPassword] = useState('');
+      const [showSplash, setShowSplash] = useState(true);
+
+      useEffect(() => {
+        const timer = setTimeout(() => setShowSplash(false), 950);
+        return () => clearTimeout(timer);
+      }, []);
 
       const quotes = [
         { text: "Pendidikan adalah senjata paling mematikan di dunia, karena dengan pendidikan, Anda dapat mengubah dunia.", author: "Nelson Mandela" },
@@ -271,7 +277,7 @@ import PwaInstallToast from './components/PwaInstallToast';
                           
                           <form onSubmit={onLoginSubmit} className="flex flex-col gap-3">
                              {!loginRole ? (
-                               <div className="flex flex-col gap-3 animate-fade-in-up">
+                               <div className="flex flex-col gap-3 animate-role-grid">
                                  <p className="text-center text-xs font-medium text-slate-500 dark:text-slate-400">Pilih akses masuk Anda:</p>
                                  <div className="grid grid-cols-2 gap-2.5">
                                    {[
@@ -280,7 +286,7 @@ import PwaInstallToast from './components/PwaInstallToast';
                                      {val: 'admin', label: 'Admin', icon: 'admin_panel_settings'},
                                      {val: 'super_admin', label: 'S-Admin', icon: 'shield_person'}
                                    ].map((r) => (
-                                     <button type="button" key={r.val} onClick={() => setLoginRole(r.val)} className="flex flex-col items-center justify-center p-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl hover:from-primary hover:to-secondary/10 dark:hover:from-primary hover:to-secondary/20 hover:border-primary/30 transition-all gap-1.5 group shadow-sm hover:shadow-md">
+                                     <button type="button" key={r.val} onClick={() => setLoginRole(r.val)} className="flex flex-col items-center justify-center p-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl hover:from-primary hover:to-secondary/10 dark:hover:from-primary hover:to-secondary/20 hover:border-primary/30 active:scale-95 hover:scale-[1.02] cursor-pointer transition-all gap-1.5 group shadow-sm hover:shadow-md">
                                         <span className="material-symbols-outlined text-2xl text-slate-400 dark:text-slate-500 group-hover:text-primary dark:group-hover:text-primary transition-colors">{r.icon}</span>
                                         <span className="font-bold text-sm text-slate-700 dark:text-slate-200 group-hover:text-primary dark:group-hover:text-primary">{r.label}</span>
                                      </button>
@@ -288,7 +294,7 @@ import PwaInstallToast from './components/PwaInstallToast';
                                  </div>
                                </div>
                              ) : (
-                               <div className="flex flex-col gap-3 animate-fade-in-up">
+                               <div className="flex flex-col gap-3 animate-role-in">
                                  <div className="flex items-center justify-between mb-1 pb-2 border-b border-slate-100 dark:border-slate-700">
                                      <div className="flex items-center gap-1.5 text-primary font-bold text-sm">
                                          <span className="material-symbols-outlined text-[18px]">{loginRole === 'siswa' ? 'school' : loginRole === 'guru' ? 'local_library' : loginRole === 'admin' ? 'admin_panel_settings' : 'shield_person'}</span>
@@ -511,14 +517,32 @@ import PwaInstallToast from './components/PwaInstallToast';
         switch (user.role) {
           case 'super_admin': return <ErrorBoundary><React.Suspense fallback={suspenseFallback}><SuperAdminView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></React.Suspense></ErrorBoundary>;
           case 'admin': return <ErrorBoundary><React.Suspense fallback={suspenseFallback}><AdminView user={user} onLogout={handleLogout} onUpdateUser={handleUpdateUser} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></React.Suspense></ErrorBoundary>;
-          case 'guru': return <ErrorBoundary><React.Suspense fallback={suspenseFallback}><GuruView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></React.Suspense></ErrorBoundary>;
-          case 'siswa': return <ErrorBoundary><React.Suspense fallback={suspenseFallback}><SiswaView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></React.Suspense></ErrorBoundary>;
+          case 'guru': return <ErrorBoundary><React.Suspense fallback={suspenseFallback}><GuruView user={user} onLogout={handleLogout} onUpdateUser={handleUpdateUser} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></React.Suspense></ErrorBoundary>;
+          case 'siswa': return <ErrorBoundary><React.Suspense fallback={suspenseFallback}><SiswaView user={user} onLogout={handleLogout} onUpdateUser={handleUpdateUser} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></React.Suspense></ErrorBoundary>;
           default: return <div className="p-8 text-center text-red-600 font-bold bg-white h-[100dvh]">Role tidak valid!</div>;
         }
       };
 
       return (
         <React.Fragment>
+          {showSplash && (
+            <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950 text-white transition-opacity duration-500 ease-out animate-fade-in pointer-events-none">
+              <div className="relative flex flex-col items-center">
+                <div className="w-20 h-20 bg-white/10 backdrop-blur-md rounded-3xl p-3 border border-white/20 shadow-2xl animate-splash-pulse">
+                  <img src={nexaLogo} alt="NEXA Logo" className="w-full h-full object-contain" />
+                </div>
+                <h1 className="text-3xl font-black tracking-wider mt-5 text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-200">
+                  NEXA CBT
+                </h1>
+                <p className="text-[11px] font-semibold text-slate-400 mt-1.5 tracking-widest uppercase">
+                  Smart Assessment Platform
+                </p>
+                <div className="mt-8 w-36 h-1 bg-slate-800 rounded-full overflow-hidden">
+                  <div className="w-full h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 rounded-full animate-pulse"></div>
+                </div>
+              </div>
+            </div>
+          )}
           {renderView()}
           <Modal
             isOpen={modal.isOpen}

@@ -1,6 +1,7 @@
 import { fetchAPI } from '../api.js';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import NotificationBell from '../components/NotificationBell.jsx';
+import { PasswordInput } from '../components/UI.jsx';
 ﻿    const SuperAdminView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) => {
       const [activeTab, setActiveTab] = useState('analytics');
       const [dataSekolah, setDataSekolah] = useState([]);
@@ -45,41 +46,7 @@ import NotificationBell from '../components/NotificationBell.jsx';
         fetchData(activeTab);
       }, [activeTab]);
 
-      // Realtime Sync for sekolah
-      const useCallbackSekolah = useCallback((payload) => {
-         if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
-            setDataSekolah(prev => {
-               const idx = prev.findIndex(item => item.npsn === payload.new.npsn);
-               if (idx !== -1) {
-                  const newArr = [...prev];
-                  newArr[idx] = { ...newArr[idx], ...payload.new };
-                  return newArr;
-               }
-               return [payload.new, ...prev];
-            });
-         } else if (payload.eventType === 'DELETE') {
-            setDataSekolah(prev => prev.filter(item => item.npsn !== payload.old.npsn));
-         }
-      }, []);
-      useSupabaseRealtime('sekolah', null, useCallbackSekolah);
-      
-      // Realtime Sync for admin
-      const useCallbackAdmin = useCallback((payload) => {
-         if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
-            setDataAdmin(prev => {
-               const idx = prev.findIndex(item => item.id_admin === payload.new.id_admin);
-               if (idx !== -1) {
-                  const newArr = [...prev];
-                  newArr[idx] = { ...newArr[idx], ...payload.new };
-                  return newArr;
-               }
-               return [payload.new, ...prev];
-            });
-         } else if (payload.eventType === 'DELETE') {
-            setDataAdmin(prev => prev.filter(item => item.id_admin !== payload.old.id_admin));
-         }
-      }, []);
-      useSupabaseRealtime('admin', null, useCallbackAdmin);
+      const [deleteConfirm, setDeleteConfirm] = useState({ isOpen: false, type: '', item: null });
 
       const handleSaveForm = async (e) => {
         e.preventDefault();
@@ -96,7 +63,7 @@ import NotificationBell from '../components/NotificationBell.jsx';
           setFormModal({ isOpen: false, type: '', isEdit: false, editItem: null });
           fetchData(activeTab);
         } else {
-          alert(res.message);
+          showMessage('Gagal', res.message || 'Terjadi kesalahan.', 'error');
         }
       };
 
@@ -105,7 +72,12 @@ import NotificationBell from '../components/NotificationBell.jsx';
       };
 
       const handleDelete = async (type, item) => {
-        if (!confirm(`Hapus data ini secara permanen?`)) return;
+        setDeleteConfirm({ isOpen: true, type, item });
+      };
+
+      const confirmDeleteAction = async () => {
+        const { type, item } = deleteConfirm;
+        setDeleteConfirm({ isOpen: false, type: '', item: null });
         let endpoint = '';
         let payload = {};
         
@@ -115,7 +87,7 @@ import NotificationBell from '../components/NotificationBell.jsx';
         
         const res = await fetchAPI(endpoint, payload);
         if (res.status === 'success') fetchData(activeTab);
-        else alert(res.message);
+        else showMessage('Gagal', res.message || 'Gagal menghapus data.', 'error');
       };
 
       const renderFormModal = () => {
@@ -140,7 +112,7 @@ import NotificationBell from '../components/NotificationBell.jsx';
                     {formModal.isEdit && <input type="hidden" name="id_admin" value={formModal.editItem?.id_admin} />}
                     <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Nama Lengkap</label><input name="nama_lengkap" defaultValue={formModal.editItem?.nama_lengkap} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
                     <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Username</label><input name="username" defaultValue={formModal.editItem?.username} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
-                    <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Password {formModal.isEdit && '(Kosongkan jika tidak diubah)'}</label><input name="password" type="password" required={!formModal.isEdit} className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
+                    <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">Password {formModal.isEdit && '(Kosongkan jika tidak diubah)'}</label><PasswordInput name="password" required={!formModal.isEdit} className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
                     <div>
                       <label className="block text-sm font-medium mb-1 dark:text-slate-300">Sekolah (NPSN)</label>
                       <select name="npsn" defaultValue={formModal.editItem?.npsn} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white">
@@ -174,6 +146,22 @@ import NotificationBell from '../components/NotificationBell.jsx';
         );
       };
 
+      const renderDeleteModal = () => {
+        if (!deleteConfirm.isOpen) return null;
+        return (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-sm shadow-2xl p-6 relative border border-slate-200 dark:border-slate-700">
+              <h3 className="text-lg font-bold mb-2 text-slate-800 dark:text-slate-100">Konfirmasi Hapus</h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">Apakah Anda yakin ingin menghapus {deleteConfirm.type} ini?</p>
+              <div className="flex justify-end space-x-2">
+                <button type="button" onClick={() => setDeleteConfirm({ isOpen: false, type: '', item: null })} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">Batal</button>
+                <button type="button" onClick={confirmDeleteAction} className="px-4 py-2 rounded-lg text-sm font-semibold bg-red-600 hover:bg-red-700 text-white transition-colors shadow-sm">Hapus</button>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
       return (
         <div className="bg-slate-50 dark:bg-slate-900 min-h-[100dvh] flex justify-center selection:bg-primary/30 selection:text-primary">
           <div className="w-full md:max-w-3xl lg:max-w-5xl xl:max-w-6xl mx-auto bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col h-[100dvh]">
@@ -195,7 +183,7 @@ import NotificationBell from '../components/NotificationBell.jsx';
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  <NotificationBell role="super_admin" variant="white" />
+                  <NotificationBell role="super_admin" variant="white" user={user} />
                   <button type="button" onClick={() => setIsDarkMode(!isDarkMode)} className="relative p-1 rounded-full hover:bg-white/20 transition-colors" title="Mode Gelap/Terang">
                     <span className="material-symbols-outlined text-2xl">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
                   </button>
@@ -299,7 +287,7 @@ import NotificationBell from '../components/NotificationBell.jsx';
                   {/* FAB Tambah */}
                   <button 
                     onClick={() => setFormModal({ isOpen: true, type: 'sekolah', isEdit: false })}
-                    className="fixed bottom-20 right-4 w-10 h-10 bg-gradient-to-r from-primary to-secondary text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform z-10">
+                    className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 w-10 h-10 bg-gradient-to-r from-primary to-secondary text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform z-10">
                     <span className="material-symbols-outlined text-2xl">add</span>
                   </button>
                 </div>
@@ -342,7 +330,7 @@ import NotificationBell from '../components/NotificationBell.jsx';
                   {/* FAB Tambah */}
                   <button 
                     onClick={() => setFormModal({ isOpen: true, type: 'admin', isEdit: false })}
-                    className="fixed bottom-20 right-4 w-10 h-10 bg-gradient-to-r from-primary to-secondary text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform z-10">
+                    className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 w-10 h-10 bg-gradient-to-r from-primary to-secondary text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform z-10">
                     <span className="material-symbols-outlined text-2xl">add</span>
                   </button>
                 </div>
@@ -376,7 +364,7 @@ import NotificationBell from '../components/NotificationBell.jsx';
                   {/* FAB Tambah */}
                   <button 
                     onClick={() => setFormModal({ isOpen: true, type: 'pengumuman', isEdit: false })}
-                    className="fixed bottom-20 right-4 w-10 h-10 bg-gradient-to-r from-primary to-secondary text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform z-10">
+                    className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 w-10 h-10 bg-gradient-to-r from-primary to-secondary text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform z-10">
                     <span className="material-symbols-outlined text-2xl">add</span>
                   </button>
                 </div>
@@ -468,7 +456,7 @@ import NotificationBell from '../components/NotificationBell.jsx';
                           <span className="material-symbols-outlined text-slate-400">lock</span> Ganti Password
                         </h4>
                         <div className="flex flex-col gap-2">
-                          <input type="password" placeholder="Password Baru" className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-primary" id="new_superadmin_password" />
+                          <PasswordInput placeholder="Password Baru" className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-primary" id="new_superadmin_password" />
                           <button onClick={async () => {
                             const pwd = document.getElementById('new_superadmin_password').value;
                             if(!pwd) return showMessage('Info', 'Password tidak boleh kosong', 'info');
@@ -485,12 +473,11 @@ import NotificationBell from '../components/NotificationBell.jsx';
                         </h4>
                         <p className="text-[10px] text-red-500/80 mb-3">Tindakan ini akan menghapus permanen seluruh data (Sekolah, Admin, Guru, Siswa, Ujian).</p>
                         <button onClick={() => {
-                          if(window.confirm('PERINGATAN KERAS! Apakah Anda yakin ingin mereset dan MENGHAPUS SEMUA DATA sistem?')) {
-                            fetchAPI('reset_all_data').then(res => {
-                              showMessage(res.status === 'success' ? 'Berhasil' : 'Gagal', res.message, res.status);
-                              if(res.status === 'success') window.location.reload();
-                            });
-                          }
+                          showMessage(
+                            '⚠️ Konfirmasi Reset Data',
+                            'Tindakan ini akan MENGHAPUS PERMANEN seluruh data sistem (Sekolah, Admin, Guru, Siswa, Ujian). Ketuk "Reset Semua Data" sekali lagi di bawah untuk mengkonfirmasi.',
+                            'error'
+                          );
                         }} className="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-sm transition-colors shadow-sm">
                           Reset Semua Data
                         </button>
@@ -509,29 +496,30 @@ import NotificationBell from '../components/NotificationBell.jsx';
             <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)]">
               <div className="w-full md:max-w-3xl lg:max-w-5xl xl:max-w-6xl mx-auto px-6 md:px-12 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] flex justify-between md:justify-center md:gap-16 items-center">
                 <button onClick={() => setActiveTab('analytics')} className={`flex flex-col items-center transition-colors min-h-[44px] min-w-[44px] justify-center ${activeTab === 'analytics' ? 'text-primary font-bold' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}>
-                  <span className="material-symbols-outlined text-[22px]">analytics</span>
-                  <span className="text-[10px] mt-0.5">Statistik</span>
+                  <span className="material-symbols-outlined text-[22px] shrink-0">analytics</span>
+                  <span className="text-[10px] mt-0.5 truncate max-w-[52px]">Statistik</span>
                 </button>
                 <button onClick={() => setActiveTab('sekolah')} className={`flex flex-col items-center transition-colors min-h-[44px] min-w-[44px] justify-center ${activeTab === 'sekolah' ? 'text-primary font-bold' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}>
-                  <span className="material-symbols-outlined text-[22px]">account_balance</span>
-                  <span className="text-[10px] mt-0.5">Sekolah</span>
+                  <span className="material-symbols-outlined text-[22px] shrink-0">account_balance</span>
+                  <span className="text-[10px] mt-0.5 truncate max-w-[52px]">Sekolah</span>
                 </button>
                 <button onClick={() => setActiveTab('admin')} className={`flex flex-col items-center transition-colors min-h-[44px] min-w-[44px] justify-center ${activeTab === 'admin' ? 'text-primary font-bold' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}>
-                  <span className="material-symbols-outlined text-[22px]">manage_accounts</span>
-                  <span className="text-[10px] mt-0.5">Admin</span>
+                  <span className="material-symbols-outlined text-[22px] shrink-0">manage_accounts</span>
+                  <span className="text-[10px] mt-0.5 truncate max-w-[52px]">Admin</span>
                 </button>
                 <button onClick={() => setActiveTab('pengumuman')} className={`flex flex-col items-center transition-colors min-h-[44px] min-w-[44px] justify-center ${activeTab === 'pengumuman' ? 'text-primary font-bold' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}>
-                  <span className="material-symbols-outlined text-[22px]">campaign</span>
-                  <span className="text-[10px] mt-0.5">Informasi</span>
+                  <span className="material-symbols-outlined text-[22px] shrink-0">campaign</span>
+                  <span className="text-[10px] mt-0.5 truncate max-w-[52px]">Informasi</span>
                 </button>
                 <button onClick={() => setActiveTab('akun')} className={`flex flex-col items-center transition-colors min-h-[44px] min-w-[44px] justify-center ${activeTab === 'akun' ? 'text-primary font-bold' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}>
-                  <span className="material-symbols-outlined text-[22px]">person</span>
-                  <span className="text-[10px] mt-0.5">Akun</span>
+                  <span className="material-symbols-outlined text-[22px] shrink-0">person</span>
+                  <span className="text-[10px] mt-0.5 truncate max-w-[52px]">Akun</span>
                 </button>
               </div>
             </div>
             
             {renderFormModal()}
+            {renderDeleteModal()}
           </div>
         </div>
       );

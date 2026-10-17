@@ -14,11 +14,16 @@ import {
   Card,
   CardHeader,
   CardTitle,
-  CardContent
+  CardContent,
+  PasswordInput
 } from '../components/UI.jsx';
 import NotificationBell from '../components/NotificationBell.jsx';
+import ModalPratinjauTandaTangan from '../components/ModalPratinjauTandaTangan.jsx';
+import DokumenUjianPrint from '../components/DokumenUjianPrint.jsx';
+import { parseAiken, prepareAikenPayload } from '../utils/aikenParser.js';
+import { compressImageFile } from '../utils/imageHelper.js';
 
-const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
+const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIsDarkMode }) => {
   const api = (action, p = {}) => {
     if (Array.isArray(p)) return fetchAPI(action, p.map(item => ({ ...item, npsn: user.npsn })));
     return fetchAPI(action, { ...p, npsn: user.npsn });
@@ -59,7 +64,19 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
   const [dataAnalisis, setDataAnalisis] = useState([]);
   const [isAnalisisModalOpen, setIsAnalisisModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [hasNotification, setHasNotification] = useState(false);
+
+  // Proctor Dashboard & Attendance Verification State (Requirement 3)
+  const [dataTugasPengawas, setDataTugasPengawas] = useState([]);
+  const [selectedPengawasRuang, setSelectedPengawasRuang] = useState(null);
+  const [pesertaPengawas, setPesertaPengawas] = useState([]);
+  const [loadingPengawas, setLoadingPengawas] = useState(false);
+  const [inspectStudentSignature, setInspectStudentSignature] = useState(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [filterStatusPengawas, setFilterStatusPengawas] = useState('ALL');
+  const [searchPengawas, setSearchPengawas] = useState('');
+  const [printModalOpen, setPrintModalOpen] = useState(false);
+  const [printData, setPrintData] = useState(null);
+  const [loadingPrint, setLoadingPrint] = useState(false);
 
   // Avatar & Profile
   const [fotoProfil, setFotoProfil] = useState(user.foto || user.foto_profil || '');
@@ -68,28 +85,19 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
   const [profileForm, setProfileForm] = useState({ password: '', foto: user.foto || user.foto_profil || '' });
   const [profileLoading, setProfileLoading] = useState(false);
 
-  const PRESET_AVATARS = [
-    'https://api.dicebear.com/7.x/bottts/svg?seed=Felix',
-    'https://api.dicebear.com/7.x/bottts/svg?seed=Aneka',
-    'https://api.dicebear.com/7.x/bottts/svg?seed=Mimi',
-    'https://api.dicebear.com/7.x/bottts/svg?seed=Buster',
-    'https://api.dicebear.com/7.x/bottts/svg?seed=Jasper',
-    'https://api.dicebear.com/7.x/bottts/svg?seed=Bandit',
-    'https://api.dicebear.com/7.x/bottts/svg?seed=Cali',
-    'https://api.dicebear.com/7.x/bottts/svg?seed=Gizmo',
-    'https://api.dicebear.com/7.x/bottts/svg?seed=Sammy'
-  ];
-
   const handleAvatarSelect = async (avatarUrl) => {
     setIsLoading(true);
     const res = await api('update_guru', { id_guru: user.id_guru, npsn: user.npsn, foto: avatarUrl });
     setIsLoading(false);
     if (res.status === 'success') {
       setFotoProfil(avatarUrl);
+      if (onUpdateUser) onUpdateUser({ foto: avatarUrl, foto_profil: avatarUrl });
+      else { user.foto = avatarUrl; user.foto_profil = avatarUrl; }
       setIsAvatarModalOpen(false);
-      logActivity('UPDATE AVATAR', 'Memperbarui foto profil avatar akun guru');
+      showMessage('Berhasil', 'Foto profil guru berhasil diperbarui.', 'success');
+      logActivity('UPDATE AVATAR', 'Memperbarui foto profil akun guru');
     } else {
-      alert(res.message);
+      showMessage('Info', res.message, 'info');
     }
   };
 
@@ -106,12 +114,12 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
     const res = await api('update_guru', payload);
     setProfileLoading(false);
     if (res.status === 'success') {
-      alert('Profil berhasil diperbarui!');
+      showMessage('Berhasil', 'Profil berhasil diperbarui!', 'success');
       setShowProfileModal(false);
       if (payload.foto) setFotoProfil(payload.foto);
       logActivity('UPDATE PROFIL', 'Memperbarui informasi profil guru');
     } else {
-      alert(res.message);
+      showMessage('Info', res.message, 'info');
     }
   };
 
@@ -160,6 +168,12 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
   const [formSoal, setFormSoal] = useState({ isOpen: false, data: null, id_mapel: '' });
   const [formNarasi, setFormNarasi] = useState({ isOpen: false, data: null });
   const [modalUraian, setModalUraian] = useState({ isOpen: false, logUjian: null, jawabanUraian: [] });
+  const [importAikenModal, setImportAikenModal] = useState({
+    isOpen: false,
+    rawText: '',
+    defaultBobot: 10,
+    isSubmitting: false
+  });
 
   // Evaluation & Results State
   const [filterMapelHasil, setFilterMapelHasil] = useState('ALL');
@@ -183,11 +197,26 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
       const resKelas = await api('get_kelas', {});
       if (resKelas.status === 'success') setDataKelas(resKelas.data || []);
 
+      // Fetch assigned proctor rooms for dashboard notification card and pengawasan tab
+      const resTugas = await api('get_ruang_guru_pengawas', { id_guru: guruId });
+      if (resTugas.status === 'success') {
+        const listTugas = resTugas.data || [];
+        setDataTugasPengawas(listTugas);
+        setSelectedPengawasRuang(prev => {
+          if (prev && listTugas.some(t => t.id_penugasan === prev.id_penugasan)) {
+            return listTugas.find(t => t.id_penugasan === prev.id_penugasan);
+          }
+          return listTugas[0] || null;
+        });
+      }
+
       if (activeTab === 'jadwal' || activeTab === 'dashboard' || activeTab === 'kontrol' || activeTab === 'akun') {
         const res = await api('get_jadwal_pengawas', { id_guru: guruId });
         if (res.status === 'success') setDataJadwal(res.data || []);
         const resMapel = await api('get_mapel_guru', { id_guru: guruId });
         if (resMapel.status === 'success') setDataMapel(resMapel.data || []);
+      } else if (activeTab === 'pengawasan') {
+        // Active in proctor room view
       } else if (activeTab === 'pengumuman') {
         const res = await api('get_pengumuman', { role: 'guru' });
         if (res.status === 'success') setDataPengumuman(res.data || []);
@@ -226,10 +255,204 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
     fetchData();
     let interval;
     if (activeTab === 'monitoring' && selectedJadwal) {
-      interval = setInterval(fetchData, 5000);
+      interval = setInterval(fetchData, 15000);
     }
     return () => clearInterval(interval);
   }, [activeTab, selectedJadwal, selectedMapel]);
+
+  // Proctor Dashboard Data Fetching & Verification Handlers (Requirement 3)
+  const fetchPesertaRuangPengawas = async (targetTugas = selectedPengawasRuang) => {
+    if (!targetTugas) return;
+    setLoadingPengawas(true);
+    try {
+      const jId = targetTugas.id_jadwal;
+      const rId = targetTugas.id_ruang;
+
+      const [absRes, dokRes] = await Promise.all([
+        api('get_absensi_ruang', { id_jadwal: jId, id_ruang: rId }),
+        api('get_dokumen_ujian_cetak', { id_jadwal: jId, id_ruang: rId })
+      ]);
+
+      const absensiList = (absRes.status === 'success' && Array.isArray(absRes.data)) ? absRes.data : [];
+      const dokPeserta = (dokRes.status === 'success' && dokRes.data && Array.isArray(dokRes.data.peserta)) ? dokRes.data.peserta : [];
+
+      const absMap = {};
+      absensiList.forEach(a => {
+        if (a.id_siswa) absMap[a.id_siswa] = a;
+      });
+
+      let combinedList = [];
+      if (dokPeserta.length > 0) {
+        combinedList = dokPeserta.map((p, idx) => {
+          const abs = absMap[p.id_siswa];
+          return {
+            no: idx + 1,
+            id_siswa: p.id_siswa,
+            id_absensi: abs?.id_absensi || p.id_absensi || null,
+            nama_lengkap: p.nama_lengkap,
+            nisn: p.nisn || '-',
+            kelas: p.kelas || targetTugas.jadwal?.target_kelas || '-',
+            ruang: p.ruang || targetTugas.ruang?.nama_ruang || '-',
+            status_ujian: p.status_ujian || (abs ? 'SEDANG KERJA' : 'BELUM KERJA'),
+            tanda_tangan: abs?.tanda_tangan || p.tanda_tangan || null,
+            status_kehadiran: abs?.status_kehadiran || p.status_kehadiran || (abs ? 'HADIR' : 'TIDAK HADIR'),
+            status_verifikasi: abs?.status_verifikasi || p.status_verifikasi || (abs ? 'MENUNGGU' : 'BELUM ABSEN'),
+            waktu_absen: abs?.waktu_absen || p.waktu_absen || null,
+            foto_profil: p.foto_profil || abs?.siswa?.foto_profil || null
+          };
+        });
+      } else {
+        combinedList = absensiList.map((a, idx) => ({
+          no: idx + 1,
+          id_siswa: a.id_siswa,
+          id_absensi: a.id_absensi,
+          nama_lengkap: a.siswa?.nama_lengkap || 'Siswa',
+          nisn: a.siswa?.nisn || '-',
+          kelas: a.siswa?.kelas || targetTugas.jadwal?.target_kelas || '-',
+          ruang: targetTugas.ruang?.nama_ruang || a.ruang || '-',
+          status_ujian: a.status_ujian || 'SEDANG KERJA',
+          tanda_tangan: a.tanda_tangan,
+          status_kehadiran: a.status_kehadiran || 'HADIR',
+          status_verifikasi: a.status_verifikasi || 'MENUNGGU',
+          waktu_absen: a.waktu_absen,
+          foto_profil: a.siswa?.foto_profil || null
+        }));
+      }
+
+      setPesertaPengawas(combinedList);
+    } catch (err) {
+      console.error('Error fetching peserta ruang pengawas:', err);
+    }
+    setLoadingPengawas(false);
+  };
+
+  useEffect(() => {
+    if (activeTab === 'pengawasan' && selectedPengawasRuang) {
+      fetchPesertaRuangPengawas(selectedPengawasRuang);
+      const interval = setInterval(() => {
+        fetchPesertaRuangPengawas(selectedPengawasRuang);
+      }, 15000);
+      return () => clearInterval(interval);
+    }
+  }, [activeTab, selectedPengawasRuang]);
+
+  const kpiPengawas = useMemo(() => {
+    const totalTerdaftar = pesertaPengawas.length;
+    const hadirTerverifikasi = pesertaPengawas.filter(p => p.status_verifikasi === 'DISETUJUI' || p.status_verifikasi === 'TERVERIFIKASI').length;
+    const menungguVerifikasi = pesertaPengawas.filter(p => p.status_verifikasi === 'MENUNGGU').length;
+    const belumHadir = pesertaPengawas.filter(p => p.status_verifikasi === 'BELUM ABSEN' || !p.tanda_tangan || p.status_kehadiran === 'TIDAK HADIR' || p.status_kehadiran === 'BELUM HADIR').length;
+    return {
+      totalTerdaftar,
+      hadirTerverifikasi,
+      menungguVerifikasi,
+      belumHadir
+    };
+  }, [pesertaPengawas]);
+
+  const filteredPesertaPengawas = useMemo(() => {
+    return pesertaPengawas.filter(p => {
+      if (filterStatusPengawas === 'MENUNGGU' && p.status_verifikasi !== 'MENUNGGU') return false;
+      if (filterStatusPengawas === 'DISETUJUI' && p.status_verifikasi !== 'DISETUJUI' && p.status_verifikasi !== 'TERVERIFIKASI') return false;
+      if (filterStatusPengawas === 'BELUM' && p.status_verifikasi !== 'BELUM ABSEN' && p.status_kehadiran !== 'TIDAK HADIR' && p.tanda_tangan) return false;
+
+      if (searchPengawas.trim()) {
+        const q = searchPengawas.toLowerCase().trim();
+        const nama = (p.nama_lengkap || '').toLowerCase();
+        const nisn = (p.nisn || '').toLowerCase();
+        const kelas = (p.kelas || '').toLowerCase();
+        if (!nama.includes(q) && !nisn.includes(q) && !kelas.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [pesertaPengawas, filterStatusPengawas, searchPengawas]);
+
+  const handleSingleApprove = async (student) => {
+    if (!student?.id_absensi) return;
+    setIsVerifying(true);
+    try {
+      const res = await api('verifikasi_absensi', {
+        id_absensi: student.id_absensi,
+        status_verifikasi: 'DISETUJUI',
+        id_guru: guruId
+      });
+      if (res.status === 'success') {
+        logActivity('VERIFIKASI ABSENSI', `Menyetujui kehadiran siswa ${student.nama_lengkap || student.nisn}`);
+        setInspectStudentSignature(null);
+        await fetchPesertaRuangPengawas(selectedPengawasRuang);
+      } else {
+        showMessage('Gagal', res.message || 'Gagal memverifikasi kehadiran.', 'error');
+      }
+    } catch (e) {
+      console.error('Single approval error:', e);
+    }
+    setIsVerifying(false);
+  };
+
+  const handleSingleReject = async (student) => {
+    if (!student?.id_absensi) return;
+    setIsVerifying(true);
+    try {
+      const res = await api('verifikasi_absensi', {
+        id_absensi: student.id_absensi,
+        status_verifikasi: 'DITOLAK',
+        id_guru: guruId
+      });
+      if (res.status === 'success') {
+        logActivity('TOLAK ABSENSI', `Menolak tanda tangan kehadiran siswa ${student.nama_lengkap || student.nisn}`);
+        setInspectStudentSignature(null);
+        await fetchPesertaRuangPengawas(selectedPengawasRuang);
+      } else {
+        showMessage('Gagal', res.message || 'Gagal menolak kehadiran.', 'error');
+      }
+    } catch (e) {
+      console.error('Single reject error:', e);
+    }
+    setIsVerifying(false);
+  };
+
+  const handleBulkApprove = async () => {
+    const pendingList = pesertaPengawas.filter(p => p.status_verifikasi === 'MENUNGGU' && p.id_absensi);
+    if (pendingList.length === 0) return;
+    setIsVerifying(true);
+    try {
+      const res = await api('verifikasi_absensi_bulk', {
+        list_id_absensi: pendingList.map(p => p.id_absensi),
+        id_guru: guruId,
+        status_verifikasi: 'DISETUJUI'
+      });
+      if (res.status === 'success') {
+        logActivity('VERIFIKASI ABSENSI BULK', `Menyetujui kehadiran ${pendingList.length} siswa di ${selectedPengawasRuang?.ruang?.nama_ruang || 'ruang ujian'}`);
+        await fetchPesertaRuangPengawas(selectedPengawasRuang);
+      } else {
+        showMessage('Gagal', res.message || 'Gagal memverifikasi semua kehadiran.', 'error');
+      }
+    } catch (e) {
+      console.error('Bulk approval error:', e);
+    }
+    setIsVerifying(false);
+  };
+
+  const handleOpenPrintDocument = async (tugas = selectedPengawasRuang) => {
+    if (!tugas) return;
+    setLoadingPrint(true);
+    try {
+      const res = await api('get_dokumen_ujian_cetak', {
+        id_jadwal: tugas.id_jadwal,
+        id_ruang: tugas.id_ruang,
+        npsn: user.npsn
+      });
+      if (res.status === 'success') {
+        setPrintData(res.data);
+        setPrintModalOpen(true);
+      } else {
+        showMessage('Gagal', 'Gagal memuat dokumen ujian untuk dicetak: ' + (res.message || 'Error'), 'error');
+      }
+    } catch (e) {
+      console.error('Print fetch error:', e);
+      showMessage('Info', 'Terjadi kesalahan saat memuat berkas cetak dokumen ujian.', 'info');
+    }
+    setLoadingPrint(false);
+  };
 
   useEffect(() => {
     if (user?.npsn) {
@@ -427,7 +650,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
         const rawData = XLSX.utils.sheet_to_json(ws);
 
         if (!rawData || rawData.length === 0) {
-          return alert('File Excel kosong atau format tidak sesuai.');
+          { showMessage('Peringatan', 'File Excel kosong atau format tidak sesuai.', 'error'); return; }
         }
 
         const payloadData = rawData.map((row, idx) => {
@@ -514,20 +737,65 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
         const res = await api('import_soal_bulk', { data: payloadData, npsn: user.npsn });
         setIsLoading(false);
         if (res.status === 'success') {
-          alert(`${payloadData.length} soal berhasil diimpor!`);
+          showMessage('Berhasil', `${payloadData.length} soal berhasil diimpor!`, 'success');
           const mapelNama = dataMapel.find(m => m.id_mapel === selectedMapel)?.nama_mapel || selectedMapel;
           logActivity('IMPORT SOAL', `Import ${payloadData.length} butir soal Excel pada mapel ${mapelNama}`);
           fetchData();
         } else {
-          alert(res.message);
+          showMessage('Info', res.message, 'info');
         }
       } catch (err) {
         setIsLoading(false);
-        alert('Gagal memproses file: ' + err.message);
+        showMessage('Gagal', 'Gagal memproses file: ' + err.message, 'error');
       }
       e.target.value = '';
     };
     reader.readAsBinaryString(file);
+  };
+
+  const handleSaveImportAiken = async () => {
+    if (!selectedMapel) return;
+    const { questions, validCount, errors } = parseAiken(importAikenModal.rawText, importAikenModal.defaultBobot);
+    if (validCount === 0) {
+      if (showMessage) showMessage('Peringatan', 'Tidak ada butir soal valid yang dapat diimpor. Periksa format teks Aiken Anda.', 'error');
+      return;
+    }
+
+    setImportAikenModal(prev => ({ ...prev, isSubmitting: true }));
+    setIsLoading(true);
+
+    try {
+      const payloadData = prepareAikenPayload(questions, selectedMapel, user.npsn, importAikenModal.defaultBobot);
+      const res = await api('import_soal_bulk', { data: payloadData, npsn: user.npsn });
+      setIsLoading(false);
+      setImportAikenModal(prev => ({ ...prev, isSubmitting: false }));
+
+      if (res.status === 'success') {
+        const mapelNama = dataMapel.find(m => m.id_mapel === selectedMapel)?.nama_mapel || selectedMapel;
+        logActivity('IMPORT SOAL', `Import ${validCount} butir soal format Aiken pada mapel ${mapelNama}`);
+        if (showMessage) showMessage('Berhasil', `${validCount} butir soal Aiken berhasil diimpor!`, 'success');
+        setImportAikenModal({ isOpen: false, rawText: '', defaultBobot: 10, isSubmitting: false });
+        fetchData();
+      } else {
+        if (showMessage) showMessage('Gagal', res.message || 'Gagal menyimpan soal ke database.', 'error');
+      }
+    } catch (err) {
+      setIsLoading(false);
+      setImportAikenModal(prev => ({ ...prev, isSubmitting: false }));
+      if (showMessage) showMessage('Error', 'Gagal memproses import Aiken: ' + err.message, 'error');
+    }
+  };
+
+  const handleAikenFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const content = evt.target.result;
+      setImportAikenModal(prev => ({ ...prev, rawText: content }));
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   const handleSaveSoal = async (soalData) => {
@@ -553,7 +821,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
       logActivity(actName, `${actName} (${payload.tipe_soal}) pada mapel ${mapelNama}`);
       fetchData();
     } else {
-      alert('Gagal menyimpan soal: ' + res.message);
+      showMessage('Gagal', 'Gagal menyimpan soal: ' + res.message, 'error');
     }
   };
 
@@ -571,12 +839,13 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
       logActivity(payload.id_soal ? 'EDIT WACANA' : 'TAMBAH WACANA', `Menyimpan wacana/narasi pada mapel ${mapelNama}`);
       fetchData();
     } else {
-      alert(res.message);
+      showMessage('Info', res.message, 'info');
     }
   };
 
   const deleteSoal = async (id) => {
     if (!confirm('Hapus butir soal ini?')) return;
+    // ponytail: confirm() — GuruView belum punya confirmDialog state, biarkan sementara
     setIsLoading(true);
     const res = await api('delete_soal_mapel', { id_soal: id });
     setIsLoading(false);
@@ -584,7 +853,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
       logActivity('HAPUS SOAL', `Menghapus butir soal ID ${id}`);
       fetchData();
     } else {
-      alert(res.message);
+      showMessage('Info', res.message, 'info');
     }
   };
 
@@ -598,19 +867,19 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
     const endpoint = skemaRecord ? 'update_soal_mapel' : 'create_soal_mapel';
     const res = await api(endpoint, payload);
     if (res.status === 'success') {
-      alert('Skema penilaian berhasil disimpan.');
+      showMessage('Berhasil', 'Skema penilaian berhasil disimpan.', 'success');
       setSkemaModal({ isOpen: false, id_mapel: null });
       const mapelNama = dataMapel.find(m => m.id_mapel === selectedMapel)?.nama_mapel || selectedMapel;
       logActivity('SKEMA PENILAIAN', `Menyimpan skema bobot penilaian mapel ${mapelNama}`);
       fetchData();
     } else {
-      alert(res.message);
+      showMessage('Info', res.message, 'info');
     }
   };
 
   const saveSkemaAccount = async (payload) => {
     if (!selectedMapelAccount) {
-      alert('Pilih mata pelajaran terlebih dahulu.');
+      showMessage('Peringatan', 'Pilih mata pelajaran terlebih dahulu.', 'error');
       return;
     }
     setIsLoading(true);
@@ -625,13 +894,13 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
     const res = await api(endpoint, payload);
     setIsLoading(false);
     if (res.status === 'success') {
-      alert('Skema penilaian berhasil disimpan.');
+      showMessage('Berhasil', 'Skema penilaian berhasil disimpan.', 'success');
       const mapelNama = dataMapel.find(m => m.id_mapel === selectedMapelAccount)?.nama_mapel || selectedMapelAccount;
       logActivity('SKEMA PENILAIAN', `Menyimpan skema bobot penilaian mapel ${mapelNama} dari menu akun`);
       const soalRes = await api('get_soal_by_mapel', { id_mapel: selectedMapelAccount });
       if (soalRes.status === 'success') setAccountDataSoal(soalRes.data || []);
     } else {
-      alert('Gagal menyimpan skema penilaian: ' + res.message);
+      showMessage('Gagal', 'Gagal menyimpan skema penilaian: ' + res.message, 'error');
     }
   };
 
@@ -725,25 +994,50 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
     });
   };
 
-  const handleResetSession = (idLog, idSiswa, idJadwal) => {
+  const handleResetSession = (idLogOrStudent, idSiswaOrJadwal, idJadwalParam) => {
+    let idSiswa, idLog, idJadwal, sNama;
+    if (typeof idLogOrStudent === 'object' && idLogOrStudent !== null) {
+      idSiswa = idLogOrStudent.id_siswa;
+      idLog = idLogOrStudent.id_log;
+      sNama = idLogOrStudent.nama_lengkap || idSiswa;
+      idJadwal = idSiswaOrJadwal || idLogOrStudent.id_jadwal || selectedPengawasRuang?.id_jadwal || selectedJadwal?.id_jadwal;
+    } else {
+      idLog = idLogOrStudent;
+      idSiswa = idSiswaOrJadwal;
+      idJadwal = idJadwalParam || selectedJadwal?.id_jadwal || selectedPengawasRuang?.id_jadwal;
+      sNama = idSiswa;
+    }
+
     setConfirmDialog({
       isOpen: true,
       type: 'reset',
       title: 'Reset Sesi Peserta',
-      message: 'Sesi siswa akan direset agar dapat masuk kembali ke ujian. Jawaban yang telah tersimpan tidak akan terhapus.',
+      message: `Sesi ujian ${sNama ? `peserta ${sNama}` : 'siswa'} akan direset agar dapat masuk kembali ke ujian. Jawaban yang telah tersimpan tidak akan terhapus. Lanjutkan?`,
       icon: 'restart_alt',
       actionText: 'Reset Sesi',
       onConfirm: async () => {
         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
         setIsLoading(true);
-        if (idSiswa && idJadwal) {
-          await api('reset_sesi_siswa', { p_id_siswa: idSiswa, p_id_jadwal: idJadwal });
-        } else {
-          await api('reset_sesi_siswa', { id_siswa: idSiswa, npsn: user.npsn });
-        }
-        logActivity('RESET SESI SISWA', `Reset sesi peserta (ID Siswa: ${idSiswa})`);
-        fetchData();
+        const res = await api('reset_sesi_siswa', {
+          id_siswa: idSiswa,
+          id_jadwal: idJadwal,
+          p_id_siswa: idSiswa,
+          p_id_jadwal: idJadwal,
+          id_log: idLog,
+          npsn: user.npsn
+        });
         setIsLoading(false);
+        if (res.status === 'success') {
+          logActivity('RESET_SESI', `Reset sesi peserta: ${sNama || idSiswa} (${idSiswa || idLog})`);
+          if (showMessage) showMessage('Berhasil', `Sesi ${sNama || idSiswa} berhasil direset. Siswa dapat login kembali.`, 'success');
+          if (activeTab === 'pengawasan' && selectedPengawasRuang) {
+            fetchPesertaRuangPengawas(selectedPengawasRuang);
+          } else {
+            fetchData();
+          }
+        } else {
+          if (showMessage) showMessage('Gagal', res.message || 'Gagal mereset sesi siswa.', 'error');
+        }
       }
     });
   };
@@ -774,11 +1068,11 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
     const res = await api(resetType === 'total' ? 'reset_sesi_siswa' : 'reset_login_siswa', { id_siswa, npsn: user.npsn });
     setIsLoading(false);
     if (res.status === 'success') {
-      alert('Berhasil mereset akun peserta.');
+      showMessage('Berhasil', 'Berhasil mereset akun peserta.', 'success');
       logActivity('RESET SESI SISWA', `Reset sesi peserta (ID Siswa: ${id_siswa}, tipe: ${resetType})`);
       fetchData();
     } else {
-      alert('Gagal: ' + res.message);
+      showMessage('Gagal', 'Gagal: ' + res.message, 'error');
     }
     setResetModal(null);
   };
@@ -810,18 +1104,18 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
       logActivity('STATUS UJIAN', `Mengubah status ujian ${mapelNama} menjadi ${status_baru}`);
       fetchData();
     } else {
-      alert(res.message);
+      showMessage('Info', res.message, 'info');
     }
   };
 
   const handleGenerateToken = async (id) => {
     const res = await api('get_token', { id_jadwal: id });
     if (res.status === 'success') {
-      alert('Token Ujian: ' + res.token);
+      showMessage('Info', 'Token Ujian: ' + res.token, 'info');
       logActivity('GENERATE TOKEN', `Membuat token ujian baru untuk jadwal ID ${id}`);
       fetchData();
     } else {
-      alert(res.message);
+      showMessage('Info', res.message, 'info');
     }
   };
 
@@ -837,7 +1131,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
       setDataHasilSiswa(res.data || []);
       setIsHasilModalOpen(true);
     } else {
-      alert('Gagal memuat rekap nilai: ' + res.message);
+      showMessage('Gagal', 'Gagal memuat rekap nilai: ' + res.message, 'error');
     }
   };
 
@@ -849,7 +1143,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
       setDataAnalisis(res.data || []);
       setIsAnalisisModalOpen(true);
     } else {
-      alert('Gagal mengambil analisis: ' + res.message);
+      showMessage('Gagal', 'Gagal mengambil analisis: ' + res.message, 'error');
     }
   };
 
@@ -860,7 +1154,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
     if (res.status === 'success') {
       setModalUraian({ isOpen: true, logUjian: logData, jawabanUraian: res.data || [] });
     } else {
-      alert('Gagal mengambil jawaban uraian: ' + res.message);
+      showMessage('Gagal', 'Gagal mengambil jawaban uraian: ' + res.message, 'error');
     }
   };
 
@@ -888,13 +1182,13 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
         return s;
       }));
     } else {
-      alert(res.message);
+      showMessage('Info', res.message, 'info');
     }
   };
 
   const exportHasilToExcel = (jadwal, studentsList, filterParalel) => {
     if (!studentsList || studentsList.length === 0) {
-      return alert('Tidak ada data nilai untuk diexport.');
+      { showMessage('Info', 'Tidak ada data nilai untuk diexport.', 'error'); return; }
     }
 
     const exportRows = studentsList.map((s, idx) => ({
@@ -947,9 +1241,10 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
       ]
     },
     {
-      title: 'Monitoring & Nilai',
+      title: 'Monitoring & Pengawasan',
       items: [
         { id: 'monitoring', label: 'Live Monitoring', icon: 'visibility' },
+        { id: 'pengawasan', label: 'Ruang Pengawasan', icon: 'badge' },
         { id: 'hasil', label: 'Hasil & Rekap Nilai', icon: 'assessment' }
       ]
     },
@@ -976,6 +1271,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
     jadwal: 'Jadwal Ujian Mengajar',
     kontrol: 'Kontrol Pelaksanaan Ujian',
     monitoring: 'Live Monitoring Peserta',
+    pengawasan: 'Ruang Pengawasan Ujian',
     hasil: 'Hasil & Rekap Evaluasi',
     logs: 'Log Aktivitas Guru',
     akun: 'Pengaturan Profil'
@@ -987,6 +1283,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
     jadwal: 'Daftar jadwal pelaksanaan ujian mata pelajaran yang diampu',
     kontrol: 'Aktivasi ujian, rilis token ujian, dan manajemen sesi',
     monitoring: 'Pemantauan real-time pengerjaan ujian dan intervensi proctor',
+    pengawasan: 'Verifikasi tanda tangan digital kehadiran siswa dan kelola pengawasan ruang ujian',
     hasil: 'Rekapitulasi nilai, ranking peringkat siswa, dan analisis butir soal',
     logs: 'Catatan audit jejak aktivitas pengajaran dan pengawasan',
     akun: 'Kelola foto profil, avatar, dan keamanan akun guru'
@@ -1368,7 +1665,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
         </div>
 
         <div className="flex items-center gap-1.5">
-          <NotificationBell role="guru" />
+          <NotificationBell role="guru" npsn={user?.npsn} user={user} />
           <button
             type="button"
             onClick={() => setIsDarkMode(!isDarkMode)}
@@ -1515,7 +1812,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
           </div>
 
           <div className="flex items-center gap-3">
-            <NotificationBell role="guru" />
+            <NotificationBell role="guru" npsn={user?.npsn} user={user} />
             <div className="px-3 py-1 rounded-full bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 border border-primary/30 dark:border-primary/30 text-xs font-bold flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-primary-400 animate-pulse"></span>
               <span>Sistem Online</span>
@@ -1529,6 +1826,70 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
           {/* ================= TAB 1: DASHBOARD ================= */}
           {activeTab === 'dashboard' && (
             <div className="space-y-3.5 sm:space-y-4 animate-fade-in-up">
+              {/* Tugas Pengawasan Ruang Ujian Notification Card (Requirement 3) */}
+              {dataTugasPengawas && dataTugasPengawas.length > 0 && (
+                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-blue-600/10 via-indigo-600/10 to-primary/10 dark:from-blue-950/40 dark:via-indigo-950/40 dark:to-primary-950/40 border border-blue-200/90 dark:border-blue-800/80 shadow-xs space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                        <span className="material-symbols-outlined text-[22px]">badge</span>
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-bold text-sm sm:text-base text-slate-800 dark:text-white">
+                            Tugas Pengawasan Ruang Ujian
+                          </h4>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300">
+                            {dataTugasPengawas.length} Ruang Ditugaskan
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          Anda memiliki tugas pengawasan ruang ujian. Masuk ke ruang pengawasan untuk memantau kehadiran siswa dan memverifikasi tanda tangan digital kanvas.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (dataTugasPengawas.length > 0 && !selectedPengawasRuang) {
+                          setSelectedPengawasRuang(dataTugasPengawas[0]);
+                        }
+                        navigateTab('pengawasan');
+                      }}
+                      className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-bold transition-all shadow-xs shrink-0"
+                    >
+                      <span>Masuk Ruang Pengawas</span>
+                      <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                    </button>
+                  </div>
+
+                  {/* Room Quick Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
+                    {dataTugasPengawas.map((tugas, idx) => (
+                      <div
+                        key={tugas.id_penugasan || idx}
+                        onClick={() => {
+                          setSelectedPengawasRuang(tugas);
+                          navigateTab('pengawasan');
+                        }}
+                        className="p-3 rounded-xl bg-white/80 dark:bg-slate-800/90 border border-blue-100 dark:border-blue-900/40 hover:border-blue-300 dark:hover:border-blue-700 cursor-pointer transition-all flex items-center justify-between gap-2 shadow-2xs hover:shadow-xs group"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-bold text-xs text-slate-800 dark:text-slate-100 truncate group-hover:text-primary transition-colors">
+                            {tugas.ruang?.nama_ruang || tugas.nama_ruang || `Ruang ${idx + 1}`}
+                          </p>
+                          <p className="text-[10px] text-slate-400 truncate">
+                            {tugas.jadwal?.mata_pelajaran?.nama_mapel || tugas.jadwal?.nama_mapel || 'Ujian'} • {tugas.jadwal?.target_kelas || 'Kelas'}
+                          </p>
+                        </div>
+                        <span className="material-symbols-outlined text-blue-500 text-sm shrink-0 group-hover:translate-x-0.5 transition-transform">
+                          chevron_right
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {/* Compact 3-Column Metric Cards */}
               <div className="grid grid-cols-3 gap-2.5 sm:gap-3.5">
                 <div
@@ -1828,7 +2189,15 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                         title="Import Excel"
                       >
                         <span className="material-symbols-outlined text-[18px]">upload_file</span>
-                        <span className="hidden sm:inline">Import</span>
+                        <span className="hidden sm:inline">Import Excel</span>
+                      </button>
+                      <button
+                        onClick={() => setImportAikenModal({ isOpen: true, rawText: '', defaultBobot: 10, isSubmitting: false })}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 hover:bg-amber-100 transition-colors min-h-[44px]"
+                        title="Import Soal Format Teks Aiken"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">text_snippet</span>
+                        <span className="hidden sm:inline">Import Aiken</span>
                       </button>
                       <button
                         onClick={() => setIsPreviewOpen(true)}
@@ -2525,25 +2894,23 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                                         </button>
                                       )}
 
+                                      <button
+                                        onClick={() => handleResetSession(log.id_log, log.id_siswa, jId)}
+                                        className="px-2.5 py-1.5 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 rounded-lg text-xs font-bold hover:bg-amber-100 transition-colors flex items-center gap-1 min-h-[36px]"
+                                        title="Reset Sesi"
+                                      >
+                                        <span className="material-symbols-outlined text-[16px]">restart_alt</span>
+                                        <span>Reset</span>
+                                      </button>
                                       {log.status_ujian === 'SEDANG KERJA' && (
-                                        <>
-                                          <button
-                                            onClick={() => handleResetSession(log.id_log, log.id_siswa, jId)}
-                                            className="px-2.5 py-1.5 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 rounded-lg text-xs font-bold hover:bg-amber-100 transition-colors flex items-center gap-1 min-h-[36px]"
-                                            title="Reset Sesi"
-                                          >
-                                            <span className="material-symbols-outlined text-[16px]">restart_alt</span>
-                                            <span>Reset</span>
-                                          </button>
-                                          <button
-                                            onClick={() => handleForceStop(log.id_log)}
-                                            className="px-2.5 py-1.5 bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300 rounded-lg text-xs font-bold hover:bg-slate-200 transition-colors flex items-center gap-1 min-h-[36px]"
-                                            title="Stop Ujian Paksa"
-                                          >
-                                            <span className="material-symbols-outlined text-[16px]">stop_circle</span>
-                                            <span>Stop</span>
-                                          </button>
-                                        </>
+                                        <button
+                                          onClick={() => handleForceStop(log.id_log)}
+                                          className="px-2.5 py-1.5 bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300 rounded-lg text-xs font-bold hover:bg-slate-200 transition-colors flex items-center gap-1 min-h-[36px]"
+                                          title="Stop Ujian Paksa"
+                                        >
+                                          <span className="material-symbols-outlined text-[16px]">stop_circle</span>
+                                          <span>Stop</span>
+                                        </button>
                                       )}
                                     </div>
                                   </td>
@@ -2659,6 +3026,488 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                     )}
                   </div>
                 </div>
+              )}
+            </div>
+          )}
+
+          {/* ================= TAB: RUANG PENGAWASAN & VERIFIKASI ABSENSI ================= */}
+          {activeTab === 'pengawasan' && (
+            <div className="space-y-4 sm:space-y-5 animate-fade-in-up">
+              {/* If no assigned proctor rooms */}
+              {(!dataTugasPengawas || dataTugasPengawas.length === 0) ? (
+                <EmptyState
+                  icon="badge"
+                  title="Tidak Ada Tugas Pengawasan"
+                  description="Anda saat ini belum memiliki penugasan sebagai pengawas ruang ujian. Hubungi administrator sekolah untuk penugasan pengawas."
+                />
+              ) : (
+                <>
+                  {/* Multi-Room Switcher Pills (if assigned to multiple rooms) */}
+                  {dataTugasPengawas.length > 1 && (
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                      <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider shrink-0 mr-1">
+                        Pilih Ruangan:
+                      </span>
+                      {dataTugasPengawas.map((tugas, idx) => {
+                        const isSelected = selectedPengawasRuang?.id_penugasan === tugas.id_penugasan;
+                        return (
+                          <button
+                            key={tugas.id_penugasan || idx}
+                            type="button"
+                            onClick={() => setSelectedPengawasRuang(tugas)}
+                            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-2 min-h-[40px] ${
+                              isSelected
+                                ? 'bg-primary text-white shadow-xs'
+                                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700/80 hover:border-primary/50'
+                            }`}
+                          >
+                            <span className="material-symbols-outlined text-[18px]">meeting_room</span>
+                            <span>{tugas.ruang?.nama_ruang || tugas.nama_ruang || `Ruang ${idx + 1}`}</span>
+                            <span className="opacity-70 text-[10px]">
+                              • {tugas.jadwal?.mata_pelajaran?.nama_mapel || tugas.jadwal?.nama_mapel || 'Ujian'}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {selectedPengawasRuang && (
+                    <>
+                      {/* Header HUD */}
+                      <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-700/80 shadow-xs space-y-4">
+                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                          <div className="flex items-start sm:items-center gap-3">
+                            <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/40 flex items-center justify-center shrink-0">
+                              <span className="material-symbols-outlined text-2xl">meeting_room</span>
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white truncate">
+                                  {selectedPengawasRuang.ruang?.nama_ruang || selectedPengawasRuang.nama_ruang || 'Ruang Ujian'}
+                                </h3>
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                                  {selectedPengawasRuang.peran || 'Pengawas Ruang'}
+                                </span>
+                                {selectedPengawasRuang.ruang?.kapasitas && (
+                                  <span className="text-[11px] text-slate-400">
+                                    (Kapasitas: {selectedPengawasRuang.ruang.kapasitas} Siswa)
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                <span className="font-bold text-slate-700 dark:text-slate-200">
+                                  {selectedPengawasRuang.jadwal?.mata_pelajaran?.nama_mapel || selectedPengawasRuang.jadwal?.nama_mapel || 'Ujian CBT'}
+                                </span>
+                                {' '}• Target: <span className="font-semibold">{selectedPengawasRuang.jadwal?.target_kelas || 'Semua Kelas'}</span>
+                                {' '}• Pengawas: <span className="font-semibold">{user.nama_lengkap || user.username}</span>
+                                {user.nip ? ` (NIP: ${user.nip})` : ''}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2">
+                            {/* Token Badge */}
+                            <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-xl">
+                              <span className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Token:</span>
+                              <span className="font-mono font-black text-sm text-primary dark:text-primary-400 tracking-widest">
+                                {selectedPengawasRuang.jadwal?.token_aktif || selectedPengawasRuang.jadwal?.token || '-'}
+                              </span>
+                            </div>
+
+                            {/* Refresh Button */}
+                            <button
+                              type="button"
+                              onClick={() => fetchPesertaRuangPengawas(selectedPengawasRuang)}
+                              disabled={loadingPengawas}
+                              title="Muat ulang absensi"
+                              className="w-10 h-10 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 transition-colors"
+                            >
+                              <span className={`material-symbols-outlined text-[20px] ${loadingPengawas ? 'animate-spin' : ''}`}>
+                                refresh
+                              </span>
+                            </button>
+
+                            {/* Cetak Dokumen Ujian Button */}
+                            <button
+                              type="button"
+                              onClick={() => handleOpenPrintDocument(selectedPengawasRuang)}
+                              disabled={loadingPrint}
+                              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white shadow-xs transition-all active:scale-[0.98] min-h-[40px]"
+                            >
+                              {loadingPrint ? (
+                                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                              ) : (
+                                <span className="material-symbols-outlined text-[18px]">print</span>
+                              )}
+                              <span>Cetak Dokumen Ujian</span>
+                            </button>
+
+                            {/* Bulk Approval Button */}
+                            <button
+                              type="button"
+                              onClick={handleBulkApprove}
+                              disabled={isVerifying || kpiPengawas.menungguVerifikasi === 0}
+                              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white shadow-xs disabled:opacity-50 disabled:cursor-not-allowed transition-all min-h-[40px]"
+                            >
+                              {isVerifying ? (
+                                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                              ) : (
+                                <span className="material-symbols-outlined text-[18px]">done_all</span>
+                              )}
+                              <span>Verifikasi Semua Kehadiran</span>
+                              {kpiPengawas.menungguVerifikasi > 0 && (
+                                <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-white text-emerald-700">
+                                  {kpiPengawas.menungguVerifikasi}
+                                </span>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* 4 KPI Cards */}
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5 pt-2 border-t border-slate-100 dark:border-slate-700/60">
+                          {/* Total Terdaftar */}
+                          <div className="bg-slate-50 dark:bg-slate-900/40 p-3 sm:p-3.5 rounded-xl border border-slate-200/70 dark:border-slate-800">
+                            <div className="flex items-center justify-between text-slate-400 mb-1">
+                              <span className="text-[11px] font-bold">Total Terdaftar</span>
+                              <span className="material-symbols-outlined text-lg text-primary">group</span>
+                            </div>
+                            <p className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-tight">
+                              {kpiPengawas.totalTerdaftar}
+                            </p>
+                            <span className="text-[10px] text-slate-400">Siswa di ruangan</span>
+                          </div>
+
+                          {/* Hadir (Terverifikasi) */}
+                          <div className="bg-emerald-50/50 dark:bg-emerald-950/20 p-3 sm:p-3.5 rounded-xl border border-emerald-200/60 dark:border-emerald-900/40">
+                            <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400 mb-1">
+                              <span className="text-[11px] font-bold">Hadir (Terverifikasi)</span>
+                              <span className="material-symbols-outlined text-lg">verified</span>
+                            </div>
+                            <p className="text-xl sm:text-2xl font-black text-emerald-700 dark:text-emerald-300 leading-tight">
+                              {kpiPengawas.hadirTerverifikasi}
+                            </p>
+                            <span className="text-[10px] text-emerald-600/70 dark:text-emerald-400/70">Kehadiran disetujui</span>
+                          </div>
+
+                          {/* Menunggu Verifikasi */}
+                          <div className="bg-amber-50/50 dark:bg-amber-950/20 p-3 sm:p-3.5 rounded-xl border border-amber-200/60 dark:border-amber-900/40">
+                            <div className="flex items-center justify-between text-amber-600 dark:text-amber-400 mb-1">
+                              <span className="text-[11px] font-bold">Menunggu Verifikasi</span>
+                              <span className="material-symbols-outlined text-lg animate-pulse">hourglass_top</span>
+                            </div>
+                            <p className="text-xl sm:text-2xl font-black text-amber-700 dark:text-amber-300 leading-tight">
+                              {kpiPengawas.menungguVerifikasi}
+                            </p>
+                            <span className="text-[10px] text-amber-600/70 dark:text-amber-400/70">Perlu persetujuan tanda tangan</span>
+                          </div>
+
+                          {/* Belum Hadir */}
+                          <div className="bg-slate-50 dark:bg-slate-900/40 p-3 sm:p-3.5 rounded-xl border border-slate-200/70 dark:border-slate-800">
+                            <div className="flex items-center justify-between text-slate-400 mb-1">
+                              <span className="text-[11px] font-bold">Belum Hadir</span>
+                              <span className="material-symbols-outlined text-lg">person_off</span>
+                            </div>
+                            <p className="text-xl sm:text-2xl font-black text-slate-700 dark:text-slate-300 leading-tight">
+                              {kpiPengawas.belumHadir}
+                            </p>
+                            <span className="text-[10px] text-slate-400">Belum masuk ujian / absen</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Student Roster Table Card */}
+                      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-xs p-4 sm:p-5 space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          {/* Search Input */}
+                          <div className="relative flex-1 max-w-md">
+                            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">
+                              search
+                            </span>
+                            <input
+                              type="text"
+                              value={searchPengawas}
+                              onChange={(e) => setSearchPengawas(e.target.value)}
+                              placeholder="Cari siswa berdasarkan nama atau NISN..."
+                              className="w-full pl-9 pr-4 py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                            />
+                          </div>
+
+                          {/* Filter Status Pills */}
+                          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+                            {[
+                              { id: 'ALL', label: 'Semua', count: pesertaPengawas.length },
+                              { id: 'MENUNGGU', label: 'Menunggu', count: kpiPengawas.menungguVerifikasi },
+                              { id: 'DISETUJUI', label: 'Terverifikasi', count: kpiPengawas.hadirTerverifikasi },
+                              { id: 'BELUM', label: 'Belum Hadir', count: kpiPengawas.belumHadir }
+                            ].map(f => (
+                              <button
+                                key={f.id}
+                                type="button"
+                                onClick={() => setFilterStatusPengawas(f.id)}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 min-h-[36px] ${
+                                  filterStatusPengawas === f.id
+                                    ? 'bg-primary text-white shadow-2xs'
+                                    : 'bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                                }`}
+                              >
+                                <span>{f.label}</span>
+                                <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${
+                                  filterStatusPengawas === f.id ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200'
+                                }`}>
+                                  {f.count}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Desktop Table (> 768px) */}
+                        <div className="hidden md:block overflow-x-auto">
+                          <table className="w-full text-left border-collapse text-xs">
+                            <thead>
+                              <tr className="border-b border-slate-200 dark:border-slate-700 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                                <th className="py-3 px-3 w-10 text-center">No</th>
+                                <th className="py-3 px-3">Identitas Siswa</th>
+                                <th className="py-3 px-3">Kelas</th>
+                                <th className="py-3 px-3">Status Ujian</th>
+                                <th className="py-3 px-3 text-center">Tanda Tangan Canvas</th>
+                                <th className="py-3 px-3 text-center">Status Kehadiran</th>
+                                <th className="py-3 px-3 text-right">Aksi</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                              {loadingPengawas && pesertaPengawas.length === 0 ? (
+                                <tr>
+                                  <td colSpan="7" className="py-8 text-center text-slate-400">
+                                    <div className="flex items-center justify-center gap-2">
+                                      <span className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin"></span>
+                                      <span>Memuat daftar siswa ruang ujian...</span>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ) : filteredPesertaPengawas.length === 0 ? (
+                                <tr>
+                                  <td colSpan="7" className="py-8 text-center text-slate-400">
+                                    <span className="material-symbols-outlined text-3xl block mb-1 text-slate-300">search_off</span>
+                                    <p className="font-semibold text-xs">Tidak ada data siswa yang sesuai filter atau pencarian</p>
+                                  </td>
+                                </tr>
+                              ) : (
+                                filteredPesertaPengawas.map((p, idx) => {
+                                  const avatar = p.foto_profil || `https://api.dicebear.com/7.x/bottts/svg?seed=${p.nisn || p.nama_lengkap || idx}`;
+                                  const isDisetujui = p.status_verifikasi === 'DISETUJUI' || p.status_verifikasi === 'TERVERIFIKASI';
+                                  const isMenunggu = p.status_verifikasi === 'MENUNGGU';
+                                  const isDitolak = p.status_verifikasi === 'DITOLAK';
+
+                                  return (
+                                    <tr key={p.id_siswa || idx} className="hover:bg-slate-50/80 dark:hover:bg-slate-700/30 transition-colors">
+                                      <td className="py-3 px-3 text-center font-bold text-slate-400">
+                                        {idx + 1}
+                                      </td>
+                                      <td className="py-3 px-3">
+                                        <div className="flex items-center gap-2.5">
+                                          <img src={avatar} alt={p.nama_lengkap} className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 object-cover shrink-0" />
+                                          <div className="min-w-0">
+                                            <p className="font-bold text-slate-800 dark:text-slate-100 truncate">
+                                              {p.nama_lengkap}
+                                            </p>
+                                            <p className="text-[11px] font-mono text-slate-400">
+                                              NISN: {p.nisn}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      </td>
+                                      <td className="py-3 px-3 font-medium text-slate-700 dark:text-slate-300">
+                                        {p.kelas}
+                                      </td>
+                                      <td className="py-3 px-3">
+                                        <StatusBadge status={p.status_ujian || 'BELUM KERJA'} size="xs" />
+                                      </td>
+                                      <td className="py-3 px-3 text-center">
+                                        {p.tanda_tangan ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => setInspectStudentSignature(p)}
+                                            title="Klik untuk memperbesar tanda tangan"
+                                            className="group relative inline-flex items-center justify-center p-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-2xs hover:border-primary transition-all"
+                                          >
+                                            <img
+                                              src={p.tanda_tangan}
+                                              alt={`TTD ${p.nama_lengkap}`}
+                                              className="h-7 max-w-[75px] object-contain"
+                                            />
+                                            <span className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-lg transition-opacity">
+                                              <span className="material-symbols-outlined text-xs text-primary">zoom_in</span>
+                                            </span>
+                                          </button>
+                                        ) : (
+                                          <span className="text-[11px] text-slate-400 italic">Belum Ada</span>
+                                        )}
+                                      </td>
+                                      <td className="py-3 px-3 text-center">
+                                        {isDisetujui ? (
+                                          <StatusBadge variant="success" label="DISETUJUI" size="xs" />
+                                        ) : isMenunggu ? (
+                                          <StatusBadge variant="warning" label="MENUNGGU" size="xs" pulse={true} />
+                                        ) : isDitolak ? (
+                                          <StatusBadge variant="danger" label="DITOLAK" size="xs" />
+                                        ) : (
+                                          <StatusBadge variant="neutral" label="BELUM HADIR" size="xs" />
+                                        )}
+                                      </td>
+                                      <td className="py-3 px-3 text-right">
+                                        <div className="flex items-center justify-end gap-1.5">
+                                          {/* Tombol Lihat Signature Modal */}
+                                          <button
+                                            type="button"
+                                            onClick={() => setInspectStudentSignature(p)}
+                                            title="Lihat tanda tangan dan detail siswa"
+                                            className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-700/80 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition-colors inline-flex items-center gap-1"
+                                          >
+                                            <span className="material-symbols-outlined text-[16px]">visibility</span>
+                                            <span>Lihat</span>
+                                          </button>
+
+                                          {/* Reset Sesi Siswa Button */}
+                                          <button
+                                            type="button"
+                                            onClick={() => handleResetSession(p, selectedPengawasRuang?.id_jadwal)}
+                                            title="Reset sesi ujian siswa"
+                                            className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/40 text-amber-700 dark:text-amber-300 transition-colors inline-flex items-center gap-1 min-h-[32px]"
+                                          >
+                                            <span className="material-symbols-outlined text-[16px]">restart_alt</span>
+                                            <span>Reset</span>
+                                          </button>
+
+                                          {/* Single Approval Action Button */}
+                                          {isMenunggu && p.id_absensi && (
+                                            <button
+                                              type="button"
+                                              onClick={() => handleSingleApprove(p)}
+                                              disabled={isVerifying}
+                                              title="Setujui kehadiran siswa ini"
+                                              className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white shadow-2xs transition-all inline-flex items-center gap-1"
+                                            >
+                                              <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                                              <span>Setujui</span>
+                                            </button>
+                                          )}
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                })
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Mobile Student Cards (md:hidden - 375px optimized) */}
+                        <div className="md:hidden space-y-3">
+                          {loadingPengawas && pesertaPengawas.length === 0 ? (
+                            <div className="p-6 text-center text-slate-400">
+                              <span className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin inline-block mr-2"></span>
+                              <span className="text-xs">Memuat siswa...</span>
+                            </div>
+                          ) : filteredPesertaPengawas.length === 0 ? (
+                            <div className="p-6 text-center text-slate-400 bg-slate-50 dark:bg-slate-900/40 rounded-xl">
+                              <p className="text-xs font-semibold">Tidak ada siswa yang sesuai pencarian</p>
+                            </div>
+                          ) : (
+                            filteredPesertaPengawas.map((p, idx) => {
+                              const avatar = p.foto_profil || `https://api.dicebear.com/7.x/bottts/svg?seed=${p.nisn || p.nama_lengkap || idx}`;
+                              const isDisetujui = p.status_verifikasi === 'DISETUJUI' || p.status_verifikasi === 'TERVERIFIKASI';
+                              const isMenunggu = p.status_verifikasi === 'MENUNGGU';
+                              const isDitolak = p.status_verifikasi === 'DITOLAK';
+
+                              return (
+                                <div
+                                  key={p.id_siswa || idx}
+                                  className="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-800 shadow-xs space-y-3"
+                                >
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                      <img src={avatar} alt={p.nama_lengkap} className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-700 object-cover shrink-0" />
+                                      <div className="min-w-0">
+                                        <h5 className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                                          {p.nama_lengkap}
+                                        </h5>
+                                        <p className="text-[10px] text-slate-400 font-mono">
+                                          NISN: {p.nisn} • {p.kelas}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    {isDisetujui ? (
+                                      <StatusBadge variant="success" label="DISETUJUI" size="xs" />
+                                    ) : isMenunggu ? (
+                                      <StatusBadge variant="warning" label="MENUNGGU" size="xs" pulse={true} />
+                                    ) : isDitolak ? (
+                                      <StatusBadge variant="danger" label="DITOLAK" size="xs" />
+                                    ) : (
+                                      <StatusBadge variant="neutral" label="BELUM HADIR" size="xs" />
+                                    )}
+                                  </div>
+
+                                  {/* Signature Preview & Actions */}
+                                  <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-700/60">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-[10px] font-bold text-slate-400">TTD:</span>
+                                      {p.tanda_tangan ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => setInspectStudentSignature(p)}
+                                          className="p-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-2xs hover:border-primary inline-flex items-center gap-1"
+                                        >
+                                          <img src={p.tanda_tangan} alt="TTD" className="h-6 max-w-[60px] object-contain" />
+                                          <span className="material-symbols-outlined text-xs text-slate-400">zoom_in</span>
+                                        </button>
+                                      ) : (
+                                        <span className="text-[10px] text-slate-400 italic">Belum Ada</span>
+                                      )}
+                                    </div>
+
+                                    <div className="flex items-center gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => setInspectStudentSignature(p)}
+                                        className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 flex items-center gap-1"
+                                      >
+                                        <span className="material-symbols-outlined text-[14px]">visibility</span>
+                                        <span>Lihat</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleResetSession(p, selectedPengawasRuang?.id_jadwal)}
+                                        title="Reset sesi ujian siswa"
+                                        className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 flex items-center gap-1"
+                                      >
+                                        <span className="material-symbols-outlined text-[14px]">restart_alt</span>
+                                        <span>Reset</span>
+                                      </button>
+                                      {isMenunggu && p.id_absensi && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleSingleApprove(p)}
+                                          disabled={isVerifying}
+                                          className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 text-white flex items-center gap-1 shadow-2xs"
+                                        >
+                                          <span className="material-symbols-outlined text-[14px]">check</span>
+                                          <span>Setujui</span>
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -2966,8 +3815,7 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
                     <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
                       Password Baru (Kosongkan jika tidak ingin mengubah)
                     </label>
-                    <input
-                      type="password"
+                    <PasswordInput
                       placeholder="Masukkan password baru..."
                       value={profileForm.password}
                       onChange={(e) => setProfileForm({ ...profileForm, password: e.target.value })}
@@ -3351,37 +4199,51 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
       )}
 
       {/* ================================================================= */}
-      {/* MODAL: PILIH AVATAR                                               */}
+      {/* MODAL: UPLOAD FOTO PROFIL                                         */}
       {/* ================================================================= */}
       {isAvatarModalOpen && (
         <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-sm shadow-2xl p-6 relative border border-slate-200 dark:border-slate-700 animate-scale-up">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-sm shadow-2xl p-5 sm:p-6 relative border border-slate-200 dark:border-slate-700 animate-scale-up">
             <div className="flex justify-between items-center mb-5">
               <div>
-                <h3 className="font-bold text-base sm:text-lg text-slate-800 dark:text-white">Pilih Avatar Karakter</h3>
-                <p className="text-xs text-slate-400">Pilih karakter untuk foto profil guru</p>
+                <h3 className="font-bold text-base sm:text-lg text-slate-800 dark:text-white">Foto Profil</h3>
+                <p className="text-xs text-slate-500">Unggah foto profil dari perangkat Anda</p>
               </div>
               <button
                 onClick={() => setIsAvatarModalOpen(false)}
-                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors"
               >
                 <span className="material-symbols-outlined text-sm">close</span>
               </button>
             </div>
-            <div className="grid grid-cols-3 gap-3 mb-2">
-              {PRESET_AVATARS.map((avatar, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handleAvatarSelect(avatar)}
-                  className={`w-full aspect-square rounded-2xl overflow-hidden border-2 transition-all p-2 ${
-                    fotoProfil === avatar
-                      ? 'border-primary ring-4 ring-primary/20 shadow-md scale-105 bg-white dark:bg-slate-900'
-                      : 'border-slate-100 dark:border-slate-700 hover:border-primary/50 bg-slate-50 dark:bg-slate-800'
-                  }`}
-                >
-                  <img src={avatar} alt={`Avatar ${idx + 1}`} className="w-full h-full object-cover" />
-                </button>
-              ))}
+            <div className="flex flex-col items-center gap-4 py-3">
+              <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-primary/20 bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
+                {fotoProfil ? (
+                  <img src={fotoProfil} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="material-symbols-outlined text-4xl text-slate-400">person</span>
+                )}
+              </div>
+              <label className="cursor-pointer px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-sm transition-all active:scale-95">
+                <span className="material-symbols-outlined text-lg">upload</span>
+                <span>Pilih Foto dari Perangkat</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    try {
+                      const dataUrl = await compressImageFile(file);
+                      await handleAvatarSelect(dataUrl);
+                    } catch (err) {
+                      showMessage('Gagal', err.message, 'error');
+                    }
+                  }}
+                />
+              </label>
+              <p className="text-[11px] text-slate-400 text-center">Format JPEG/PNG, otomatis dikompresi ke resolusi optimal.</p>
             </div>
           </div>
         </div>
@@ -3403,6 +4265,234 @@ const GuruView = ({ user, onLogout, isDarkMode, setIsDarkMode }) => {
         onClose={() => setFormNarasi({ isOpen: false, data: null })}
         onSave={saveSoal}
       />
+
+      {/* Modal Pratinjau Tanda Tangan Canvas (Requirement 3) */}
+      <ModalPratinjauTandaTangan
+        isOpen={Boolean(inspectStudentSignature)}
+        student={inspectStudentSignature}
+        onClose={() => setInspectStudentSignature(null)}
+        onApprove={handleSingleApprove}
+        onReject={handleSingleReject}
+        isSubmitting={isVerifying}
+      />
+
+      {/* Modal Import Soal Format Aiken */}
+      {importAikenModal.isOpen && (() => {
+        const parsed = parseAiken(importAikenModal.rawText, importAikenModal.defaultBobot);
+        return (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-700 animate-scale-up">
+              {/* Header */}
+              <div className="p-5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-2xl">text_snippet</span>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900 dark:text-white">Import Soal Format Aiken</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Mapel: <span className="font-bold text-slate-700 dark:text-slate-300">{dataMapel.find(m => m.id_mapel === selectedMapel)?.nama_mapel || selectedMapel}</span>
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setImportAikenModal({ isOpen: false, rawText: '', defaultBobot: 10, isSubmitting: false })}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                >
+                  <span className="material-symbols-outlined text-2xl">close</span>
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="p-5 overflow-y-auto flex-1 space-y-4">
+                {/* Controls & File Upload Bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200/80 dark:border-slate-700/80">
+                  <div className="flex items-center gap-3">
+                    <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 cursor-pointer transition-colors shadow-2xs">
+                      <span className="material-symbols-outlined text-[16px]">upload_file</span>
+                      <span>Pilih Berkas .txt / .aiken</span>
+                      <input
+                        type="file"
+                        accept=".txt,.aiken"
+                        onChange={handleAikenFileUpload}
+                        className="hidden"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setImportAikenModal(prev => ({
+                        ...prev,
+                        rawText: `1. Di manakah letak Candi Borobudur berada?\nA. Jawa Barat\nB. Jawa Tengah\nC. Jawa Timur\nD. Bali\nANSWER: B\n\n2. Lambang negara Indonesia adalah...\nA. Garuda Pancasila\nB. Harimau\nC. Elang Jawa\nD. Komodo\nANSWER: A`
+                      }))}
+                      className="text-xs font-semibold text-primary dark:text-primary-400 hover:underline"
+                    >
+                      Isi Contoh Format
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-bold text-slate-600 dark:text-slate-300">Bobot Default:</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={importAikenModal.defaultBobot}
+                      onChange={(e) => setImportAikenModal(prev => ({ ...prev, defaultBobot: Number(e.target.value) || 10 }))}
+                      className="w-16 px-2 py-1 text-xs font-bold border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-center"
+                    />
+                  </div>
+                </div>
+
+                {/* Input Textarea & Guide */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        Tempel Teks Soal Format Aiken:
+                      </label>
+                      <span className="text-[11px] text-slate-400 font-mono">
+                        {importAikenModal.rawText.length} karakter
+                      </span>
+                    </div>
+                    <textarea
+                      rows={12}
+                      value={importAikenModal.rawText}
+                      onChange={(e) => setImportAikenModal(prev => ({ ...prev, rawText: e.target.value }))}
+                      placeholder={`Format Standar Aiken:\n\nPertanyaan soal baris pertama...\n(Bisa multiline / stimulus bacaan)\nA. Pilihan A\nB. Pilihan B\nC. Pilihan C\nD. Pilihan D\nANSWER: B\n\nSoal berikutnya...\nA. ...\nB. ...\nANSWER: A`}
+                      className="w-full text-xs font-mono p-3 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 focus:ring-2 focus:ring-amber-500/20 outline-none leading-relaxed"
+                    />
+                  </div>
+
+                  {/* Live Validation & Preview Panel */}
+                  <div className="space-y-2 flex flex-col">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        Pratinjau Hasil Parsing ({parsed.validCount} Valid, {parsed.errorCount} Error)
+                      </label>
+                    </div>
+
+                    <div className="flex-1 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-900/40 p-3 overflow-y-auto max-h-[300px] space-y-3">
+                      {parsed.errors.length > 0 && (
+                        <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-xl space-y-1">
+                          <div className="flex items-center gap-1.5 text-rose-700 dark:text-rose-400 font-bold text-xs">
+                            <span className="material-symbols-outlined text-[16px]">error</span>
+                            <span>{parsed.errors.length} Masalah Format Ditemukan:</span>
+                          </div>
+                          {parsed.errors.map((err, idx) => (
+                            <p key={idx} className="text-[11px] text-rose-600 dark:text-rose-300 pl-5">
+                              • Baris {err.line}: {err.message}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+
+                      {parsed.questions.length === 0 && parsed.errors.length === 0 ? (
+                        <div className="h-full min-h-[160px] flex flex-col items-center justify-center text-center text-slate-400 p-4">
+                          <span className="material-symbols-outlined text-3xl mb-1 text-slate-300 dark:text-slate-600">playlist_add</span>
+                          <p className="text-xs font-medium">Ketik atau tempel teks Aiken di samping untuk melihat pratinjau.</p>
+                        </div>
+                      ) : (
+                        parsed.questions.map((q, idx) => (
+                          <div key={idx} className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shadow-2xs space-y-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
+                                Butir {idx + 1} (Bobot: {q.bobot})
+                              </span>
+                              <span className="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 flex items-center gap-1">
+                                <span className="material-symbols-outlined text-[12px]">check</span>
+                                Kunci: {q.kunci_letter}
+                              </span>
+                            </div>
+                            <div
+                              className="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-snug"
+                              dangerouslySetInnerHTML={{ __html: q.pertanyaan }}
+                            />
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
+                              {q.opsi.map((op, oIdx) => {
+                                const letter = String.fromCharCode(65 + oIdx);
+                                const isCorrect = letter === q.kunci_letter;
+                                return (
+                                  <div
+                                    key={oIdx}
+                                    className={`px-2 py-1 rounded text-[11px] flex items-center gap-1.5 border ${
+                                      isCorrect
+                                        ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300 font-bold'
+                                        : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+                                    }`}
+                                  >
+                                    <span className="w-4 h-4 rounded-full bg-slate-200 dark:bg-slate-700 text-[10px] font-bold flex items-center justify-center shrink-0">
+                                      {letter}
+                                    </span>
+                                    <span className="truncate">{op}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="p-4 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/60 rounded-b-2xl">
+                <div className="text-xs text-slate-500">
+                  {parsed.validCount > 0 ? (
+                    <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                      Siap mengimpor {parsed.validCount} butir soal pilihan ganda.
+                    </span>
+                  ) : (
+                    <span>Format Aiken harus valid sebelum dapat disimpan.</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setImportAikenModal({ isOpen: false, rawText: '', defaultBobot: 10, isSubmitting: false })}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    disabled={parsed.validCount === 0 || importAikenModal.isSubmitting}
+                    onClick={handleSaveImportAiken}
+                    className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed text-white shadow-xs transition-all flex items-center gap-1.5"
+                  >
+                    {importAikenModal.isSubmitting ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                        <span>Menyimpan...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-[16px]">save</span>
+                        <span>Simpan ke Bank Soal ({parsed.validCount})</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Cetak Dokumen Ujian Print Modal (Requirement 4 Integration) */}
+      {printModalOpen && printData && (
+        <DokumenUjianPrint
+          data={printData}
+          onClose={() => {
+            setPrintModalOpen(false);
+            setPrintData(null);
+          }}
+          pengawasNama={user.nama_lengkap || user.username}
+          pengawasNip={user.nip || ''}
+        />
+      )}
 
     </div>
   );

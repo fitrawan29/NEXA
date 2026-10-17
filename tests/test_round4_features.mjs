@@ -343,10 +343,12 @@ tier1.add('T1.3.4', 'NotificationBell applies bell-shake animation when notifica
   assert.match(bell, /animate-bell-shake|bell-shake/, 'Bell icon must apply animate-bell-shake class when unread');
 });
 
-tier1.add('T1.3.5', 'NotificationBell includes interactive "Simulasikan Belum Dibaca" toggle button', 'Animated Notification Icon', () => {
+tier1.add('T1.3.5', 'NotificationBell eliminates simulation button and hardcoded dummy notifications', 'Animated Notification Icon', () => {
   const bell = readFileSafe(path.join(srcDir, 'components', 'NotificationBell.jsx'));
   assert.ok(bell, 'NotificationBell.jsx must exist');
-  assert.match(bell, /(?:Simulasikan\s+Belum\s+Dibaca|Toggle\s+Unread|simulasikan)/i, 'NotificationBell popover must contain simulate unread toggle button');
+  assert.ok(!/(?:Simulasikan\s+Belum\s+Dibaca|handleSimulateToggle)/i.test(bell), 'NotificationBell must not contain simulation toggle button or handler');
+  assert.ok(!/DEFAULT_NOTIFICATIONS_BY_ROLE|GENERIC_DEFAULT_NOTIFICATIONS/.test(bell), 'NotificationBell must not contain hardcoded dummy notification arrays');
+  assert.match(bell, /Tidak ada notifikasi saat ini/, 'NotificationBell must display empty state when notifications list is empty');
 });
 
 // --- Feature 4: Admin Default Grading Scheme UI & Persistence (R2) ---
@@ -947,7 +949,7 @@ tier4.add('T4.3', 'Real-Time Animated Notification Lifecycle: Unread arrives -> 
   notificationState.isPopoverOpen = true;
   assert.isTrue(notificationState.isPopoverOpen, 'Popover opens');
 
-  // Phase 3: User marks all as read or clicks simulate toggle
+  // Phase 3: User marks all as read
   notificationState.unreadCount = 0;
   notificationState.hasUnread = false;
 

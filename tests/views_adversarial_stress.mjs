@@ -163,6 +163,7 @@ try {
       user: mockStudent,
       jadwal: mockJadwal,
       idLog: 'LOG_TEST_99',
+      dataLog: { has_signed: true, status_kehadiran: 'HADIR' },
       showMessage: () => {},
       onFinish: () => {},
       isDarkMode: false,

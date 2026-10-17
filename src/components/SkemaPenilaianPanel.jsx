@@ -76,6 +76,12 @@ const SkemaPenilaianPanel = ({
   };
 
   const handleSave = () => {
+    const cleanSkema = {};
+    for (const [k, v] of Object.entries(skema)) {
+      cleanSkema[k] = parseFloat(v) || 0;
+    }
+    const standardDefaultSkema = { PG: 20, PGK: 20, BS: 20, JODOH: 20, ISIAN: 10, URAIAN: 10 };
+
     if (mode === 'custom') {
       const total = hitungTotalPersentase();
       if (total !== 100) {
@@ -85,7 +91,7 @@ const SkemaPenilaianPanel = ({
       if (isSchoolDefault) {
         onSave({
           mode: 'custom',
-          skema,
+          skema: cleanSkema,
           bobot: 1
         });
         return;
@@ -93,16 +99,17 @@ const SkemaPenilaianPanel = ({
       const payload = {
         kunci_jawaban: JSON.stringify({
           mode: 'custom',
-          skema
+          skema: cleanSkema
         }),
         bobot: 1
       };
       onSave(payload);
     } else {
+      const activeDefaultSkema = Object.values(cleanSkema).some(v => v > 0) ? cleanSkema : standardDefaultSkema;
       if (isSchoolDefault) {
         onSave({
           mode: 'default',
-          skema: defaultSkema,
+          skema: activeDefaultSkema,
           bobot: 0
         });
         return;
@@ -110,7 +117,7 @@ const SkemaPenilaianPanel = ({
       const payload = {
         kunci_jawaban: JSON.stringify({
           mode: 'default',
-          skema: defaultSkema
+          skema: activeDefaultSkema
         }),
         bobot: 0
       };

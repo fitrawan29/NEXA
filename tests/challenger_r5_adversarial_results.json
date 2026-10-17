@@ -1,0 +1,230 @@
+{
+  "total": 26,
+  "passed": 26,
+  "failed": 0,
+  "findings": [],
+  "testDetails": [
+    {
+      "id": "ADV-1.1",
+      "name": "Empty canvas touch (0 strokes, 0 points) rejected by client logic",
+      "section": "Canvas Bypass",
+      "passed": true,
+      "error": null,
+      "meta": {}
+    },
+    {
+      "id": "ADV-1.2",
+      "name": "Accidental single tap (1 stroke, 1 point) rejected by client logic",
+      "section": "Canvas Bypass",
+      "passed": true,
+      "error": null,
+      "meta": {}
+    },
+    {
+      "id": "ADV-1.3",
+      "name": "Transparent / zero-alpha pixels rejected by pixel density sampler (alpha <= 30)",
+      "section": "Canvas Bypass",
+      "passed": true,
+      "error": null,
+      "meta": {}
+    },
+    {
+      "id": "ADV-1.4",
+      "name": "Server submit_absensi_siswa strictly rejects empty string and null signature",
+      "section": "Canvas Bypass",
+      "passed": true,
+      "error": "resEmpty: error, resNull: error",
+      "meta": {}
+    },
+    {
+      "id": "ADV-1.5",
+      "name": "Server rejects non-image MIME types and unencoded raw text strings",
+      "section": "Canvas Bypass",
+      "passed": true,
+      "error": "res1: error, res2: error",
+      "meta": {}
+    },
+    {
+      "id": "ADV-1.6",
+      "name": "Server submit_absensi_siswa rejects 0-byte image data URL \"data:image/png;base64,\"",
+      "section": "Canvas Bypass",
+      "passed": true,
+      "error": null,
+      "meta": {
+        "receivedStatus": "error",
+        "severity": "NONE"
+      }
+    },
+    {
+      "id": "ADV-1.7",
+      "name": "Server submit_absensi_siswa rejects 1x1 transparent blank pixel image",
+      "section": "Canvas Bypass",
+      "passed": true,
+      "error": null,
+      "meta": {
+        "receivedStatus": "error",
+        "severity": "NONE"
+      }
+    },
+    {
+      "id": "ADV-2.1",
+      "name": "Direct get_soal_ujian with unsigned id_log returns error & need_signature: true",
+      "section": "Question Gate",
+      "passed": true,
+      "error": null,
+      "meta": {}
+    },
+    {
+      "id": "ADV-2.2",
+      "name": "Direct get_soal_ujian with non-existent id_log is hard-blocked",
+      "section": "Question Gate",
+      "passed": true,
+      "error": null,
+      "meta": {}
+    },
+    {
+      "id": "ADV-2.3",
+      "name": "Server get_soal_ujian enforces signature gating even if id_log is omitted",
+      "section": "Question Gate",
+      "passed": true,
+      "error": null,
+      "meta": {
+        "deliveredWithoutLog": false,
+        "severity": "NONE",
+        "finding": null
+      }
+    },
+    {
+      "id": "ADV-2.4",
+      "name": "Student with 3 strikes / is_blocked retains blocked status in get_soal_ujian response",
+      "section": "Question Gate",
+      "passed": true,
+      "error": null,
+      "meta": {}
+    },
+    {
+      "id": "ADV-2.5",
+      "name": "Signed student session successfully unlocks exam question bank",
+      "section": "Question Gate",
+      "passed": true,
+      "error": null,
+      "meta": {}
+    },
+    {
+      "id": "ADV-3.1",
+      "name": "Real student with legacy text ruang in siswa table causes FK violation in submit_absensi_siswa",
+      "section": "Database Integrity & FK",
+      "passed": true,
+      "error": null,
+      "meta": {
+        "studentRuang": null,
+        "errorMessage": "Absensi dan tanda tangan berhasil disimpan.",
+        "severity": "NONE"
+      }
+    },
+    {
+      "id": "ADV-4.1",
+      "name": "Assign proctor to designated room A succeeds",
+      "section": "Proctor Management",
+      "passed": true,
+      "error": "Pengawas berhasil ditugaskan ke ruang ujian.",
+      "meta": {}
+    },
+    {
+      "id": "ADV-4.2",
+      "name": "Assign same proctor simultaneously to Room B succeeds",
+      "section": "Proctor Management",
+      "passed": true,
+      "error": "Pengawas berhasil ditugaskan ke ruang ujian.",
+      "meta": {}
+    },
+    {
+      "id": "ADV-4.3",
+      "name": "Proctor assignment query returns all actively assigned rooms",
+      "section": "Proctor Management",
+      "passed": true,
+      "error": "hasRoomA: true, hasRoomB: true",
+      "meta": {}
+    },
+    {
+      "id": "ADV-4.4",
+      "name": "Deleting room cascades and purges proctor assignment cleanly without orphan",
+      "section": "Proctor Management",
+      "passed": true,
+      "error": "Found 0 orphaned assignments",
+      "meta": {}
+    },
+    {
+      "id": "ADV-4.5",
+      "name": "Multi-tenant isolation: School B query never leaks School A exam rooms",
+      "section": "Multi-Tenancy",
+      "passed": true,
+      "error": null,
+      "meta": {}
+    },
+    {
+      "id": "ADV-5.1",
+      "name": "50-student parallel bulk approval stampede completes cleanly under 2000ms (took 374ms)",
+      "section": "Concurrency",
+      "passed": true,
+      "error": "allSuccess: true, duration: 374ms",
+      "meta": {}
+    },
+    {
+      "id": "ADV-5.2",
+      "name": "All 50 examinees atomically updated to DISETUJUI with proctor verified_by in database",
+      "section": "Concurrency",
+      "passed": true,
+      "error": "Verified count: 50/50",
+      "meta": {}
+    },
+    {
+      "id": "ADV-6.1",
+      "name": "Extreme incident notes (13,000+ characters) saved in Berita Acara without truncation",
+      "section": "Print & Reporting",
+      "passed": true,
+      "error": "Berita acara ujian berhasil disimpan.",
+      "meta": {}
+    },
+    {
+      "id": "ADV-6.2",
+      "name": "get_dokumen_ujian_cetak aggregates complete dossier with 50+ students in under 2000ms (took 628ms)",
+      "section": "Print & Reporting",
+      "passed": true,
+      "error": "Complete: true, Students: 50, Duration: 628ms",
+      "meta": {}
+    },
+    {
+      "id": "ADV-6.3",
+      "name": "DokumenUjianPrint.jsx has ZERO dangerouslySetInnerHTML occurrences (XSS immune)",
+      "section": "Security",
+      "passed": true,
+      "error": null,
+      "meta": {}
+    },
+    {
+      "id": "ADV-6.4",
+      "name": "@media print CSS rules enforce A4 sizing, repeating thead, page breaks, and web UI suppression",
+      "section": "CSS Print Compliance",
+      "passed": true,
+      "error": "hasPageA4: true, hasTheadRepeat: true, hasPageBreak: true, hasAvoidBreak: true, hasScreenUiSuppression: true",
+      "meta": {}
+    },
+    {
+      "id": "ADV-7.1",
+      "name": "get_status_log_ujian confirms has_signed = true upon reconnection / reload",
+      "section": "Session Continuity",
+      "passed": true,
+      "error": "has_signed: true",
+      "meta": {}
+    },
+    {
+      "id": "ADV-7.2",
+      "name": "get_status_log_ujian confirms has_signed = false for unsigned examinee",
+      "section": "Session Continuity",
+      "passed": true,
+      "error": "has_signed: false",
+      "meta": {}
+    }
+  ]
+}

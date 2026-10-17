@@ -616,30 +616,39 @@ async function runChallengerStressTests() {
   const { data: adminRecord } = await supabase.from('admin').select('id_admin, foto_profil').limit(1);
   if (adminRecord && adminRecord.length > 0) {
     const adminId = adminRecord[0].id_admin;
-    const testAvatarUrl = 'https://api.dicebear.com/7.x/bottts/svg?seed=ChallengerAvatar';
+    const originalAvatar = adminRecord[0].foto_profil;
+    const testAvatarUrl = 'https://api.dicebear.com/7.x/bottts/svg?seed=AdminLiveVerify';
 
-    const updateRes = await fetchAPI('update_admin_profil', {
-      id_admin: adminId,
-      foto_profil: testAvatarUrl
-    });
+    try {
+      const updateRes = await fetchAPI('update_admin_profil', {
+        id_admin: adminId,
+        foto_profil: testAvatarUrl
+      });
 
-    assert(
-      updateRes.status === 'success',
-      'fetchAPI update_admin_profil returned status "success"',
-      updateRes.message
-    );
-    assert(
-      updateRes.message === 'Profil berhasil diperbarui.',
-      'fetchAPI update_admin_profil returned message "Profil berhasil diperbarui." (no logout notice)',
-      updateRes.message
-    );
+      assert(
+        updateRes.status === 'success',
+        'fetchAPI update_admin_profil returned status "success"',
+        updateRes.message
+      );
+      assert(
+        updateRes.message === 'Profil berhasil diperbarui.',
+        'fetchAPI update_admin_profil returned message "Profil berhasil diperbarui." (no logout notice)',
+        updateRes.message
+      );
 
-    // Verify persistence in Supabase
-    const { data: updatedAdmin } = await supabase.from('admin').select('foto_profil').eq('id_admin', adminId).single();
-    assert(
-      updatedAdmin?.foto_profil === testAvatarUrl,
-      'Live Supabase query verifies new avatar URL was persisted to database'
-    );
+      // Verify persistence in Supabase
+      const { data: updatedAdmin } = await supabase.from('admin').select('foto_profil').eq('id_admin', adminId).single();
+      assert(
+        updatedAdmin?.foto_profil === testAvatarUrl,
+        'Live Supabase query verifies new avatar URL was persisted to database'
+      );
+    } finally {
+      // Revert back to original avatar
+      await fetchAPI('update_admin_profil', {
+        id_admin: adminId,
+        foto_profil: originalAvatar
+      });
+    }
   } else {
     console.warn('  ⚠ No admin record found in database for live avatar test');
   }

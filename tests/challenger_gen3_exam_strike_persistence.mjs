@@ -138,12 +138,30 @@ async function runStrikePersistenceStressSuite() {
   let testSiswaId = null;
   let testNpsn = '70040625';
 
+  let createdTempJadwal = false;
+
   try {
     // Resolve existing jadwal & siswa
     const { data: jadwalList } = await supabase.from('jadwal').select('id_jadwal, npsn').limit(1);
     if (jadwalList && jadwalList.length > 0) {
       testJadwalId = jadwalList[0].id_jadwal;
       testNpsn = jadwalList[0].npsn || testNpsn;
+    }
+    if (!testJadwalId) {
+      testJadwalId = `TEST-JADWAL-${Date.now()}`;
+      await supabase.from('jadwal').insert({
+        id_jadwal: testJadwalId,
+        id_mapel: 'M-7AE60E7B',
+        id_guru: 'G-163390E6',
+        npsn: testNpsn,
+        waktu_mulai: new Date(Date.now() - 3600000).toISOString(),
+        waktu_selesai: new Date(Date.now() + 3600000).toISOString(),
+        durasi_menit: 60,
+        acak_soal: false,
+        target_kelas: 'X Merdeka 1',
+        token_aktif: 'TESTTK'
+      });
+      createdTempJadwal = true;
     }
 
     const { data: siswaList } = await supabase.from('siswa').select('id_siswa').limit(1);
@@ -163,7 +181,8 @@ async function runStrikePersistenceStressSuite() {
       pelanggaran: 0,
       is_blocked: false,
       nilai_auto: null,
-      pelanggaran_detail: []
+      pelanggaran_detail: [],
+      tanda_tangan: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
     });
     record('Step 1: Enter Exam', 'Initial log inserted in Supabase with 0 strikes', !seedErr, seedErr?.message);
 
@@ -385,6 +404,12 @@ async function runStrikePersistenceStressSuite() {
       console.log(`\n  ✔ [TEARDOWN] Purged temporary test log record (${testLogId})`);
     } else {
       console.warn(`\n  ⚠ [TEARDOWN WARNING] Failed to purge test log: ${delErr.message}`);
+    }
+    if (createdTempJadwal && testJadwalId) {
+      const { error: delJadwalErr } = await supabase.from('jadwal').delete().eq('id_jadwal', testJadwalId);
+      if (!delJadwalErr) {
+        console.log(`  ✔ [TEARDOWN] Purged temporary test schedule (${testJadwalId})`);
+      }
     }
   }
 
