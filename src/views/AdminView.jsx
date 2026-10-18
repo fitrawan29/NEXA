@@ -1,4 +1,4 @@
-import { fetchAPI, getTrueNow, get_default_skema_sekolah, save_default_skema_sekolah } from '../api.js';
+import { fetchAPI, getTrueNow, get_default_skema_sekolah, save_default_skema_sekolah, get_pengaturan_sekolah, save_pengaturan_sekolah, getDefaultKopSettings } from '../api.js';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import {
@@ -50,6 +50,12 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   });
   const [isSkemaLoading, setIsSkemaLoading] = useState(false);
   const [skemaSuccessMsg, setSkemaSuccessMsg] = useState('');
+
+  // School Profile & Kop Settings State
+  const [kopSettings, setKopSettings] = useState(() => getDefaultKopSettings(user));
+  const [isSavingKop, setIsSavingKop] = useState(false);
+  const [kopSuccessMsg, setKopSuccessMsg] = useState('');
+  const [kopErrorMsg, setKopErrorMsg] = useState('');
 
   // Proctor & Room Management State (Requirement 2)
   const [dataRuang, setDataRuang] = useState([]);
@@ -194,6 +200,126 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     }
   }, [activeTab]);
 
+  const loadKopSettings = async () => {
+    if (!user?.npsn) return;
+    try {
+      const res = await get_pengaturan_sekolah(user.npsn);
+      if (res) {
+        setKopSettings(prev => ({ ...prev, ...res }));
+      }
+    } catch (err) {
+      console.warn('Gagal memuat pengaturan kop sekolah:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (user?.npsn) {
+      loadKopSettings();
+    }
+  }, [user?.npsn]);
+
+  useEffect(() => {
+    if (activeTab === 'pengaturan' && user?.npsn) {
+      loadKopSettings();
+    }
+  }, [activeTab]);
+
+  const handleSaveKopSettings = async (customPayload = null) => {
+    const targetNpsn = user?.npsn || kopSettings.npsn;
+    if (!targetNpsn) {
+      if (showMessage) showMessage('Perhatian', 'NPSN sekolah harus diisi sebelum menyimpan pengaturan.', 'warning');
+      return;
+    }
+    setIsSavingKop(true);
+    setKopSuccessMsg('');
+    setKopErrorMsg('');
+    try {
+      const payloadToSave = customPayload || kopSettings;
+      const res = await save_pengaturan_sekolah(targetNpsn, payloadToSave);
+      if (res && (res.status === 'success' || res.success)) {
+        setKopSettings(res.data || payloadToSave);
+        setKopSuccessMsg('Pengaturan logo dan konfigurasi kop berhasil disimpan.');
+        setTimeout(() => setKopSuccessMsg(''), 4500);
+        const updatedFields = {
+          ...payloadToSave,
+          nama_sekolah: payloadToSave.nama_sekolah || user.nama_sekolah,
+          logo_kiri: payloadToSave.logo_kiri !== undefined ? payloadToSave.logo_kiri : null,
+          logo_kanan: payloadToSave.logo_kanan !== undefined ? payloadToSave.logo_kanan : null,
+          logo_dinas: payloadToSave.logo_kiri !== undefined ? payloadToSave.logo_kiri : null,
+          logo: payloadToSave.logo_kanan !== undefined ? payloadToSave.logo_kanan : null
+        };
+        if (onUpdateUser) {
+          onUpdateUser(updatedFields);
+        } else if (user) {
+          Object.assign(user, updatedFields);
+        }
+        if (typeof logActivity === 'function') {
+          logActivity('PENGATURAN', 'Memperbarui logo dan konfigurasi kop kartu ujian');
+        }
+      }
+    } catch (err) {
+      console.error('Error saving kop settings:', err);
+      setKopErrorMsg('Gagal menyimpan pengaturan: ' + (err.message || 'Terjadi kesalahan'));
+      if (showMessage) showMessage('Gagal', 'Gagal menyimpan pengaturan: ' + err.message, 'error');
+    } finally {
+      setIsSavingKop(false);
+    }
+  };
+
+  const handleUploadLogoKiri = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await compressImageFile(file, 240, 240, 0.85);
+      setKopSettings(prev => ({
+        ...prev,
+        logo_kiri: dataUrl,
+        show_logo_kiri: true
+      }));
+    } catch (err) {
+      if (showMessage) showMessage('Gagal Mengunggah Logo', err.message, 'error');
+    } finally {
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const handleUploadLogoKanan = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await compressImageFile(file, 240, 240, 0.85);
+      setKopSettings(prev => ({
+        ...prev,
+        logo_kanan: dataUrl,
+        show_logo_kanan: true
+      }));
+    } catch (err) {
+      if (showMessage) showMessage('Gagal Mengunggah Logo', err.message, 'error');
+    } finally {
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const handleResetLogoKiri = () => {
+    const inputEl = document.getElementById('file_input_logo_kiri');
+    if (inputEl) inputEl.value = '';
+    setKopSettings(prev => ({
+      ...prev,
+      logo_kiri: null,
+      logo_dinas: null
+    }));
+  };
+
+  const handleResetLogoKanan = () => {
+    const inputEl = document.getElementById('file_input_logo_kanan');
+    if (inputEl) inputEl.value = '';
+    setKopSettings(prev => ({
+      ...prev,
+      logo_kanan: null,
+      logo: null
+    }));
+  };
+
   const handleAvatarSelect = async (avatarUrl) => {
     setIsLoading(true);
     const res = await api('update_admin_profil', { id_admin: user.id_admin, foto_profil: avatarUrl });
@@ -239,8 +365,12 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
         const resMapel = await api('get_all_mapel', {});
         if (resMapel.status === 'success') setDataMapel(resMapel.data || []);
       } else if (tab === 'mapel') {
-        const res = await api('get_all_mapel', {});
-        if (res.status === 'success') setDataMapel(res.data || []);
+        const [resMapel, resK] = await Promise.all([
+          api('get_all_mapel', {}),
+          api('get_kelas', {})
+        ]);
+        if (resMapel.status === 'success') setDataMapel(resMapel.data || []);
+        if (resK.status === 'success') setDataKelas(resK.data || []);
       } else if (tab === 'logs') {
         const res = await api('get_audit_log', {});
         if (res.status === 'success') setDataAudit(res.data || []);
@@ -565,19 +695,34 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       students: filtered,
       mode: printKartuModal.mode,
       sekolah: {
-        nama_sekolah: user.nama_sekolah || user.sekolah || 'SEKOLAH INDONESIA',
-        npsn: user.npsn,
-        alamat: user.alamat_sekolah || user.alamat || '-',
-        logo: user.logo || null,
-        logo_dinas: user.logo_dinas || null,
-        kepala_sekolah: printKartuModal.namaKepalaSekolah || user.kepala_sekolah || '',
-        nip_kepala_sekolah: printKartuModal.nipKepalaSekolah || user.nip_kepala_sekolah || ''
+        nama_sekolah: kopSettings.nama_sekolah || user.nama_sekolah || user.sekolah || 'SEKOLAH INDONESIA',
+        npsn: kopSettings.npsn || user.npsn || '',
+        alamat: kopSettings.alamat_sekolah || user.alamat_sekolah || user.alamat || '-',
+        logo: kopSettings.logo_kanan !== undefined ? kopSettings.logo_kanan : (user.logo || null),
+        logo_dinas: kopSettings.logo_kiri !== undefined ? kopSettings.logo_kiri : (user.logo_dinas || null),
+        logo_kiri: kopSettings.logo_kiri !== undefined ? kopSettings.logo_kiri : (user.logo_kiri || user.logo_dinas || null),
+        logo_kanan: kopSettings.logo_kanan !== undefined ? kopSettings.logo_kanan : (user.logo_kanan || user.logo || null),
+        show_logo_kiri: kopSettings.show_logo_kiri !== false,
+        show_logo_kanan: kopSettings.show_logo_kanan !== false,
+        kop_baris1: kopSettings.kop_baris1 || '',
+        kop_baris2: kopSettings.kop_baris2 || kopSettings.nama_sekolah || user.nama_sekolah || 'SEKOLAH INDONESIA',
+        kop_baris3: kopSettings.kop_baris3 || 'KARTU PESERTA ASESMEN / CBT',
+        kop_baris4: kopSettings.kop_baris4 !== undefined ? kopSettings.kop_baris4 : undefined,
+        kartu_peserta_show_logo_kiri: kopSettings.kartu_peserta_show_logo_kiri !== false,
+        kartu_peserta_show_logo_kanan: kopSettings.kartu_peserta_show_logo_kanan !== false,
+        kop_meja_mode: kopSettings.kop_meja_mode || 'formal',
+        kop_meja_baris1: kopSettings.kop_meja_baris1 || kopSettings.nama_sekolah || user.nama_sekolah || 'SEKOLAH INDONESIA',
+        kop_meja_baris2: kopSettings.kop_meja_baris2 !== undefined ? kopSettings.kop_meja_baris2 : undefined,
+        kartu_meja_show_logo_kiri: kopSettings.kartu_meja_show_logo_kiri !== false,
+        kartu_meja_show_logo_kanan: kopSettings.kartu_meja_show_logo_kanan !== false,
+        kepala_sekolah: printKartuModal.namaKepalaSekolah || kopSettings.kepala_sekolah || user.kepala_sekolah || '',
+        nip_kepala_sekolah: printKartuModal.nipKepalaSekolah || kopSettings.nip_kepala_sekolah || user.nip_kepala_sekolah || ''
       },
       paperSize: printKartuModal.paperSize,
       showPassword: printKartuModal.showPassword,
       tahunAjaran: printKartuModal.tahunAjaran,
-      namaKepalaSekolah: printKartuModal.namaKepalaSekolah || user.kepala_sekolah || '',
-      nipKepalaSekolah: printKartuModal.nipKepalaSekolah || user.nip_kepala_sekolah || '',
+      namaKepalaSekolah: printKartuModal.namaKepalaSekolah || kopSettings.kepala_sekolah || user.kepala_sekolah || '',
+      nipKepalaSekolah: printKartuModal.nipKepalaSekolah || kopSettings.nip_kepala_sekolah || user.nip_kepala_sekolah || '',
       targetKelas: printKartuModal.filterKelas !== 'ALL' ? printKartuModal.filterKelas : '',
       targetRuang: printKartuModal.filterRuang !== 'ALL' ? printKartuModal.filterRuang : '',
       targetSesi: printKartuModal.filterSesi
@@ -642,24 +787,32 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   };
 
   const openCreateModal = async (type) => {
-    if (type === 'guru' || type === 'jadwal') {
+    if (type === 'guru' || type === 'jadwal' || type === 'mapel') {
       const res = await api('get_all_mapel', {});
       if (res.status === 'success') setDataMapel(res.data || []);
       if (type === 'jadwal') {
         const resG = await api('get_guru', {});
         if (resG.status === 'success') setDataGuru(resG.data || []);
       }
+      if (type === 'mapel' || type === 'jadwal') {
+        const resK = await api('get_kelas', {});
+        if (resK.status === 'success') setDataKelas(resK.data || []);
+      }
     }
     setFormModal({ isOpen: true, type, data: null });
   };
 
   const openEditModal = async (type, item) => {
-    if (type === 'guru' || type === 'jadwal') {
+    if (type === 'guru' || type === 'jadwal' || type === 'mapel') {
       const res = await api('get_all_mapel', {});
       if (res.status === 'success') setDataMapel(res.data || []);
       if (type === 'jadwal') {
         const resG = await api('get_guru', {});
         if (resG.status === 'success') setDataGuru(resG.data || []);
+      }
+      if (type === 'mapel' || type === 'jadwal') {
+        const resK = await api('get_kelas', {});
+        if (resK.status === 'success') setDataKelas(resK.data || []);
       }
     }
     setFormModal({ isOpen: true, type, data: item });
@@ -678,7 +831,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       headers = ['nama_mapel', 'nama_guru_atau_nip', 'tanggal', 'jam_mulai', 'jam_selesai', 'durasi_menit', 'target_kelas', 'token'];
       filename = 'Template_Jadwal.xlsx';
     } else if (importModal.type === 'mapel') {
-      headers = ['nama_mapel'];
+      headers = ['nama_mapel', 'alokasi_kelas'];
       filename = 'Template_Mata_Pelajaran.xlsx';
     }
 
@@ -834,8 +987,11 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 rawNama = matchedKey ? row[matchedKey] : '';
               }
               const nama = String(rawNama ?? '').replace(/\s+/g, ' ').trim();
+              const rawAlokasi = row.alokasi_kelas ?? row.Alokasi_Kelas ?? row.ALOKASI_KELAS ?? 'Semua Kelas';
+              const alokasi = String(rawAlokasi || '').trim() || 'Semua Kelas';
               return {
                 nama_mapel: nama,
+                alokasi_kelas: alokasi,
                 npsn: user.npsn
               };
             })
@@ -1509,14 +1665,21 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   };
 
   const [autoUsername, setAutoUsername] = useState('');
+  const [jadwalTargetKelas, setJadwalTargetKelas] = useState('');
 
   useEffect(() => {
     if (formModal.isOpen && formModal.data) {
       setAutoUsername(formModal.data.username || '');
+      if (formModal.type === 'jadwal') {
+        setJadwalTargetKelas(formModal.data.target_kelas || '');
+      }
     } else if (formModal.isOpen) {
       setAutoUsername('');
+      if (formModal.type === 'jadwal') {
+        setJadwalTargetKelas('');
+      }
     }
-  }, [formModal.isOpen, formModal.data]);
+  }, [formModal.isOpen, formModal.data, formModal.type]);
 
   const handleAutoUsernameSiswa = () => {
     const nama = document.getElementById('input_nama_siswa')?.value || '';
@@ -1569,6 +1732,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     {
       title: 'Sistem',
       items: [
+        { id: 'pengaturan', label: 'Pengaturan / Profil Sekolah', icon: 'settings' },
         { id: 'logs', label: 'Log Aktivitas', icon: 'history' },
         { id: 'akun', label: 'Profil Admin', icon: 'person' }
       ]
@@ -1596,6 +1760,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     monitoring: 'Live Monitoring Ujian',
     hasil: 'Rekap Hasil Ujian',
     soal: 'Bank Soal (Preview)',
+    pengaturan: 'Pengaturan & Profil Sekolah',
     logs: 'Log Aktivitas Sistem',
     akun: 'Profil Admin'
   };
@@ -1719,6 +1884,32 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Nama Mapel</label>
                   <input name="nama_mapel" defaultValue={data?.nama_mapel || ''} required className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
                 </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Alokasi Kelas</label>
+                  <select
+                    name="alokasi_kelas"
+                    defaultValue={data?.alokasi_kelas || 'Semua Kelas'}
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white"
+                  >
+                    <option value="Semua Kelas">Semua Kelas (Umum)</option>
+                    {data?.alokasi_kelas && data.alokasi_kelas !== 'Semua Kelas' && 
+                     !dataKelas.some(k => `${String(k.tingkat || '').trim()} ${String(k.kelas_paralel || '').trim()}` === data.alokasi_kelas) &&
+                     !dataKelas.some(k => `Tingkat ${String(k.tingkat || '').trim()} (Semua)` === data.alokasi_kelas) && (
+                      <option value={data?.alokasi_kelas}>{data?.alokasi_kelas} (Tersimpan)</option>
+                    )}
+                    <optgroup label="Tingkat / Angkatan (Semua Kelas)">
+                      {Array.from(new Set(dataKelas.map(k => String(k.tingkat || '').trim()).filter(Boolean))).map(t => (
+                        <option key={`tingkat-${t}`} value={`Tingkat ${t} (Semua)`}>Tingkat {t} (Semua Kelas)</option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Kelas Paralel Spesifik">
+                      {dataKelas.filter(k => k.tingkat && k.kelas_paralel).map(k => {
+                        const val = `${String(k.tingkat || '').trim()} ${String(k.kelas_paralel || '').trim()}`;
+                        return <option key={k.id_kelas} value={val}>{val}</option>;
+                      })}
+                    </optgroup>
+                  </select>
+                </div>
               </>
             )}
 
@@ -1809,9 +2000,26 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 )}
                 <div>
                   <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Mata Pelajaran</label>
-                  <select name="id_mapel" defaultValue={data?.id_mapel || ''} required className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white">
+                  <select
+                    name="id_mapel"
+                    defaultValue={data?.id_mapel || ''}
+                    required
+                    onChange={(e) => {
+                      const selectedM = dataMapel.find(m => String(m.id_mapel) === String(e.target.value));
+                      const alloc = selectedM?.alokasi_kelas;
+                      const newTarget = (alloc && alloc !== 'Semua Kelas') ? alloc : '';
+                      setJadwalTargetKelas(newTarget);
+                      const targetSelect = document.getElementById('input_jadwal_target_kelas');
+                      if (targetSelect) targetSelect.value = newTarget;
+                    }}
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white"
+                  >
                     <option value="">Pilih Mapel</option>
-                    {dataMapel.map(m => <option key={m.id_mapel} value={m.id_mapel}>{m.nama_mapel}</option>)}
+                    {dataMapel.map(m => (
+                      <option key={m.id_mapel} value={m.id_mapel}>
+                        {m.nama_mapel} {m.alokasi_kelas && m.alokasi_kelas !== 'Semua Kelas' ? `(${m.alokasi_kelas})` : ''}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -1822,10 +2030,31 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Tingkat Ujian</label>
-                  <select name="target_kelas" defaultValue={data?.target_kelas || ''} className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white">
+                  <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Target Kelas / Tingkat Ujian</label>
+                  <select
+                    id="input_jadwal_target_kelas"
+                    name="target_kelas"
+                    value={jadwalTargetKelas}
+                    onChange={(e) => setJadwalTargetKelas(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white"
+                  >
                     <option value="">Semua Tingkat (Umum)</option>
-                    {Array.from(new Set(dataKelas.map(k => k.tingkat))).map(t => <option key={t} value={t}>Tingkat {t}</option>)}
+                    {jadwalTargetKelas && 
+                     !dataKelas.some(k => `${String(k.tingkat || '').trim()} ${String(k.kelas_paralel || '').trim()}` === jadwalTargetKelas) &&
+                     !dataKelas.some(k => `Tingkat ${String(k.tingkat || '').trim()} (Semua)` === jadwalTargetKelas) && (
+                      <option value={jadwalTargetKelas}>{jadwalTargetKelas} (Tersimpan)</option>
+                    )}
+                    <optgroup label="Tingkat / Angkatan (Semua Kelas)">
+                      {Array.from(new Set(dataKelas.map(k => String(k.tingkat || '').trim()).filter(Boolean))).map(t => (
+                        <option key={`tingkat-${t}`} value={`Tingkat ${t} (Semua)`}>Tingkat {t} (Semua)</option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Kelas Paralel Spesifik">
+                      {dataKelas.filter(k => k.tingkat && k.kelas_paralel).map(k => {
+                        const val = `${String(k.tingkat || '').trim()} ${String(k.kelas_paralel || '').trim()}`;
+                        return <option key={k.id_kelas} value={val}>{val}</option>;
+                      })}
+                    </optgroup>
                   </select>
                 </div>
                 <div>
@@ -2612,6 +2841,93 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
               </div>
             )}
 
+            {/* Pengaturan Kop & Logo Dokumen */}
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-sm text-primary">image</span>
+                  Pengaturan Kop & Logo
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPrintKartuModal(prev => ({ ...prev, isOpen: false }));
+                    navigateTab('pengaturan');
+                  }}
+                  className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1"
+                >
+                  <span className="material-symbols-outlined text-[14px]">tune</span>
+                  Atur di Menu Profil
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <label className="flex items-center gap-2 cursor-pointer bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={kopSettings.show_logo_kiri !== false && (printKartuModal.mode === 'meja' ? kopSettings.kartu_meja_show_logo_kiri !== false : kopSettings.kartu_peserta_show_logo_kiri !== false)}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setKopSettings(prev => ({
+                        ...prev,
+                        show_logo_kiri: checked ? true : prev.show_logo_kiri,
+                        [printKartuModal.mode === 'meja' ? 'kartu_meja_show_logo_kiri' : 'kartu_peserta_show_logo_kiri']: checked
+                      }));
+                    }}
+                    className="w-3.5 h-3.5 rounded text-primary"
+                  />
+                  <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">Logo Kiri</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={kopSettings.show_logo_kanan !== false && (printKartuModal.mode === 'meja' ? kopSettings.kartu_meja_show_logo_kanan !== false : kopSettings.kartu_peserta_show_logo_kanan !== false)}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setKopSettings(prev => ({
+                        ...prev,
+                        show_logo_kanan: checked ? true : prev.show_logo_kanan,
+                        [printKartuModal.mode === 'meja' ? 'kartu_meja_show_logo_kanan' : 'kartu_peserta_show_logo_kanan']: checked
+                      }));
+                    }}
+                    className="w-3.5 h-3.5 rounded text-primary"
+                  />
+                  <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">Logo Kanan</span>
+                </label>
+              </div>
+
+              {printKartuModal.mode === 'meja' && (
+                <div className="flex items-center justify-between pt-1 border-t border-slate-200 dark:border-slate-700 text-xs">
+                  <span className="text-[11px] text-slate-500">Format Kop Meja:</span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setKopSettings(prev => ({ ...prev, kop_meja_mode: 'formal' }))}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        kopSettings.kop_meja_mode === 'formal'
+                          ? 'bg-primary text-white'
+                          : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      Formal
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setKopSettings(prev => ({ ...prev, kop_meja_mode: 'minimalis' }))}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        kopSettings.kop_meja_mode === 'minimalis'
+                          ? 'bg-primary text-white'
+                          : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      Minimalis
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Kepala Sekolah & Tahun Ajaran Customizer */}
             <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100 dark:border-slate-700">
               <div>
@@ -2620,7 +2936,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 </label>
                 <input
                   type="text"
-                  placeholder={user.kepala_sekolah || 'Nama Kepala Sekolah'}
+                  placeholder={kopSettings.kepala_sekolah || user.kepala_sekolah || 'Nama Kepala Sekolah'}
                   value={printKartuModal.namaKepalaSekolah}
                   onChange={(e) => setPrintKartuModal(prev => ({ ...prev, namaKepalaSekolah: e.target.value }))}
                   className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2 text-xs bg-white dark:bg-slate-900 dark:text-white"
@@ -2632,7 +2948,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 </label>
                 <input
                   type="text"
-                  placeholder={user.nip_kepala_sekolah || '-'}
+                  placeholder={kopSettings.nip_kepala_sekolah || user.nip_kepala_sekolah || '-'}
                   value={printKartuModal.nipKepalaSekolah}
                   onChange={(e) => setPrintKartuModal(prev => ({ ...prev, nipKepalaSekolah: e.target.value }))}
                   className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2 text-xs bg-white dark:bg-slate-900 dark:text-white"
@@ -5591,7 +5907,16 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                         <span className="material-symbols-outlined text-xl">menu_book</span>
                       </div>
                       <div className="min-w-0 flex-1">
-                        <h4 className="font-bold text-xs sm:text-sm text-slate-800 dark:text-white truncate">{m.nama_mapel}</h4>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h4 className="font-bold text-xs sm:text-sm text-slate-800 dark:text-white truncate">{m.nama_mapel}</h4>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            m.alokasi_kelas && m.alokasi_kelas !== 'Semua Kelas'
+                              ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800'
+                              : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                          }`}>
+                            {m.alokasi_kelas || 'Semua Kelas'}
+                          </span>
+                        </div>
                         <p className="text-[11px] text-slate-400 mt-0.5">{m.jumlah_soal || 0} Soal Tersedia</p>
                       </div>
                     </div>
@@ -5859,6 +6184,645 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
             </div>
           )}
 
+          {/* ================= TAB PENGATURAN / PROFIL SEKOLAH ================= */}
+          {activeTab === 'pengaturan' && (
+            <div className="space-y-6 animate-fade-in-up pb-12">
+              {/* Header Title & Status */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg sm:text-xl flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary text-2xl">settings</span>
+                    Pengaturan & Profil Sekolah
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Kelola data identitas sekolah, logo kop (Dinas & Sekolah), serta konfigurasi cetak Kartu Peserta dan Kartu Meja
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={isSavingKop}
+                  onClick={() => handleSaveKopSettings()}
+                  className="px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all active:scale-95 disabled:opacity-50 min-h-[44px]"
+                >
+                  <span className="material-symbols-outlined text-[18px]">save</span>
+                  <span>{isSavingKop ? 'Menyimpan...' : 'Simpan Pengaturan'}</span>
+                </button>
+              </div>
+
+              {/* Success / Error Alerts */}
+              {kopSuccessMsg && (
+                <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 flex items-center gap-2.5 animate-fade-in">
+                  <span className="material-symbols-outlined text-emerald-600 dark:text-emerald-400 text-xl">check_circle</span>
+                  <span className="text-xs sm:text-sm font-semibold">{kopSuccessMsg}</span>
+                </div>
+              )}
+              {kopErrorMsg && (
+                <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200 flex items-center gap-2.5 animate-fade-in">
+                  <span className="material-symbols-outlined text-rose-600 dark:text-rose-400 text-xl">error</span>
+                  <span className="text-xs sm:text-sm font-semibold">{kopErrorMsg}</span>
+                </div>
+              )}
+
+              {/* CARD 1: Identitas & Data Pokok Sekolah */}
+              <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-700/80">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                    <span className="material-symbols-outlined text-lg">domain</span>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-slate-800 dark:text-white">Identitas Sekolah</h4>
+                    <p className="text-[11px] text-slate-500">Informasi nama sekolah, NPSN, dan pimpinan</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
+                      Nama Sekolah / Lembaga
+                    </label>
+                    <input
+                      type="text"
+                      value={kopSettings.nama_sekolah || ''}
+                      onChange={(e) => setKopSettings(prev => ({ ...prev, nama_sekolah: e.target.value }))}
+                      placeholder="Contoh: SMA NEGERI 1 INDONESIA"
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 text-xs sm:text-sm bg-white dark:bg-slate-900 dark:text-white font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
+                      NPSN (Nomor Pokok Sekolah Nasional)
+                    </label>
+                    <input
+                      type="text"
+                      value={kopSettings.npsn !== undefined ? kopSettings.npsn : (user.npsn || '')}
+                      onChange={(e) => setKopSettings(prev => ({ ...prev, npsn: e.target.value }))}
+                      placeholder="NPSN Sekolah"
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 text-xs sm:text-sm bg-white dark:bg-slate-900 dark:text-white font-mono"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
+                      Alamat Sekolah / Instansi
+                    </label>
+                    <input
+                      type="text"
+                      value={kopSettings.alamat_sekolah || ''}
+                      onChange={(e) => setKopSettings(prev => ({ ...prev, alamat_sekolah: e.target.value }))}
+                      placeholder="Jalan, Kelurahan, Kecamatan, Kota/Kabupaten, Provinsi"
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 text-xs sm:text-sm bg-white dark:bg-slate-900 dark:text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
+                      Nama Kepala Sekolah / Penanggung Jawab
+                    </label>
+                    <input
+                      type="text"
+                      value={kopSettings.kepala_sekolah || ''}
+                      onChange={(e) => setKopSettings(prev => ({ ...prev, kepala_sekolah: e.target.value }))}
+                      placeholder="Nama lengkap beserta gelar"
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 text-xs sm:text-sm bg-white dark:bg-slate-900 dark:text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
+                      NIP Kepala Sekolah
+                    </label>
+                    <input
+                      type="text"
+                      value={kopSettings.nip_kepala_sekolah || ''}
+                      onChange={(e) => setKopSettings(prev => ({ ...prev, nip_kepala_sekolah: e.target.value }))}
+                      placeholder="NIP Kepala Sekolah (atau strip - jika tidak ada)"
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 text-xs sm:text-sm bg-white dark:bg-slate-900 dark:text-white font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD 2: Pengaturan Logo Kiri & Logo Kanan */}
+              <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-700/80">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                    <span className="material-symbols-outlined text-lg">image</span>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-slate-800 dark:text-white">Pengaturan Logo Kop (Kiri & Kanan)</h4>
+                    <p className="text-[11px] text-slate-500">Unggah berkas logo langsung dari perangkat Anda dan atur visibilitas pada kop</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {/* Left Logo Card: Dinas / Pemda */}
+                  <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/40 flex flex-col justify-between space-y-3">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                          Logo Kiri (Dinas / Pemda / Lembaga)
+                        </span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          kopSettings.show_logo_kiri
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+                            : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                        }`}>
+                          {kopSettings.show_logo_kiri ? 'Aktif' : 'Disembunyikan'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Posisi di sisi kiri kop pada dokumen cetak kartu.
+                      </p>
+                    </div>
+
+                    {/* Logo Preview */}
+                    <div className="flex items-center justify-center py-2">
+                      <div className="w-24 h-24 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-center p-2.5 overflow-hidden shadow-2xs">
+                        {kopSettings.logo_kiri ? (
+                          <img src={kopSettings.logo_kiri} alt="Logo Kiri Preview" className="w-full h-full object-contain" />
+                        ) : (
+                          <div className="flex flex-col items-center text-center">
+                            <svg className="w-12 h-12 object-contain text-slate-800 dark:text-slate-200" viewBox="0 0 100 100" fill="none">
+                              <circle cx="50" cy="50" r="46" stroke="currentColor" strokeWidth="6" fill="#f8fafc" />
+                              <polygon points="50,15 80,45 68,85 32,85 20,45" stroke="currentColor" strokeWidth="4" fill="#fbbf24" />
+                            </svg>
+                            <span className="text-[9px] text-slate-400 mt-1">Default SVG</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Upload & Reset Controls */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="file"
+                          id="file_input_logo_kiri"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleUploadLogoKiri}
+                        />
+                        <label
+                          htmlFor="file_input_logo_kiri"
+                          className="flex-1 cursor-pointer px-3 py-2 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-95"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">upload_file</span>
+                          <span>{kopSettings.logo_kiri ? 'Ganti Berkas Logo' : 'Pilih Berkas Logo'}</span>
+                        </label>
+
+                        {kopSettings.logo_kiri && (
+                          <button
+                            type="button"
+                            onClick={handleResetLogoKiri}
+                            className="px-3 py-2 rounded-xl bg-slate-200 hover:bg-rose-100 text-slate-700 hover:text-rose-700 dark:bg-slate-700 dark:hover:bg-rose-950/60 dark:text-slate-300 dark:hover:text-rose-300 text-xs font-bold flex items-center gap-1 transition-colors"
+                            title="Hapus Logo Kiri & Kembali ke Default"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">delete</span>
+                            <span>Reset</span>
+                          </button>
+                        )}
+                      </div>
+
+                      <label className="flex items-center gap-2 cursor-pointer pt-1 text-xs font-bold text-slate-700 dark:text-slate-300 select-none">
+                        <input
+                          type="checkbox"
+                          checked={kopSettings.show_logo_kiri !== false}
+                          onChange={(e) => setKopSettings(prev => ({ ...prev, show_logo_kiri: e.target.checked }))}
+                          className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/20"
+                        />
+                        <span>Tampilkan Logo Kiri pada Kop Dokumen</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Right Logo Card: Sekolah / Yayasan */}
+                  <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/40 flex flex-col justify-between space-y-3">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                          Logo Kanan (Sekolah / Yayasan)
+                        </span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          kopSettings.show_logo_kanan
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+                            : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                        }`}>
+                          {kopSettings.show_logo_kanan ? 'Aktif' : 'Disembunyikan'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Posisi di sisi kanan kop pada dokumen cetak kartu.
+                      </p>
+                    </div>
+
+                    {/* Logo Preview */}
+                    <div className="flex items-center justify-center py-2">
+                      <div className="w-24 h-24 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-center p-2.5 overflow-hidden shadow-2xs">
+                        {kopSettings.logo_kanan ? (
+                          <img src={kopSettings.logo_kanan} alt="Logo Kanan Preview" className="w-full h-full object-contain" />
+                        ) : (
+                          <div className="flex flex-col items-center text-center">
+                            <svg className="w-12 h-12 object-contain text-slate-800 dark:text-slate-200" viewBox="0 0 100 100" fill="none">
+                              <circle cx="50" cy="50" r="46" stroke="currentColor" strokeWidth="6" fill="#f8fafc" />
+                              <polygon points="50,20 75,45 65,80 35,80 25,45" stroke="currentColor" strokeWidth="4" fill="#e2e8f0" />
+                              <circle cx="50" cy="50" r="12" fill="#0f172a" />
+                            </svg>
+                            <span className="text-[9px] text-slate-400 mt-1">Default SVG</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Upload & Reset Controls */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="file"
+                          id="file_input_logo_kanan"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleUploadLogoKanan}
+                        />
+                        <label
+                          htmlFor="file_input_logo_kanan"
+                          className="flex-1 cursor-pointer px-3 py-2 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-95"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">upload_file</span>
+                          <span>{kopSettings.logo_kanan ? 'Ganti Berkas Logo' : 'Pilih Berkas Logo'}</span>
+                        </label>
+
+                        {kopSettings.logo_kanan && (
+                          <button
+                            type="button"
+                            onClick={handleResetLogoKanan}
+                            className="px-3 py-2 rounded-xl bg-slate-200 hover:bg-rose-100 text-slate-700 hover:text-rose-700 dark:bg-slate-700 dark:hover:bg-rose-950/60 dark:text-slate-300 dark:hover:text-rose-300 text-xs font-bold flex items-center gap-1 transition-colors"
+                            title="Hapus Logo Kanan & Kembali ke Default"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">delete</span>
+                            <span>Reset</span>
+                          </button>
+                        )}
+                      </div>
+
+                      <label className="flex items-center gap-2 cursor-pointer pt-1 text-xs font-bold text-slate-700 dark:text-slate-300 select-none">
+                        <input
+                          type="checkbox"
+                          checked={kopSettings.show_logo_kanan !== false}
+                          onChange={(e) => setKopSettings(prev => ({ ...prev, show_logo_kanan: e.target.checked }))}
+                          className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/20"
+                        />
+                        <span>Tampilkan Logo Kanan pada Kop Dokumen</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD 3: Konfigurasi Kop Kartu Peserta Ujian */}
+              <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-700/80">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                    <span className="material-symbols-outlined text-lg">badge</span>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-slate-800 dark:text-white">Konfigurasi Kop Kartu Peserta</h4>
+                    <p className="text-[11px] text-slate-500">Atur teks baris 1, 2, 3, dan penggunaan logo khusus Kartu Peserta Ujian</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
+                      Kop Baris 1 (Pemerintah / Instansi / Yayasan)
+                    </label>
+                    <input
+                      type="text"
+                      value={kopSettings.kop_baris1 || ''}
+                      onChange={(e) => setKopSettings(prev => ({ ...prev, kop_baris1: e.target.value }))}
+                      placeholder="Contoh: PEMERINTAH PROVINSI / DAERAH"
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 text-xs sm:text-sm bg-white dark:bg-slate-900 dark:text-white uppercase"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
+                      Kop Baris 2 (Nama Satuan Pendidikan)
+                    </label>
+                    <input
+                      type="text"
+                      value={kopSettings.kop_baris2 !== undefined ? kopSettings.kop_baris2 : (kopSettings.nama_sekolah || user.nama_sekolah || '')}
+                      onChange={(e) => setKopSettings(prev => ({ ...prev, kop_baris2: e.target.value }))}
+                      placeholder="Nama Sekolah"
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 text-xs sm:text-sm bg-white dark:bg-slate-900 dark:text-white font-bold uppercase"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
+                      Kop Baris 3 (Judul Dokumen Kartu)
+                    </label>
+                    <input
+                      type="text"
+                      value={kopSettings.kop_baris3 || ''}
+                      onChange={(e) => setKopSettings(prev => ({ ...prev, kop_baris3: e.target.value }))}
+                      placeholder="KARTU PESERTA ASESMEN / CBT"
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 text-xs sm:text-sm bg-white dark:bg-slate-900 dark:text-white font-semibold uppercase"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
+                      Kop Baris 4 (Sub-keterangan / Info Tambahan)
+                    </label>
+                    <input
+                      type="text"
+                      value={kopSettings.kop_baris4 || ''}
+                      onChange={(e) => setKopSettings(prev => ({ ...prev, kop_baris4: e.target.value }))}
+                      placeholder={`NPSN: ${kopSettings.npsn || user.npsn || '-'} • TP 2026/2027`}
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 text-xs sm:text-sm bg-white dark:bg-slate-900 dark:text-white"
+                    />
+                  </div>
+                </div>
+
+                {/* Logo Toggles for Kartu Peserta */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100 dark:border-slate-700/80">
+                  <label className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={kopSettings.kartu_peserta_show_logo_kiri !== false}
+                      onChange={(e) => setKopSettings(prev => ({ ...prev, kartu_peserta_show_logo_kiri: e.target.checked }))}
+                      className="w-4 h-4 rounded text-primary focus:ring-primary/20"
+                    />
+                    <div>
+                      <div className="text-xs font-bold text-slate-800 dark:text-slate-200">Gunakan Logo Kiri pada Kartu Peserta</div>
+                      <div className="text-[10px] text-slate-400">Tampilkan logo dinas/lembaga di sebelah kiri kop</div>
+                    </div>
+                  </label>
+
+                  <label className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={kopSettings.kartu_peserta_show_logo_kanan !== false}
+                      onChange={(e) => setKopSettings(prev => ({ ...prev, kartu_peserta_show_logo_kanan: e.target.checked }))}
+                      className="w-4 h-4 rounded text-primary focus:ring-primary/20"
+                    />
+                    <div>
+                      <div className="text-xs font-bold text-slate-800 dark:text-slate-200">Gunakan Logo Kanan pada Kartu Peserta</div>
+                      <div className="text-[10px] text-slate-400">Tampilkan logo sekolah/yayasan di sebelah kanan kop</div>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Live Preview Kop Kartu Peserta */}
+                <div className="pt-2">
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                    Pratinjau Kop Kartu Peserta:
+                  </label>
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 max-w-md mx-auto shadow-xs text-black dark:text-white">
+                    <div className="border-b border-black dark:border-slate-400 pb-1.5 flex items-center justify-between gap-2">
+                      {kopSettings.kartu_peserta_show_logo_kiri !== false && kopSettings.show_logo_kiri !== false && (
+                        <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center">
+                          {kopSettings.logo_kiri ? (
+                            <img src={kopSettings.logo_kiri} alt="Logo" className="w-8 h-8 object-contain" />
+                          ) : (
+                            <svg className="w-8 h-8 object-contain text-slate-900 dark:text-slate-100" viewBox="0 0 100 100" fill="none">
+                              <circle cx="50" cy="50" r="46" stroke="currentColor" strokeWidth="6" fill="#f8fafc" />
+                              <polygon points="50,15 80,45 68,85 32,85 20,45" stroke="currentColor" strokeWidth="4" fill="#fbbf24" />
+                            </svg>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex-1 text-center min-w-0 px-1">
+                        {kopSettings.kop_baris1 && (
+                          <div className="text-[8px] font-bold uppercase tracking-tight truncate text-slate-500 dark:text-slate-400 leading-none mb-0.5">
+                            {kopSettings.kop_baris1}
+                          </div>
+                        )}
+                        <div className="text-[10px] font-black uppercase tracking-tight truncate text-slate-950 dark:text-white leading-tight">
+                          {kopSettings.kop_baris2 || kopSettings.nama_sekolah || user.nama_sekolah || 'SEKOLAH INDONESIA'}
+                        </div>
+                        <div className="text-[8px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 leading-tight">
+                          {kopSettings.kop_baris3 || 'KARTU PESERTA ASESMEN / CBT'}
+                        </div>
+                        {kopSettings.kop_baris4 ? (
+                          <div className="text-[7.5px] text-slate-500 leading-none mt-0.5 truncate">
+                            {kopSettings.kop_baris4}
+                          </div>
+                        ) : kopSettings.kop_baris4 === undefined ? (
+                          <div className="text-[7.5px] text-slate-500 leading-none mt-0.5 truncate">
+                            {`NPSN: ${kopSettings.npsn || user.npsn || '-'} • TP 2026/2027`}
+                          </div>
+                        ) : null}
+                      </div>
+
+                      {kopSettings.kartu_peserta_show_logo_kanan !== false && kopSettings.show_logo_kanan !== false && (
+                        <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center">
+                          {kopSettings.logo_kanan ? (
+                            <img src={kopSettings.logo_kanan} alt="Logo" className="w-8 h-8 object-contain" />
+                          ) : (
+                            <svg className="w-8 h-8 object-contain text-slate-900 dark:text-slate-100" viewBox="0 0 100 100" fill="none">
+                              <circle cx="50" cy="50" r="46" stroke="currentColor" strokeWidth="6" fill="#f8fafc" />
+                              <polygon points="50,20 75,45 65,80 35,80 25,45" stroke="currentColor" strokeWidth="4" fill="#e2e8f0" />
+                              <circle cx="50" cy="50" r="12" fill="#0f172a" />
+                            </svg>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD 4: Konfigurasi Kop Kartu Meja Ujian */}
+              <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-700/80">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                    <span className="material-symbols-outlined text-lg">table_restaurant</span>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-slate-800 dark:text-white">Konfigurasi Kop Kartu Meja</h4>
+                    <p className="text-[11px] text-slate-500">Pilih mode tampilan kop (formal/minimalis) dan pengaturan logo kartu meja</p>
+                  </div>
+                </div>
+
+                {/* Mode Selector: Formal vs Minimalis */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Mode Desain Kop Kartu Meja
+                  </label>
+                  <div className="grid grid-cols-2 gap-3 max-w-md">
+                    <button
+                      type="button"
+                      onClick={() => setKopSettings(prev => ({ ...prev, kop_meja_mode: 'formal' }))}
+                      className={`p-3 rounded-xl border text-left transition-all flex items-center gap-2.5 ${
+                        kopSettings.kop_meja_mode === 'formal'
+                          ? 'border-primary bg-primary/10 text-primary font-bold shadow-2xs'
+                          : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-xl">view_compact</span>
+                      <div>
+                        <div className="text-xs font-bold">Format Formal</div>
+                        <div className="text-[10px] text-slate-400">Kop lengkap dengan logo</div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setKopSettings(prev => ({ ...prev, kop_meja_mode: 'minimalis' }))}
+                      className={`p-3 rounded-xl border text-left transition-all flex items-center gap-2.5 ${
+                        kopSettings.kop_meja_mode === 'minimalis'
+                          ? 'border-primary bg-primary/10 text-primary font-bold shadow-2xs'
+                          : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-xl">density_small</span>
+                      <div>
+                        <div className="text-xs font-bold">Format Minimalis</div>
+                        <div className="text-[10px] text-slate-400">Ringkas & tanpa logo</div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
+                      Kop Baris 1 (Nama Sekolah / Lembaga)
+                    </label>
+                    <input
+                      type="text"
+                      value={kopSettings.kop_meja_baris1 !== undefined ? kopSettings.kop_meja_baris1 : (kopSettings.nama_sekolah || user.nama_sekolah || '')}
+                      onChange={(e) => setKopSettings(prev => ({ ...prev, kop_meja_baris1: e.target.value }))}
+                      placeholder="Nama Sekolah"
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 text-xs sm:text-sm bg-white dark:bg-slate-900 dark:text-white uppercase font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
+                      Kop Baris 2 (Sub-judul Kartu Meja)
+                    </label>
+                    <input
+                      type="text"
+                      value={kopSettings.kop_meja_baris2 || ''}
+                      onChange={(e) => setKopSettings(prev => ({ ...prev, kop_meja_baris2: e.target.value }))}
+                      placeholder="KARTU MEJA UJIAN CBT • TP 2026/2027"
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 text-xs sm:text-sm bg-white dark:bg-slate-900 dark:text-white uppercase font-semibold"
+                    />
+                  </div>
+                </div>
+
+                {/* Logo Toggles for Kartu Meja */}
+                {kopSettings.kop_meja_mode === 'formal' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100 dark:border-slate-700/80">
+                    <label className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={kopSettings.kartu_meja_show_logo_kiri !== false}
+                        onChange={(e) => setKopSettings(prev => ({ ...prev, kartu_meja_show_logo_kiri: e.target.checked }))}
+                        className="w-4 h-4 rounded text-primary focus:ring-primary/20"
+                      />
+                      <div>
+                        <div className="text-xs font-bold text-slate-800 dark:text-slate-200">Tampilkan Logo Kiri pada Kartu Meja</div>
+                        <div className="text-[10px] text-slate-400">Logo dinas/pemda di sebelah kiri judul meja</div>
+                      </div>
+                    </label>
+
+                    <label className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={kopSettings.kartu_meja_show_logo_kanan !== false}
+                        onChange={(e) => setKopSettings(prev => ({ ...prev, kartu_meja_show_logo_kanan: e.target.checked }))}
+                        className="w-4 h-4 rounded text-primary focus:ring-primary/20"
+                      />
+                      <div>
+                        <div className="text-xs font-bold text-slate-800 dark:text-slate-200">Tampilkan Logo Kanan pada Kartu Meja</div>
+                        <div className="text-[10px] text-slate-400">Logo sekolah/yayasan di dekat nomor meja</div>
+                      </div>
+                    </label>
+                  </div>
+                )}
+
+                {/* Live Preview Kop Kartu Meja */}
+                <div className="pt-2">
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                    Pratinjau Kop Kartu Meja (Nomor Meja Tetap Jelas Terbaca):
+                  </label>
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 max-w-md mx-auto shadow-xs text-black dark:text-white">
+                    <div className="border-b border-black dark:border-slate-400 pb-1.5 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        {kopSettings.kop_meja_mode === 'formal' && kopSettings.kartu_meja_show_logo_kiri !== false && kopSettings.show_logo_kiri !== false && (
+                          <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center">
+                            {kopSettings.logo_kiri ? (
+                              <img src={kopSettings.logo_kiri} alt="Logo" className="w-7 h-7 object-contain" />
+                            ) : (
+                              <svg className="w-7 h-7 object-contain text-slate-900 dark:text-slate-100" viewBox="0 0 100 100" fill="none">
+                                <circle cx="50" cy="50" r="46" stroke="currentColor" strokeWidth="6" fill="#f8fafc" />
+                                <polygon points="50,15 80,45 68,85 32,85 20,45" stroke="currentColor" strokeWidth="4" fill="#fbbf24" />
+                              </svg>
+                            )}
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[10px] font-black uppercase tracking-tight truncate text-slate-900 dark:text-white leading-tight">
+                            {kopSettings.kop_meja_baris1 || kopSettings.nama_sekolah || user.nama_sekolah || 'SEKOLAH INDONESIA'}
+                          </div>
+                          {kopSettings.kop_meja_baris2 ? (
+                            <div className="text-[8px] font-bold text-slate-600 dark:text-slate-400 uppercase truncate leading-tight">
+                              {kopSettings.kop_meja_baris2}
+                            </div>
+                          ) : kopSettings.kop_meja_baris2 === undefined ? (
+                            <div className="text-[8px] font-bold text-slate-600 dark:text-slate-400 uppercase truncate leading-tight">
+                              KARTU MEJA UJIAN CBT • TP 2026/2027
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {kopSettings.kop_meja_mode === 'formal' && kopSettings.kartu_meja_show_logo_kanan !== false && kopSettings.show_logo_kanan !== false && (
+                          <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center">
+                            {kopSettings.logo_kanan ? (
+                              <img src={kopSettings.logo_kanan} alt="Logo" className="w-7 h-7 object-contain" />
+                            ) : (
+                              <svg className="w-7 h-7 object-contain text-slate-900 dark:text-slate-100" viewBox="0 0 100 100" fill="none">
+                                <circle cx="50" cy="50" r="46" stroke="currentColor" strokeWidth="6" fill="#f8fafc" />
+                                <polygon points="50,20 75,45 65,80 35,80 25,45" stroke="currentColor" strokeWidth="4" fill="#e2e8f0" />
+                                <circle cx="50" cy="50" r="12" fill="#0f172a" />
+                              </svg>
+                            )}
+                          </div>
+                        )}
+                        <div className="bg-slate-900 text-white font-mono font-black text-xs px-2.5 py-1 rounded shadow-xs">
+                          MEJA 01
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Save Bar */}
+              <div className="pt-2 flex justify-end">
+                <button
+                  type="button"
+                  disabled={isSavingKop}
+                  onClick={() => handleSaveKopSettings()}
+                  className="w-full sm:w-auto px-8 py-3 rounded-2xl bg-primary hover:bg-primary-hover text-white text-sm font-bold flex items-center justify-center gap-2 shadow-md transition-all active:scale-98 disabled:opacity-50 min-h-[48px]"
+                >
+                  <span className="material-symbols-outlined text-xl">save</span>
+                  <span>{isSavingKop ? 'Menyimpan Perubahan...' : 'Simpan Pengaturan Sekolah'}</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* ================= TAB 12: PROFIL ADMIN ================= */}
           {activeTab === 'akun' && (
             <div className="max-w-md mx-auto py-6 animate-fade-in-up flex flex-col items-center">
@@ -5890,6 +6854,22 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     <div className="text-left">
                       <h4 className="font-bold text-sm text-slate-800 dark:text-white">Edit Profil</h4>
                       <p className="text-xs text-slate-500">Ubah foto dan password akun</p>
+                    </div>
+                  </div>
+                  <span className="material-symbols-outlined text-slate-400">chevron_right</span>
+                </button>
+
+                <button
+                  onClick={() => navigateTab('pengaturan')}
+                  className="w-full bg-white dark:bg-slate-800 p-4 rounded-2xl flex items-center justify-between border border-slate-200/80 dark:border-slate-700/80 shadow-sm active:scale-95 transition-all min-h-[44px]"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 dark:bg-primary/10 flex items-center justify-center text-primary dark:text-primary-400">
+                      <span className="material-symbols-outlined text-xl">settings</span>
+                    </div>
+                    <div className="text-left">
+                      <h4 className="font-bold text-sm text-slate-800 dark:text-white">Pengaturan / Profil Sekolah</h4>
+                      <p className="text-xs text-slate-500">Logo kop dinas & sekolah, konfigurasi kartu ujian</p>
                     </div>
                   </div>
                   <span className="material-symbols-outlined text-slate-400">chevron_right</span>

@@ -23,6 +23,9 @@ export const compressImageFile = (file, maxWidth = 200, maxHeight = 200, quality
         const canvas = document.createElement('canvas');
         let width = img.width;
         let height = img.height;
+        if (!width || !height || width <= 0 || height <= 0) {
+          return reject(new Error('Dimensi gambar tidak valid.'));
+        }
         if (width > height) {
           if (width > maxWidth) {
             height = Math.round(height * (maxWidth / width));
@@ -37,8 +40,13 @@ export const compressImageFile = (file, maxWidth = 200, maxHeight = 200, quality
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
+        const isPng = file.type === 'image/png';
+        if (!isPng) {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, width, height);
+        }
         ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', quality));
+        resolve(canvas.toDataURL(isPng ? 'image/png' : 'image/jpeg', quality));
       };
       img.src = e.target.result;
     };

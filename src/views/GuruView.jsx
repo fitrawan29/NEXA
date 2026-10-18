@@ -20,7 +20,6 @@ import {
 import NotificationBell from '../components/NotificationBell.jsx';
 import ModalPratinjauTandaTangan from '../components/ModalPratinjauTandaTangan.jsx';
 import DokumenUjianPrint from '../components/DokumenUjianPrint.jsx';
-import { parseAiken, prepareAikenPayload } from '../utils/aikenParser.js';
 import { compressImageFile } from '../utils/imageHelper.js';
 
 const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIsDarkMode }) => {
@@ -50,7 +49,8 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
 
   const navigateTab = (tabId) => {
-    setActiveTab(tabId);
+    const target = tabId === 'kontrol' ? 'monitoring' : tabId;
+    setActiveTab(target);
     setIsMobileDrawerOpen(false);
   };
 
@@ -168,12 +168,6 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
   const [formSoal, setFormSoal] = useState({ isOpen: false, data: null, id_mapel: '' });
   const [formNarasi, setFormNarasi] = useState({ isOpen: false, data: null });
   const [modalUraian, setModalUraian] = useState({ isOpen: false, logUjian: null, jawabanUraian: [] });
-  const [importAikenModal, setImportAikenModal] = useState({
-    isOpen: false,
-    rawText: '',
-    defaultBobot: 10,
-    isSubmitting: false
-  });
 
   // Evaluation & Results State
   const [filterMapelHasil, setFilterMapelHasil] = useState('ALL');
@@ -210,7 +204,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
         });
       }
 
-      if (activeTab === 'jadwal' || activeTab === 'dashboard' || activeTab === 'kontrol' || activeTab === 'akun') {
+      if (activeTab === 'jadwal' || activeTab === 'dashboard' || activeTab === 'akun') {
         const res = await api('get_jadwal_pengawas', { id_guru: guruId });
         if (res.status === 'success') setDataJadwal(res.data || []);
         const resMapel = await api('get_mapel_guru', { id_guru: guruId });
@@ -220,13 +214,13 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
       } else if (activeTab === 'pengumuman') {
         const res = await api('get_pengumuman', { role: 'guru' });
         if (res.status === 'success') setDataPengumuman(res.data || []);
-      } else if (activeTab === 'monitoring' || activeTab === 'hasil') {
+      } else if (activeTab === 'monitoring' || activeTab === 'kontrol' || activeTab === 'hasil') {
         const res = await api('get_jadwal_pengawas', { id_guru: guruId });
         if (res.status === 'success') setDataJadwal(res.data || []);
         const resMapel = await api('get_mapel_guru', { id_guru: guruId });
         if (resMapel.status === 'success') setDataMapel(resMapel.data || []);
 
-        if (selectedJadwal && activeTab === 'monitoring') {
+        if (selectedJadwal && (activeTab === 'monitoring' || activeTab === 'kontrol')) {
           const jId = typeof selectedJadwal === 'object' ? selectedJadwal.id_jadwal : selectedJadwal;
           const logRes = await api('monitoring_ujian', { id_jadwal: jId });
           if (logRes.status === 'success') setDataLog(logRes.data || []);
@@ -563,6 +557,9 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
     if (t === 'URAIAN') {
       return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 border border-purple-200/70 dark:border-purple-800/60">URAIAN</span>;
     }
+    if (t === 'NARASI') {
+      return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200/70 dark:border-emerald-800/60">NARASI SOAL</span>;
+    }
     return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">{t}</span>;
   };
 
@@ -587,7 +584,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
         kunci_jawaban: 'C',
         bobot: 10,
         kd: '3.1',
-        wacana: ''
+        narasi_soal: ''
       },
       {
         tipe_soal: 'PGK',
@@ -600,7 +597,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
         kunci_jawaban: 'A',
         bobot: 10,
         kd: '3.1',
-        wacana: ''
+        narasi_soal: ''
       },
       {
         tipe_soal: 'JODOH',
@@ -613,7 +610,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
         kunci_jawaban: 'Indonesia=Jakarta, Jepang=Tokyo, Inggris=London',
         bobot: 15,
         kd: '3.2',
-        wacana: ''
+        narasi_soal: ''
       },
       {
         tipe_soal: 'URAIAN',
@@ -626,7 +623,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
         kunci_jawaban: 'Energi tidak dapat diciptakan atau dimusnahkan, hanya dapat berubah bentuk.',
         bobot: 20,
         kd: '3.3',
-        wacana: ''
+        narasi_soal: ''
       }
     ];
 
@@ -658,8 +655,9 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
           let opsiStr = null;
           let finalPertanyaan = row.pertanyaan || '';
 
-          if (row.wacana) {
-            finalPertanyaan = `<strong>Wacana:</strong><br/>${row.wacana}<br/><br/>${finalPertanyaan}`;
+          const narasiText = row.narasi_soal || row.wacana;
+          if (narasiText) {
+            finalPertanyaan = `<strong>Narasi Soal:</strong><br/>${narasiText}<br/><br/>${finalPertanyaan}`;
           }
 
           if (row.tipe_soal === 'PG') {
@@ -753,51 +751,6 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
     reader.readAsBinaryString(file);
   };
 
-  const handleSaveImportAiken = async () => {
-    if (!selectedMapel) return;
-    const { questions, validCount, errors } = parseAiken(importAikenModal.rawText, importAikenModal.defaultBobot);
-    if (validCount === 0) {
-      if (showMessage) showMessage('Peringatan', 'Tidak ada butir soal valid yang dapat diimpor. Periksa format teks Aiken Anda.', 'error');
-      return;
-    }
-
-    setImportAikenModal(prev => ({ ...prev, isSubmitting: true }));
-    setIsLoading(true);
-
-    try {
-      const payloadData = prepareAikenPayload(questions, selectedMapel, user.npsn, importAikenModal.defaultBobot);
-      const res = await api('import_soal_bulk', { data: payloadData, npsn: user.npsn });
-      setIsLoading(false);
-      setImportAikenModal(prev => ({ ...prev, isSubmitting: false }));
-
-      if (res.status === 'success') {
-        const mapelNama = dataMapel.find(m => m.id_mapel === selectedMapel)?.nama_mapel || selectedMapel;
-        logActivity('IMPORT SOAL', `Import ${validCount} butir soal format Aiken pada mapel ${mapelNama}`);
-        if (showMessage) showMessage('Berhasil', `${validCount} butir soal Aiken berhasil diimpor!`, 'success');
-        setImportAikenModal({ isOpen: false, rawText: '', defaultBobot: 10, isSubmitting: false });
-        fetchData();
-      } else {
-        if (showMessage) showMessage('Gagal', res.message || 'Gagal menyimpan soal ke database.', 'error');
-      }
-    } catch (err) {
-      setIsLoading(false);
-      setImportAikenModal(prev => ({ ...prev, isSubmitting: false }));
-      if (showMessage) showMessage('Error', 'Gagal memproses import Aiken: ' + err.message, 'error');
-    }
-  };
-
-  const handleAikenFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      const content = evt.target.result;
-      setImportAikenModal(prev => ({ ...prev, rawText: content }));
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  };
-
   const handleSaveSoal = async (soalData) => {
     setIsLoading(true);
     let endpoint = formSoal.data ? 'update_soal_mapel' : 'create_soal_mapel';
@@ -836,7 +789,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
       setFormSoal({ isOpen: false, data: null });
       setFormNarasi({ isOpen: false, data: null });
       const mapelNama = dataMapel.find(m => m.id_mapel === selectedMapel)?.nama_mapel || selectedMapel;
-      logActivity(payload.id_soal ? 'EDIT WACANA' : 'TAMBAH WACANA', `Menyimpan wacana/narasi pada mapel ${mapelNama}`);
+      logActivity(payload.id_soal ? 'EDIT NARASI SOAL' : 'TAMBAH NARASI SOAL', `Menyimpan narasi soal pada mapel ${mapelNama}`);
       fetchData();
     } else {
       showMessage('Info', res.message, 'info');
@@ -996,15 +949,16 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
 
   const handleResetSession = (idLogOrStudent, idSiswaOrJadwal, idJadwalParam) => {
     let idSiswa, idLog, idJadwal, sNama;
+    const activeJadwalId = typeof selectedJadwal === 'object' ? selectedJadwal?.id_jadwal : selectedJadwal;
     if (typeof idLogOrStudent === 'object' && idLogOrStudent !== null) {
       idSiswa = idLogOrStudent.id_siswa;
       idLog = idLogOrStudent.id_log;
       sNama = idLogOrStudent.nama_lengkap || idSiswa;
-      idJadwal = idSiswaOrJadwal || idLogOrStudent.id_jadwal || selectedPengawasRuang?.id_jadwal || selectedJadwal?.id_jadwal;
+      idJadwal = idSiswaOrJadwal || idLogOrStudent.id_jadwal || selectedPengawasRuang?.id_jadwal || activeJadwalId;
     } else {
       idLog = idLogOrStudent;
       idSiswa = idSiswaOrJadwal;
-      idJadwal = idJadwalParam || selectedJadwal?.id_jadwal || selectedPengawasRuang?.id_jadwal;
+      idJadwal = idJadwalParam || activeJadwalId || selectedPengawasRuang?.id_jadwal;
       sNama = idSiswa;
     }
 
@@ -1116,6 +1070,35 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
       fetchData();
     } else {
       showMessage('Info', res.message, 'info');
+    }
+  };
+
+  const handlePerpanjangWaktu = async (id_jadwal, extraMinutes = 15) => {
+    setIsLoading(true);
+    const jadwal = dataJadwal.find(j => j.id_jadwal === id_jadwal);
+    if (!jadwal) {
+      setIsLoading(false);
+      return;
+    }
+    const now = await getTrueNow();
+    let currentEnd = jadwal.waktu_selesai ? new Date(jadwal.waktu_selesai) : now;
+    if (currentEnd < now) currentEnd = now;
+    const newEnd = new Date(currentEnd.getTime() + extraMinutes * 60 * 1000);
+    const newDurasi = (Number(jadwal.durasi_menit) || 90) + extraMinutes;
+
+    const res = await api('update_jadwal', {
+      id_jadwal,
+      waktu_selesai: newEnd.toISOString(),
+      durasi_menit: newDurasi
+    });
+    setIsLoading(false);
+    if (res.status === 'success') {
+      const mapelNama = jadwal.nama_mapel || id_jadwal;
+      showMessage('Berhasil', `Waktu ujian ${mapelNama} diperpanjang +${extraMinutes} menit.`, 'success');
+      logActivity('PERPANJANG WAKTU', `Memperpanjang waktu ujian ${mapelNama} sebesar ${extraMinutes} menit`);
+      fetchData();
+    } else {
+      showMessage('Gagal', res.message || 'Gagal memperpanjang waktu ujian', 'error');
     }
   };
 
@@ -1236,14 +1219,13 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
       title: 'Akademik',
       items: [
         { id: 'bank_soal', label: 'Bank Soal & Narasi', icon: 'quiz' },
-        { id: 'jadwal', label: 'Jadwal Mengajar', icon: 'event_note' },
-        { id: 'kontrol', label: 'Kontrol Ujian', icon: 'settings_remote' }
+        { id: 'jadwal', label: 'Jadwal Mengajar', icon: 'event_note' }
       ]
     },
     {
       title: 'Monitoring & Pengawasan',
       items: [
-        { id: 'monitoring', label: 'Live Monitoring', icon: 'visibility' },
+        { id: 'monitoring', label: 'Monitoring', icon: 'visibility' },
         { id: 'pengawasan', label: 'Ruang Pengawasan', icon: 'badge' },
         { id: 'hasil', label: 'Hasil & Rekap Nilai', icon: 'assessment' }
       ]
@@ -1261,7 +1243,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
     { id: 'dashboard', label: 'Beranda', icon: 'dashboard' },
     { id: 'bank_soal', label: 'Bank Soal', icon: 'quiz' },
     { id: 'jadwal', label: 'Jadwal', icon: 'event_note' },
-    { id: 'monitoring', label: 'Monitor', icon: 'visibility' },
+    { id: 'monitoring', label: 'Monitoring', icon: 'visibility' },
     { id: '_drawer', label: 'Menu', icon: 'menu', isDrawerTrigger: true }
   ];
 
@@ -1269,8 +1251,8 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
     dashboard: 'Beranda Guru',
     bank_soal: 'Bank Soal & Narasi',
     jadwal: 'Jadwal Ujian Mengajar',
-    kontrol: 'Kontrol Pelaksanaan Ujian',
-    monitoring: 'Live Monitoring Peserta',
+    kontrol: 'Monitoring Ujian',
+    monitoring: 'Monitoring Ujian',
     pengawasan: 'Ruang Pengawasan Ujian',
     hasil: 'Hasil & Rekap Evaluasi',
     logs: 'Log Aktivitas Guru',
@@ -1279,10 +1261,10 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
 
   const tabSubtitleMap = {
     dashboard: 'Ringkasan tugas mengajar, pembuatan soal, dan ujian aktif',
-    bank_soal: 'Kelola butir soal evaluasi, wacana stimulus, dan skema penilaian',
+    bank_soal: 'Kelola butir soal evaluasi, narasi soal stimulus, dan skema penilaian',
     jadwal: 'Daftar jadwal pelaksanaan ujian mata pelajaran yang diampu',
-    kontrol: 'Aktivasi ujian, rilis token ujian, dan manajemen sesi',
-    monitoring: 'Pemantauan real-time pengerjaan ujian dan intervensi proctor',
+    kontrol: 'Pusat kontrol sesi, token ujian, monitoring real-time, dan intervensi peserta',
+    monitoring: 'Pusat kontrol sesi, token ujian, monitoring real-time, dan intervensi peserta',
     pengawasan: 'Verifikasi tanda tangan digital kehadiran siswa dan kelola pengawasan ruang ujian',
     hasil: 'Rekapitulasi nilai, ranking peringkat siswa, dan analisis butir soal',
     logs: 'Catatan audit jejak aktivitas pengajaran dan pengawasan',
@@ -2035,7 +2017,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                               </p>
                             </div>
                             <button
-                              onClick={() => { setSelectedJadwal(j.id_jadwal); navigateTab('monitoring'); }}
+                              onClick={() => { setSelectedJadwal(j); navigateTab('monitoring'); }}
                               className="px-2.5 py-1 rounded-lg bg-primary hover:bg-primary/90 text-white font-bold text-[11px] shrink-0 transition-colors shadow-xs"
                             >
                               Pantau
@@ -2192,14 +2174,6 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                         <span className="hidden sm:inline">Import Excel</span>
                       </button>
                       <button
-                        onClick={() => setImportAikenModal({ isOpen: true, rawText: '', defaultBobot: 10, isSubmitting: false })}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 hover:bg-amber-100 transition-colors min-h-[44px]"
-                        title="Import Soal Format Teks Aiken"
-                      >
-                        <span className="material-symbols-outlined text-[18px]">text_snippet</span>
-                        <span className="hidden sm:inline">Import Aiken</span>
-                      </button>
-                      <button
                         onClick={() => setIsPreviewOpen(true)}
                         className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 hover:bg-purple-100 transition-colors min-h-[44px]"
                         title="Pratinjau Ujian"
@@ -2218,10 +2192,10 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                       <button
                         onClick={() => setFormNarasi({ isOpen: true, data: null })}
                         className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100 transition-colors min-h-[44px]"
-                        title="Tambah Wacana / Narasi"
+                        title="Tambah Narasi Soal"
                       >
                         <span className="material-symbols-outlined text-[18px]">article</span>
-                        <span>Narasi</span>
+                        <span>Narasi Soal</span>
                       </button>
                       <button
                         onClick={() => setFormSoal({ isOpen: true, data: null, id_mapel: selectedMapel })}
@@ -2257,7 +2231,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                   <div className="bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
                     {/* Tipe Soal Pills */}
                     <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
-                      {['ALL', 'PG', 'PGK', 'JODOH', 'URAIAN'].map(tipe => (
+                      {['ALL', 'PG', 'PGK', 'JODOH', 'URAIAN', 'NARASI'].map(tipe => (
                         <button
                           key={tipe}
                           onClick={() => { setFilterTipeSoal(tipe); setBankSoalPage(1); }}
@@ -2267,7 +2241,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                               : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
                           }`}
                         >
-                          {tipe === 'ALL' ? 'Semua Tipe' : tipe}
+                          {tipe === 'ALL' ? 'Semua Tipe' : tipe === 'NARASI' ? 'Narasi Soal' : tipe}
                         </button>
                       ))}
                     </div>
@@ -2363,9 +2337,15 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                                 <td className="py-3 px-4 text-right">
                                   <div className="flex items-center justify-end gap-1">
                                     <button
-                                      onClick={() => setFormSoal({ isOpen: true, data: soal, id_mapel: soal.id_mapel || selectedMapel })}
+                                      onClick={() => {
+                                        if (soal.tipe_soal === 'NARASI') {
+                                          setFormNarasi({ isOpen: true, data: soal });
+                                        } else {
+                                          setFormSoal({ isOpen: true, data: soal, id_mapel: soal.id_mapel || selectedMapel });
+                                        }
+                                      }}
                                       className="p-1.5 text-primary hover:bg-primary/10 dark:hover:bg-primary/10 rounded-lg transition-colors"
-                                      title="Edit Soal"
+                                      title={soal.tipe_soal === 'NARASI' ? 'Edit Narasi Soal' : 'Edit Soal'}
                                     >
                                       <span className="material-symbols-outlined text-[18px]">edit</span>
                                     </button>
@@ -2426,7 +2406,13 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                           </p>
                           <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
                             <button
-                              onClick={() => setFormSoal({ isOpen: true, data: soal, id_mapel: soal.id_mapel || selectedMapel })}
+                              onClick={() => {
+                                if (soal.tipe_soal === 'NARASI') {
+                                  setFormNarasi({ isOpen: true, data: soal });
+                                } else {
+                                  setFormSoal({ isOpen: true, data: soal, id_mapel: soal.id_mapel || selectedMapel });
+                                }
+                              }}
                               className="px-3 py-1.5 rounded-lg text-xs font-bold text-primary bg-primary/10 dark:bg-primary/10 hover:bg-primary/20 flex items-center gap-1 min-h-[38px]"
                             >
                               <span className="material-symbols-outlined text-[16px]">edit</span>
@@ -2512,7 +2498,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                           className="flex-1 py-2 px-3 rounded-xl bg-primary text-white font-bold text-xs hover:bg-primary/90 transition-colors flex items-center justify-center gap-1 min-h-[44px]"
                         >
                           <span className="material-symbols-outlined text-[16px]">visibility</span>
-                          <span>Live Monitoring</span>
+                          <span>Monitoring</span>
                         </button>
                       )}
                       {j.status_ujian === 'SELESAI' && (
@@ -2540,158 +2526,230 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
             </div>
           )}
 
-          {/* ================= TAB 4: KONTROL UJIAN ================= */}
-          {activeTab === 'kontrol' && (
-            <div className="space-y-4 animate-fade-in-up">
-              <div>
-                <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg sm:text-xl">Pusat Kontrol Ujian</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Kelola aktivasi status ujian, token peserta, dan manajemen sesi</p>
-              </div>
+          {/* ================= TAB: UNIFIED MONITORING & KONTROL ================= */}
+          {(activeTab === 'monitoring' || activeTab === 'kontrol') && (() => {
+            const currJadwal = selectedJadwal
+              ? (typeof selectedJadwal === 'object'
+                  ? (dataJadwal.find(j => j.id_jadwal === selectedJadwal?.id_jadwal) || selectedJadwal)
+                  : dataJadwal.find(j => j.id_jadwal === selectedJadwal))
+              : null;
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {dataJadwal.map((j) => (
-                  <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-4">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h4 className="font-bold text-base text-slate-800 dark:text-white">{j.nama_mapel}</h4>
-                        <p className="text-xs text-slate-500">Tingkat: {j.target_kelas || 'Umum'} | ID: {j.id_jadwal}</p>
-                      </div>
-                      <StatusBadge status={j.status_ujian} />
-                    </div>
-
-                    <div className="bg-slate-50 dark:bg-slate-900/50 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                      <div>
-                        <p className="text-[11px] text-slate-400 uppercase font-extrabold tracking-wider">Token Akses</p>
-                        <p className="font-mono text-xl font-black text-primary dark:text-primary-400">{j.token || 'BELUM ADA'}</p>
-                      </div>
+            return (
+              <div className="space-y-5 animate-fade-in-up">
+                {/* Header Navigation & Schedule Selector */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    {currJadwal && (
                       <button
-                        onClick={() => handleGenerateToken(j.id_jadwal)}
-                        className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors min-h-[38px] flex items-center gap-1"
+                        onClick={() => setSelectedJadwal(null)}
+                        className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-slate-200 transition-colors min-h-[44px] min-w-[44px]"
+                        title="Kembali ke Daftar Jadwal"
                       >
-                        <span className="material-symbols-outlined text-[16px]">refresh</span>
-                        <span>Rilis Token</span>
+                        <span className="material-symbols-outlined text-xl">arrow_back</span>
                       </button>
-                    </div>
-
-                    <div className="pt-2 border-t border-slate-100 dark:border-slate-700 flex items-center gap-2 flex-wrap">
-                      {j.status_ujian !== 'AKTIF' && (
-                        <button
-                          onClick={() => handleUpdateStatusUjian(j.id_jadwal, 'AKTIF')}
-                          className="flex-1 py-2.5 px-3 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs transition-colors min-h-[44px]"
-                        >
-                          Aktifkan Ujian
-                        </button>
-                      )}
-                      {j.status_ujian === 'AKTIF' && (
-                        <button
-                          onClick={() => handleUpdateStatusUjian(j.id_jadwal, 'SELESAI')}
-                          className="flex-1 py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition-colors min-h-[44px]"
-                        >
-                          Akhiri Ujian
-                        </button>
-                      )}
-                      <button
-                        onClick={() => handleUpdateStatusUjian(j.id_jadwal, 'BELUM MULAI')}
-                        className="py-2.5 px-3 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs hover:bg-slate-200 transition-colors min-h-[44px]"
-                      >
-                        Reset Status
-                      </button>
+                    )}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-black text-sm sm:text-base text-slate-800 dark:text-white truncate">
+                          {currJadwal ? currJadwal.nama_mapel : 'Pusat Monitoring & Kontrol Ujian'}
+                        </h3>
+                        {currJadwal && <StatusBadge status={currJadwal.status_ujian} />}
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {currJadwal
+                          ? `Target: ${currJadwal.target_kelas || 'Semua Kelas'} | Token: ${currJadwal.token || '-'}`
+                          : 'Kelola sesi, rilis token, perpanjang waktu, dan pantau pengerjaan siswa real-time'}
+                      </p>
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
 
-          {/* ================= TAB 5: LIVE MONITORING HUD ================= */}
-          {activeTab === 'monitoring' && (
-            <div className="space-y-5 animate-fade-in-up">
-              {/* Header Navigation & Schedule Selector */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
-                <div className="flex items-center gap-3">
-                  {selectedJadwal && (
-                    <button
-                      onClick={() => setSelectedJadwal(null)}
-                      className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-slate-200 transition-colors min-h-[44px] min-w-[44px]"
-                      title="Daftar Jadwal"
+                  <div className="flex items-center gap-2 self-end sm:self-auto">
+                    <select
+                      value={currJadwal?.id_jadwal || ''}
+                      onChange={(e) => {
+                        const found = dataJadwal.find(j => j.id_jadwal === e.target.value);
+                        setSelectedJadwal(found || null);
+                      }}
+                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-100 outline-none"
                     >
-                      <span className="material-symbols-outlined text-xl">arrow_back</span>
+                      <option value="">-- Pilih Jadwal Ujian --</option>
+                      {dataJadwal.map(j => (
+                        <option key={j.id_jadwal} value={j.id_jadwal}>
+                          {j.nama_mapel} ({j.status_ujian}) - {j.target_kelas || 'Semua'}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={fetchData}
+                      className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-slate-200 transition-colors min-h-[44px] min-w-[44px]"
+                      title="Refresh Data"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">refresh</span>
                     </button>
-                  )}
-                  <div className="min-w-0">
-                    <h3 className="font-black text-sm sm:text-base text-slate-800 dark:text-white truncate">
-                      {selectedJadwal
-                        ? (typeof selectedJadwal === 'object' ? selectedJadwal.nama_mapel : dataJadwal.find(j => j.id_jadwal === selectedJadwal)?.nama_mapel)
-                        : 'Live Monitoring Ujian Real-Time'}
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {selectedJadwal ? `Token: ${typeof selectedJadwal === 'object' ? selectedJadwal.token : dataJadwal.find(j => j.id_jadwal === selectedJadwal)?.token || '-'}` : 'Pilih jadwal ujian aktif untuk memantau pengerjaan siswa'}
-                    </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 self-end sm:self-auto">
-                  <select
-                    value={typeof selectedJadwal === 'object' ? selectedJadwal?.id_jadwal || '' : selectedJadwal || ''}
-                    onChange={(e) => {
-                      const found = dataJadwal.find(j => j.id_jadwal === e.target.value);
-                      setSelectedJadwal(found || null);
-                    }}
-                    className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-100 outline-none"
-                  >
-                    <option value="">-- Pilih Jadwal Ujian --</option>
-                    {dataJadwal.map(j => (
-                      <option key={j.id_jadwal} value={j.id_jadwal}>
-                        {j.nama_mapel} ({j.status_ujian})
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={fetchData}
-                    className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-slate-200 transition-colors min-h-[44px] min-w-[44px]"
-                    title="Refresh Data"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">refresh</span>
-                  </button>
-                </div>
-              </div>
+                {!currJadwal ? (
+                  /* Schedule Grid Overview with Integrated Controls */
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                      {dataJadwal.map((j) => (
+                        <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-4 flex flex-col justify-between">
+                          <div className="space-y-3">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <h4 className="font-bold text-base text-slate-800 dark:text-white">{j.nama_mapel}</h4>
+                                <p className="text-xs text-slate-500">Tingkat: {j.target_kelas || 'Semua Kelas'} | ID: {j.id_jadwal}</p>
+                              </div>
+                              <StatusBadge status={j.status_ujian} />
+                            </div>
 
-              {!selectedJadwal ? (
-                /* No schedule picked: List active schedules */
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {dataJadwal.filter(j => j.status_ujian === 'AKTIF').map((j) => (
-                      <div key={j.id_jadwal} className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-primary/30 shadow-sm space-y-3">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h4 className="font-bold text-base text-slate-800 dark:text-white">{j.nama_mapel}</h4>
-                            <p className="text-xs text-slate-500">Tingkat {j.target_kelas || 'Umum'} | Token: <strong className="font-mono text-primary">{j.token}</strong></p>
+                            <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                              <div>
+                                <p className="text-[10px] text-slate-400 uppercase font-black tracking-wider">Token Akses</p>
+                                <p className="font-mono text-lg font-black text-primary dark:text-primary-400">{j.token || 'BELUM ADA'}</p>
+                              </div>
+                              <button
+                                onClick={() => handleGenerateToken(j.id_jadwal)}
+                                className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors min-h-[36px] flex items-center gap-1 shadow-2xs"
+                                title="Rilis token baru"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">refresh</span>
+                                <span>Rilis Token</span>
+                              </button>
+                            </div>
+
+                            <div className="flex items-center justify-between text-xs text-slate-500 px-1">
+                              <span>Waktu: {new Date(j.waktu_mulai).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</span>
+                              <span>Durasi: {j.durasi_menit || 90} Mnt</span>
+                            </div>
                           </div>
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-primary/15 dark:bg-primary/10 text-primary-700 dark:text-primary-300 flex items-center gap-1 animate-pulse">
-                            LIVE
-                          </span>
+
+                          <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+                            <div className="flex items-center gap-2">
+                              {j.status_ujian !== 'AKTIF' ? (
+                                <button
+                                  onClick={() => handleUpdateStatusUjian(j.id_jadwal, 'AKTIF')}
+                                  className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-colors min-h-[40px] flex items-center justify-center gap-1 shadow-2xs"
+                                >
+                                  <span className="material-symbols-outlined text-[16px]">play_arrow</span>
+                                  <span>Aktifkan</span>
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleUpdateStatusUjian(j.id_jadwal, 'SELESAI')}
+                                  className="flex-1 py-2 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition-colors min-h-[40px] flex items-center justify-center gap-1 shadow-2xs"
+                                >
+                                  <span className="material-symbols-outlined text-[16px]">stop</span>
+                                  <span>Akhiri</span>
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handlePerpanjangWaktu(j.id_jadwal, 15)}
+                                className="py-2 px-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 font-bold text-xs transition-colors min-h-[40px] flex items-center gap-1"
+                                title="Perpanjang waktu ujian +15 menit"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">more_time</span>
+                                <span>+15m</span>
+                              </button>
+                            </div>
+                            <button
+                              onClick={() => setSelectedJadwal(j)}
+                              className="w-full py-2.5 bg-primary hover:bg-primary/90 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 min-h-[42px]"
+                            >
+                              <span className="material-symbols-outlined text-[18px]">visibility</span>
+                              <span>Buka Proctoring HUD</span>
+                            </button>
+                          </div>
                         </div>
-                        <button
-                          onClick={() => setSelectedJadwal(j)}
-                          className="w-full py-2.5 bg-primary hover:bg-primary/90 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 min-h-[44px]"
-                        >
-                          <span className="material-symbols-outlined text-[18px]">visibility</span>
-                          <span>Buka Monitoring</span>
-                        </button>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                    {dataJadwal.length === 0 && (
+                      <EmptyState
+                        icon="visibility"
+                        title="Belum Ada Jadwal Ujian"
+                        description="Belum ada jadwal pelaksanaan ujian yang dibuat untuk mata pelajaran Anda."
+                      />
+                    )}
                   </div>
-                  {dataJadwal.filter(j => j.status_ujian === 'AKTIF').length === 0 && (
-                    <EmptyState
-                      icon="visibility"
-                      title="Tidak Ada Ujian Aktif Saat Ini"
-                      description="Silakan aktifkan salah satu jadwal ujian di tab Kontrol Ujian atau pilih jadwal pada dropdown di atas untuk memulai monitoring."
-                    />
-                  )}
-                </div>
-              ) : (
-                /* Schedule selected: Live Monitoring HUD */
-                <div className="space-y-5">
+                ) : (
+                  /* Schedule selected: Integrated Control Strip + Proctoring HUD */
+                  <div className="space-y-5">
+                    {/* Control Strip for Selected Exam */}
+                    <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-primary/20 dark:border-primary/30 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="bg-slate-50 dark:bg-slate-900/60 px-3.5 py-2 rounded-xl border border-slate-200/80 dark:border-slate-700 flex items-center gap-3">
+                          <div>
+                            <p className="text-[10px] text-slate-400 uppercase font-black tracking-wider">Token Ujian</p>
+                            <p className="font-mono text-lg font-black text-primary dark:text-primary-400">{currJadwal.token || 'BELUM ADA'}</p>
+                          </div>
+                          <button
+                            onClick={() => handleGenerateToken(currJadwal.id_jadwal)}
+                            className="p-1.5 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 transition-colors shadow-2xs"
+                            title="Rilis Token Baru"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">refresh</span>
+                          </button>
+                        </div>
+
+                        <div className="text-xs text-slate-600 dark:text-slate-300 space-y-0.5">
+                          <p><span className="text-slate-400">Target:</span> <span className="font-bold">{currJadwal.target_kelas || 'Semua Kelas'}</span></p>
+                          <p><span className="text-slate-400">Durasi:</span> <span className="font-bold">{currJadwal.durasi_menit || 90} Menit</span></p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        {/* Session Status Toggle */}
+                        {currJadwal.status_ujian !== 'AKTIF' ? (
+                          <button
+                            onClick={() => handleUpdateStatusUjian(currJadwal.id_jadwal, 'AKTIF')}
+                            className="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-colors min-h-[40px] flex items-center gap-1.5 shadow-2xs"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">play_arrow</span>
+                            <span>Aktifkan Ujian</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleUpdateStatusUjian(currJadwal.id_jadwal, 'SELESAI')}
+                            className="py-2 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition-colors min-h-[40px] flex items-center gap-1.5 shadow-2xs"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">stop</span>
+                            <span>Akhiri Ujian</span>
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleUpdateStatusUjian(currJadwal.id_jadwal, 'BELUM MULAI')}
+                          className="py-2 px-3 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 font-bold text-xs transition-colors min-h-[40px]"
+                          title="Reset status ujian ke BELUM MULAI"
+                        >
+                          Reset Status
+                        </button>
+
+                        <div className="h-6 w-[1px] bg-slate-200 dark:bg-slate-700 mx-1 hidden sm:block"></div>
+
+                        {/* Exam Extension Buttons */}
+                        <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-900/50 p-1 rounded-xl border border-slate-200/80 dark:border-slate-700">
+                          <span className="text-[11px] font-bold text-slate-400 px-1.5 flex items-center gap-0.5">
+                            <span className="material-symbols-outlined text-[14px]">more_time</span>
+                            <span>Perpanjang:</span>
+                          </span>
+                          <button
+                            onClick={() => handlePerpanjangWaktu(currJadwal.id_jadwal, 15)}
+                            className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-800 hover:bg-primary hover:text-white dark:hover:bg-primary text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors shadow-2xs"
+                            title="Tambah 15 menit ke waktu ujian"
+                          >
+                            +15m
+                          </button>
+                          <button
+                            onClick={() => handlePerpanjangWaktu(currJadwal.id_jadwal, 30)}
+                            className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-800 hover:bg-primary hover:text-white dark:hover:bg-primary text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors shadow-2xs"
+                            title="Tambah 30 menit ke waktu ujian"
+                          >
+                            +30m
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   {/* 4 KPI Summary Cards */}
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
                     <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex items-center gap-3.5">
@@ -2812,7 +2870,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                               const sName = log.nama_lengkap || log.siswa?.nama_lengkap || 'Siswa';
                               const sClass = log.kelas || (log.siswa ? `${log.siswa.angkatan || ''} ${log.siswa.kelas_paralel || ''}`.trim() : '-') || '-';
                               const totalDijawab = log.total_dijawab !== undefined ? log.total_dijawab : (log.jawaban_count || 0);
-                              const totalSoal = log.total_soal || (selectedJadwal?.total_soal || selectedJadwal?.jumlah_soal || 40);
+                              const totalSoal = log.total_soal || (currJadwal?.total_soal || currJadwal?.jumlah_soal || 40);
                               const progressPercent = totalSoal > 0 ? Math.min(100, Math.round((totalDijawab / totalSoal) * 100)) : 0;
                               const isBlocked = log.is_blocked || (log.pelanggaran || 0) >= 3;
                               const jId = typeof selectedJadwal === 'object' ? selectedJadwal.id_jadwal : selectedJadwal;
@@ -2939,7 +2997,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                         const sName = log.nama_lengkap || log.siswa?.nama_lengkap || 'Siswa';
                         const sClass = log.kelas || (log.siswa ? `${log.siswa.angkatan || ''} ${log.siswa.kelas_paralel || ''}`.trim() : '-') || '-';
                         const totalDijawab = log.total_dijawab !== undefined ? log.total_dijawab : (log.jawaban_count || 0);
-                        const totalSoal = log.total_soal || (selectedJadwal?.total_soal || selectedJadwal?.jumlah_soal || 40);
+                        const totalSoal = log.total_soal || (currJadwal?.total_soal || currJadwal?.jumlah_soal || 40);
                         const progressPercent = totalSoal > 0 ? Math.min(100, Math.round((totalDijawab / totalSoal) * 100)) : 0;
                         const isBlocked = log.is_blocked || (log.pelanggaran || 0) >= 3;
                         const jId = typeof selectedJadwal === 'object' ? selectedJadwal.id_jadwal : selectedJadwal;
@@ -3028,7 +3086,8 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                 </div>
               )}
             </div>
-          )}
+          );
+        })()}
 
           {/* ================= TAB: RUANG PENGAWASAN & VERIFIKASI ABSENSI ================= */}
           {activeTab === 'pengawasan' && (
@@ -4276,210 +4335,6 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
         isSubmitting={isVerifying}
       />
 
-      {/* Modal Import Soal Format Aiken */}
-      {importAikenModal.isOpen && (() => {
-        const parsed = parseAiken(importAikenModal.rawText, importAikenModal.defaultBobot);
-        return (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-700 animate-scale-up">
-              {/* Header */}
-              <div className="p-5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-2xl">text_snippet</span>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-black text-slate-900 dark:text-white">Import Soal Format Aiken</h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Mapel: <span className="font-bold text-slate-700 dark:text-slate-300">{dataMapel.find(m => m.id_mapel === selectedMapel)?.nama_mapel || selectedMapel}</span>
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setImportAikenModal({ isOpen: false, rawText: '', defaultBobot: 10, isSubmitting: false })}
-                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                >
-                  <span className="material-symbols-outlined text-2xl">close</span>
-                </button>
-              </div>
-
-              {/* Body */}
-              <div className="p-5 overflow-y-auto flex-1 space-y-4">
-                {/* Controls & File Upload Bar */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200/80 dark:border-slate-700/80">
-                  <div className="flex items-center gap-3">
-                    <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 cursor-pointer transition-colors shadow-2xs">
-                      <span className="material-symbols-outlined text-[16px]">upload_file</span>
-                      <span>Pilih Berkas .txt / .aiken</span>
-                      <input
-                        type="file"
-                        accept=".txt,.aiken"
-                        onChange={handleAikenFileUpload}
-                        className="hidden"
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setImportAikenModal(prev => ({
-                        ...prev,
-                        rawText: `1. Di manakah letak Candi Borobudur berada?\nA. Jawa Barat\nB. Jawa Tengah\nC. Jawa Timur\nD. Bali\nANSWER: B\n\n2. Lambang negara Indonesia adalah...\nA. Garuda Pancasila\nB. Harimau\nC. Elang Jawa\nD. Komodo\nANSWER: A`
-                      }))}
-                      className="text-xs font-semibold text-primary dark:text-primary-400 hover:underline"
-                    >
-                      Isi Contoh Format
-                    </button>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs font-bold text-slate-600 dark:text-slate-300">Bobot Default:</label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={100}
-                      value={importAikenModal.defaultBobot}
-                      onChange={(e) => setImportAikenModal(prev => ({ ...prev, defaultBobot: Number(e.target.value) || 10 }))}
-                      className="w-16 px-2 py-1 text-xs font-bold border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-center"
-                    />
-                  </div>
-                </div>
-
-                {/* Input Textarea & Guide */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                        Tempel Teks Soal Format Aiken:
-                      </label>
-                      <span className="text-[11px] text-slate-400 font-mono">
-                        {importAikenModal.rawText.length} karakter
-                      </span>
-                    </div>
-                    <textarea
-                      rows={12}
-                      value={importAikenModal.rawText}
-                      onChange={(e) => setImportAikenModal(prev => ({ ...prev, rawText: e.target.value }))}
-                      placeholder={`Format Standar Aiken:\n\nPertanyaan soal baris pertama...\n(Bisa multiline / stimulus bacaan)\nA. Pilihan A\nB. Pilihan B\nC. Pilihan C\nD. Pilihan D\nANSWER: B\n\nSoal berikutnya...\nA. ...\nB. ...\nANSWER: A`}
-                      className="w-full text-xs font-mono p-3 border border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 focus:ring-2 focus:ring-amber-500/20 outline-none leading-relaxed"
-                    />
-                  </div>
-
-                  {/* Live Validation & Preview Panel */}
-                  <div className="space-y-2 flex flex-col">
-                    <div className="flex justify-between items-center">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                        Pratinjau Hasil Parsing ({parsed.validCount} Valid, {parsed.errorCount} Error)
-                      </label>
-                    </div>
-
-                    <div className="flex-1 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-900/40 p-3 overflow-y-auto max-h-[300px] space-y-3">
-                      {parsed.errors.length > 0 && (
-                        <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-xl space-y-1">
-                          <div className="flex items-center gap-1.5 text-rose-700 dark:text-rose-400 font-bold text-xs">
-                            <span className="material-symbols-outlined text-[16px]">error</span>
-                            <span>{parsed.errors.length} Masalah Format Ditemukan:</span>
-                          </div>
-                          {parsed.errors.map((err, idx) => (
-                            <p key={idx} className="text-[11px] text-rose-600 dark:text-rose-300 pl-5">
-                              • Baris {err.line}: {err.message}
-                            </p>
-                          ))}
-                        </div>
-                      )}
-
-                      {parsed.questions.length === 0 && parsed.errors.length === 0 ? (
-                        <div className="h-full min-h-[160px] flex flex-col items-center justify-center text-center text-slate-400 p-4">
-                          <span className="material-symbols-outlined text-3xl mb-1 text-slate-300 dark:text-slate-600">playlist_add</span>
-                          <p className="text-xs font-medium">Ketik atau tempel teks Aiken di samping untuk melihat pratinjau.</p>
-                        </div>
-                      ) : (
-                        parsed.questions.map((q, idx) => (
-                          <div key={idx} className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shadow-2xs space-y-2">
-                            <div className="flex items-start justify-between gap-2">
-                              <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
-                                Butir {idx + 1} (Bobot: {q.bobot})
-                              </span>
-                              <span className="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 flex items-center gap-1">
-                                <span className="material-symbols-outlined text-[12px]">check</span>
-                                Kunci: {q.kunci_letter}
-                              </span>
-                            </div>
-                            <div
-                              className="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-snug"
-                              dangerouslySetInnerHTML={{ __html: q.pertanyaan }}
-                            />
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
-                              {q.opsi.map((op, oIdx) => {
-                                const letter = String.fromCharCode(65 + oIdx);
-                                const isCorrect = letter === q.kunci_letter;
-                                return (
-                                  <div
-                                    key={oIdx}
-                                    className={`px-2 py-1 rounded text-[11px] flex items-center gap-1.5 border ${
-                                      isCorrect
-                                        ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300 font-bold'
-                                        : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
-                                    }`}
-                                  >
-                                    <span className="w-4 h-4 rounded-full bg-slate-200 dark:bg-slate-700 text-[10px] font-bold flex items-center justify-center shrink-0">
-                                      {letter}
-                                    </span>
-                                    <span className="truncate">{op}</span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="p-4 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/60 rounded-b-2xl">
-                <div className="text-xs text-slate-500">
-                  {parsed.validCount > 0 ? (
-                    <span className="text-emerald-600 dark:text-emerald-400 font-bold">
-                      Siap mengimpor {parsed.validCount} butir soal pilihan ganda.
-                    </span>
-                  ) : (
-                    <span>Format Aiken harus valid sebelum dapat disimpan.</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setImportAikenModal({ isOpen: false, rawText: '', defaultBobot: 10, isSubmitting: false })}
-                    className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-                  >
-                    Batal
-                  </button>
-                  <button
-                    type="button"
-                    disabled={parsed.validCount === 0 || importAikenModal.isSubmitting}
-                    onClick={handleSaveImportAiken}
-                    className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed text-white shadow-xs transition-all flex items-center gap-1.5"
-                  >
-                    {importAikenModal.isSubmitting ? (
-                      <>
-                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                        <span>Menyimpan...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="material-symbols-outlined text-[16px]">save</span>
-                        <span>Simpan ke Bank Soal ({parsed.validCount})</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
 
       {/* Cetak Dokumen Ujian Print Modal (Requirement 4 Integration) */}
       {printModalOpen && printData && (

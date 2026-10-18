@@ -33,19 +33,6 @@
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white font-sans antialiased overflow-x-hidden selection:bg-primary/30 min-h-screen transition-colors duration-300">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
-    
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
-            .then((registration) => {
-              console.log('ServiceWorker registration successful with scope: ', registration.scope);
-            })
-            .catch((err) => {
-              console.log('ServiceWorker registration failed: ', err);
-            });
-        });
-      }
-    </script>
+    <!-- Unified Service Worker registration: navigator.serviceWorker.register('/sw.js') is managed in src/registerSW.js -->
 </body>
 </html>

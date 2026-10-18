@@ -1,50 +1,62 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+
+const EMPTY_DATA_SOAL = [];
 
 const SkemaPenilaianPanel = ({
-  dataSoal = [],
+  dataSoal = EMPTY_DATA_SOAL,
   onSave,
   isSchoolDefault = false,
   schoolDefaultScheme = null,
   initialSkema = null
 }) => {
   const defaultSkema = { PG: 0, PGK: 0, BS: 0, JODOH: 0, ISIAN: 0, URAIAN: 0 };
-  const [mode, setMode] = useState('default'); // 'default' | 'custom'
+  const [mode, setMode] = useState('default');
   const [skema, setSkema] = useState(defaultSkema);
   const [adminDefaultInfo, setAdminDefaultInfo] = useState(schoolDefaultScheme);
 
+  // Track if user has manually interacted / edited the form to prevent parent re-renders from overwriting edits
+  const isUserEditingRef = useRef(false);
+  const lastInitialSkemaRef = useRef(null);
+
   useEffect(() => {
     if (isSchoolDefault) {
-      if (initialSkema) {
-        setMode(initialSkema.mode || 'default');
-        if (initialSkema.skema) {
-          setSkema({ ...defaultSkema, ...initialSkema.skema });
+      if (initialSkema && !isUserEditingRef.current) {
+        const isSame = JSON.stringify(lastInitialSkemaRef.current) === JSON.stringify(initialSkema);
+        if (!isSame) {
+          lastInitialSkemaRef.current = initialSkema;
+          setMode(initialSkema.mode || 'default');
+          if (initialSkema.skema) {
+            setSkema({ ...defaultSkema, ...initialSkema.skema });
+          }
         }
       }
       return;
     }
 
     // Teacher mode: check dataSoal
-    const skemaRecord = dataSoal?.find(s => s.tipe_soal === 'SKEMA_PENILAIAN');
-    if (skemaRecord && skemaRecord.kunci_jawaban) {
-      let parsed = null;
-      try {
-        parsed = typeof window !== 'undefined' && window.safeJSONParse
-          ? window.safeJSONParse(skemaRecord.kunci_jawaban, null)
-          : JSON.parse(skemaRecord.kunci_jawaban);
-      } catch {
-        parsed = null;
-      }
-      if (parsed) {
-        if (parsed.mode) {
-          setMode(parsed.mode);
-          if (parsed.skema) {
-            setSkema({ ...defaultSkema, ...parsed.skema });
+    if (!isUserEditingRef.current) {
+      const skemaRecord = dataSoal?.find(s => s.tipe_soal === 'SKEMA_PENILAIAN');
+      if (skemaRecord && skemaRecord.kunci_jawaban) {
+        let parsed = null;
+        try {
+          parsed = typeof window !== 'undefined' && window.safeJSONParse
+            ? window.safeJSONParse(skemaRecord.kunci_jawaban, null)
+            : JSON.parse(skemaRecord.kunci_jawaban);
+        } catch {
+          parsed = null;
+        }
+        if (parsed) {
+          if (parsed.mode) {
+            setMode(parsed.mode);
+            if (parsed.skema) {
+              setSkema({ ...defaultSkema, ...parsed.skema });
+            }
+          } else {
+            // Legacy format where parsed object directly maps question types to numbers
+            const hasCustomWeights = Object.values(parsed).some(v => parseFloat(v) > 0);
+            setMode(hasCustomWeights ? 'custom' : 'default');
+            setSkema({ ...defaultSkema, ...parsed });
           }
-        } else {
-          // Legacy format where parsed object directly maps question types to numbers
-          const hasCustomWeights = Object.values(parsed).some(v => parseFloat(v) > 0);
-          setMode(hasCustomWeights ? 'custom' : 'default');
-          setSkema({ ...defaultSkema, ...parsed });
         }
       }
     }
@@ -71,23 +83,38 @@ const SkemaPenilaianPanel = ({
     }
   }, [dataSoal, isSchoolDefault, initialSkema, schoolDefaultScheme]);
 
+  const parseWeight = (val) => {
+    if (typeof val === 'string') {
+      return parseFloat(val.replace(',', '.')) || 0;
+    }
+    return parseFloat(val) || 0;
+  };
+
   const hitungTotalPersentase = () => {
-    return Object.values(skema).reduce((acc, val) => acc + (parseFloat(val) || 0), 0);
+    const raw = Object.values(skema).reduce((acc, val) => acc + parseWeight(val), 0);
+    return Math.round(raw * 100) / 100;
   };
 
   const handleSave = () => {
     const cleanSkema = {};
     for (const [k, v] of Object.entries(skema)) {
-      cleanSkema[k] = parseFloat(v) || 0;
+      cleanSkema[k] = parseWeight(v);
     }
     const standardDefaultSkema = { PG: 20, PGK: 20, BS: 20, JODOH: 20, ISIAN: 10, URAIAN: 10 };
 
     if (mode === 'custom') {
       const total = hitungTotalPersentase();
+      // Validasi presisi desimal: Math.round(total * 100) / 100 === 100
       if (total !== 100) {
         alert(`Total persentase bobot skema khusus harus tepat 100%. Saat ini: ${total}%. Silakan sesuaikan kembali.`);
         return;
       }
+      const hasNegative = Object.values(cleanSkema).some(v => v < 0);
+      if (hasNegative) {
+        alert('Bobot persentase tidak boleh bernilai negatif. Silakan periksa kembali nilai yang dimasukkan.');
+        return;
+      }
+      isUserEditingRef.current = false;
       if (isSchoolDefault) {
         onSave({
           mode: 'custom',
@@ -105,6 +132,7 @@ const SkemaPenilaianPanel = ({
       };
       onSave(payload);
     } else {
+      isUserEditingRef.current = false;
       const activeDefaultSkema = Object.values(cleanSkema).some(v => v > 0) ? cleanSkema : standardDefaultSkema;
       if (isSchoolDefault) {
         onSave({
@@ -140,7 +168,10 @@ const SkemaPenilaianPanel = ({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
         <button
           type="button"
-          onClick={() => setMode('default')}
+          onClick={() => {
+            isUserEditingRef.current = true;
+            setMode('default');
+          }}
           className={`p-3.5 rounded-xl border text-left transition-all flex flex-col justify-between ${
             mode === 'default'
               ? 'border-primary bg-primary/10 text-slate-800 dark:text-white ring-2 ring-primary/20'
@@ -164,7 +195,10 @@ const SkemaPenilaianPanel = ({
 
         <button
           type="button"
-          onClick={() => setMode('custom')}
+          onClick={() => {
+            isUserEditingRef.current = true;
+            setMode('custom');
+          }}
           className={`p-3.5 rounded-xl border text-left transition-all flex flex-col justify-between ${
             mode === 'custom'
               ? 'border-primary bg-primary/10 text-slate-800 dark:text-white ring-2 ring-primary/20'
@@ -216,9 +250,13 @@ const SkemaPenilaianPanel = ({
             <div className="relative flex-1">
               <input
                 type="number"
+                step="any"
                 disabled={mode === 'default'}
-                value={skema[tipe]}
-                onChange={(e) => setSkema({ ...skema, [tipe]: e.target.value })}
+                value={skema[tipe] ?? ''}
+                onChange={(e) => {
+                  isUserEditingRef.current = true;
+                  setSkema({ ...skema, [tipe]: e.target.value });
+                }}
                 className="w-full px-3 py-2 pr-8 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:cursor-not-allowed"
                 min="0"
                 max="100"

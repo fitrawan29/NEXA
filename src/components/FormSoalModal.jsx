@@ -1,6 +1,5 @@
 import ReactQuill from 'react-quill';
 import React, { useState, useEffect, useRef } from 'react';
-import { parseAiken } from '../utils/aikenParser.js';
 
     const FormSoalModal = ({ isOpen, data, narasiList = [], onClose, onSave }) => {
       const modules = {
@@ -32,11 +31,6 @@ import { parseAiken } from '../utils/aikenParser.js';
       const [kunciJodoh, setKunciJodoh] = useState(data && data.tipe_soal==='JODOH' ? window.safeJSONParse(data.kunci_jawaban, {}) : (savedDraft.kunciJodoh || {}));
       
       const [kunciIsian, setKunciIsian] = useState(data && data.tipe_soal==='ISIAN' ? data.kunci_jawaban : (savedDraft.kunciIsian || ''));
-
-      const [showAikenQuickPaste, setShowAikenQuickPaste] = useState(false);
-      const [aikenSnippet, setAikenSnippet] = useState('');
-      const [aikenError, setAikenError] = useState('');
-      const [aikenSuccess, setAikenSuccess] = useState('');
       
       // Auto-save logic
       React.useEffect(() => {
@@ -55,35 +49,6 @@ import { parseAiken } from '../utils/aikenParser.js';
           };
           reader.readAsDataURL(file);
         }
-      };
-
-      const handleApplyAiken = () => {
-        setAikenError('');
-        setAikenSuccess('');
-        if (!aikenSnippet.trim()) {
-          setAikenError('Silakan tempel teks soal berformat Aiken terlebih dahulu.');
-          return;
-        }
-        const result = parseAiken(aikenSnippet, bobot);
-        if (result.validCount === 0) {
-          const firstErr = result.errors[0]?.message || 'Format Aiken tidak valid.';
-          setAikenError(`Gagal membaca format Aiken: ${firstErr}`);
-          return;
-        }
-        const q = result.questions[0];
-        setTipe('PG');
-        setPertanyaan(q.pertanyaan);
-        const opts = [...q.opsi];
-        while (opts.length < 5) opts.push('');
-        setOpsiPG(opts);
-        const keyIdx = q.kunci_letter.toUpperCase().charCodeAt(0) - 65;
-        setKunciPG(String(keyIdx));
-        setBobot(q.bobot || 10);
-        setAikenSuccess(`Soal berhasil diterapkan ke form! (Kunci: ${q.kunci_letter})`);
-        setTimeout(() => {
-          setShowAikenQuickPaste(false);
-          setAikenSuccess('');
-        }, 1200);
       };
 
       const handleSave = () => {
@@ -130,53 +95,6 @@ import { parseAiken } from '../utils/aikenParser.js';
               <button onClick={onClose} className="text-slate-500 hover:text-slate-800"><span className="material-symbols-outlined">close</span></button>
             </div>
             <div className="p-6 overflow-y-auto flex-1 space-y-4">
-              {!data && (
-                <div className="border border-amber-200 dark:border-amber-800/80 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-amber-600 dark:text-amber-400 text-lg">content_paste</span>
-                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Tempel Cepat Format Aiken</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowAikenQuickPaste(!showAikenQuickPaste);
-                        setAikenError('');
-                        setAikenSuccess('');
-                      }}
-                      className="text-xs font-bold text-amber-700 dark:text-amber-400 hover:underline"
-                    >
-                      {showAikenQuickPaste ? 'Tutup Panel' : 'Buka Panel'}
-                    </button>
-                  </div>
-                  {showAikenQuickPaste && (
-                    <div className="mt-3 space-y-2 border-t border-amber-200 dark:border-amber-800/60 pt-2.5">
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        Tempel 1 butir soal format Aiken (Pertanyaan, Opsi A-E, dan baris ANSWER: X). Form akan terisi otomatis.
-                      </p>
-                      <textarea
-                        rows={5}
-                        value={aikenSnippet}
-                        onChange={(e) => setAikenSnippet(e.target.value)}
-                        placeholder={`Contoh:\nIbu kota Indonesia adalah...\nA. Bandung\nB. Jakarta\nC. Surabaya\nANSWER: B`}
-                        className="w-full text-xs font-mono p-2.5 border rounded-lg bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-primary/20 outline-none"
-                      />
-                      {aikenError && <p className="text-xs text-rose-600 font-semibold">{aikenError}</p>}
-                      {aikenSuccess && <p className="text-xs text-emerald-600 font-semibold">{aikenSuccess}</p>}
-                      <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={handleApplyAiken}
-                          className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-xs transition-all flex items-center gap-1"
-                        >
-                          <span className="material-symbols-outlined text-[16px]">check</span>
-                          <span>Terapkan ke Form</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
               <div>
                 <label className="block text-sm font-bold mb-1">Tipe Soal</label>
                 <select value={tipe} onChange={(e) => setTipe(e.target.value)} disabled={!!data} className="w-full p-2 border rounded bg-white dark:bg-slate-900">

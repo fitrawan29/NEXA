@@ -87,6 +87,10 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
   const isSubmittingRef = useRef(false);
   const isBlockedRef = useRef(initialBlocked);
   const lastViolationTimeRef = useRef(0);
+  const endMsRef = useRef(jadwal?.waktu_selesai ? new Date(jadwal.waktu_selesai).getTime() : Date.now());
+  const serverOffsetMsRef = useRef(0);
+  const perfStartRef = useRef((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now());
+  const initialRemainingMsRef = useRef(Math.max(0, endMsRef.current - Date.now()));
 
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const examContainerRef = useRef(null);
@@ -246,11 +250,6 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
     // =========================================================================
     // Server Time Guard (Clock Anti-Tampering & Monotonic Countdown)
     // =========================================================================
-    let serverOffsetMs = 0;
-    let perfStart = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-    const endMs = new Date(jadwal.waktu_selesai).getTime();
-    let initialRemainingMs = Math.max(0, endMs - Date.now());
-
     const fetchServerOffset = async () => {
       try {
         if (typeof window !== 'undefined' && window.location) {
@@ -271,8 +270,8 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
     };
 
     const calculateTimeLeft = () => {
-      const elapsedMonotonic = ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - perfStart;
-      const diff = Math.max(0, initialRemainingMs - elapsedMonotonic);
+      const elapsedMonotonic = ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - perfStartRef.current;
+      const diff = Math.max(0, initialRemainingMsRef.current - elapsedMonotonic);
       if (diff <= 0) return { total: 0, hours: 0, minutes: 0, seconds: 0 };
       return {
         total: diff,
@@ -288,10 +287,10 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
     // Sync with server date header and update remaining baseline
     fetchServerOffset().then((offset) => {
       if (offset !== 0) {
-        serverOffsetMs = offset;
+        serverOffsetMsRef.current = offset;
         const correctedNow = Date.now() + offset;
-        initialRemainingMs = Math.max(0, endMs - correctedNow);
-        perfStart = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        initialRemainingMsRef.current = Math.max(0, endMsRef.current - correctedNow);
+        perfStartRef.current = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
         setTimeLeft(calculateTimeLeft());
       }
     });
@@ -307,6 +306,59 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
       }
     }, 1000);
 
+    // Live Proctor & Schedule Polling: synchronize time extensions, unblock, and force stop
+    const pollInterval = setInterval(async () => {
+      if (!idLog) return;
+      try {
+        const res = await api('get_status_log_ujian', { id_log: idLog });
+        if (res.status === 'success' && res.data) {
+          // 1. Time Extension Check (Teacher extended exam time)
+          if (res.data.waktu_selesai) {
+            const serverEndMs = new Date(res.data.waktu_selesai).getTime();
+            if (serverEndMs > endMsRef.current + 30000) {
+              endMsRef.current = serverEndMs;
+              const correctedNow = Date.now() + serverOffsetMsRef.current;
+              initialRemainingMsRef.current = Math.max(0, serverEndMs - correctedNow);
+              perfStartRef.current = ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now());
+              setTimeLeft(calculateTimeLeft());
+              if (showMessage) {
+                showMessage('Waktu Diperpanjang', 'Pengawas telah memperpanjang waktu ujian.', 'info');
+              }
+            }
+          }
+
+          // 2. Live Unblock Check (Teacher clicked Buka Blokir)
+          if (isBlockedRef.current && res.data.is_blocked === false && (res.data.pelanggaran || 0) < 3) {
+            setIsBlocked(false);
+            isBlockedRef.current = false;
+            setIsSubmitting(false);
+            isSubmittingRef.current = false;
+            setViolationCount(res.data.pelanggaran || 0);
+            if (showMessage) {
+              showMessage('Blokir Dibuka', 'Pengawas telah membuka blokir ujian Anda. Silakan lanjutkan.', 'success');
+            }
+          }
+
+          // 3. Remote Block Check (Teacher clicked Blokir)
+          if (!isBlockedRef.current && (res.data.is_blocked || (res.data.pelanggaran || 0) >= 3)) {
+            triggerStrike3Kick();
+          }
+
+          // 4. Force Stop Check (Teacher clicked Paksa Selesai)
+          if (!isSubmittingRef.current && res.data.status_ujian === 'SELESAI') {
+            clearInterval(pollInterval);
+            clearInterval(timerInterval);
+            if (showMessage) {
+              showMessage('Ujian Diakhiri', 'Pengawas telah mengakhiri sesi ujian ini.', 'warning');
+            }
+            executeSubmitExam(true);
+          }
+        }
+      } catch (err) {
+        console.warn('Proctor status sync warning:', err);
+      }
+    }, 15000);
+
     const handleOnline = () => {
       setIsOffline(false);
     };
@@ -319,6 +371,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
 
     return () => {
       clearInterval(timerInterval);
+      clearInterval(pollInterval);
       cancelGracePeriod();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
@@ -891,7 +944,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
 
   const currentNarasi = currentS?.id_narasi ? narasiMap[currentS.id_narasi] : null;
   const narasiContent = currentNarasi?.pertanyaan || currentNarasi?.konten || '';
-  const narasiTitle = currentNarasi?.judul || 'Wacana / Stimulus Bacaan';
+  const narasiTitle = currentNarasi?.judul || 'Narasi Soal / Stimulus Bacaan';
 
   return (
     <div 
@@ -1046,7 +1099,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
           <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-4">
             {currentS ? (
               <div className={currentNarasi ? 'flex flex-col lg:flex-row gap-6 items-start' : 'max-w-4xl mx-auto w-full'}>
-                {/* Stimulus / Wacana Panel (Desktop Side-by-Side vs Mobile Collapsible) */}
+                {/* Stimulus / Narasi Soal Panel (Desktop Side-by-Side vs Mobile Collapsible) */}
                 {currentNarasi && (
                   <div className="w-full lg:w-1/2 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700/80 p-5 sm:p-6 shadow-sm flex flex-col">
                     <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 dark:border-slate-700/60">

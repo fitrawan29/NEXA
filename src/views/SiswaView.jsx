@@ -1,4 +1,4 @@
-import { fetchAPI } from '../api.js';
+import { fetchAPI, isClassMatching } from '../api.js';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import ExamRoom from './ExamRoom.jsx';
 import {
@@ -269,20 +269,24 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   // Filtered schedules for tabs
   const todaySchedules = useMemo(() => {
     const today = new Date().toDateString();
-    return jadwal.filter(j => new Date(j.waktu_mulai).toDateString() === today || j.status_siswa === 'SEDANG KERJA');
-  }, [jadwal]);
+    return jadwal.filter(j => 
+      isClassMatching(j.target_kelas, user) &&
+      (new Date(j.waktu_mulai).toDateString() === today || j.status_siswa === 'SEDANG KERJA')
+    );
+  }, [jadwal, user]);
 
   const filteredJadwalList = useMemo(() => {
     const now = new Date();
     const today = now.toDateString();
     return jadwal.filter(j => {
+      if (!isClassMatching(j.target_kelas, user)) return false;
       const mulai = new Date(j.waktu_mulai);
       if (jadwalFilter === 'HARI INI') return mulai.toDateString() === today;
       if (jadwalFilter === 'AKAN DATANG') return mulai > now && mulai.toDateString() !== today;
       if (jadwalFilter === 'SELESAI') return j.status_siswa === 'SELESAI' || new Date(j.waktu_selesai) < now;
       return true;
     });
-  }, [jadwal, jadwalFilter]);
+  }, [jadwal, jadwalFilter, user]);
 
   // Render individual exam schedule card using UI primitives
   const renderJadwalCard = (j) => {

@@ -12,6 +12,36 @@ class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     console.error('ErrorBoundary caught error', error, errorInfo);
+    const msg = (error?.message || error?.name || String(error || '')).toLowerCase();
+    if (
+      msg.includes('failed to fetch dynamically imported module') ||
+      msg.includes('error loading dynamically imported module') ||
+      msg.includes('failed to load module script') ||
+      msg.includes('loading chunk') ||
+      msg.includes('chunkloaderror') ||
+      msg.includes('importing a module script failed')
+    ) {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        window.addEventListener('online', () => window.location.reload(), { once: true });
+        return;
+      }
+      const CHUNK_RELOAD_KEY = 'nexa_chunk_retry_timestamp';
+      const now = Date.now();
+      try {
+        const last = parseInt(sessionStorage.getItem(CHUNK_RELOAD_KEY) || '0', 10);
+        if (!last || now - last >= 10000) {
+          sessionStorage.setItem(CHUNK_RELOAD_KEY, String(now));
+          window.location.reload();
+        }
+      } catch {
+        const hasRetried = typeof window !== 'undefined' && /[?&]chunk_retry=/.test(window.location.search);
+        if (!hasRetried && typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          url.searchParams.set('chunk_retry', String(now));
+          window.location.replace(url.href);
+        }
+      }
+    }
   }
 
   render() {

@@ -13,7 +13,39 @@ import PwaInstallToast from './components/PwaInstallToast';
 ﻿    class ErrorBoundary extends React.Component { 
       constructor(props) { super(props); this.state = { hasError: false, error: null }; } 
       static getDerivedStateFromError(error) { return { hasError: true, error }; } 
-      componentDidCatch(error, errorInfo) { console.error('ErrorBoundary caught error', error, errorInfo); } 
+      componentDidCatch(error, errorInfo) { 
+        console.error('ErrorBoundary caught error', error, errorInfo);
+        const msg = (error?.message || error?.name || String(error || '')).toLowerCase();
+        if (
+          msg.includes('failed to fetch dynamically imported module') ||
+          msg.includes('error loading dynamically imported module') ||
+          msg.includes('failed to load module script') ||
+          msg.includes('loading chunk') ||
+          msg.includes('chunkloaderror') ||
+          msg.includes('importing a module script failed')
+        ) {
+          if (typeof navigator !== 'undefined' && !navigator.onLine) {
+            window.addEventListener('online', () => window.location.reload(), { once: true });
+            return;
+          }
+          const CHUNK_RELOAD_KEY = 'nexa_chunk_retry_timestamp';
+          const now = Date.now();
+          try {
+            const last = parseInt(sessionStorage.getItem(CHUNK_RELOAD_KEY) || '0', 10);
+            if (!last || now - last >= 10000) {
+              sessionStorage.setItem(CHUNK_RELOAD_KEY, String(now));
+              window.location.reload();
+            }
+          } catch {
+            const hasRetried = typeof window !== 'undefined' && /[?&]chunk_retry=/.test(window.location.search);
+            if (!hasRetried && typeof window !== 'undefined') {
+              const url = new URL(window.location.href);
+              url.searchParams.set('chunk_retry', String(now));
+              window.location.replace(url.href);
+            }
+          }
+        }
+      } 
       render() { 
         if (this.state.hasError) { 
           return <div className="p-8 h-[100dvh] w-full flex items-center justify-center bg-red-50 text-red-600"><div className="bg-white p-6 rounded-xl shadow-lg border border-red-200"><h1 className="text-xl font-bold mb-4">Something went wrong.</h1><pre className="text-sm bg-red-50 p-4 rounded overflow-auto max-w-full">{this.state.error && this.state.error.toString()}</pre><button onClick={() => window.location.reload()} className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 font-bold">Refresh Page</button></div></div>; 

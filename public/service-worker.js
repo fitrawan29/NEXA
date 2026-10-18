@@ -3,7 +3,7 @@
  * Mirrors sw.js for clients configured with /service-worker.js
  */
 
-const CACHE_NAME = 'nexa-cbt-v4';
+const CACHE_NAME = 'nexa-cbt-v5';
 const PRECACHE_URLS = [
   '/',
   '/index.html',
@@ -17,7 +17,7 @@ self.addEventListener('install', (event) => {
     caches.open(CACHE_NAME).then(async (cache) => {
       for (const url of PRECACHE_URLS) {
         try {
-          await cache.add(url);
+          await cache.add(new Request(url, { cache: 'reload' }));
         } catch (err) {
           console.warn('[SW] Precache item failed:', url, err);
         }
@@ -33,22 +33,31 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (!cacheWhitelist.includes(cacheName)) {
-            return caches.delete(cacheName);
+            console.log('[SW] Purging stale cache:', cacheName);
+            return caches.delete(cacheName).catch(() => false);
           }
         })
       );
-    }).then(() => self.clients.claim())
+    }).then(() => self.clients.claim()).catch(() => {})
   );
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data === 'SKIP_WAITING' || (event.data && event.data.type === 'SKIP_WAITING')) {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Strictly bypass non-GET requests, external Supabase calls, and API endpoints
+  // Strictly bypass non-GET requests, external Supabase calls, API endpoints, and SW scripts
   if (
     event.request.method !== 'GET' ||
     url.hostname.includes('supabase.co') ||
     url.pathname.startsWith('/api') ||
+    url.pathname === '/sw.js' ||
+    url.pathname === '/service-worker.js' ||
     !url.protocol.startsWith('http')
   ) {
     return;
@@ -71,8 +80,8 @@ self.addEventListener('fetch', (event) => {
         if (response && response.status === 200 && response.type === 'basic') {
           const responseToCache = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
+            cache.put(event.request, responseToCache).catch(() => {});
+          }).catch(() => {});
         }
         return response;
       })
