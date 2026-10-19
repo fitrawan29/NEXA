@@ -2,6 +2,7 @@ import { fetchAPI } from '../api.js';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import NotificationBell from '../components/NotificationBell.jsx';
 import TutorialModal from '../components/TutorialModal.jsx';
+import OfflineAiAssistant from '../components/OfflineAiAssistant.jsx';
 import { PasswordInput } from '../components/UI.jsx';
 ﻿    const SuperAdminView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) => {
       const [activeTab, setActiveTab] = useState('analytics');
@@ -408,7 +409,7 @@ import { PasswordInput } from '../components/UI.jsx';
               )}
 
               {activeTab === 'log' && (
-                <div className="px-6 mt-6 animate-fade-in-up">
+                <div data-assistant-target="log" className="px-6 mt-6 animate-fade-in-up">
                   <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">System Logs</h3>
                   <div className="space-y-3 pb-32">
                     {dataLog.slice(0, visibleCount).map((l) => (
@@ -532,23 +533,23 @@ import { PasswordInput } from '../components/UI.jsx';
             {/* Bottom Navigation */}
             <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)]">
               <div className="w-full md:max-w-3xl lg:max-w-5xl xl:max-w-6xl mx-auto px-6 md:px-12 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] flex justify-between md:justify-center md:gap-16 items-center">
-                <button onClick={() => setActiveTab('analytics')} className={`flex flex-col items-center transition-colors min-h-[44px] min-w-[44px] justify-center ${activeTab === 'analytics' ? 'text-primary font-bold' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}>
+                <button data-assistant-target="analytics" onClick={() => setActiveTab('analytics')} className={`flex flex-col items-center transition-colors min-h-[44px] min-w-[44px] justify-center ${activeTab === 'analytics' ? 'text-primary font-bold' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}>
                   <span className="material-symbols-outlined text-[22px] shrink-0">analytics</span>
                   <span className="text-[10px] mt-0.5 truncate max-w-[52px]">Statistik</span>
                 </button>
-                <button onClick={() => setActiveTab('sekolah')} className={`flex flex-col items-center transition-colors min-h-[44px] min-w-[44px] justify-center ${activeTab === 'sekolah' ? 'text-primary font-bold' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}>
+                <button data-assistant-target="sekolah" onClick={() => setActiveTab('sekolah')} className={`flex flex-col items-center transition-colors min-h-[44px] min-w-[44px] justify-center ${activeTab === 'sekolah' ? 'text-primary font-bold' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}>
                   <span className="material-symbols-outlined text-[22px] shrink-0">account_balance</span>
                   <span className="text-[10px] mt-0.5 truncate max-w-[52px]">Sekolah</span>
                 </button>
-                <button onClick={() => setActiveTab('admin')} className={`flex flex-col items-center transition-colors min-h-[44px] min-w-[44px] justify-center ${activeTab === 'admin' ? 'text-primary font-bold' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}>
+                <button data-assistant-target="admin" onClick={() => setActiveTab('admin')} className={`flex flex-col items-center transition-colors min-h-[44px] min-w-[44px] justify-center ${activeTab === 'admin' ? 'text-primary font-bold' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}>
                   <span className="material-symbols-outlined text-[22px] shrink-0">manage_accounts</span>
                   <span className="text-[10px] mt-0.5 truncate max-w-[52px]">Admin</span>
                 </button>
-                <button onClick={() => setActiveTab('pengumuman')} className={`flex flex-col items-center transition-colors min-h-[44px] min-w-[44px] justify-center ${activeTab === 'pengumuman' ? 'text-primary font-bold' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}>
+                <button data-assistant-target="pengumuman" onClick={() => setActiveTab('pengumuman')} className={`flex flex-col items-center transition-colors min-h-[44px] min-w-[44px] justify-center ${activeTab === 'pengumuman' ? 'text-primary font-bold' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}>
                   <span className="material-symbols-outlined text-[22px] shrink-0">campaign</span>
                   <span className="text-[10px] mt-0.5 truncate max-w-[52px]">Informasi</span>
                 </button>
-                <button onClick={() => setActiveTab('akun')} className={`flex flex-col items-center transition-colors min-h-[44px] min-w-[44px] justify-center ${activeTab === 'akun' ? 'text-primary font-bold' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}>
+                <button data-assistant-target="akun" onClick={() => setActiveTab('akun')} className={`flex flex-col items-center transition-colors min-h-[44px] min-w-[44px] justify-center ${activeTab === 'akun' ? 'text-primary font-bold' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}>
                   <span className="material-symbols-outlined text-[22px] shrink-0">person</span>
                   <span className="text-[10px] mt-0.5 truncate max-w-[52px]">Akun</span>
                 </button>
@@ -563,6 +564,20 @@ import { PasswordInput } from '../components/UI.jsx';
               isOpen={showTutorialModal}
               initialRole="super_admin"
               onClose={handleCloseTutorial}
+            />
+
+            {/* Offline AI Assistant Widget (Zero-API, Offline Navigation) */}
+            <OfflineAiAssistant
+              role="super_admin"
+              user={user}
+              onNavigate={(tab, modal) => {
+                if (tab) setActiveTab(tab);
+                if (modal === 'sekolah') {
+                  setFormModal({ isOpen: true, type: 'sekolah', isEdit: false, editItem: null });
+                } else if (modal === 'admin') {
+                  setFormModal({ isOpen: true, type: 'admin', isEdit: false, editItem: null });
+                }
+              }}
             />
           </div>
         </div>

@@ -18,6 +18,7 @@ import SkemaPenilaianPanel from '../components/SkemaPenilaianPanel.jsx';
 import KartuUjianPrint from '../components/KartuUjianPrint.jsx';
 import DokumenUjianPrint from '../components/DokumenUjianPrint.jsx';
 import TutorialModal from '../components/TutorialModal.jsx';
+import OfflineAiAssistant from '../components/OfflineAiAssistant.jsx';
 import { compressImageFile } from '../utils/imageHelper.js';
 
 const isUniversalAlloc = (alloc) => {
@@ -224,6 +225,19 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     setActiveTab(tabId);
     setIsSidebarOpen(false);
     setIsMobileDrawerOpen(false);
+  };
+
+  const handleAssistantNavigate = (tab, modal, selector) => {
+    if (tab) {
+      navigateTab(tab);
+    }
+    if (modal === 'kartu') {
+      setPrintKartuModal({ isOpen: true, filterKelas: 'SEMUA', filterRuang: 'SEMUA' });
+    } else if (modal === 'analisis') {
+      setIsAnalisisModalOpen(true);
+    } else if (modal === 'dokumen') {
+      setPrintDokumenModalOpen(true);
+    }
   };
 
   const loadDefaultSkema = async () => {
@@ -3624,6 +3638,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 return (
                   <button
                     key={item.id}
+                    data-assistant-target={item.id}
                     type="button"
                     onClick={() => navigateTab(item.id)}
                     title={isSidebarCollapsed ? item.label : undefined}
@@ -3805,6 +3820,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     return (
                       <button
                         key={item.id}
+                        data-assistant-target={item.id}
                         type="button"
                         onClick={() => navigateTab(item.id)}
                         className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl font-bold text-sm transition-all min-h-[44px] ${
@@ -7648,6 +7664,13 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
         isOpen={showTutorialModal}
         initialRole="admin"
         onClose={handleCloseTutorial}
+      />
+
+      {/* Offline AI Assistant Widget (Zero-API, Offline Navigation) */}
+      <OfflineAiAssistant
+        role="admin"
+        user={user}
+        onNavigate={handleAssistantNavigate}
       />
     </div>
   );

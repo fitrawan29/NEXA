@@ -17,6 +17,7 @@ import {
 } from '../components/UI.jsx';
 import NotificationBell from '../components/NotificationBell.jsx';
 import TutorialModal from '../components/TutorialModal.jsx';
+import OfflineAiAssistant from '../components/OfflineAiAssistant.jsx';
 import { compressImageFile } from '../utils/imageHelper.js';
 
 /**
@@ -507,6 +508,7 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
               ].map((tab) => (
                 <button
                   key={tab.id}
+                  data-assistant-target={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all min-h-[44px] ${
                     activeTab === tab.id
@@ -754,7 +756,7 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                       <span className="material-symbols-outlined text-amber-500">campaign</span>
                       <CardTitle>Pengumuman Sekolah</CardTitle>
                     </div>
-                    <Button variant="ghost" size="sm" onClick={() => setActiveTab('pengumuman')}>
+                    <Button data-assistant-target="pengumuman" variant="ghost" size="sm" onClick={() => setActiveTab('pengumuman')}>
                       Semua
                     </Button>
                   </CardHeader>
@@ -869,7 +871,7 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
         {/* TAB 3: PAPAN PENGUMUMAN                                      */}
         {/* ============================================================ */}
         {activeTab === 'pengumuman' && (
-          <div className="space-y-6 animate-fade-in-up">
+          <div data-assistant-target="pengumuman" className="space-y-6 animate-fade-in-up">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
@@ -1126,6 +1128,7 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
           return (
             <button
               key={tab.id}
+              data-assistant-target={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`flex flex-col items-center justify-center flex-1 min-h-[48px] py-1 transition-all ${
                 isActive ? 'text-primary dark:text-primary-400 font-bold' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600'
@@ -1388,6 +1391,23 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
         isOpen={showTutorialModal}
         initialRole="siswa"
         onClose={handleCloseTutorial}
+      />
+
+      {/* Offline AI Assistant Widget (Zero-API, Offline Navigation) */}
+      <OfflineAiAssistant
+        role="siswa"
+        user={user}
+        onNavigate={(tab, modal) => {
+          if (tab) setActiveTab(tab);
+          if (modal === 'token') {
+            const activeExam = jadwal?.find(
+              j => (j.status_pelaksanaan === 'AKTIF' || j.status_siswa === 'MENGERJAKAN' || (!j.status_siswa && !j.is_blocked))
+            );
+            if (activeExam) {
+              handleOpenTokenModal(activeExam);
+            }
+          }
+        }}
       />
     </div>
   );

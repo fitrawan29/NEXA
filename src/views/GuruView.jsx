@@ -21,6 +21,7 @@ import NotificationBell from '../components/NotificationBell.jsx';
 import ModalPratinjauTandaTangan from '../components/ModalPratinjauTandaTangan.jsx';
 import DokumenUjianPrint from '../components/DokumenUjianPrint.jsx';
 import TutorialModal from '../components/TutorialModal.jsx';
+import OfflineAiAssistant from '../components/OfflineAiAssistant.jsx';
 import { compressImageFile } from '../utils/imageHelper.js';
 
 const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIsDarkMode }) => {
@@ -53,6 +54,19 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
     const target = tabId === 'kontrol' ? 'monitoring' : tabId;
     setActiveTab(target);
     setIsMobileDrawerOpen(false);
+  };
+
+  const handleAssistantNavigate = (tab, modal, selector) => {
+    if (tab) {
+      navigateTab(tab);
+    }
+    if (modal === 'uraian') {
+      setModalUraian({ isOpen: true, jadwal: null, mapel: null });
+    } else if (modal === 'analisis') {
+      setIsAnalisisModalOpen(true);
+    } else if (modal === 'soal') {
+      setFormSoal({ isOpen: true, mode: 'create', data: null });
+    }
   };
 
   // =========================================================================
@@ -2050,6 +2064,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                 return (
                   <button
                     key={item.id}
+                    data-assistant-target={item.id}
                     type="button"
                     onClick={() => navigateTab(item.id)}
                     title={isSidebarCollapsed ? item.label : undefined}
@@ -2231,6 +2246,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                     return (
                       <button
                         key={item.id}
+                        data-assistant-target={item.id}
                         type="button"
                         onClick={() => navigateTab(item.id)}
                         className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl font-bold text-sm transition-all min-h-[44px] ${
@@ -5262,6 +5278,12 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
         onClose={handleCloseTutorial}
       />
 
+      {/* Offline AI Assistant Widget (Zero-API, Offline Navigation) */}
+      <OfflineAiAssistant
+        role="guru"
+        user={user}
+        onNavigate={handleAssistantNavigate}
+      />
     </div>
   );
 };
