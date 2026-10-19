@@ -16,6 +16,7 @@ import {
   PasswordInput
 } from '../components/UI.jsx';
 import NotificationBell from '../components/NotificationBell.jsx';
+import TutorialModal from '../components/TutorialModal.jsx';
 import { compressImageFile } from '../utils/imageHelper.js';
 
 /**
@@ -102,7 +103,7 @@ const ProgressChart = ({ data }) => {
 };
 
 const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIsDarkMode }) => {
-  const currentUserId = user?.id_user || user?.id_siswa;
+  const currentUserId = user?.id_siswa || user?.id_user || user?.id || user?.nisn || user?.username || '';
 
   const api = (action, p = {}) => {
     if (Array.isArray(p)) return fetchAPI(action, p.map(item => ({ ...item, npsn: user.npsn })));
@@ -125,6 +126,31 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   const [inputToken, setInputToken] = useState('');
   const [tokenError, setTokenError] = useState('');
   const [isVerifyingToken, setIsVerifyingToken] = useState(false);
+  const [showTutorialModal, setShowTutorialModal] = useState(false);
+  const tutorialStorageKey = currentUserId ? `nexa_tutorial_seen_${currentUserId}_siswa` : null;
+
+  useEffect(() => {
+    if (!tutorialStorageKey) return;
+    try {
+      const seen = localStorage.getItem(tutorialStorageKey);
+      if (!seen) {
+        setShowTutorialModal(true);
+      }
+    } catch (e) {
+      console.error('Failed to read tutorial state from localStorage:', e);
+    }
+  }, [tutorialStorageKey]);
+
+  const handleCloseTutorial = () => {
+    setShowTutorialModal(false);
+    if (tutorialStorageKey) {
+      try {
+        localStorage.setItem(tutorialStorageKey, 'true');
+      } catch (e) {
+        console.error('Failed to save tutorial state to localStorage:', e);
+      }
+    }
+  };
 
   const [activeTab, setActiveTab] = useState('beranda');
   const [jadwalFilter, setJadwalFilter] = useState('HARI INI');
@@ -496,6 +522,16 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
 
             {/* User Profile Summary & Utilities */}
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowTutorialModal(true)}
+                className="px-3.5 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/80 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 hover:text-emerald-900 dark:hover:text-emerald-100 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs hover:shadow-sm"
+                title="Panduan & Tutorial"
+                aria-label="Panduan & Tutorial"
+              >
+                <span className="material-symbols-outlined text-base text-emerald-600 dark:text-emerald-400">help</span>
+                <span className="hidden sm:inline">Panduan</span>
+              </button>
               <NotificationBell role="siswa" npsn={user?.npsn} user={user} />
               {/* Dark Mode Toggle */}
               <button
@@ -576,7 +612,16 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowTutorialModal(true)}
+              className="w-11 h-11 rounded-xl bg-white/25 hover:bg-white/35 border border-white/40 backdrop-blur-sm flex items-center justify-center text-white active:scale-95 transition-all shadow-sm min-w-[44px] min-h-[44px] ring-1 ring-white/30"
+              title="Panduan & Tutorial"
+              aria-label="Panduan & Tutorial"
+            >
+              <span className="material-symbols-outlined text-xl">help</span>
+            </button>
             <NotificationBell role="siswa" variant="white" npsn={user?.npsn} user={user} />
             <button
               type="button"
@@ -1337,7 +1382,13 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
           </div>
         </div>
       )}
-
+      
+      {/* Tutorial & Panduan Alur Modal (Milestone 3 - R7) */}
+      <TutorialModal
+        isOpen={showTutorialModal}
+        initialRole="siswa"
+        onClose={handleCloseTutorial}
+      />
     </div>
   );
 };

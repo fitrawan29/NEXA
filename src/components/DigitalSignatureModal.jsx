@@ -267,8 +267,8 @@ const DigitalSignatureModal = ({
       return;
     }
 
-    // Export crisp Base64 PNG data URL
-    const signatureDataUrl = canvas.toDataURL('image/png');
+    // Export compressed Base64 JPEG data URL
+    const signatureDataUrl = canvas.toDataURL('image/jpeg', 0.6);
 
     if (onSubmit) {
       onSubmit(signatureDataUrl);

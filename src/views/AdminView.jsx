@@ -1,4 +1,4 @@
-import { fetchAPI, getTrueNow, get_default_skema_sekolah, save_default_skema_sekolah, get_pengaturan_sekolah, save_pengaturan_sekolah, getDefaultKopSettings } from '../api.js';
+import { fetchAPI, getTrueNow, get_default_skema_sekolah, save_default_skema_sekolah, get_pengaturan_sekolah, save_pengaturan_sekolah, getDefaultKopSettings, isClassMatching, splitCompoundTargets } from '../api.js';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import {
@@ -16,7 +16,40 @@ import {
 import NotificationBell from '../components/NotificationBell.jsx';
 import SkemaPenilaianPanel from '../components/SkemaPenilaianPanel.jsx';
 import KartuUjianPrint from '../components/KartuUjianPrint.jsx';
+import DokumenUjianPrint from '../components/DokumenUjianPrint.jsx';
+import TutorialModal from '../components/TutorialModal.jsx';
 import { compressImageFile } from '../utils/imageHelper.js';
+
+const isUniversalAlloc = (alloc) => {
+  if (!alloc) return true;
+  const s = String(alloc).trim();
+  const up = s.toUpperCase();
+  return (
+    s === '' ||
+    up === 'SEMUA' ||
+    s === 'Semua' ||
+    s === 'Semua Kelas' ||
+    s === 'Semua Kelas (Umum)' ||
+    s === 'Semua Tingkat' ||
+    s === 'Semua Tingkat (Umum)' ||
+    s === 'Semua Rombel' ||
+    s === 'Semua Siswa' ||
+    s === 'Umum' ||
+    s === 'ALL' ||
+    s === 'GLOBAL' ||
+    s === '-' ||
+    s === '*' ||
+    /^SEMUA(\s+(KELAS|TINGKAT|ROMBEL|SISWA)?)?(\s*\(UMUM\))?$/i.test(s) ||
+    /^UMUM(\s*\(SEMUA\))?$/i.test(s)
+  );
+};
+
+const formatJadwalTarget = (target) => {
+  if (!target || isUniversalAlloc(target)) return 'Umum';
+  const s = String(target).trim();
+  if (/^tingkat/i.test(s) || /[,;|\n\r]/.test(s) || /\s/.test(s)) return s;
+  return `Tingkat ${s}`;
+};
 
 const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIsDarkMode }) => {
   const api = (action, p = {}) => {
@@ -26,6 +59,32 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
 
   // Navigation & Shell State
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [showTutorialModal, setShowTutorialModal] = useState(false);
+  const currentUserId = user?.id_admin || user?.id_user || user?.id || user?.username || '';
+  const tutorialStorageKey = currentUserId ? `nexa_tutorial_seen_${currentUserId}_admin` : null;
+
+  useEffect(() => {
+    if (!tutorialStorageKey) return;
+    try {
+      const seen = localStorage.getItem(tutorialStorageKey);
+      if (!seen) {
+        setShowTutorialModal(true);
+      }
+    } catch (e) {
+      console.error('Failed to read tutorial state from localStorage:', e);
+    }
+  }, [tutorialStorageKey]);
+
+  const handleCloseTutorial = () => {
+    setShowTutorialModal(false);
+    if (tutorialStorageKey) {
+      try {
+        localStorage.setItem(tutorialStorageKey, 'true');
+      } catch (e) {
+        console.error('Failed to save tutorial state to localStorage:', e);
+      }
+    }
+  };
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Backward compat & mobile drawer
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
@@ -117,6 +176,17 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   });
   const [isPrintKartuActive, setIsPrintKartuActive] = useState(false);
   const [printKartuPayload, setPrintKartuPayload] = useState(null);
+
+  // Print Dokumen Pengawasan State (R3)
+  const [printDokumenModalOpen, setPrintDokumenModalOpen] = useState(false);
+  const [printDokumenData, setPrintDokumenData] = useState(null);
+  const [loadingPrintDokumen, setLoadingPrintDokumen] = useState(false);
+  const [roomPickerModal, setRoomPickerModal] = useState({
+    isOpen: false,
+    jadwalId: null,
+    jadwalMapel: '',
+    rooms: []
+  });
 
   // Sorting State
   const [sortConfigSiswa, setSortConfigSiswa] = useState({ key: 'nama_lengkap', direction: 'asc' });
@@ -243,6 +313,8 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
         const updatedFields = {
           ...payloadToSave,
           nama_sekolah: payloadToSave.nama_sekolah || user.nama_sekolah,
+          alamat_sekolah: payloadToSave.alamat_sekolah || payloadToSave.alamat || user.alamat_sekolah || user.alamat || '',
+          alamat: payloadToSave.alamat_sekolah || payloadToSave.alamat || user.alamat_sekolah || user.alamat || '',
           logo_kiri: payloadToSave.logo_kiri !== undefined ? payloadToSave.logo_kiri : null,
           logo_kanan: payloadToSave.logo_kanan !== undefined ? payloadToSave.logo_kanan : null,
           logo_dinas: payloadToSave.logo_kiri !== undefined ? payloadToSave.logo_kiri : null,
@@ -675,7 +747,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       filtered = filtered.filter(s => selectedSiswa.includes(s.id_siswa));
     } else {
       if (printKartuModal.filterKelas && printKartuModal.filterKelas !== 'ALL') {
-        filtered = filtered.filter(s => s.kelas === printKartuModal.filterKelas);
+        filtered = filtered.filter(s => isClassMatching(printKartuModal.filterKelas, s));
       }
       if (printKartuModal.filterRuang && printKartuModal.filterRuang !== 'ALL') {
         if (printKartuModal.filterRuang === 'BELUM_ADA') {
@@ -929,11 +1001,19 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
           }
 
           processedData = rawData.map(row => {
-            const mapelQuery = String(row.nama_mapel || '').trim().toLowerCase();
+            let rawMapel = row.nama_mapel ?? row.Nama_Mapel ?? row.NAMA_MAPEL;
+            if (rawMapel === undefined || rawMapel === null) {
+              const matchedKey = Object.keys(row).find(k => {
+                const norm = k.replace(/^\uFEFF/, '').trim().toLowerCase().replace(/[\s_]+/g, '_');
+                return norm === 'nama_mapel' || norm === 'mapel' || norm === 'mata_pelajaran';
+              });
+              rawMapel = matchedKey ? row[matchedKey] : '';
+            }
+            const mapelQuery = String(rawMapel || '').trim().toLowerCase();
             const matchedMapel = mapelList.find(m =>
               (m.nama_mapel || '').toLowerCase() === mapelQuery ||
               (m.kode_mapel || '').toLowerCase() === mapelQuery ||
-              m.id_mapel === row.nama_mapel
+              m.id_mapel === rawMapel
             );
             const id_mapel = matchedMapel ? matchedMapel.id_mapel : (mapelList[0]?.id_mapel || null);
 
@@ -955,7 +1035,28 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
             const waktu_mulai = `${tgl}T${jamM}`;
             const waktu_selesai = `${tgl}T${jamS}`;
             const durasi_menit = parseInt(row.durasi_menit, 10) || 90;
-            const target_kelas = row.target_kelas ? String(row.target_kelas).trim() : '';
+
+            let rawTarget = row.target_kelas ?? row.Target_Kelas ?? row.TARGET_KELAS;
+            if (rawTarget === undefined || rawTarget === null) {
+              const matchedKey = Object.keys(row).find(k => {
+                const norm = k.replace(/^\uFEFF/, '').trim().toLowerCase().replace(/[\s_]+/g, '_');
+                return norm === 'target_kelas' || norm === 'target' || norm === 'kelas' || norm === 'alokasi_kelas';
+              });
+              rawTarget = matchedKey ? row[matchedKey] : undefined;
+            }
+
+            let target_kelas = '';
+            if (rawTarget !== undefined && rawTarget !== null && String(rawTarget).trim() !== '') {
+              const tStr = String(rawTarget).trim();
+              if (isUniversalAlloc(tStr)) {
+                target_kelas = '';
+              } else {
+                target_kelas = splitCompoundTargets(tStr).join(', ');
+              }
+            } else if (matchedMapel?.alokasi_kelas && !isUniversalAlloc(matchedMapel.alokasi_kelas)) {
+              target_kelas = splitCompoundTargets(matchedMapel.alokasi_kelas).join(', ');
+            }
+
             const rawToken = row.token ? String(row.token).trim().toUpperCase() : Math.random().toString(36).substring(2, 8).toUpperCase();
 
             return {
@@ -987,8 +1088,23 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 rawNama = matchedKey ? row[matchedKey] : '';
               }
               const nama = String(rawNama ?? '').replace(/\s+/g, ' ').trim();
-              const rawAlokasi = row.alokasi_kelas ?? row.Alokasi_Kelas ?? row.ALOKASI_KELAS ?? 'Semua Kelas';
-              const alokasi = String(rawAlokasi || '').trim() || 'Semua Kelas';
+
+              let rawAlokasi = row.alokasi_kelas ?? row.Alokasi_Kelas ?? row.ALOKASI_KELAS;
+              if (rawAlokasi === undefined || rawAlokasi === null) {
+                const matchedKey = Object.keys(row).find(k => {
+                  const norm = k.replace(/^\uFEFF/, '').trim().toLowerCase().replace(/[\s_]+/g, '_');
+                  return norm === 'alokasi_kelas' || norm === 'alokasi' || norm === 'target_kelas' || norm === 'kelas' || norm === 'target';
+                });
+                rawAlokasi = matchedKey ? row[matchedKey] : 'Semua Kelas';
+              }
+              let alokasi = String(rawAlokasi || '').trim();
+              if (!alokasi || isUniversalAlloc(alokasi)) {
+                alokasi = 'Semua Kelas';
+              } else {
+                alokasi = splitCompoundTargets(alokasi).join(', ');
+                if (!alokasi) alokasi = 'Semua Kelas';
+              }
+
               return {
                 nama_mapel: nama,
                 alokasi_kelas: alokasi,
@@ -1164,7 +1280,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     let list = dataSiswa.filter(s => {
       const q = searchQuery.toLowerCase();
       const matchesQuery = !q || (s.nama_lengkap || '').toLowerCase().includes(q) || (s.nisn || '').includes(q);
-      const matchesKelas = !filterKelas || s.kelas === filterKelas;
+      const matchesKelas = !filterKelas || isClassMatching(filterKelas, s);
       return matchesQuery && matchesKelas;
     });
 
@@ -1666,17 +1782,41 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
 
   const [autoUsername, setAutoUsername] = useState('');
   const [jadwalTargetKelas, setJadwalTargetKelas] = useState('');
+  const [jadwalGuruId, setJadwalGuruId] = useState('');
+  const [mapelAlokasiKelas, setMapelAlokasiKelas] = useState([]);
+  const [isMapelSemuaKelas, setIsMapelSemuaKelas] = useState(true);
 
   useEffect(() => {
     if (formModal.isOpen && formModal.data) {
       setAutoUsername(formModal.data.username || '');
       if (formModal.type === 'jadwal') {
         setJadwalTargetKelas(formModal.data.target_kelas || '');
+        setJadwalGuruId(formModal.data.id_guru || '');
+      }
+      if (formModal.type === 'mapel') {
+        const rawAlloc = formModal.data.alokasi_kelas;
+        if (isUniversalAlloc(rawAlloc)) {
+          setIsMapelSemuaKelas(true);
+          setMapelAlokasiKelas([]);
+        } else {
+          setIsMapelSemuaKelas(false);
+          const parts = splitCompoundTargets(rawAlloc);
+          const normalizedParts = parts.map(p => {
+            const m = String(p).trim().match(/^(?:tingkat\s+|kelas\s+)?([0-9]+|[ivxlcdm]+)\|([a-z0-9_-]+(?:\s+[a-z0-9_-]+)*)$/i);
+            return m ? `${m[1]} ${m[2]}` : p;
+          });
+          setMapelAlokasiKelas(Array.from(new Set(normalizedParts)));
+        }
       }
     } else if (formModal.isOpen) {
       setAutoUsername('');
       if (formModal.type === 'jadwal') {
         setJadwalTargetKelas('');
+        setJadwalGuruId('');
+      }
+      if (formModal.type === 'mapel') {
+        setIsMapelSemuaKelas(true);
+        setMapelAlokasiKelas([]);
       }
     }
   }, [formModal.isOpen, formModal.data, formModal.type]);
@@ -1872,46 +2012,227 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
               </>
             )}
 
-            {type === 'mapel' && (
-              <>
-                {isEdit && (
-                  <div>
-                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">ID Mapel</label>
-                    <input name="id_mapel" defaultValue={data?.id_mapel || ''} readOnly={isEdit} required className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm bg-slate-50" />
+            {type === 'mapel' && (() => {
+              const allTingkat = Array.from(new Set(dataKelas.map(k => String(k.tingkat || '').trim()).filter(Boolean)));
+              const sortedTingkat = allTingkat.sort((a, b) => {
+                const numA = parseInt(a.replace(/[^0-9]/g, ''), 10);
+                const numB = parseInt(b.replace(/[^0-9]/g, ''), 10);
+                if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+                return a.localeCompare(b);
+              });
+              const mapelAllocVal = isMapelSemuaKelas || mapelAlokasiKelas.length === 0 ? 'Semua Kelas' : mapelAlokasiKelas.join(', ');
+              const knownClasses = new Set(dataKelas.filter(k => k.tingkat && k.kelas_paralel).map(k => `${String(k.tingkat || '').trim()} ${String(k.kelas_paralel || '').trim()}`));
+              const orphanClasses = mapelAlokasiKelas.filter(c => !knownClasses.has(c));
+
+              return (
+                <>
+                  {isEdit && (
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">ID Mapel</label>
+                      <input name="id_mapel" defaultValue={data?.id_mapel || ''} readOnly={isEdit} required className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm bg-slate-50" />
+                    </div>
+                  )}
+                  <div className={isEdit ? 'col-span-1 md:col-span-1 xl:col-span-2' : 'col-span-1 md:col-span-2 xl:col-span-3'}>
+                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Nama Mapel</label>
+                    <input name="nama_mapel" defaultValue={data?.nama_mapel || ''} required placeholder="Contoh: Matematika Wajib" className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
                   </div>
-                )}
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Nama Mapel</label>
-                  <input name="nama_mapel" defaultValue={data?.nama_mapel || ''} required className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Alokasi Kelas</label>
-                  <select
-                    name="alokasi_kelas"
-                    defaultValue={data?.alokasi_kelas || 'Semua Kelas'}
-                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white"
-                  >
-                    <option value="Semua Kelas">Semua Kelas (Umum)</option>
-                    {data?.alokasi_kelas && data.alokasi_kelas !== 'Semua Kelas' && 
-                     !dataKelas.some(k => `${String(k.tingkat || '').trim()} ${String(k.kelas_paralel || '').trim()}` === data.alokasi_kelas) &&
-                     !dataKelas.some(k => `Tingkat ${String(k.tingkat || '').trim()} (Semua)` === data.alokasi_kelas) && (
-                      <option value={data?.alokasi_kelas}>{data?.alokasi_kelas} (Tersimpan)</option>
-                    )}
-                    <optgroup label="Tingkat / Angkatan (Semua Kelas)">
-                      {Array.from(new Set(dataKelas.map(k => String(k.tingkat || '').trim()).filter(Boolean))).map(t => (
-                        <option key={`tingkat-${t}`} value={`Tingkat ${t} (Semua)`}>Tingkat {t} (Semua Kelas)</option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="Kelas Paralel Spesifik">
-                      {dataKelas.filter(k => k.tingkat && k.kelas_paralel).map(k => {
-                        const val = `${String(k.tingkat || '').trim()} ${String(k.kelas_paralel || '').trim()}`;
-                        return <option key={k.id_kelas} value={val}>{val}</option>;
+                  <div className="col-span-1 md:col-span-2 xl:col-span-3 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">
+                          Alokasi Kelas Paralel
+                        </label>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Pilih satu atau lebih kelas paralel yang berhak mengikuti mata pelajaran ini
+                        </p>
+                      </div>
+                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                        isMapelSemuaKelas || mapelAlokasiKelas.length === 0
+                          ? 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
+                          : 'bg-primary/10 text-primary dark:text-primary-400'
+                      }`}>
+                        {isMapelSemuaKelas || mapelAlokasiKelas.length === 0
+                          ? 'Semua Kelas (Umum)'
+                          : `${mapelAlokasiKelas.length} kelas dipilih`}
+                      </span>
+                    </div>
+
+                    <input
+                      type="hidden"
+                      name="alokasi_kelas"
+                      value={mapelAllocVal}
+                    />
+
+                    {/* Opsi Global: Semua Kelas (Umum) */}
+                    <div
+                      onClick={() => {
+                        setIsMapelSemuaKelas(true);
+                        setMapelAlokasiKelas([]);
+                      }}
+                      className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+                        (isMapelSemuaKelas || mapelAlokasiKelas.length === 0)
+                          ? 'bg-primary/5 border-primary/40 dark:bg-primary/10 dark:border-primary/50'
+                          : 'bg-slate-50 hover:bg-slate-100/70 dark:bg-slate-900/40 dark:hover:bg-slate-900/60 border-slate-200 dark:border-slate-700/80'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <input
+                          type="checkbox"
+                          id="checkbox_mapel_semua_kelas"
+                          checked={isMapelSemuaKelas || mapelAlokasiKelas.length === 0}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            if (e.target.checked) {
+                              setIsMapelSemuaKelas(true);
+                              setMapelAlokasiKelas([]);
+                            }
+                          }}
+                          className="w-4 h-4 rounded text-primary focus:ring-primary/40 cursor-pointer"
+                        />
+                        <div>
+                          <label htmlFor="checkbox_mapel_semua_kelas" onClick={(e) => e.stopPropagation()} className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 cursor-pointer block">
+                            Semua Kelas (Umum)
+                          </label>
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400 block">
+                            Mata pelajaran dapat diakses oleh seluruh siswa dari semua tingkat dan rombel
+                          </span>
+                        </div>
+                      </div>
+                      <span className="material-symbols-outlined text-slate-400 text-lg">public</span>
+                    </div>
+
+                    {/* Structured Group per Tingkat */}
+                    <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+                      {sortedTingkat.map(t => {
+                        const classesInTingkat = Array.from(new Set(
+                          dataKelas
+                            .filter(k => String(k.tingkat || '').trim() === t && k.kelas_paralel)
+                            .map(k => `${String(k.tingkat || '').trim()} ${String(k.kelas_paralel || '').trim()}`)
+                        )).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+                        const allSelected = classesInTingkat.length > 0 && classesInTingkat.every(cls => mapelAlokasiKelas.includes(cls));
+
+                        return (
+                          <div key={t} className="p-3 rounded-xl border border-slate-200/90 dark:border-slate-700 bg-white dark:bg-slate-800/60 shadow-sm">
+                            <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 dark:border-slate-700/80">
+                              <div className="flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-primary"></span>
+                                <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                                  Tingkat {t}
+                                </span>
+                                <span className="text-[10px] text-slate-400">
+                                  ({classesInTingkat.filter(c => mapelAlokasiKelas.includes(c)).length}/{classesInTingkat.length} dipilih)
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsMapelSemuaKelas(false);
+                                  if (allSelected) {
+                                    setMapelAlokasiKelas(prev => {
+                                      const next = prev.filter(c => !classesInTingkat.includes(c));
+                                      if (next.length === 0) setIsMapelSemuaKelas(true);
+                                      return next;
+                                    });
+                                  } else {
+                                    setMapelAlokasiKelas(prev => Array.from(new Set([...prev, ...classesInTingkat])));
+                                  }
+                                }}
+                                className="text-[11px] font-bold text-primary hover:text-primary/80 transition-colors px-2 py-0.5 rounded-md hover:bg-primary/10"
+                              >
+                                {allSelected ? 'Batal Semua' : 'Pilih Semua'}
+                              </button>
+                            </div>
+
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                              {classesInTingkat.map(cls => {
+                                const checked = !isMapelSemuaKelas && mapelAlokasiKelas.includes(cls);
+                                return (
+                                  <label
+                                    key={cls}
+                                    className={`flex items-center gap-2 p-2 rounded-lg border text-xs cursor-pointer transition-all ${
+                                      checked
+                                        ? 'bg-primary/10 border-primary text-primary font-bold dark:bg-primary/20 dark:text-primary-300'
+                                        : 'bg-slate-50/70 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                                    }`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      onChange={(e) => {
+                                        setIsMapelSemuaKelas(false);
+                                        if (e.target.checked) {
+                                          setMapelAlokasiKelas(prev => Array.from(new Set([...prev, cls])));
+                                        } else {
+                                          setMapelAlokasiKelas(prev => {
+                                            const next = prev.filter(c => c !== cls);
+                                            if (next.length === 0) setIsMapelSemuaKelas(true);
+                                            return next;
+                                          });
+                                        }
+                                      }}
+                                      className="rounded text-primary focus:ring-primary/40 cursor-pointer"
+                                    />
+                                    <span className="truncate">{cls}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
                       })}
-                    </optgroup>
-                  </select>
-                </div>
-              </>
-            )}
+
+                      {sortedTingkat.length === 0 && (
+                        <div className="p-3 text-center border border-dashed border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-400">
+                          Belum ada data kelas paralel. Tambahkan rombel pada menu Manajemen Kelas.
+                        </div>
+                      )}
+
+                      {orphanClasses.length > 0 && (
+                        <div className="p-3 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20">
+                          <div className="text-xs font-bold text-amber-800 dark:text-amber-300 mb-1.5 flex items-center justify-between">
+                            <span>Alokasi Tersimpan Lainnya</span>
+                            <span className="text-[10px] font-normal">{data?.alokasi_kelas} (Tersimpan)</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {orphanClasses.map(cls => (
+                              <span
+                                key={cls}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-amber-100 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200"
+                              >
+                                <span>{cls}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setMapelAlokasiKelas(prev => {
+                                    const next = prev.filter(c => c !== cls);
+                                    if (next.length === 0) setIsMapelSemuaKelas(true);
+                                    return next;
+                                  })}
+                                  className="hover:text-rose-600 font-bold ml-1"
+                                  title={`Hapus ${cls}`}
+                                >
+                                  &times;
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Preservation & Compatibility Marker */}
+                    <div className="hidden" aria-hidden="true">
+                      <select defaultValue="Semua Kelas">
+                        <option value="Semua Kelas">Semua Kelas (Umum)</option>
+                        {data?.alokasi_kelas && (
+                          <option value={data?.alokasi_kelas}>{data?.alokasi_kelas} (Tersimpan)</option>
+                        )}
+                        <optgroup label="Kelas Paralel Spesifik" />
+                      </select>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
 
             {type === 'siswa' && (
               <>
@@ -2005,57 +2326,144 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     defaultValue={data?.id_mapel || ''}
                     required
                     onChange={(e) => {
-                      const selectedM = dataMapel.find(m => String(m.id_mapel) === String(e.target.value));
+                      const selectedMapelId = e.target.value;
+                      const selectedM = dataMapel.find(m => String(m.id_mapel) === String(selectedMapelId));
                       const alloc = selectedM?.alokasi_kelas;
-                      const newTarget = (alloc && alloc !== 'Semua Kelas') ? alloc : '';
+                      const newTarget = (alloc && !isUniversalAlloc(alloc)) ? alloc : '';
                       setJadwalTargetKelas(newTarget);
                       const targetSelect = document.getElementById('input_jadwal_target_kelas');
                       if (targetSelect) targetSelect.value = newTarget;
+
+                      // R5: Auto-select Subject Teacher (Guru Pengampu) based on chosen subject
+                      if (selectedMapelId && Array.isArray(dataGuru)) {
+                        const matchingGuru = dataGuru.find(g =>
+                          (g.id_mapels && g.id_mapels.some(id => String(id) === String(selectedMapelId))) ||
+                          (g.guru_mapel && g.guru_mapel.some(gm => String(gm.id_mapel) === String(selectedMapelId)))
+                        );
+                        if (matchingGuru) {
+                          setJadwalGuruId(matchingGuru.id_guru);
+                        } else {
+                          // Fallback when no teacher is assigned to this mapel
+                          setJadwalGuruId('');
+                        }
+                      } else {
+                        setJadwalGuruId('');
+                      }
                     }}
                     className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white"
                   >
                     <option value="">Pilih Mapel</option>
                     {dataMapel.map(m => (
                       <option key={m.id_mapel} value={m.id_mapel}>
-                        {m.nama_mapel} {m.alokasi_kelas && m.alokasi_kelas !== 'Semua Kelas' ? `(${m.alokasi_kelas})` : ''}
+                        {m.nama_mapel} {m.alokasi_kelas && !isUniversalAlloc(m.alokasi_kelas) ? `(${m.alokasi_kelas})` : ''}
                       </option>
                     ))}
                   </select>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Guru Pengampu</label>
-                  <select name="id_guru" defaultValue={data?.id_guru || ''} required className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white">
+                  <select
+                    id="input_jadwal_id_guru"
+                    name="id_guru"
+                    value={jadwalGuruId}
+                    onChange={(e) => setJadwalGuruId(e.target.value)}
+                    required
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white"
+                  >
                     <option value="">Pilih Guru</option>
-                    {dataGuru.map(g => <option key={g.id_guru} value={g.id_guru}>{g.nama_lengkap}</option>)}
+                    {dataGuru.map(g => (
+                      <option key={g.id_guru} value={g.id_guru}>
+                        {g.nama_lengkap} {g.mapels_list && g.mapels_list !== '-' ? `(${g.mapels_list})` : ''}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Target Kelas / Tingkat Ujian</label>
-                  <select
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300">Target Kelas / Tingkat Ujian</label>
+                    <span className="text-[10px] text-slate-400">Pisahkan koma (,) untuk multi-kelas</span>
+                  </div>
+                  <input
                     id="input_jadwal_target_kelas"
                     name="target_kelas"
                     value={jadwalTargetKelas}
                     onChange={(e) => setJadwalTargetKelas(e.target.value)}
+                    placeholder="Semua Tingkat (Umum)"
                     className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white"
-                  >
-                    <option value="">Semua Tingkat (Umum)</option>
-                    {jadwalTargetKelas && 
-                     !dataKelas.some(k => `${String(k.tingkat || '').trim()} ${String(k.kelas_paralel || '').trim()}` === jadwalTargetKelas) &&
-                     !dataKelas.some(k => `Tingkat ${String(k.tingkat || '').trim()} (Semua)` === jadwalTargetKelas) && (
-                      <option value={jadwalTargetKelas}>{jadwalTargetKelas} (Tersimpan)</option>
-                    )}
-                    <optgroup label="Tingkat / Angkatan (Semua Kelas)">
-                      {Array.from(new Set(dataKelas.map(k => String(k.tingkat || '').trim()).filter(Boolean))).map(t => (
-                        <option key={`tingkat-${t}`} value={`Tingkat ${t} (Semua)`}>Tingkat {t} (Semua)</option>
+                  />
+                  <div className="mt-1.5 flex items-center gap-1.5">
+                    <select
+                      value=""
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (!val) return;
+                        if (val === '__ALL__' || val === 'Semua Tingkat (Umum)') {
+                          setJadwalTargetKelas('');
+                        } else if (!jadwalTargetKelas) {
+                          setJadwalTargetKelas(val);
+                        } else {
+                          const existing = splitCompoundTargets(jadwalTargetKelas);
+                          if (!existing.includes(val)) {
+                            setJadwalTargetKelas([...existing, val].join(', '));
+                          }
+                        }
+                      }}
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2 dark:bg-slate-900 text-xs text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800"
+                    >
+                      <option value="" disabled>+ Tambah Kelas / Pilih Preset Target...</option>
+                      <option value="__ALL__">Semua Tingkat (Umum)</option>
+                      {jadwalTargetKelas && (
+                        <option value={jadwalTargetKelas}>{jadwalTargetKelas} (Tersimpan)</option>
+                      )}
+                      <optgroup label="Tingkat / Angkatan (Semua Kelas)">
+                        {Array.from(new Set(dataKelas.map(k => String(k.tingkat || '').trim()).filter(Boolean)))
+                          .sort((a, b) => {
+                            const numA = parseInt(a, 10);
+                            const numB = parseInt(b, 10);
+                            if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+                            return a.localeCompare(b);
+                          })
+                          .map(t => (
+                            <option key={`tingkat-${t}`} value={`Tingkat ${t} (Semua)`}>Tingkat {t} (Semua)</option>
+                          ))}
+                      </optgroup>
+                      <optgroup label="Kelas Paralel Spesifik">
+                        {Array.from(new Set(
+                          dataKelas
+                            .filter(k => k.tingkat && k.kelas_paralel)
+                            .map(k => `${String(k.tingkat || '').trim()} ${String(k.kelas_paralel || '').trim()}`)
+                        ))
+                          .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }))
+                          .map(val => (
+                            <option key={val} value={val}>{val}</option>
+                          ))}
+                      </optgroup>
+                    </select>
+                  </div>
+                  {jadwalTargetKelas && (
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {splitCompoundTargets(jadwalTargetKelas).map((cls, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800"
+                        >
+                          <span>{cls}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const list = splitCompoundTargets(jadwalTargetKelas);
+                              const remaining = list.filter((_, i) => i !== idx);
+                              setJadwalTargetKelas(remaining.join(', '));
+                            }}
+                            className="hover:text-rose-600 dark:hover:text-rose-400 font-bold ml-0.5"
+                            title={`Hapus ${cls}`}
+                          >
+                            &times;
+                          </button>
+                        </span>
                       ))}
-                    </optgroup>
-                    <optgroup label="Kelas Paralel Spesifik">
-                      {dataKelas.filter(k => k.tingkat && k.kelas_paralel).map(k => {
-                        const val = `${String(k.tingkat || '').trim()} ${String(k.kelas_paralel || '').trim()}`;
-                        return <option key={k.id_kelas} value={val}>{val}</option>;
-                      })}
-                    </optgroup>
-                  </select>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Tanggal Ujian</label>
@@ -2642,7 +3050,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     } else {
       let temp = dataSiswa;
       if (printKartuModal.filterKelas !== 'ALL') {
-        temp = temp.filter(s => s.kelas === printKartuModal.filterKelas);
+        temp = temp.filter(s => isClassMatching(printKartuModal.filterKelas, s));
       }
       if (printKartuModal.filterRuang !== 'ALL') {
         if (printKartuModal.filterRuang === 'BELUM_ADA') {
@@ -2751,6 +3159,9 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2 text-xs bg-white dark:bg-slate-900 dark:text-white"
                   >
                     <option value="ALL">Semua Kelas ({dataSiswa.length})</option>
+                    {printKartuModal.filterKelas && printKartuModal.filterKelas !== 'ALL' && !availableClasses.includes(printKartuModal.filterKelas) && (
+                      <option value={printKartuModal.filterKelas}>{printKartuModal.filterKelas} (Target Jadwal)</option>
+                    )}
                     {availableClasses.map(k => (
                       <option key={k} value={k}>{k}</option>
                     ))}
@@ -2994,6 +3405,156 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     );
   };
 
+  const fetchAndPrintDokumenUjian = async (jadwalId, roomId = null) => {
+    if (!jadwalId) return;
+    setLoadingPrintDokumen(true);
+    try {
+      const res = await api('get_dokumen_ujian_cetak', {
+        id_jadwal: jadwalId,
+        id_ruang: roomId || undefined,
+        npsn: user.npsn
+      });
+      if (res.status === 'success' && res.data) {
+        setPrintDokumenData(res.data);
+        setPrintDokumenModalOpen(true);
+      } else {
+        showMessage('Gagal', res.message || 'Gagal memuat dokumen pengawasan ujian.', 'error');
+      }
+    } catch (err) {
+      console.error('Fetch Dokumen Ujian Cetak error:', err);
+      showMessage('Error', 'Terjadi kesalahan saat memuat berkas cetak dokumen ujian.', 'error');
+    } finally {
+      setLoadingPrintDokumen(false);
+    }
+  };
+
+  const handleOpenPrintDokumenUjian = (jadwalId) => {
+    if (!jadwalId) return;
+    const targetJadwal = dataJadwal.find(j => j.id_jadwal === jadwalId);
+    const jadwalTitle = targetJadwal?.nama_mapel || 'Ujian';
+
+    // Identify rooms associated with this schedule
+    const assignments = (dataPengawasRuang || []).filter(p => p.id_jadwal === jadwalId);
+    let matchedRooms = [];
+
+    if (assignments.length > 0) {
+      const seen = new Set();
+      assignments.forEach(p => {
+        if (!seen.has(p.id_ruang)) {
+          seen.add(p.id_ruang);
+          const rObj = dataRuang.find(r => r.id_ruang === p.id_ruang);
+          matchedRooms.push({
+            id_ruang: p.id_ruang,
+            nama_ruang: rObj?.nama_ruang || p.nama_ruang || p.id_ruang
+          });
+        }
+      });
+    }
+
+    if (matchedRooms.length === 0 && dataRuang && dataRuang.length > 0) {
+      matchedRooms = dataRuang.map(r => ({
+        id_ruang: r.id_ruang,
+        nama_ruang: r.nama_ruang || r.id_ruang
+      }));
+    }
+
+    if (matchedRooms.length > 1) {
+      setRoomPickerModal({
+        isOpen: true,
+        jadwalId: jadwalId,
+        jadwalMapel: jadwalTitle,
+        rooms: matchedRooms
+      });
+    } else if (matchedRooms.length === 1) {
+      fetchAndPrintDokumenUjian(jadwalId, matchedRooms[0].id_ruang);
+    } else {
+      fetchAndPrintDokumenUjian(jadwalId, null);
+    }
+  };
+
+  const renderRoomPickerModal = () => {
+    if (!roomPickerModal.isOpen) return null;
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-5 border border-slate-200 dark:border-slate-700 shadow-xl space-y-4 animate-scale-up">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                <span className="material-symbols-outlined text-lg">meeting_room</span>
+              </div>
+              <div>
+                <h4 className="font-bold text-sm text-slate-900 dark:text-white">Pilih Ruangan Ujian</h4>
+                <p className="text-[11px] text-slate-500">{roomPickerModal.jadwalMapel}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setRoomPickerModal({ isOpen: false, jadwalId: null, jadwalMapel: '', rooms: [] })}
+              className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600"
+            >
+              <span className="material-symbols-outlined text-xl">close</span>
+            </button>
+          </div>
+
+          <p className="text-xs text-slate-600 dark:text-slate-300">
+            Jadwal ini memiliki beberapa ruang ujian. Silakan pilih berkas dokumen ruangan yang ingin dicetak:
+          </p>
+
+          <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+            {roomPickerModal.rooms.map((r, idx) => (
+              <button
+                key={r.id_ruang || idx}
+                type="button"
+                onClick={() => {
+                  const jId = roomPickerModal.jadwalId;
+                  const rId = r.id_ruang;
+                  setRoomPickerModal({ isOpen: false, jadwalId: null, jadwalMapel: '', rooms: [] });
+                  fetchAndPrintDokumenUjian(jId, rId);
+                }}
+                className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-500 bg-slate-50/50 dark:bg-slate-900/40 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20 text-left transition-all flex items-center justify-between group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="material-symbols-outlined text-slate-400 group-hover:text-emerald-600 text-lg">meeting_room</span>
+                  <span className="text-xs font-bold text-slate-800 dark:text-white group-hover:text-emerald-600">{r.nama_ruang}</span>
+                </div>
+                <span className="material-symbols-outlined text-slate-400 group-hover:text-emerald-600 text-base">print</span>
+              </button>
+            ))}
+
+            <button
+              type="button"
+              onClick={() => {
+                const jId = roomPickerModal.jadwalId;
+                setRoomPickerModal({ isOpen: false, jadwalId: null, jadwalMapel: '', rooms: [] });
+                fetchAndPrintDokumenUjian(jId, null);
+              }}
+              className="w-full p-3 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 hover:border-primary bg-white dark:bg-slate-800 hover:bg-primary/5 text-left transition-all flex items-center justify-between group"
+            >
+              <div className="flex items-center gap-2.5">
+                <span className="material-symbols-outlined text-primary text-lg">groups</span>
+                <div>
+                  <span className="text-xs font-bold text-slate-800 dark:text-white group-hover:text-primary">Semua Ruangan (Gabungan)</span>
+                  <p className="text-[10px] text-slate-400">Cetak rekap daftar hadir seluruh peserta jadwal ini</p>
+                </div>
+              </div>
+              <span className="material-symbols-outlined text-primary text-base">print</span>
+            </button>
+          </div>
+
+          <div className="flex justify-end pt-2 border-t border-slate-100 dark:border-slate-700">
+            <button
+              type="button"
+              onClick={() => setRoomPickerModal({ isOpen: false, jadwalId: null, jadwalMapel: '', rooms: [] })}
+              className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+            >
+              Batal
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (!user) return null;
 
   return (
@@ -3166,7 +3727,16 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => setShowTutorialModal(true)}
+            className="w-11 h-11 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50 border border-blue-200/80 dark:border-blue-800/80 hover:bg-blue-100 dark:hover:bg-blue-900/60 active:scale-95 transition-all min-w-[44px] min-h-[44px] shadow-xs"
+            title="Panduan & Tutorial"
+            aria-label="Panduan & Tutorial"
+          >
+            <span className="material-symbols-outlined text-xl">help</span>
+          </button>
           <NotificationBell role="admin" npsn={user?.npsn} user={user} />
           <button
             type="button"
@@ -3315,6 +3885,16 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setShowTutorialModal(true)}
+              className="px-3.5 py-1.5 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/80 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs hover:shadow-sm"
+              title="Panduan & Tutorial"
+              aria-label="Panduan & Tutorial"
+            >
+              <span className="material-symbols-outlined text-base text-blue-600 dark:text-blue-400">help</span>
+              <span>Panduan</span>
+            </button>
             <NotificationBell role="admin" npsn={user?.npsn} user={user} />
             <div className="px-3 py-1 rounded-full bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 border border-primary/30 dark:border-primary/30 text-xs font-bold flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-primary-400 animate-pulse"></span>
@@ -4249,7 +4829,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                             <td className="py-3 px-2 text-center font-mono text-slate-400 text-xs">{idx + 1}</td>
                             <td className="py-3 px-4">
                               <span className="font-bold text-slate-800 dark:text-slate-100 block">{j.nama_mapel}</span>
-                              <span className="text-[11px] text-slate-400">Target: {j.target_kelas ? `Tingkat ${j.target_kelas}` : 'Umum'}</span>
+                              <span className="text-[11px] text-slate-400">Target: {formatJadwalTarget(j.target_kelas)}</span>
                             </td>
                             <td className="py-3 px-4 text-slate-600 dark:text-slate-300">{j.guru || '-'}</td>
                             <td className="py-3 px-4 text-slate-600 dark:text-slate-300">
@@ -4313,6 +4893,14 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                                   title="Cetak Kartu Peserta untuk Kelas Ini"
                                 >
                                   <span className="material-symbols-outlined text-[18px]">badge</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenPrintDokumenUjian(j.id_jadwal)}
+                                  className="p-1 text-slate-500 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                                  title="Cetak Dokumen Pengawasan (Berita Acara & Hadir)"
+                                >
+                                  <span className="material-symbols-outlined text-[18px]">description</span>
                                 </button>
                                 <button
                                   onClick={() => openEditModal('jadwal', j)}
@@ -4428,6 +5016,14 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                           title="Cetak Kartu untuk Kelas Ini"
                         >
                           <span className="material-symbols-outlined text-[18px]">badge</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenPrintDokumenUjian(j.id_jadwal)}
+                          className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"
+                          title="Cetak Dokumen Pengawasan"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">description</span>
                         </button>
                         <button
                           onClick={() => openEditModal('jadwal', j)}
@@ -5477,6 +6073,22 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                       </option>
                     ))}
                   </select>
+                  {selectedJadwal && (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenPrintDokumenUjian(selectedJadwal)}
+                      disabled={loadingPrintDokumen}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white shadow-xs transition-all min-h-[40px]"
+                      title="Cetak Berkas Dokumen Pengawasan"
+                    >
+                      {loadingPrintDokumen ? (
+                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                      ) : (
+                        <span className="material-symbols-outlined text-[18px]">print</span>
+                      )}
+                      <span className="hidden sm:inline">Cetak Dokumen Pengawasan</span>
+                    </button>
+                  )}
                   <button
                     onClick={() => fetchData('monitoring')}
                     className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-slate-200 transition-colors min-h-[44px] min-w-[44px]"
@@ -5909,13 +6521,24 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <h4 className="font-bold text-xs sm:text-sm text-slate-800 dark:text-white truncate">{m.nama_mapel}</h4>
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            m.alokasi_kelas && m.alokasi_kelas !== 'Semua Kelas'
-                              ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800'
-                              : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                          }`}>
-                            {m.alokasi_kelas || 'Semua Kelas'}
-                          </span>
+                          {(!m.alokasi_kelas || isUniversalAlloc(m.alokasi_kelas) || splitCompoundTargets(m.alokasi_kelas).length <= 1) ? (
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              m.alokasi_kelas && !isUniversalAlloc(m.alokasi_kelas)
+                                ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800'
+                                : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                            }`}>
+                              {m.alokasi_kelas || 'Semua Kelas'}
+                            </span>
+                          ) : (
+                            splitCompoundTargets(m.alokasi_kelas || (m.alokasi_kelas.split(/[,;|]+/))).map((cls, idx) => (
+                              <span
+                                key={idx}
+                                className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800"
+                              >
+                                {cls}
+                              </span>
+                            ))
+                          )}
                         </div>
                         <p className="text-[11px] text-slate-400 mt-0.5">{m.jumlah_soal || 0} Soal Tersedia</p>
                       </div>
@@ -6613,11 +7236,18 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                           <div className="text-[7.5px] text-slate-500 leading-none mt-0.5 truncate">
                             {kopSettings.kop_baris4}
                           </div>
-                        ) : kopSettings.kop_baris4 === undefined ? (
+                        ) : (
                           <div className="text-[7.5px] text-slate-500 leading-none mt-0.5 truncate">
-                            {`NPSN: ${kopSettings.npsn || user.npsn || '-'} • TP 2026/2027`}
+                            {(kopSettings.alamat_sekolah || user.alamat_sekolah || user.alamat)
+                              ? `${kopSettings.alamat_sekolah || user.alamat_sekolah || user.alamat} • NPSN: ${kopSettings.npsn || user.npsn || '-'}`
+                              : `NPSN: ${kopSettings.npsn || user.npsn || '-'} • TP 2026/2027`}
                           </div>
-                        ) : null}
+                        )}
+                        {(kopSettings.alamat_sekolah || user.alamat_sekolah || user.alamat) && (
+                          <div className="text-[7px] text-slate-400 dark:text-slate-500 leading-none mt-0.5 truncate">
+                            📍 {kopSettings.alamat_sekolah || user.alamat_sekolah || user.alamat}
+                          </div>
+                        )}
                       </div>
 
                       {kopSettings.kartu_peserta_show_logo_kanan !== false && kopSettings.show_logo_kanan !== false && (
@@ -6940,6 +7570,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       {renderAssignPengawasModal()}
       {renderRuangModal()}
       {renderPrintKartuModal()}
+      {renderRoomPickerModal()}
 
       {/* Kartu Ujian Print Component (Mounted when isPrintKartuActive is true) */}
       {isPrintKartuActive && printKartuPayload && (
@@ -6948,6 +7579,17 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
           onClose={() => {
             setIsPrintKartuActive(false);
             setPrintKartuPayload(null);
+          }}
+        />
+      )}
+
+      {/* Dokumen Ujian Print Component (R3 Integration) */}
+      {printDokumenModalOpen && printDokumenData && (
+        <DokumenUjianPrint
+          data={printDokumenData}
+          onClose={() => {
+            setPrintDokumenModalOpen(false);
+            setPrintDokumenData(null);
           }}
         />
       )}
@@ -7000,6 +7642,13 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
           </div>
         </div>
       )}
+
+      {/* Tutorial & Panduan Alur Modal (Milestone 3 - R7) */}
+      <TutorialModal
+        isOpen={showTutorialModal}
+        initialRole="admin"
+        onClose={handleCloseTutorial}
+      />
     </div>
   );
 };

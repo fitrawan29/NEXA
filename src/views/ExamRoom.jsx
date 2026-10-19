@@ -1143,6 +1143,17 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
                     dangerouslySetInnerHTML={{ __html: currentS.pertanyaan }} 
                   />
 
+                  {currentS.gambar && (
+                    <div className="my-4 flex justify-center">
+                      <img
+                        src={currentS.gambar}
+                        alt="Gambar Soal"
+                        className="max-h-72 sm:max-h-96 w-auto object-contain rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs"
+                        loading="lazy"
+                      />
+                    </div>
+                  )}
+
                   <div className="space-y-3">
                     {renderQuestionInput(currentS)}
                   </div>

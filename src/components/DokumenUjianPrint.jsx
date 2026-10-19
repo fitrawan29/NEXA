@@ -110,8 +110,8 @@ export default function DokumenUjianPrint({
   };
 
   const dateInfo = formatDateIndo(jadwal?.waktu_mulai);
-  const activePengawasNama = pengawasNama || pengawas?.nama_lengkap || beritaAcara?.guru?.nama_lengkap || 'Pengawas Ruang Ujian';
-  const activePengawasNip = pengawasNip || pengawas?.nip || beritaAcara?.guru?.nip || '-';
+  const activePengawasNama = pengawasNama || beritaAcara?.guru?.nama_lengkap || pengawas?.nama_lengkap || 'Pengawas Ruang Ujian';
+  const activePengawasNip = pengawasNip || beritaAcara?.guru?.nip || pengawas?.nip || '-';
   const catatanText = catatanPelaksanaan || beritaAcara?.catatan_pelaksanaan || "Pelaksanaan ujian di ruang ini berjalan dengan tertib, lancar, dan aman. Seluruh perangkat komputer dan koneksi jaringan berfungsi sebagaimana mestinya tanpa kendala berarti.";
 
   return (
@@ -212,7 +212,7 @@ export default function DokumenUjianPrint({
                 {sekolah.nama_sekolah || '-'}
               </h1>
               <p className="text-[10px] text-slate-600 mt-0.5 leading-tight">
-                NPSN: {sekolah.npsn || '-'} &bull; Alamat: {sekolah.alamat || '-'}
+                NPSN: {sekolah.npsn || '-'} &bull; Alamat: {sekolah.alamat_sekolah || sekolah.alamat || '-'}
                 {sekolah.email ? ` • Email: ${sekolah.email}` : ''}
               </p>
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-900 mt-1">
@@ -339,6 +339,37 @@ export default function DokumenUjianPrint({
               {catatanText}
             </div>
           </div>
+
+          {/* Photo Documentation Section */}
+          {(beritaAcara?.foto_dokumentasi || data?.foto_dokumentasi || beritaAcara?.drive_url || data?.drive_url) && (
+            <div className="mb-4 avoid-break">
+              <h3 className="text-xs font-bold uppercase mb-1">III. Dokumentasi Pelaksanaan Ujian:</h3>
+              <div className="border border-black p-2.5 bg-slate-50/30 flex flex-col items-center">
+                {(beritaAcara?.foto_dokumentasi || data?.foto_dokumentasi) ? (
+                  <div className="w-full max-w-[420px] overflow-hidden rounded border border-slate-300 shadow-xs mb-1.5">
+                    <img
+                      src={beritaAcara?.foto_dokumentasi || data?.foto_dokumentasi}
+                      alt="Dokumentasi Pelaksanaan Ujian"
+                      className="w-full h-auto max-h-[220px] object-contain mx-auto bg-slate-900"
+                    />
+                  </div>
+                ) : null}
+                {(beritaAcara?.drive_url || data?.drive_url) && (
+                  <p className="text-[10px] text-slate-700 font-mono break-all text-center">
+                    <span className="font-semibold font-sans">Tautan Arsip Google Drive:</span>{' '}
+                    <a
+                      href={beritaAcara?.drive_url || data?.drive_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-700 underline"
+                    >
+                      {beritaAcara?.drive_url || data?.drive_url}
+                    </a>
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Two-Column Signature Block */}
           <div className="grid grid-cols-2 gap-8 text-xs pt-2 avoid-break">

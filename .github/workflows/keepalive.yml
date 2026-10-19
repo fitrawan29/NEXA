@@ -1,0 +1,34 @@
+name: Supabase Keepalive
+
+on:
+  schedule:
+    # Runs every 3 days at 00:00 UTC to prevent Supabase project auto-pausing after 7 days of inactivity
+    - cron: '0 0 */3 * *'
+  workflow_dispatch:
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Ping deployed Vercel app
+        env:
+          VERCEL_APP_URL: ${{ secrets.VERCEL_APP_URL }}
+        run: |
+          CLEAN_URL="$(echo "$VERCEL_APP_URL" | tr -d '[:space:]' | tr -d '"'\'')"
+          if [ -n "$CLEAN_URL" ]; then
+            TARGET_URL="$CLEAN_URL"
+            shopt -s nocasematch
+            if [[ ! "$TARGET_URL" =~ ^https?:// ]]; then
+              TARGET_URL="https://$TARGET_URL"
+            fi
+            shopt -u nocasematch
+            echo "Sending keepalive GET request to deployed app..."
+            curl -fsSL -m 30 "$TARGET_URL" > /dev/null || curl -sSL -m 30 "$TARGET_URL" > /dev/null
+            echo "Keepalive ping completed."
+          else
+            echo "::warning::VERCEL_APP_URL secret is not configured or empty."
+            echo "Warning: VERCEL_APP_URL secret is not configured or empty."
+          fi

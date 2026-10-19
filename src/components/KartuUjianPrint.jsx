@@ -67,10 +67,13 @@ const KartuUjianPrint = ({ data, onClose }) => {
   const showLogoKananPeserta = masterShowLogoKanan && (sekolah.kartu_peserta_show_logo_kanan !== false);
 
   // Kop text lines for Kartu Peserta
-  const kopPesertaBaris1 = sekolah.kop_baris1 || '';
-  const kopPesertaBaris2 = sekolah.kop_baris2 || schoolName;
-  const kopPesertaBaris3 = sekolah.kop_baris3 || 'KARTU PESERTA ASESMEN / CBT';
-  const kopPesertaBaris4 = sekolah.kop_baris4 !== undefined ? sekolah.kop_baris4 : `NPSN: ${schoolNpsn} • TP ${tahunAjaran}`;
+  const schoolAddress = sekolah.alamat_sekolah || sekolah.alamat || '';
+  const defaultKopPesertaBaris4 = schoolAddress
+    ? `${schoolAddress} • NPSN: ${schoolNpsn}`
+    : `NPSN: ${schoolNpsn} • TP ${tahunAjaran}`;
+  const kopPesertaBaris4 = (sekolah.kop_baris4 !== undefined && sekolah.kop_baris4 !== '') 
+    ? sekolah.kop_baris4 
+    : defaultKopPesertaBaris4;
 
   // Configuration for Kartu Meja
   const mejaMode = sekolah.kop_meja_mode || 'formal';

@@ -95,7 +95,7 @@ const SkemaPenilaianPanel = ({
     return Math.round(raw * 100) / 100;
   };
 
-  const handleSave = () => {
+  const handleSave = (applyToAll = false) => {
     const cleanSkema = {};
     for (const [k, v] of Object.entries(skema)) {
       cleanSkema[k] = parseWeight(v);
@@ -128,9 +128,11 @@ const SkemaPenilaianPanel = ({
           mode: 'custom',
           skema: cleanSkema
         }),
-        bobot: 1
+        bobot: 1,
+        mode: 'custom',
+        skema: cleanSkema
       };
-      onSave(payload);
+      onSave(payload, applyToAll);
     } else {
       isUserEditingRef.current = false;
       const activeDefaultSkema = Object.values(cleanSkema).some(v => v > 0) ? cleanSkema : standardDefaultSkema;
@@ -147,9 +149,11 @@ const SkemaPenilaianPanel = ({
           mode: 'default',
           skema: activeDefaultSkema
         }),
-        bobot: 0
+        bobot: 0,
+        mode: 'default',
+        skema: activeDefaultSkema
       };
-      onSave(payload);
+      onSave(payload, applyToAll);
     }
   };
 
@@ -285,13 +289,34 @@ const SkemaPenilaianPanel = ({
             </span>
           )}
         </div>
-        <button
-          onClick={handleSave}
-          className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2"
-        >
-          <span className="material-symbols-outlined text-[18px]">save</span>
-          <span>{isSchoolDefault ? 'Simpan Format Default' : 'Simpan Skema'}</span>
-        </button>
+        {isSchoolDefault ? (
+          <button
+            onClick={() => handleSave(false)}
+            className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2"
+          >
+            <span className="material-symbols-outlined text-[18px]">save</span>
+            <span>Simpan Format Default</span>
+          </button>
+        ) : (
+          <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => handleSave(false)}
+              className="w-full sm:w-auto px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-white border border-slate-300 dark:border-slate-600 shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2"
+            >
+              <span className="material-symbols-outlined text-[18px]">save</span>
+              <span>Simpan Mapel Ini</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSave(true)}
+              className="w-full sm:w-auto px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2"
+            >
+              <span className="material-symbols-outlined text-[18px]">done_all</span>
+              <span>Terapkan ke Semua Mapel yang Diampu</span>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

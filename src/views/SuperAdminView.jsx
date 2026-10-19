@@ -1,9 +1,36 @@
 import { fetchAPI } from '../api.js';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import NotificationBell from '../components/NotificationBell.jsx';
+import TutorialModal from '../components/TutorialModal.jsx';
 import { PasswordInput } from '../components/UI.jsx';
 ﻿    const SuperAdminView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) => {
       const [activeTab, setActiveTab] = useState('analytics');
+      const [showTutorialModal, setShowTutorialModal] = useState(false);
+      const currentUserId = user?.id_super_admin || user?.id_user || user?.id || user?.username || '';
+      const tutorialStorageKey = currentUserId ? `nexa_tutorial_seen_${currentUserId}_super_admin` : null;
+
+      useEffect(() => {
+        if (!tutorialStorageKey) return;
+        try {
+          const seen = localStorage.getItem(tutorialStorageKey);
+          if (!seen) {
+            setShowTutorialModal(true);
+          }
+        } catch (e) {
+          console.error('Failed to read tutorial state from localStorage:', e);
+        }
+      }, [tutorialStorageKey]);
+
+      const handleCloseTutorial = () => {
+        setShowTutorialModal(false);
+        if (tutorialStorageKey) {
+          try {
+            localStorage.setItem(tutorialStorageKey, 'true');
+          } catch (e) {
+            console.error('Failed to save tutorial state to localStorage:', e);
+          }
+        }
+      };
       const [dataSekolah, setDataSekolah] = useState([]);
       const [dataAdmin, setDataAdmin] = useState([]);
       const [dataAnalytics, setDataAnalytics] = useState({});
@@ -168,8 +195,8 @@ import { PasswordInput } from '../components/UI.jsx';
             
             {/* Header / Top Section */}
             <div className="bg-primary rounded-none px-6 pt-4 pb-4 relative text-white shadow-md z-0 flex-shrink-0">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-3">
+              <div className="flex justify-between items-center gap-3">
+                <div className="flex items-center gap-3 min-w-0">
                   <div className="w-12 h-12 bg-white/20 rounded-full border-2 border-white/50 overflow-hidden flex-shrink-0 flex items-center justify-center">
                     {fotoProfil ? (
                       <img src={fotoProfil} className="w-full h-full object-cover" />
@@ -177,12 +204,22 @@ import { PasswordInput } from '../components/UI.jsx';
                       <span className="material-symbols-outlined text-white text-3xl">verified_user</span>
                     )}
                   </div>
-                  <div>
-                    <h2 className="font-bold text-lg leading-tight">Super Admin</h2>
-                    <p className="text-sm font-medium opacity-90">{user.nama_lengkap}</p>
+                  <div className="min-w-0">
+                    <h2 className="font-bold text-lg leading-tight truncate">Super Admin</h2>
+                    <p className="text-sm font-medium opacity-90 truncate">{user.nama_lengkap}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setShowTutorialModal(true)}
+                    className="w-11 h-11 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 rounded-xl bg-white/20 hover:bg-white/30 border border-white/30 backdrop-blur-sm flex items-center justify-center gap-1.5 text-white active:scale-95 transition-all shadow-sm text-xs font-bold min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-[36px] shrink-0"
+                    title="Panduan & Tutorial"
+                    aria-label="Panduan & Tutorial"
+                  >
+                    <span className="material-symbols-outlined text-xl sm:text-lg">help</span>
+                    <span className="hidden sm:inline">Panduan</span>
+                  </button>
                   <NotificationBell role="super_admin" variant="white" user={user} />
                   <button type="button" onClick={() => setIsDarkMode(!isDarkMode)} className="relative p-1 rounded-full hover:bg-white/20 transition-colors" title="Mode Gelap/Terang">
                     <span className="material-symbols-outlined text-2xl">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
@@ -520,6 +557,13 @@ import { PasswordInput } from '../components/UI.jsx';
             
             {renderFormModal()}
             {renderDeleteModal()}
+
+            {/* Tutorial & Panduan Alur Modal (Milestone 3 - R7) */}
+            <TutorialModal
+              isOpen={showTutorialModal}
+              initialRole="super_admin"
+              onClose={handleCloseTutorial}
+            />
           </div>
         </div>
       );

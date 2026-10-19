@@ -1,40 +1,143 @@
 {
-  "timestamp": "2026-10-16T08:51:32.406Z",
+  "timestamp": "2026-10-18T21:04:36.459Z",
   "summary": {
-    "total": 20,
-    "passed": 13,
-    "failed": 7,
+    "total": 41,
+    "passed": 41,
+    "failed": 0,
     "skipped": 0,
-    "durationSeconds": 2.82
+    "durationSeconds": 7.62
   },
   "tierStats": {
     "1": {
       "title": "Tier 1: Feature Coverage",
       "total": 20,
-      "passed": 13,
-      "failed": 7
+      "passed": 20,
+      "failed": 0
+    },
+    "2": {
+      "title": "Tier 2: Boundary & Corner Cases",
+      "total": 10,
+      "passed": 10,
+      "failed": 0
+    },
+    "3": {
+      "title": "Tier 3: Cross-Feature Combinations",
+      "total": 5,
+      "passed": 5,
+      "failed": 0
+    },
+    "4": {
+      "title": "Tier 4: Real-World Workload Simulation",
+      "total": 6,
+      "passed": 6,
+      "failed": 0
     }
   },
   "featureStats": {
     "R1: Canvas Signature": {
       "total": 5,
-      "passed": 3,
-      "failed": 2
+      "passed": 5,
+      "failed": 0
     },
     "R2: Admin Proctor Assignment": {
       "total": 5,
-      "passed": 3,
-      "failed": 2
+      "passed": 5,
+      "failed": 0
     },
     "R3: Proctor Verification": {
       "total": 5,
-      "passed": 3,
-      "failed": 2
+      "passed": 5,
+      "failed": 0
     },
     "R4: Print Documents & CSS": {
       "total": 5,
+      "passed": 5,
+      "failed": 0
+    },
+    "Boundary: Canvas Detection": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    "Boundary: Signature Validation": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    "Boundary: Proctor Assignment": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    "Boundary: Foreign Key Integrity": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    "Boundary: Room Capacity": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    "Boundary: Graceful Query": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    "Boundary: Bulk Verification": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    "Boundary: Large Payload": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    "Boundary: Special Characters": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    "Boundary: Multi-Tenancy": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    "Cross-Feature: E2E Flow": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    "Cross-Feature: Session Persistence": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    "Cross-Feature: Cascade Integrity": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    "Cross-Feature: Reassignment": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    "Cross-Feature: Statistics Calculation": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0
+    },
+    "Workload Simulation": {
+      "total": 2,
+      "passed": 2,
+      "failed": 0
+    },
+    "Print CSS Compliance": {
+      "total": 4,
       "passed": 4,
-      "failed": 1
+      "failed": 0
     }
   },
   "tests": [
@@ -52,18 +155,18 @@
       "id": "T1.1.2",
       "name": "submit_absensi_siswa endpoint stores signature in absensi_ujian and log_ujian",
       "feature": "R1: Canvas Signature",
-      "status": "failed",
-      "durationMs": 657,
-      "error": "submit_absensi_siswa must return success: insert or update on table \"absensi_ujian\" violates foreign key constraint \"absensi_ujian_jadwal_fkey\""
+      "status": "passed",
+      "durationMs": 1661,
+      "error": null
     },
     {
       "tier": 1,
       "id": "T1.1.3",
       "name": "get_soal_ujian blocks question delivery if student has not signed",
       "feature": "R1: Canvas Signature",
-      "status": "failed",
-      "durationMs": 259,
-      "error": "Error message must indicate missing signature"
+      "status": "passed",
+      "durationMs": 483,
+      "error": null
     },
     {
       "tier": 1,
@@ -71,7 +174,7 @@
       "name": "ExamRoom.jsx double gating and deferred anti-cheat mounting",
       "feature": "R1: Canvas Signature",
       "status": "passed",
-      "durationMs": 1,
+      "durationMs": 0,
       "error": null
     },
     {
@@ -80,7 +183,7 @@
       "name": "Reconnection continuity: already signed session unlocks immediately without re-prompt",
       "feature": "R1: Canvas Signature",
       "status": "passed",
-      "durationMs": 158,
+      "durationMs": 317,
       "error": null
     },
     {
@@ -89,7 +192,7 @@
       "name": "create_ruang endpoint creates master room record in public.ruang_ujian",
       "feature": "R2: Admin Proctor Assignment",
       "status": "passed",
-      "durationMs": 159,
+      "durationMs": 238,
       "error": null
     },
     {
@@ -98,7 +201,7 @@
       "name": "get_ruang endpoint lists rooms filtered by school NPSN",
       "feature": "R2: Admin Proctor Assignment",
       "status": "passed",
-      "durationMs": 87,
+      "durationMs": 75,
       "error": null
     },
     {
@@ -106,18 +209,18 @@
       "id": "T1.2.3",
       "name": "assign_pengawas_ruang assigns teacher to room and schedule",
       "feature": "R2: Admin Proctor Assignment",
-      "status": "failed",
-      "durationMs": 82,
-      "error": "assign_pengawas_ruang must succeed: insert or update on table \"pengawas_ruang\" violates foreign key constraint \"pengawas_ruang_id_jadwal_fkey\""
+      "status": "passed",
+      "durationMs": 152,
+      "error": null
     },
     {
       "tier": 1,
       "id": "T1.2.4",
       "name": "get_pengawas_ruang returns proctor assignments with joined guru and room details",
       "feature": "R2: Admin Proctor Assignment",
-      "status": "failed",
-      "durationMs": 108,
-      "error": "Must contain at least 1 proctor assignment"
+      "status": "passed",
+      "durationMs": 91,
+      "error": null
     },
     {
       "tier": 1,
@@ -125,7 +228,7 @@
       "name": "AdminView.jsx includes Pengawas & Ruang navigation tab and management controls",
       "feature": "R2: Admin Proctor Assignment",
       "status": "passed",
-      "durationMs": 2,
+      "durationMs": 4,
       "error": null
     },
     {
@@ -134,7 +237,7 @@
       "name": "get_absensi_ruang returns student attendance list for designated room & schedule",
       "feature": "R3: Proctor Verification",
       "status": "passed",
-      "durationMs": 81,
+      "durationMs": 69,
       "error": null
     },
     {
@@ -142,18 +245,18 @@
       "id": "T1.3.2",
       "name": "verifikasi_absensi updates student attendance status to DISETUJUI with proctor ID",
       "feature": "R3: Proctor Verification",
-      "status": "failed",
-      "durationMs": 297,
-      "error": "Querying verified absensi must succeed"
+      "status": "passed",
+      "durationMs": 383,
+      "error": null
     },
     {
       "tier": 1,
       "id": "T1.3.3",
       "name": "verifikasi_absensi_bulk approves multiple examinees in a single atomic transaction",
       "feature": "R3: Proctor Verification",
-      "status": "failed",
-      "durationMs": 395,
-      "error": "Both records must be found"
+      "status": "passed",
+      "durationMs": 361,
+      "error": null
     },
     {
       "tier": 1,
@@ -161,7 +264,7 @@
       "name": "GuruView.jsx incorporates proctor dashboard tab/view for assigned exam rooms",
       "feature": "R3: Proctor Verification",
       "status": "passed",
-      "durationMs": 3,
+      "durationMs": 1,
       "error": null
     },
     {
@@ -178,9 +281,9 @@
       "id": "T1.4.1",
       "name": "get_dokumen_ujian_cetak returns aggregated dossier data",
       "feature": "R4: Print Documents & CSS",
-      "status": "failed",
-      "durationMs": 518,
-      "error": "Must include jadwal entity"
+      "status": "passed",
+      "durationMs": 613,
+      "error": null
     },
     {
       "tier": 1,
@@ -197,7 +300,7 @@
       "name": "DokumenUjianPrint.jsx Berita Acara includes exam metadata, counts, notes, and proctor sign",
       "feature": "R4: Print Documents & CSS",
       "status": "passed",
-      "durationMs": 1,
+      "durationMs": 0,
       "error": null
     },
     {
@@ -216,6 +319,195 @@
       "feature": "R4: Print Documents & CSS",
       "status": "passed",
       "durationMs": 1,
+      "error": null
+    },
+    {
+      "tier": 2,
+      "id": "T2.1.1",
+      "name": "Blank canvas rejection: identifies transparent pixel or zero strokes",
+      "feature": "Boundary: Canvas Detection",
+      "status": "passed",
+      "durationMs": 0,
+      "error": null
+    },
+    {
+      "tier": 2,
+      "id": "T2.1.2",
+      "name": "submit_absensi_siswa rejects malformed and non-image data URLs",
+      "feature": "Boundary: Signature Validation",
+      "status": "passed",
+      "durationMs": 0,
+      "error": null
+    },
+    {
+      "tier": 2,
+      "id": "T2.2.1",
+      "name": "Duplicate proctor assignment handling avoids orphaned duplicates",
+      "feature": "Boundary: Proctor Assignment",
+      "status": "passed",
+      "durationMs": 141,
+      "error": null
+    },
+    {
+      "tier": 2,
+      "id": "T2.2.2",
+      "name": "assign_pengawas_ruang rejects nonexistent teacher or room ID",
+      "feature": "Boundary: Foreign Key Integrity",
+      "status": "passed",
+      "durationMs": 67,
+      "error": null
+    },
+    {
+      "tier": 2,
+      "id": "T2.2.3",
+      "name": "create_ruang validates capacity boundaries (positive number conversion)",
+      "feature": "Boundary: Room Capacity",
+      "status": "passed",
+      "durationMs": 147,
+      "error": null
+    },
+    {
+      "tier": 2,
+      "id": "T2.3.1",
+      "name": "get_absensi_ruang handles query for nonexistent room safely without crash",
+      "feature": "Boundary: Graceful Query",
+      "status": "passed",
+      "durationMs": 70,
+      "error": null
+    },
+    {
+      "tier": 2,
+      "id": "T2.3.2",
+      "name": "verifikasi_absensi_bulk rejects empty array with clear validation error",
+      "feature": "Boundary: Bulk Verification",
+      "status": "passed",
+      "durationMs": 1,
+      "error": null
+    },
+    {
+      "tier": 2,
+      "id": "T2.4.1",
+      "name": "Berita Acara stores and retrieves large incident notes (10,000+ characters)",
+      "feature": "Boundary: Large Payload",
+      "status": "passed",
+      "durationMs": 157,
+      "error": null
+    },
+    {
+      "tier": 2,
+      "id": "T2.4.2",
+      "name": "Berita Acara preserves multiline formatting, special characters, and quotes",
+      "feature": "Boundary: Special Characters",
+      "status": "passed",
+      "durationMs": 132,
+      "error": null
+    },
+    {
+      "tier": 2,
+      "id": "T2.4.3",
+      "name": "Multi-tenant data isolation: School A queries cannot leak School B records",
+      "feature": "Boundary: Multi-Tenancy",
+      "status": "passed",
+      "durationMs": 138,
+      "error": null
+    },
+    {
+      "tier": 3,
+      "id": "T3.1",
+      "name": "Full End-to-End Relational Lifecycle: Admin Assign -> Student Sign -> Proctor Approve -> Print",
+      "feature": "Cross-Feature: E2E Flow",
+      "status": "passed",
+      "durationMs": 1155,
+      "error": null
+    },
+    {
+      "tier": 3,
+      "id": "T3.2",
+      "name": "Reconnection and refresh resilience preserves student signature state",
+      "feature": "Cross-Feature: Session Persistence",
+      "status": "passed",
+      "durationMs": 130,
+      "error": null
+    },
+    {
+      "tier": 3,
+      "id": "T3.3",
+      "name": "Cascading deletion: deleting exam room cleans up dependent proctor assignments",
+      "feature": "Cross-Feature: Cascade Integrity",
+      "status": "passed",
+      "durationMs": 270,
+      "error": null
+    },
+    {
+      "tier": 3,
+      "id": "T3.4",
+      "name": "Dynamic proctor reassignment updates print document proctor information",
+      "feature": "Cross-Feature: Reassignment",
+      "status": "passed",
+      "durationMs": 750,
+      "error": null
+    },
+    {
+      "tier": 3,
+      "id": "T3.5",
+      "name": "Mixed status attendance sheet accurately tallies hadir, terverifikasi, and absen",
+      "feature": "Cross-Feature: Statistics Calculation",
+      "status": "passed",
+      "durationMs": 0,
+      "error": null
+    },
+    {
+      "tier": 4,
+      "id": "T4.1",
+      "name": "Multi-Student High-Density Room Simulation (30 Examinees)",
+      "feature": "Workload Simulation",
+      "status": "passed",
+      "durationMs": 0,
+      "error": null
+    },
+    {
+      "tier": 4,
+      "id": "T4.2",
+      "name": "Signature Payload Memory & Network Budget Stress (< 1 MB total)",
+      "feature": "Workload Simulation",
+      "status": "passed",
+      "durationMs": 0,
+      "error": null
+    },
+    {
+      "tier": 4,
+      "id": "T4.3",
+      "name": "@page paper sizing and margins in src/index.css",
+      "feature": "Print CSS Compliance",
+      "status": "passed",
+      "durationMs": 1,
+      "error": null
+    },
+    {
+      "tier": 4,
+      "id": "T4.4",
+      "name": "Table header repetition: thead { display: table-header-group !important; } in print stylesheet",
+      "feature": "Print CSS Compliance",
+      "status": "passed",
+      "durationMs": 0,
+      "error": null
+    },
+    {
+      "tier": 4,
+      "id": "T4.5",
+      "name": "Clean page break controls: .page-break and .avoid-break in print stylesheet",
+      "feature": "Print CSS Compliance",
+      "status": "passed",
+      "durationMs": 0,
+      "error": null
+    },
+    {
+      "tier": 4,
+      "id": "T4.6",
+      "name": "Strict screen UI suppression: nav, header, footer, button, .no-print suppressed in @media print",
+      "feature": "Print CSS Compliance",
+      "status": "passed",
+      "durationMs": 0,
       "error": null
     }
   ]

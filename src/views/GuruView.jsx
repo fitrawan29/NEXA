@@ -1,4 +1,4 @@
-import { fetchAPI, getTrueNow, get_default_skema_sekolah } from '../api.js';
+import { fetchAPI, getTrueNow, get_default_skema_sekolah, isClassMatching, isUniversalAlloc } from '../api.js';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import FormSoalModal from '../components/FormSoalModal.jsx';
 import FormNarasiModal from '../components/FormNarasiModal.jsx';
@@ -20,6 +20,7 @@ import {
 import NotificationBell from '../components/NotificationBell.jsx';
 import ModalPratinjauTandaTangan from '../components/ModalPratinjauTandaTangan.jsx';
 import DokumenUjianPrint from '../components/DokumenUjianPrint.jsx';
+import TutorialModal from '../components/TutorialModal.jsx';
 import { compressImageFile } from '../utils/imageHelper.js';
 
 const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIsDarkMode }) => {
@@ -77,6 +78,59 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
   const [printModalOpen, setPrintModalOpen] = useState(false);
   const [printData, setPrintData] = useState(null);
   const [loadingPrint, setLoadingPrint] = useState(false);
+
+  // Berita Acara & Live Camera WebRTC State (Milestone 2 - R2)
+  const [catatanPelaksanaan, setCatatanPelaksanaan] = useState('');
+  const [fotoDokumentasi, setFotoDokumentasi] = useState('');
+  const [driveUrl, setDriveUrl] = useState('');
+  const [gasWebhookUrl, setGasWebhookUrl] = useState(() => {
+    try {
+      return (typeof window !== 'undefined' ? window.localStorage.getItem('nexa_gas_drive_webhook') || '' : '');
+    } catch (_) {
+      return '';
+    }
+  });
+  const [showTutorialModal, setShowTutorialModal] = useState(false);
+  const currentUserId = user?.id_guru || user?.id_user || user?.id || user?.nip || user?.username || '';
+  const tutorialStorageKey = currentUserId ? `nexa_tutorial_seen_${currentUserId}_guru` : null;
+
+  useEffect(() => {
+    if (!tutorialStorageKey) return;
+    try {
+      const seen = localStorage.getItem(tutorialStorageKey);
+      if (!seen) {
+        setShowTutorialModal(true);
+      }
+    } catch (e) {
+      console.error('Failed to read tutorial state from localStorage:', e);
+    }
+  }, [tutorialStorageKey]);
+
+  const handleCloseTutorial = () => {
+    setShowTutorialModal(false);
+    if (tutorialStorageKey) {
+      try {
+        localStorage.setItem(tutorialStorageKey, 'true');
+      } catch (e) {
+        console.error('Failed to save tutorial state to localStorage:', e);
+      }
+    }
+  };
+  const [isUploadingDrive, setIsUploadingDrive] = useState(false);
+  const [isSavingBeritaAcara, setIsSavingBeritaAcara] = useState(false);
+  const [existingSignature, setExistingSignature] = useState('');
+  const [hasProctorSigned, setHasProctorSigned] = useState(false);
+  const [isDrawingSig, setIsDrawingSig] = useState(false);
+  const [loadedRoomId, setLoadedRoomId] = useState(null);
+  const sigCanvasRef = useRef(null);
+
+  // Camera WebRTC State
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [cameraLoading, setCameraLoading] = useState(false);
+  const [cameraFacing, setCameraFacing] = useState('environment'); // 'environment' | 'user'
+  const videoRef = useRef(null);
+  const cameraStreamRef = useRef(null);
+  const cameraInputFileRef = useRef(null);
 
   // Avatar & Profile
   const [fotoProfil, setFotoProfil] = useState(user.foto || user.foto_profil || '');
@@ -314,11 +368,39 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
       }
 
       setPesertaPengawas(combinedList);
+
+      // Populate Berita Acara for the selected room if available
+      if (dokRes.status === 'success' && dokRes.data) {
+        const ba = dokRes.data.berita_acara;
+        if (loadedRoomId !== rId) {
+          setLoadedRoomId(rId);
+          setCatatanPelaksanaan(ba?.catatan_pelaksanaan || '');
+          setFotoDokumentasi(ba?.foto_dokumentasi || dokRes.data.foto_dokumentasi || '');
+          setDriveUrl(ba?.drive_url || dokRes.data.drive_url || '');
+          if (ba?.tanda_tangan_pengawas) {
+            setExistingSignature(ba.tanda_tangan_pengawas);
+            setHasProctorSigned(true);
+          } else {
+            setExistingSignature('');
+            setHasProctorSigned(false);
+          }
+        }
+      }
     } catch (err) {
       console.error('Error fetching peserta ruang pengawas:', err);
     }
     setLoadingPengawas(false);
   };
+
+  // Camera stream cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (cameraStreamRef.current) {
+        cameraStreamRef.current.getTracks().forEach(t => t.stop());
+        cameraStreamRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (activeTab === 'pengawasan' && selectedPengawasRuang) {
@@ -446,6 +528,363 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
       showMessage('Info', 'Terjadi kesalahan saat memuat berkas cetak dokumen ujian.', 'info');
     }
     setLoadingPrint(false);
+  };
+
+  const handleOpenPrintDocumentForJadwal = async (jdw) => {
+    if (!jdw?.id_jadwal) return;
+    setLoadingPrint(true);
+    try {
+      const res = await api('get_dokumen_ujian_cetak', {
+        id_jadwal: jdw.id_jadwal,
+        id_ruang: jdw.id_ruang || undefined,
+        npsn: user.npsn
+      });
+      if (res.status === 'success' && res.data) {
+        setPrintData(res.data);
+        setPrintModalOpen(true);
+      } else {
+        showMessage('Gagal', res.message || 'Gagal memuat dokumen pengawasan ujian.', 'error');
+      }
+    } catch (e) {
+      console.error('Fetch Dokumen Ujian Jadwal error:', e);
+      showMessage('Info', 'Terjadi kesalahan saat memuat berkas cetak dokumen ujian.', 'info');
+    }
+    setLoadingPrint(false);
+  };
+
+  // Proctor Signature Canvas Helpers (Milestone 2 - R2)
+  const getCanvasPos = (e, canvas) => {
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top
+    };
+  };
+
+  const startSigDrawing = (e) => {
+    e.preventDefault();
+    const canvas = sigCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const pos = getCanvasPos(e, canvas);
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+    setIsDrawingSig(true);
+    setHasProctorSigned(true);
+  };
+
+  const drawSig = (e) => {
+    if (!isDrawingSig) return;
+    e.preventDefault();
+    const canvas = sigCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const pos = getCanvasPos(e, canvas);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+  };
+
+  const stopSigDrawing = () => {
+    if (!isDrawingSig) return;
+    setIsDrawingSig(false);
+  };
+
+  const clearSigCanvas = () => {
+    const canvas = sigCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setHasProctorSigned(false);
+    setExistingSignature('');
+  };
+
+  // Live Camera WebRTC & Watermarking Functions (Milestone 2 - R2)
+  const startCamera = async () => {
+    setCameraLoading(true);
+    try {
+      if (cameraStreamRef.current) {
+        cameraStreamRef.current.getTracks().forEach(t => t.stop());
+      }
+      const constraints = {
+        video: {
+          facingMode: cameraFacing,
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      cameraStreamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play().catch(() => {});
+      }
+      setIsCameraActive(true);
+    } catch (err) {
+      console.warn('WebRTC getUserMedia not available or permission denied:', err);
+      showMessage('Info Kamera', 'Akses kamera langsung tidak tersedia atau ditolak. Anda dapat menggunakan opsi jepret / unggah foto.', 'info');
+      if (cameraInputFileRef.current) {
+        cameraInputFileRef.current.click();
+      }
+    }
+    setCameraLoading(false);
+  };
+
+  const stopCamera = () => {
+    if (cameraStreamRef.current) {
+      cameraStreamRef.current.getTracks().forEach(t => t.stop());
+      cameraStreamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setIsCameraActive(false);
+  };
+
+  const switchCameraFacing = async () => {
+    const nextFacing = cameraFacing === 'environment' ? 'user' : 'environment';
+    setCameraFacing(nextFacing);
+    if (isCameraActive) {
+      if (cameraStreamRef.current) {
+        cameraStreamRef.current.getTracks().forEach(t => t.stop());
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: nextFacing, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
+        });
+        cameraStreamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(() => {});
+        }
+      } catch (e) {
+        console.error('Failed to switch camera:', e);
+      }
+    }
+  };
+
+  const applyWatermarkAndProcess = async (sourceImageOrVideo, width, height) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+
+    // 1. Draw frame
+    ctx.drawImage(sourceImageOrVideo, 0, 0, width, height);
+
+    // 2. Draw watermark gradient banner at the bottom
+    const bannerHeight = Math.max(90, Math.round(height * 0.18));
+    const gradient = ctx.createLinearGradient(0, height - bannerHeight, 0, height);
+    gradient.addColorStop(0, 'rgba(15, 23, 42, 0.88)');
+    gradient.addColorStop(1, 'rgba(15, 23, 42, 0.98)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, height - bannerHeight, width, bannerHeight);
+
+    // Subtle emerald top border on watermark strip
+    ctx.strokeStyle = '#10b981';
+    ctx.lineWidth = Math.max(2, Math.round(height * 0.005));
+    ctx.beginPath();
+    ctx.moveTo(0, height - bannerHeight);
+    ctx.lineTo(width, height - bannerHeight);
+    ctx.stroke();
+
+    // 3. Render watermark text
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('id-ID', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+    const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' WIB';
+    const roomName = selectedPengawasRuang?.ruang?.nama_ruang || selectedPengawasRuang?.nama_ruang || 'Ruang Ujian';
+    const schoolName = user?.nama_sekolah || user?.sekolah || 'SEKOLAH INDONESIA';
+    const mapelName = selectedPengawasRuang?.jadwal?.mata_pelajaran?.nama_mapel || selectedPengawasRuang?.jadwal?.nama_mapel || 'Ujian CBT';
+    const targetKelas = selectedPengawasRuang?.jadwal?.target_kelas || selectedPengawasRuang?.jadwal?.kelas || 'Semua Kelas';
+    const proctorName = user?.nama_lengkap || user?.username || 'Pengawas';
+
+    const baseFontSize = Math.max(12, Math.round(height * 0.026));
+    ctx.fillStyle = '#ffffff';
+    ctx.textBaseline = 'top';
+
+    // Line 1: Date & Time
+    ctx.font = `bold ${baseFontSize + 2}px sans-serif`;
+    ctx.fillStyle = '#34d399';
+    ctx.fillText(`📅 ${dateStr} • ${timeStr}`, 20, height - bannerHeight + 14);
+
+    // Line 2: Room & School
+    ctx.font = `bold ${baseFontSize}px sans-serif`;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(`📍 ${roomName} — ${schoolName}`, 20, height - bannerHeight + 18 + baseFontSize + 4);
+
+    // Line 3: Subject & Class
+    ctx.font = `600 ${baseFontSize - 1}px sans-serif`;
+    ctx.fillStyle = '#cbd5e1';
+    ctx.fillText(`📖 Mapel: ${mapelName} | Kelas: ${targetKelas}`, 20, height - bannerHeight + 22 + (baseFontSize * 2) + 6);
+
+    // Line 4: Proctor Name
+    ctx.font = `500 ${baseFontSize - 2}px sans-serif`;
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText(`👤 Pengawas: ${proctorName}${user?.nip ? ` (NIP: ${user.nip})` : ''} • DOKUMENTASI RESMI CBT`, 20, height - bannerHeight + 26 + (baseFontSize * 3) + 8);
+
+    const watermarkedDataUrl = canvas.toDataURL('image/jpeg', 0.82);
+    setFotoDokumentasi(watermarkedDataUrl);
+
+    // Automatically trigger GAS Drive sync if webhook URL is configured
+    syncToGoogleDrive(watermarkedDataUrl);
+    return watermarkedDataUrl;
+  };
+
+  const captureLivePhoto = async () => {
+    if (!videoRef.current) return;
+    const video = videoRef.current;
+    const w = video.videoWidth || 1280;
+    const h = video.videoHeight || 720;
+    await applyWatermarkAndProcess(video, w, h);
+    stopCamera();
+    showMessage('Berhasil', 'Foto dokumentasi pengawasan berhasil diambil dan dibubuhi watermark.', 'success');
+  };
+
+  const handleFallbackPhotoSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const img = new Image();
+        img.onload = async () => {
+          const maxDim = 1280;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          await applyWatermarkAndProcess(img, w, h);
+          showMessage('Berhasil', 'Foto berhasil diproses dengan watermark lokasi, waktu, dan pengawas.', 'success');
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('Fallback photo select error:', err);
+      showMessage('Gagal', 'Gagal memproses file foto pengawasan.', 'error');
+    }
+  };
+
+  const syncToGoogleDrive = async (base64Image) => {
+    const targetGasUrl = (gasWebhookUrl || '').trim();
+    if (!targetGasUrl || !base64Image) return; // Clean fallback to local dataUrl
+
+    setIsUploadingDrive(true);
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timeoutId = controller ? setTimeout(() => controller.abort(), 12000) : null;
+
+    try {
+      const safeRoom = (selectedPengawasRuang?.ruang?.nama_ruang || selectedPengawasRuang?.nama_ruang || 'RUANG').replace(/[^a-zA-Z0-9._-]/g, '_');
+      const filename = `DOK_${safeRoom}_${Date.now()}.jpg`;
+      const safeSchool = (user?.nama_sekolah || user?.sekolah || 'Umum').trim() || 'Umum';
+      const safeClass = (selectedPengawasRuang?.jadwal?.target_kelas || selectedPengawasRuang?.jadwal?.kelas || 'Umum').trim() || 'Umum';
+      const safeSubject = (selectedPengawasRuang?.jadwal?.mata_pelajaran?.nama_mapel || selectedPengawasRuang?.jadwal?.nama_mapel || 'Ujian').trim() || 'Ujian';
+
+      const payload = {
+        action: 'upload_dokumentasi',
+        image: base64Image,
+        filename,
+        rootFolder: 'NEXA',
+        sekolah: safeSchool,
+        ruang: selectedPengawasRuang?.ruang?.nama_ruang || selectedPengawasRuang?.nama_ruang || 'Ruang',
+        mapel: safeSubject,
+        kelas: safeClass,
+        schoolName: safeSchool,
+        className: safeClass,
+        subjectName: safeSubject,
+        pengawas: user?.nama_lengkap || user?.username || 'Pengawas',
+        folderPath: 'NEXA/' + safeSchool + '/' + safeClass + '/' + safeSubject,
+        hierarchy: ['NEXA', safeSchool, safeClass, safeSubject]
+      };
+
+      const resp = await fetch(targetGasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload),
+        signal: controller?.signal
+      });
+      if (timeoutId) clearTimeout(timeoutId);
+
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data && (data.url || data.drive_url || data.fileUrl)) {
+          const gUrl = data.url || data.drive_url || data.fileUrl;
+          setDriveUrl(gUrl);
+          showMessage('Sinkronisasi Google Drive', 'Foto dokumentasi berhasil diunggah ke Google Drive!', 'success');
+        }
+      }
+    } catch (e) {
+      if (timeoutId) clearTimeout(timeoutId);
+      console.warn('Google Drive GAS sync failed, using watermarked local data URL:', e);
+    } finally {
+      setIsUploadingDrive(false);
+    }
+  };
+
+  const handleSaveBeritaAcara = async () => {
+    if (!selectedPengawasRuang) return;
+    setIsSavingBeritaAcara(true);
+    try {
+      let finalSignature = existingSignature;
+      if (sigCanvasRef.current && hasProctorSigned) {
+        try {
+          finalSignature = sigCanvasRef.current.toDataURL('image/png');
+        } catch (_) {}
+      }
+
+      const absentList = pesertaPengawas
+        .filter(p => p.status_kehadiran === 'TIDAK HADIR' || p.status_verifikasi === 'BELUM ABSEN')
+        .map(p => ({ id_siswa: p.id_siswa, nama_lengkap: p.nama_lengkap, nisn: p.nisn, kelas: p.kelas }));
+
+      const totalHadir = pesertaPengawas.filter(p => p.status_kehadiran === 'HADIR' || p.status_verifikasi === 'DISETUJUI' || p.status_verifikasi === 'TERVERIFIKASI' || p.status_verifikasi === 'MENUNGGU').length;
+
+      const payload = {
+        id_jadwal: selectedPengawasRuang.id_jadwal,
+        id_ruang: selectedPengawasRuang.id_ruang,
+        id_guru: guruId,
+        npsn: user.npsn,
+        jumlah_peserta_terdaftar: pesertaPengawas.length,
+        jumlah_peserta_hadir: totalHadir,
+        jumlah_peserta_absen: Math.max(0, pesertaPengawas.length - totalHadir),
+        daftar_siswa_tidak_hadir: absentList,
+        catatan_pelaksanaan: catatanPelaksanaan,
+        tanda_tangan_pengawas: finalSignature || null,
+        foto_dokumentasi: fotoDokumentasi || null,
+        drive_url: driveUrl || null
+      };
+
+      const res = await api('save_berita_acara', payload);
+      if (res.status === 'success') {
+        showMessage('Berhasil', 'Berita Acara dan Catatan Pengawasan Ujian berhasil disimpan.', 'success');
+        logActivity('SIMPAN BERITA ACARA', `Menyimpan berita acara ruang ${selectedPengawasRuang?.ruang?.nama_ruang || ''}`);
+        if (finalSignature) setExistingSignature(finalSignature);
+      } else {
+        showMessage('Gagal', res.message || 'Gagal menyimpan berita acara.', 'error');
+      }
+    } catch (err) {
+      console.error('Save Berita Acara error:', err);
+      showMessage('Gagal', 'Terjadi kesalahan saat menyimpan berita acara ujian.', 'error');
+    }
+    setIsSavingBeritaAcara(false);
   };
 
   useEffect(() => {
@@ -810,15 +1249,44 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
     }
   };
 
-  const saveSkema = async (payload) => {
-    let skemaRecord = dataSoal.find(s => s.tipe_soal === 'SKEMA_PENILAIAN');
-    payload.id_soal = skemaRecord ? skemaRecord.id_soal : 'SKEMA-' + selectedMapel;
-    payload.tipe_soal = 'SKEMA_PENILAIAN';
-    payload.id_mapel = selectedMapel;
-    payload.pertanyaan = 'Skema Penilaian';
+  const saveSkema = async (payload, applyToAll = false) => {
+    setIsLoading(true);
+    if (applyToAll) {
+      const idMapels = (dataMapel || []).map(m => m.id_mapel).filter(Boolean);
+      if (idMapels.length === 0) {
+        setIsLoading(false);
+        showMessage('Peringatan', 'Tidak ada mata pelajaran yang diampu ditemukan.', 'error');
+        return;
+      }
+      const res = await api('save_skema_penilaian', {
+        id_mapels: idMapels,
+        npsn: user.npsn,
+        kunci_jawaban: payload.kunci_jawaban,
+        bobot: payload.bobot,
+        mode: payload.mode,
+        skema: payload.skema
+      });
+      setIsLoading(false);
+      if (res.status === 'success') {
+        showMessage('Berhasil', `Skema penilaian berhasil diterapkan ke semua (${idMapels.length}) mapel yang Anda ampu.`, 'success');
+        setSkemaModal({ isOpen: false, id_mapel: null });
+        logActivity('SKEMA PENILAIAN BULK', `Menerapkan skema penilaian serentak ke ${idMapels.length} mata pelajaran`);
+        fetchData();
+      } else {
+        showMessage('Gagal', res.message || 'Gagal menyimpan skema penilaian serentak.', 'error');
+      }
+      return;
+    }
 
-    const endpoint = skemaRecord ? 'update_soal_mapel' : 'create_soal_mapel';
-    const res = await api(endpoint, payload);
+    const res = await api('save_skema_penilaian', {
+      id_mapel: selectedMapel,
+      npsn: user.npsn,
+      kunci_jawaban: payload.kunci_jawaban,
+      bobot: payload.bobot,
+      mode: payload.mode,
+      skema: payload.skema
+    });
+    setIsLoading(false);
     if (res.status === 'success') {
       showMessage('Berhasil', 'Skema penilaian berhasil disimpan.', 'success');
       setSkemaModal({ isOpen: false, id_mapel: null });
@@ -830,21 +1298,50 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
     }
   };
 
-  const saveSkemaAccount = async (payload) => {
-    if (!selectedMapelAccount) {
+  const saveSkemaAccount = async (payload, applyToAll = false) => {
+    if (!selectedMapelAccount && !applyToAll) {
       showMessage('Peringatan', 'Pilih mata pelajaran terlebih dahulu.', 'error');
       return;
     }
     setIsLoading(true);
-    let skemaRecord = accountDataSoal.find(s => s.tipe_soal === 'SKEMA_PENILAIAN');
-    payload.id_soal = skemaRecord ? skemaRecord.id_soal : 'SKEMA-' + selectedMapelAccount;
-    payload.tipe_soal = 'SKEMA_PENILAIAN';
-    payload.id_mapel = selectedMapelAccount;
-    payload.pertanyaan = 'Skema Penilaian';
-    payload.npsn = user.npsn;
 
-    const endpoint = skemaRecord ? 'update_soal_mapel' : 'create_soal_mapel';
-    const res = await api(endpoint, payload);
+    if (applyToAll) {
+      const idMapels = (dataMapel || []).map(m => m.id_mapel).filter(Boolean);
+      if (idMapels.length === 0) {
+        setIsLoading(false);
+        showMessage('Peringatan', 'Tidak ada mata pelajaran yang diampu ditemukan.', 'error');
+        return;
+      }
+      const res = await api('save_skema_penilaian', {
+        id_mapels: idMapels,
+        npsn: user.npsn,
+        kunci_jawaban: payload.kunci_jawaban,
+        bobot: payload.bobot,
+        mode: payload.mode,
+        skema: payload.skema
+      });
+      setIsLoading(false);
+      if (res.status === 'success') {
+        showMessage('Berhasil', `Skema penilaian berhasil diterapkan ke semua (${idMapels.length}) mapel yang Anda ampu.`, 'success');
+        logActivity('SKEMA PENILAIAN BULK', `Menerapkan skema penilaian serentak ke ${idMapels.length} mata pelajaran dari menu akun`);
+        if (selectedMapelAccount) {
+          const soalRes = await api('get_soal_by_mapel', { id_mapel: selectedMapelAccount });
+          if (soalRes.status === 'success') setAccountDataSoal(soalRes.data || []);
+        }
+      } else {
+        showMessage('Gagal', 'Gagal menerapkan skema penilaian serentak: ' + res.message, 'error');
+      }
+      return;
+    }
+
+    const res = await api('save_skema_penilaian', {
+      id_mapel: selectedMapelAccount,
+      npsn: user.npsn,
+      kunci_jawaban: payload.kunci_jawaban,
+      bobot: payload.bobot,
+      mode: payload.mode,
+      skema: payload.skema
+    });
     setIsLoading(false);
     if (res.status === 'success') {
       showMessage('Berhasil', 'Skema penilaian berhasil disimpan.', 'success');
@@ -1106,6 +1603,11 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
   // Evaluation & Grading Command Center
   // =========================================================================
   const openDetailHasil = async (jadwal) => {
+    const isTaughtSubject = dataMapel.some(m => String(m.id_mapel) === String(jadwal?.id_mapel));
+    if (!isTaughtSubject) {
+      showMessage('Akses Terbatas', 'Anda hanya berhak mengakses rekap nilai evaluasi untuk mata pelajaran yang Anda ampu.', 'info');
+      return;
+    }
     setSelectedHasilJadwal(jadwal);
     setIsLoading(true);
     const res = await api('monitoring_ujian', { id_jadwal: jadwal.id_jadwal });
@@ -1119,6 +1621,11 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
   };
 
   const openAnalisisSoal = async (idJadwal, idMapel) => {
+    const isTaughtSubject = dataMapel.some(m => String(m.id_mapel) === String(idMapel));
+    if (!isTaughtSubject) {
+      showMessage('Akses Terbatas', 'Anda hanya berhak mengakses analisis butir soal untuk mata pelajaran yang Anda ampu.', 'info');
+      return;
+    }
     setIsLoading(true);
     const res = await api('get_analisis_butir_soal', { id_jadwal: idJadwal, id_mapel: idMapel });
     setIsLoading(false);
@@ -1646,7 +2153,16 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => setShowTutorialModal(true)}
+            className="w-11 h-11 rounded-xl flex items-center justify-center text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 border border-amber-200/80 dark:border-amber-800/80 hover:bg-amber-100 dark:hover:bg-amber-900/60 active:scale-95 transition-all min-w-[44px] min-h-[44px] shadow-xs"
+            title="Panduan & Tutorial"
+            aria-label="Panduan & Tutorial"
+          >
+            <span className="material-symbols-outlined text-xl">help</span>
+          </button>
           <NotificationBell role="guru" npsn={user?.npsn} user={user} />
           <button
             type="button"
@@ -1794,6 +2310,16 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setShowTutorialModal(true)}
+              className="px-3.5 py-1.5 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/80 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-200 hover:text-amber-900 dark:hover:text-amber-100 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs hover:shadow-sm"
+              title="Panduan & Tutorial"
+              aria-label="Panduan & Tutorial"
+            >
+              <span className="material-symbols-outlined text-base text-amber-600 dark:text-amber-400">help</span>
+              <span>Panduan</span>
+            </button>
             <NotificationBell role="guru" npsn={user?.npsn} user={user} />
             <div className="px-3 py-1 rounded-full bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 border border-primary/30 dark:border-primary/30 text-xs font-bold flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-primary-400 animate-pulse"></span>
@@ -2491,7 +3017,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                       </div>
                     </div>
 
-                    <div className="pt-2 border-t border-slate-100 dark:border-slate-700 flex items-center gap-2">
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-700 flex flex-wrap items-center gap-2">
                       {j.status_ujian === 'AKTIF' && (
                         <button
                           onClick={() => { setSelectedJadwal(j); navigateTab('monitoring'); }}
@@ -2510,6 +3036,15 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                           <span>Rekap Nilai</span>
                         </button>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => handleOpenPrintDocumentForJadwal(j)}
+                        className="flex-1 py-2 px-3 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold text-xs transition-colors flex items-center justify-center gap-1 min-h-[44px]"
+                        title="Cetak Berita Acara & Dokumen Pengawasan Ujian"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">description</span>
+                        <span>Dokumen Ujian</span>
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -3564,6 +4099,354 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                           )}
                         </div>
                       </div>
+
+                      {/* =========================================================
+                          FORMULIR BERITA ACARA & DOKUMENTASI UJIAN (MILESTONE 2 - R2)
+                          ========================================================= */}
+                      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-xs p-4 sm:p-6 space-y-5">
+                        {/* Section Header with Metadata Banner */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-700/80 pb-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/40 flex items-center justify-center shrink-0">
+                              <span className="material-symbols-outlined text-2xl">history_edu</span>
+                            </div>
+                            <div>
+                              <h4 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
+                                Formulir Berita Acara & Dokumentasi Ujian
+                              </h4>
+                              <p className="text-xs text-slate-500 dark:text-slate-400">
+                                Cukup diisi oleh salah satu pengawas ruang yang bertugas. Data tersinkronisasi otomatis.
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Quick Print Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPrintDocument(selectedPengawasRuang)}
+                            disabled={loadingPrint}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white shadow-xs transition-all min-h-[40px] shrink-0"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">print</span>
+                            <span>Pratinjau Dokumen Cetak</span>
+                          </button>
+                        </div>
+
+                        {/* Explicit Class & Subject Metadata Badge Banner */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/70 dark:border-slate-700/60 text-xs">
+                          <div>
+                            <span className="block text-[10px] font-bold uppercase text-slate-400 tracking-wider">Mata Pelajaran:</span>
+                            <span className="font-black text-slate-800 dark:text-white text-sm">
+                              {selectedPengawasRuang.jadwal?.mata_pelajaran?.nama_mapel || selectedPengawasRuang.jadwal?.nama_mapel || 'Ujian CBT'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="block text-[10px] font-bold uppercase text-slate-400 tracking-wider">Tingkat / Target Kelas:</span>
+                            <span className="font-bold text-slate-800 dark:text-white">
+                              {selectedPengawasRuang.jadwal?.target_kelas || 'Semua Kelas'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="block text-[10px] font-bold uppercase text-slate-400 tracking-wider">Ruangan Ujian:</span>
+                            <span className="font-bold text-slate-800 dark:text-white">
+                              {selectedPengawasRuang.ruang?.nama_ruang || selectedPengawasRuang.nama_ruang || 'Ruang Ujian'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="block text-[10px] font-bold uppercase text-slate-400 tracking-wider">Pengawas Pelapor:</span>
+                            <span className="font-bold text-emerald-700 dark:text-emerald-400">
+                              {user.nama_lengkap || user.username}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Attendance Count Overview */}
+                        <div className="flex flex-wrap items-center gap-4 text-xs font-semibold p-3 rounded-xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40 text-blue-900 dark:text-blue-200">
+                          <span className="flex items-center gap-1.5">
+                            <span className="material-symbols-outlined text-[18px] text-blue-600">group</span>
+                            <span>Total Terdaftar: <strong className="font-black">{pesertaPengawas.length}</strong> Siswa</span>
+                          </span>
+                          <span className="text-slate-300 dark:text-slate-600">•</span>
+                          <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
+                            <span className="material-symbols-outlined text-[18px]">how_to_reg</span>
+                            <span>Hadir: <strong className="font-black">{kpiPengawas.hadirTerverifikasi + kpiPengawas.menungguVerifikasi}</strong> Siswa</span>
+                          </span>
+                          <span className="text-slate-300 dark:text-slate-600">•</span>
+                          <span className="flex items-center gap-1.5 text-rose-700 dark:text-rose-400">
+                            <span className="material-symbols-outlined text-[18px]">person_off</span>
+                            <span>Tidak Hadir: <strong className="font-black">{kpiPengawas.belumHadir}</strong> Siswa</span>
+                          </span>
+                        </div>
+
+                        {/* Catatan Pelaksanaan Ujian */}
+                        <div className="space-y-1.5">
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                            Catatan Pelaksanaan Ujian / Insiden Khusus:
+                          </label>
+                          <textarea
+                            value={catatanPelaksanaan}
+                            onChange={(e) => setCatatanPelaksanaan(e.target.value)}
+                            rows={3}
+                            placeholder="Tuliskan catatan pelaksanaan ujian di ruang ini (kondisi ketertiban, siswa izin keluar, kendala koneksi, pemadaman listrik, atau catatan khusus lainnya)..."
+                            className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 text-xs text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all leading-relaxed"
+                          />
+                        </div>
+
+                        {/* Live Camera & Watermark Documentation */}
+                        <div className="space-y-3 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div>
+                              <h5 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                                <span className="material-symbols-outlined text-primary text-lg">photo_camera</span>
+                                <span>Dokumentasi Live Camera Ber-Watermark</span>
+                              </h5>
+                              <p className="text-[11px] text-slate-500">
+                                Mengambil foto situasi ruangan dengan watermark tanggal, waktu, ruangan, mapel, dan nama pengawas.
+                              </p>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              {!isCameraActive ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={startCamera}
+                                    disabled={cameraLoading}
+                                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-white shadow-xs transition-all min-h-[38px]"
+                                  >
+                                    <span className="material-symbols-outlined text-[18px]">videocam</span>
+                                    <span>Buka Kamera Live</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => cameraInputFileRef.current && cameraInputFileRef.current.click()}
+                                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 transition-all min-h-[38px]"
+                                  >
+                                    <span className="material-symbols-outlined text-[18px]">upload</span>
+                                    <span>Pilih / Jepret File</span>
+                                  </button>
+                                  <input
+                                    ref={cameraInputFileRef}
+                                    type="file"
+                                    accept="image/*"
+                                    capture="environment"
+                                    onChange={handleFallbackPhotoSelect}
+                                    className="hidden"
+                                  />
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={captureLivePhoto}
+                                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-all min-h-[38px]"
+                                  >
+                                    <span className="material-symbols-outlined text-[18px]">camera</span>
+                                    <span>Ambil Foto Ber-Watermark</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={switchCameraFacing}
+                                    className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 min-h-[38px]"
+                                    title="Ganti kamera depan / belakang"
+                                  >
+                                    <span className="material-symbols-outlined text-[18px]">flip_camera_ios</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={stopCamera}
+                                    className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 min-h-[38px]"
+                                    title="Tutup kamera"
+                                  >
+                                    <span className="material-symbols-outlined text-[18px]">close</span>
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Live Video Preview Stream */}
+                          {isCameraActive && (
+                            <div className="relative rounded-2xl overflow-hidden bg-black border-2 border-primary shadow-lg max-w-xl mx-auto">
+                              <video
+                                ref={videoRef}
+                                playsInline
+                                autoPlay
+                                muted
+                                className="w-full h-auto max-h-[320px] object-cover mx-auto"
+                              />
+                              <div className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-full bg-rose-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 animate-pulse">
+                                <span className="w-2 h-2 rounded-full bg-white"></span>
+                                <span>Kamera Live Aktif</span>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Captured Watermarked Photo Preview */}
+                          {fotoDokumentasi && (
+                            <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                                  <span className="material-symbols-outlined text-emerald-600 text-[18px]">verified</span>
+                                  <span>Foto Dokumentasi Terpilih (Ber-Watermark):</span>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setFotoDokumentasi('');
+                                    setDriveUrl('');
+                                  }}
+                                  className="text-[11px] font-bold text-rose-600 hover:underline flex items-center gap-1"
+                                >
+                                  <span className="material-symbols-outlined text-[14px]">delete</span>
+                                  <span>Hapus Foto</span>
+                                </button>
+                              </div>
+
+                              <div className="relative rounded-xl overflow-hidden border border-slate-300 dark:border-slate-600 bg-slate-900 max-w-lg mx-auto shadow-sm">
+                                <img
+                                  src={fotoDokumentasi}
+                                  alt="Dokumentasi Pelaksanaan Ujian"
+                                  className="w-full h-auto max-h-[260px] object-contain mx-auto"
+                                />
+                              </div>
+
+                              {/* Google Drive Status & GAS Webhook Settings */}
+                              <div className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-2 text-xs">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-blue-600 text-[18px]">cloud_upload</span>
+                                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                                      Arsip Google Drive:
+                                    </span>
+                                  </div>
+                                  {driveUrl ? (
+                                    <a
+                                      href={driveUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-primary font-bold hover:underline truncate max-w-xs flex items-center gap-1"
+                                    >
+                                      <span>Buka di Google Drive</span>
+                                      <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                                    </a>
+                                  ) : (
+                                    <span className="text-slate-400 text-[11px] italic">
+                                      {isUploadingDrive ? 'Mengunggah ke Drive...' : 'Tersimpan lokal (data URL), siap disinkron'}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="flex gap-2 items-center pt-1">
+                                  <input
+                                    type="url"
+                                    value={gasWebhookUrl}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setGasWebhookUrl(val);
+                                      if (typeof window !== 'undefined') {
+                                        try {
+                                          window.localStorage.setItem('nexa_gas_drive_webhook', val.trim());
+                                        } catch (_) {}
+                                      }
+                                    }}
+                                    placeholder="URL Webhook Google Apps Script (Opsional)"
+                                    className="flex-1 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => syncToGoogleDrive(fotoDokumentasi)}
+                                    disabled={!(gasWebhookUrl || '').trim() || isUploadingDrive}
+                                    className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-40 transition-colors shrink-0"
+                                  >
+                                    {isUploadingDrive ? 'Mengunggah...' : 'Unggah ke Drive'}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Tanda Tangan Digital Pengawas Ruang */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                              Tanda Tangan Pengawas Ruang (Mewakili):
+                            </label>
+                            {(hasProctorSigned || existingSignature) && (
+                              <button
+                                type="button"
+                                onClick={clearSigCanvas}
+                                className="text-[11px] font-bold text-rose-600 hover:underline flex items-center gap-1"
+                              >
+                                <span className="material-symbols-outlined text-[14px]">restart_alt</span>
+                                <span>Bersihkan Kanvas Tanda Tangan</span>
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="flex flex-col sm:flex-row items-center gap-4">
+                            <div className="w-full max-w-sm">
+                              <canvas
+                                ref={sigCanvasRef}
+                                width={380}
+                                height={140}
+                                onMouseDown={startSigDrawing}
+                                onMouseMove={drawSig}
+                                onMouseUp={stopSigDrawing}
+                                onMouseLeave={stopSigDrawing}
+                                onTouchStart={startSigDrawing}
+                                onTouchMove={drawSig}
+                                onTouchEnd={stopSigDrawing}
+                                className="w-full h-32 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 cursor-crosshair touch-none shadow-2xs"
+                              />
+                              <p className="text-[10px] text-slate-400 mt-1 text-center">
+                                Goreskan tanda tangan digital Anda di dalam area kanvas di atas
+                              </p>
+                            </div>
+
+                            {existingSignature && !hasProctorSigned && (
+                              <div className="p-3 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20 text-center space-y-1.5">
+                                <span className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300 block">
+                                  Tanda Tangan Tersimpan Sebelumnya:
+                                </span>
+                                <img
+                                  src={existingSignature}
+                                  alt="TTD Sebelumnya"
+                                  className="h-14 max-h-16 mx-auto object-contain bg-white dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700"
+                                />
+                                <span className="text-[10px] text-slate-500 block">
+                                  (Dapat digores ulang di kanvas jika ingin memperbarui)
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Submit Action Bar */}
+                        <div className="pt-4 border-t border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <p className="text-xs text-slate-500">
+                            Pengawas: <strong className="text-slate-800 dark:text-white">{user.nama_lengkap || user.username}</strong>
+                            {user.nip ? ` • NIP: ${user.nip}` : ''}
+                          </p>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={handleSaveBeritaAcara}
+                              disabled={isSavingBeritaAcara}
+                              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-[0.98] disabled:opacity-50 min-h-[44px]"
+                            >
+                              {isSavingBeritaAcara ? (
+                                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                              ) : (
+                                <span className="material-symbols-outlined text-[18px]">save</span>
+                              )}
+                              <span>Simpan Berita Acara & Catatan</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     </>
                   )}
                 </>
@@ -3580,9 +4463,12 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
 
             const filteredJadwalHasil = dataJadwal.filter(j => {
               if (j.status_ujian !== 'SELESAI') return false;
+              // Strict Scoping: Guru only accesses evaluation for subjects they teach
+              const isTaughtSubject = dataMapel.some(m => String(m.id_mapel) === String(j.id_mapel));
+              if (!isTaughtSubject) return false;
               if (filterMapelHasil && filterMapelHasil !== 'ALL' && j.nama_mapel !== filterMapelHasil) return false;
               if (filterKelasHasil && filterKelasHasil !== 'Umum') {
-                if (j.target_kelas && j.target_kelas !== 'Umum' && j.target_kelas !== filterKelasHasil && !j.target_kelas.includes(filterKelasHasil)) {
+                if (j.target_kelas && !isUniversalAlloc(j.target_kelas) && !isClassMatching(j.target_kelas, { angkatan: filterKelasHasil, kelas: filterKelasHasil })) {
                   return false;
                 }
               }
@@ -3734,13 +4620,22 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                             Tingkat: {j.target_kelas || 'Umum'} | Waktu: {new Date(j.waktu_mulai).toLocaleDateString('id-ID')}
                           </p>
                         </div>
-                        <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+                        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
                           <button
                             onClick={() => openDetailHasil(j)}
                             className="flex-1 py-2 px-3 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs transition-colors flex items-center justify-center gap-1.5 min-h-[44px]"
                           >
                             <span className="material-symbols-outlined text-[16px]">leaderboard</span>
                             <span>Buka Rekap & Ranking</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPrintDocumentForJadwal(j)}
+                            className="py-2 px-3 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold text-xs transition-colors flex items-center justify-center gap-1 min-h-[44px]"
+                            title="Cetak Dokumen Pengawasan Ujian"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">description</span>
+                            <span className="hidden sm:inline">Dokumen</span>
                           </button>
                           <button
                             onClick={() => openAnalisisSoal(j.id_jadwal, j.id_mapel)}
@@ -4313,6 +5208,17 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
         isOpen={formSoal.isOpen}
         data={formSoal.data}
         narasiList={[]}
+        schoolName={user?.nama_sekolah || 'SMA'}
+        className={
+          dataMapel.find(m => String(m.id_mapel) === String(formSoal.id_mapel || selectedMapel))?.alokasi_kelas ||
+          dataMapel.find(m => String(m.id_mapel) === String(formSoal.id_mapel || selectedMapel))?.tingkat ||
+          'Semua Kelas'
+        }
+        subjectName={
+          dataMapel.find(m => String(m.id_mapel) === String(formSoal.id_mapel || selectedMapel))?.nama_mapel ||
+          'Mata Pelajaran'
+        }
+        gasWebhookUrl={gasWebhookUrl}
         onClose={() => setFormSoal({ isOpen: false, data: null, id_mapel: '' })}
         onSave={handleSaveSoal}
       />
@@ -4348,6 +5254,13 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
           pengawasNip={user.nip || ''}
         />
       )}
+
+      {/* Tutorial & Panduan Alur Modal (Milestone 3 - R7) */}
+      <TutorialModal
+        isOpen={showTutorialModal}
+        initialRole="guru"
+        onClose={handleCloseTutorial}
+      />
 
     </div>
   );

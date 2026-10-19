@@ -102,8 +102,8 @@ test('Displays student identity and integrity pledge', () => {
   assert.match(modalCode, /Pakta Integritas/, 'Must display integrity pledge statement');
 });
 
-test('Exports signature as Base64 PNG data URL', () => {
-  assert.match(modalCode, /toDataURL\(['"]image\/png['"]\)/, 'Must export as image/png Data URL');
+test('Exports signature as Base64 JPEG data URL', () => {
+  assert.match(modalCode, /toDataURL\(['"]image\/jpeg['"]\s*,\s*0\.6\)/, 'Must export as compressed image/jpeg Data URL');
 });
 
 // -----------------------------------------------------------------------------

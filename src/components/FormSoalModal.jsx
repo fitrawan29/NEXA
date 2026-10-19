@@ -1,7 +1,18 @@
 import ReactQuill from 'react-quill';
 import React, { useState, useEffect, useRef } from 'react';
+import { compressImageFile } from '../utils/imageHelper.js';
 
-    const FormSoalModal = ({ isOpen, data, narasiList = [], onClose, onSave }) => {
+    const FormSoalModal = ({
+      isOpen,
+      data,
+      narasiList = [],
+      schoolName = '',
+      className = '',
+      subjectName = '',
+      gasWebhookUrl = '',
+      onClose,
+      onSave
+    }) => {
       const modules = {
         toolbar: [
           [{ 'header': [1, 2, false] }],
@@ -18,6 +29,26 @@ import React, { useState, useEffect, useRef } from 'react';
       const [idNarasi, setIdNarasi] = useState(data && data.id_narasi ? data.id_narasi : (savedDraft.idNarasi || ''));
       const [gambar, setGambar] = useState(data ? data.gambar : null);
       const [bobot, setBobot] = useState(data ? data.bobot : (savedDraft.bobot || 1));
+      const [uploadingDrive, setUploadingDrive] = useState(false);
+      const [driveStatus, setDriveStatus] = useState(null);
+
+      const isMountedRef = useRef(true);
+      const uploadControllerRef = useRef(null);
+
+      // Safe prop string conversion to guard against array/number/null inputs
+      const normSchool = typeof schoolName === 'string' ? schoolName : (schoolName != null ? String(schoolName) : '');
+      const normClass = typeof className === 'string' ? className : (Array.isArray(className) ? className.join(', ') : (className != null ? String(className) : ''));
+      const normSubject = typeof subjectName === 'string' ? subjectName : (subjectName != null ? String(subjectName) : '');
+
+      useEffect(() => {
+        isMountedRef.current = true;
+        return () => {
+          isMountedRef.current = false;
+          if (uploadControllerRef.current) {
+            try { uploadControllerRef.current.abort(); } catch (_) {}
+          }
+        };
+      }, []);
       
       const [opsiPG, setOpsiPG] = useState(data && (data.tipe_soal==='PG' || data.tipe_soal==='PGK') ? window.safeJSONParse(data.opsi, ["","","","",""]) : (savedDraft.opsiPG || ['','','','','']));
       const [kunciPG, setKunciPG] = useState(data && data.tipe_soal==='PG' ? data.kunci_jawaban : (savedDraft.kunciPG || ''));
@@ -40,14 +71,140 @@ import React, { useState, useEffect, useRef } from 'react';
         }
       }, [tipe, pertanyaan, idNarasi, bobot, opsiPG, kunciPG, kunciPGK, kunciBS, premis, respon, kunciJodoh, kunciIsian, data]);
 
-      const handleImageUpload = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = (upload) => {
-            setGambar(upload.target.result);
+      const handleImageUpload = async (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+
+        // Reset file input value to allow re-selection
+        e.target.value = '';
+
+        try {
+          // Layer 1: Native Canvas Compression (max 800x800, quality 0.85)
+          let localCompressedUrl = null;
+          try {
+            localCompressedUrl = await compressImageFile(file, 800, 800, 0.85);
+          } catch (compErr) {
+            console.warn('Canvas compression fallback to FileReader:', compErr);
+            localCompressedUrl = await new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onload = (upload) => resolve(upload.target.result);
+              reader.readAsDataURL(file);
+            });
+          }
+
+          // Instantly set local preview so UI is responsive
+          setGambar(localCompressedUrl);
+
+          // Layer 2: Drive Hierarchical Upload via GAS Webhook
+          let storedWebhook = '';
+          try {
+            if (typeof window !== 'undefined') {
+              storedWebhook = window.localStorage.getItem('nexa_gas_drive_webhook') || '';
+            }
+          } catch (_) {}
+
+          const targetWebhook = (
+            gasWebhookUrl || 
+            storedWebhook || 
+            (typeof window !== 'undefined' ? window.localStorage.getItem('nexa_gas_drive_webhook') : '') || 
+            ''
+          ).trim();
+
+          const safeSchool = (normSchool || schoolName || 'Umum').trim() || 'Umum';
+          const safeClass = (normClass || className || 'Semua Kelas').trim() || 'Semua Kelas';
+          const safeSubject = (normSubject || subjectName || 'Umum').trim() || 'Umum';
+
+          if (!targetWebhook) {
+            setDriveStatus({
+              type: 'fallback',
+              message: 'Tersimpan lokal (Webhook Google Drive belum disetel)'
+            });
+            return;
+          }
+
+          setUploadingDrive(true);
+          setDriveStatus({
+            type: 'loading',
+            message: `Mengunggah ke Google Drive: NEXA > ${safeSchool} > ${safeClass} > ${safeSubject}...`
+          });
+
+          const base64Data = localCompressedUrl.includes(';base64,')
+            ? localCompressedUrl.split(';base64,')[1]
+            : localCompressedUrl;
+          const mimeType = file.type || (localCompressedUrl.includes('image/png') ? 'image/png' : 'image/jpeg');
+          const safeFileName = `soal_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+
+          const drivePayload = {
+            action: 'upload_soal_image',
+            rootFolder: 'NEXA',
+            schoolName: safeSchool,
+            className: safeClass,
+            subjectName: safeSubject,
+            sekolah: safeSchool,
+            kelas: safeClass,
+            mapel: safeSubject,
+            folderPath: 'NEXA/' + safeSchool + '/' + safeClass + '/' + safeSubject,
+            hierarchy: ['NEXA', safeSchool, safeClass, safeSubject],
+            fileName: safeFileName,
+            mimeType: mimeType,
+            base64Data: base64Data
           };
-          reader.readAsDataURL(file);
+
+          if (uploadControllerRef.current) {
+            try { uploadControllerRef.current.abort(); } catch (_) {}
+          }
+          const controller = new AbortController();
+          uploadControllerRef.current = controller;
+          const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+          try {
+            const resp = await fetch(targetWebhook, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: JSON.stringify(drivePayload),
+              signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+
+            if (resp.ok) {
+              const resData = await resp.json();
+              const finalUrl = resData?.fileUrl || resData?.url || resData?.drive_url;
+              if (resData && (resData.status === 'success' || resData.success === true || finalUrl) && finalUrl) {
+                if (isMountedRef.current) {
+                  setGambar(finalUrl);
+                  setDriveStatus({
+                    type: 'success',
+                    message: `Tersimpan di Google Drive: NEXA > ${safeSchool} > ${safeClass} > ${safeSubject}`
+                  });
+                }
+                return;
+              }
+            }
+
+            // Webhook did not return success status
+            if (isMountedRef.current) {
+              setDriveStatus({
+                type: 'fallback',
+                message: 'Tersimpan lokal (Drive webhook tidak merespons sukses)'
+              });
+            }
+          } catch (netErr) {
+            clearTimeout(timeoutId);
+            console.warn('Google Drive question upload fallback to local:', netErr);
+            if (isMountedRef.current) {
+              setDriveStatus({
+                type: 'fallback',
+                message: 'Tersimpan lokal (Google Drive offline/timeout)'
+              });
+            }
+          } finally {
+            if (isMountedRef.current) {
+              setUploadingDrive(false);
+            }
+          }
+        } catch (err) {
+          console.error('Image upload failed:', err);
+          alert('Gagal memproses gambar: ' + (err.message || 'Error'));
         }
       };
 
@@ -127,9 +284,63 @@ import React, { useState, useEffect, useRef } from 'react';
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-bold mb-1">Gambar (Opsional)</label>
-                <input type="file" accept="image/*" onChange={handleImageUpload} className="w-full p-2 border rounded bg-white dark:bg-slate-900" />
-                {gambar && <img src={gambar} alt="Preview" className="mt-2 max-h-32 rounded border" />}
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-bold">Gambar Soal (Opsional)</label>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                    Hierarki: NEXA &gt; {(normSchool || schoolName || '').trim() || 'Umum'} &gt; {(normClass || className || '').trim() || 'Semua Kelas'} &gt; {(normSubject || subjectName || '').trim() || 'Umum'}
+                  </span>
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  disabled={uploadingDrive}
+                  className="w-full p-2 border rounded bg-white dark:bg-slate-900 disabled:opacity-50 text-xs sm:text-sm"
+                />
+
+                {/* Status indicator */}
+                {uploadingDrive && (
+                  <div className="mt-2 flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400 font-medium">
+                    <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
+                    <span>Mengunggah gambar ke Google Drive...</span>
+                  </div>
+                )}
+                {!uploadingDrive && driveStatus && (
+                  <div className={`mt-2 flex items-center gap-2 text-xs px-2.5 py-1.5 rounded-lg border ${
+                    driveStatus.type === 'success'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
+                      : 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300'
+                  }`}>
+                    <span className="material-symbols-outlined text-sm">
+                      {driveStatus.type === 'success' ? 'cloud_done' : 'save'}
+                    </span>
+                    <span>{driveStatus.message}</span>
+                  </div>
+                )}
+
+                {/* Image Preview & Remove button */}
+                {gambar && (
+                  <div className="mt-3 relative inline-block border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden shadow-xs bg-slate-50 dark:bg-slate-900">
+                    <img src={gambar} alt="Preview Soal" className="max-h-40 w-auto object-contain block" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (uploadControllerRef.current) {
+                          try { uploadControllerRef.current.abort(); } catch (_) {}
+                          uploadControllerRef.current = null;
+                        }
+                        setGambar(null);
+                        setDriveStatus(null);
+                        setUploadingDrive(false);
+                      }}
+                      className="absolute top-1.5 right-1.5 px-2 py-1 rounded-md bg-red-600/90 hover:bg-red-700 text-white text-[11px] font-bold flex items-center gap-1 shadow-md transition-all"
+                      title="Hapus Gambar"
+                    >
+                      <span className="material-symbols-outlined text-[13px]">delete</span>
+                      <span>Hapus</span>
+                    </button>
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-bold mb-1">Bobot Nilai</label>
