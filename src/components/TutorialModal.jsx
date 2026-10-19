@@ -353,11 +353,6 @@ const TutorialModal = ({ isOpen, initialRole = 'admin', onClose }) => {
     }
   }, [isOpen, initialRole]);
 
-  // Reset step when activeRole changes
-  const handleSelectRole = (newRole) => {
-    setActiveRole(newRole);
-    setCurrentStep(0);
-  };
 
   // Keyboard navigation (Esc to close, Arrow keys for steps)
   useEffect(() => {
@@ -429,32 +424,6 @@ const TutorialModal = ({ isOpen, initialRole = 'admin', onClose }) => {
           </button>
         </div>
 
-        {/* ================= ROLE SELECTOR TABS ================= */}
-        <div className="px-4 sm:px-6 pt-3 pb-2 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
-          <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-            Pilih Peran Pengguna:
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {Object.entries(ROLE_THEMES).map(([roleKey, theme]) => {
-              const isSelected = activeRole === roleKey;
-              return (
-                <button
-                  key={roleKey}
-                  type="button"
-                  onClick={() => handleSelectRole(roleKey)}
-                  className={`flex items-center justify-center sm:justify-start gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
-                    isSelected
-                      ? `${theme.bgActive} border-transparent shadow-xs`
-                      : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-lg">{theme.icon}</span>
-                  <span className="truncate">{theme.badge}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
 
         {/* ================= STEP INDICATOR & TIMELINE ================= */}
         <div className="px-4 sm:px-6 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
