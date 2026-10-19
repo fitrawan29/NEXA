@@ -3717,7 +3717,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       {/* ================================================================= */}
       {/* MOBILE STICKY TOPBAR (< 1024px)                                   */}
       {/* ================================================================= */}
-      <header className="lg:hidden flex-shrink-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 px-4 h-16 flex items-center justify-between shadow-xs">
+      <header className="lg:hidden flex-shrink-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 px-4 h-16 flex items-center justify-between shadow-xs transition-colors duration-300">
         <div className="flex items-center gap-2.5">
           <button
             type="button"

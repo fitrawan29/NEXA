@@ -8,6 +8,7 @@ const SiswaView = React.lazy(() => import('./views/SiswaView'));
 const SuperAdminView = React.lazy(() => import('./views/SuperAdminView'));
 import Modal from './components/Modal';
 import PwaInstallToast from './components/PwaInstallToast';
+import { syncThemeColor } from './utils/themeColor';
 
 
 ﻿    class ErrorBoundary extends React.Component { 
@@ -69,9 +70,32 @@ import PwaInstallToast from './components/PwaInstallToast';
       const [loginError, setLoginError] = useState('');
       const [loginSuccess, setLoginSuccess] = useState(false);
       const [isOnline, setIsOnline] = useState(navigator.onLine);
-      const [isDarkMode, setIsDarkMode] = useState(false);
+      const [isDarkMode, setIsDarkMode] = useState(() => {
+        try {
+          const manual = localStorage.getItem('nexa_dark_mode_manual');
+          if (manual) {
+            const saved = localStorage.getItem('nexa_dark_mode');
+            if (saved !== null) return saved === 'true';
+          }
+          if (typeof window !== 'undefined' && window.matchMedia) {
+            return window.matchMedia('(prefers-color-scheme: dark)').matches;
+          }
+          const saved = localStorage.getItem('nexa_dark_mode');
+          if (saved !== null) return saved === 'true';
+        } catch (e) {}
+        return false;
+      });
       const [capsLockActive, setCapsLockActive] = useState(false);
-      const [isExamActive, setIsExamActive] = useState(false);
+      const [isExamActive, setIsExamActive] = useState(() => {
+        try {
+          return typeof window !== 'undefined' && (
+            !!sessionStorage.getItem('nexa_active_exam') ||
+            (window.location && window.location.hash.includes('exam'))
+          );
+        } catch (e) {
+          return false;
+        }
+      });
 
       const [loginRole, setLoginRole] = useState('');
       const [registerRole, setRegisterRole] = useState('');
@@ -137,21 +161,87 @@ import PwaInstallToast from './components/PwaInstallToast';
         };
       }, []);
 
+      const setDarkModeWithPreference = (val) => {
+        try {
+          localStorage.setItem('nexa_dark_mode_manual', 'true');
+        } catch (e) {}
+        setIsDarkMode(val);
+      };
+
       useEffect(() => {
         if (isDarkMode) {
           document.documentElement.classList.add('dark');
         } else {
           document.documentElement.classList.remove('dark');
         }
-      }, [isDarkMode]);
+        try {
+          localStorage.setItem('nexa_dark_mode', String(isDarkMode));
+        } catch (e) {}
+        const activeUnauthRole = isRegistering ? registerRole : loginRole;
+        const activeRole = user?.role || activeUnauthRole || 'siswa';
+        syncThemeColor({
+          isDarkMode,
+          isExamActive,
+          role: activeRole,
+          isLoggedIn: !!user
+        });
+      }, [isDarkMode, isExamActive, user?.role, user, isRegistering, loginRole, registerRole]);
+
+      // System prefers-color-scheme & cross-tab listener: dynamically update dark mode & status bar
+      useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const handleStorageChange = (e) => {
+          if (!e || !e.key || e.key === 'nexa_dark_mode') {
+            try {
+              const saved = localStorage.getItem('nexa_dark_mode');
+              if (saved !== null) {
+                setIsDarkMode(saved === 'true');
+              }
+            } catch (err) {}
+          }
+        };
+        window.addEventListener('storage', handleStorageChange);
+
+        if (!window.matchMedia) {
+          return () => window.removeEventListener('storage', handleStorageChange);
+        }
+
+        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        const handleMediaChange = (e) => {
+          try {
+            const manualPref = localStorage.getItem('nexa_dark_mode_manual');
+            if (!manualPref) {
+              setIsDarkMode(e.matches);
+            }
+          } catch (err) {
+            setIsDarkMode(e.matches);
+          }
+        };
+        if (mediaQuery.addEventListener) {
+          mediaQuery.addEventListener('change', handleMediaChange);
+          return () => {
+            window.removeEventListener('storage', handleStorageChange);
+            mediaQuery.removeEventListener('change', handleMediaChange);
+          };
+        } else if (mediaQuery.addListener) {
+          mediaQuery.addListener(handleMediaChange);
+          return () => {
+            window.removeEventListener('storage', handleStorageChange);
+            mediaQuery.removeListener(handleMediaChange);
+          };
+        }
+        return () => window.removeEventListener('storage', handleStorageChange);
+      }, []);
 
       useEffect(() => {
-        const activeRole = user?.role || loginRole || registerRole || 'siswa';
+        const activeUnauthRole = isRegistering ? registerRole : loginRole;
+        const activeRole = user?.role || activeUnauthRole || 'siswa';
         // Remove existing theme classes
         document.documentElement.classList.remove('theme-siswa', 'theme-guru', 'theme-admin', 'theme-super_admin');
         // Add current theme class
         document.documentElement.classList.add(`theme-${activeRole}`);
-      }, [user?.role, loginRole, registerRole]);
+      }, [user?.role, isRegistering, loginRole, registerRole]);
 
       useEffect(() => {
         const checkExamStatus = () => {
@@ -165,9 +255,21 @@ import PwaInstallToast from './components/PwaInstallToast';
         };
         checkExamStatus();
         window.addEventListener('storage', checkExamStatus);
+        window.addEventListener('nexa-exam-status', checkExamStatus);
+        window.addEventListener('hashchange', checkExamStatus);
+        window.addEventListener('popstate', checkExamStatus);
+        if (typeof document !== 'undefined') {
+          document.addEventListener('visibilitychange', checkExamStatus);
+        }
         const interval = setInterval(checkExamStatus, 1000);
         return () => {
           window.removeEventListener('storage', checkExamStatus);
+          window.removeEventListener('nexa-exam-status', checkExamStatus);
+          window.removeEventListener('hashchange', checkExamStatus);
+          window.removeEventListener('popstate', checkExamStatus);
+          if (typeof document !== 'undefined') {
+            document.removeEventListener('visibilitychange', checkExamStatus);
+          }
           clearInterval(interval);
         };
       }, []);
@@ -216,6 +318,16 @@ import PwaInstallToast from './components/PwaInstallToast';
           } catch (e) {
             console.error('Failed to reset session:', e);
           }
+        }
+        try {
+          sessionStorage.removeItem('nexa_active_exam');
+          window.dispatchEvent(new Event('storage'));
+        } catch (e) {}
+        setIsExamActive(false);
+        if (typeof window !== 'undefined' && window.location && window.location.hash && window.location.hash.includes('exam')) {
+          try {
+            window.location.hash = '';
+          } catch (e) {}
         }
         setUser(null);
         setUsername('');
@@ -282,7 +394,7 @@ import PwaInstallToast from './components/PwaInstallToast';
 
               <div className="w-full max-w-md bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col min-h-[100dvh] md:min-h-0 md:h-auto md:rounded-[40px] z-10 md:border border-slate-100 dark:border-slate-800">
                 {/* Header Section */}
-                <div className="bg-primary rounded-b-[40px] px-6 pt-6 pb-16 relative text-white shadow-md z-0 flex flex-col items-center justify-center text-center">
+                <div className="bg-primary dark:bg-slate-900 rounded-b-[40px] px-6 pt-6 pb-16 relative text-white shadow-md z-0 flex flex-col items-center justify-center text-center transition-colors duration-300 dark:border-b dark:border-slate-800">
                    <div className="w-16 h-16 bg-white shadow-lg rounded-2xl flex items-center justify-center p-2.5 mb-2 border border-white/20">
                      <img alt="NEXA Logo" className="w-full h-full object-contain" src={nexaLogo} />
                    </div>
@@ -290,7 +402,7 @@ import PwaInstallToast from './components/PwaInstallToast';
                    <p className="text-xs font-medium opacity-90">{isRegistering ? 'Daftar Akun Baru' : 'Platform Ujian Modern'}</p>
                    
                    <div className="absolute top-4 right-4">
-                      <button type="button" onClick={() => setIsDarkMode(!isDarkMode)} className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/30 transition-colors shadow-sm">
+                      <button type="button" onClick={() => setDarkModeWithPreference(!isDarkMode)} className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/30 transition-colors shadow-sm">
                         <span className="material-symbols-outlined text-[18px]">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
                       </button>
                    </div>
@@ -547,10 +659,10 @@ import PwaInstallToast from './components/PwaInstallToast';
 
         const suspenseFallback = <div className="h-[100dvh] w-full flex items-center justify-center bg-slate-50 dark:bg-slate-900 text-slate-500">Memuat...</div>;
         switch (user.role) {
-          case 'super_admin': return <ErrorBoundary><React.Suspense fallback={suspenseFallback}><SuperAdminView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></React.Suspense></ErrorBoundary>;
-          case 'admin': return <ErrorBoundary><React.Suspense fallback={suspenseFallback}><AdminView user={user} onLogout={handleLogout} onUpdateUser={handleUpdateUser} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></React.Suspense></ErrorBoundary>;
-          case 'guru': return <ErrorBoundary><React.Suspense fallback={suspenseFallback}><GuruView user={user} onLogout={handleLogout} onUpdateUser={handleUpdateUser} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></React.Suspense></ErrorBoundary>;
-          case 'siswa': return <ErrorBoundary><React.Suspense fallback={suspenseFallback}><SiswaView user={user} onLogout={handleLogout} onUpdateUser={handleUpdateUser} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} /></React.Suspense></ErrorBoundary>;
+          case 'super_admin': return <ErrorBoundary><React.Suspense fallback={suspenseFallback}><SuperAdminView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setDarkModeWithPreference} /></React.Suspense></ErrorBoundary>;
+          case 'admin': return <ErrorBoundary><React.Suspense fallback={suspenseFallback}><AdminView user={user} onLogout={handleLogout} onUpdateUser={handleUpdateUser} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setDarkModeWithPreference} /></React.Suspense></ErrorBoundary>;
+          case 'guru': return <ErrorBoundary><React.Suspense fallback={suspenseFallback}><GuruView user={user} onLogout={handleLogout} onUpdateUser={handleUpdateUser} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setDarkModeWithPreference} /></React.Suspense></ErrorBoundary>;
+          case 'siswa': return <ErrorBoundary><React.Suspense fallback={suspenseFallback}><SiswaView user={user} onLogout={handleLogout} onUpdateUser={handleUpdateUser} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setDarkModeWithPreference} /></React.Suspense></ErrorBoundary>;
           default: return <div className="p-8 text-center text-red-600 font-bold bg-white h-[100dvh]">Role tidak valid!</div>;
         }
       };

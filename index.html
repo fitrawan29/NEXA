@@ -2,15 +2,41 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>NEXA - The Future of Smart Education</title>
     
     <!-- Meta tags for PWA -->
-    <meta name="theme-color" content="#003fb1">
+    <meta name="theme-color" content="#10b981">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="/manifest.json">
     <link rel="apple-touch-icon" href="/stitch_assets/screen_3_logo.png">
+
+    <!-- Native pre-render theme & status bar sync script: prevents cold-boot FOUC / emerald flash in dark mode -->
+    <script>
+      (function() {
+        try {
+          var manual = localStorage.getItem('nexa_dark_mode_manual');
+          var isDark = false;
+          if (manual) {
+            var saved = localStorage.getItem('nexa_dark_mode');
+            isDark = saved !== null ? saved === 'true' : false;
+          } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            isDark = true;
+          } else {
+            var saved = localStorage.getItem('nexa_dark_mode');
+            isDark = saved === 'true';
+          }
+          if (isDark) {
+            document.documentElement.classList.add('dark');
+            var meta = document.querySelector('meta[name="theme-color"]');
+            if (meta) meta.setAttribute('content', '#0f172a');
+            var appleMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+            if (appleMeta) appleMeta.setAttribute('content', 'black-translucent');
+          }
+        } catch (e) {}
+      })();
+    </script>
     
     <!-- Preconnect Google Fonts CDN for faster DNS & TLS handshake -->
     <link rel="preconnect" href="https://fonts.googleapis.com">

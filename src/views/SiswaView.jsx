@@ -284,6 +284,7 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       };
       try {
         sessionStorage.setItem('nexa_active_exam', JSON.stringify(examData));
+        window.dispatchEvent(new Event('storage'));
       } catch (err) {}
       setTokenModalJadwal(null);
       setInputToken('');
@@ -458,6 +459,7 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
         onFinish={() => {
           try {
             sessionStorage.removeItem('nexa_active_exam');
+            window.dispatchEvent(new Event('storage'));
           } catch (err) {}
           setActiveExamData(null);
           setTokenModalJadwal(null);
@@ -588,7 +590,7 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       {/* ------------------------------------------------------------- */}
       {/* MOBILE HEADER BANNER (md:hidden)                              */}
       {/* ------------------------------------------------------------- */}
-      <div className="md:hidden flex-shrink-0 z-30 bg-gradient-to-r from-primary-600 to-primary-400 text-white px-5 pt-6 pb-6 shadow-md">
+      <div className="md:hidden flex-shrink-0 z-30 bg-gradient-to-r from-primary-600 to-primary-400 dark:from-slate-900 dark:to-slate-800 text-white px-5 pt-6 pb-6 shadow-md dark:border-b dark:border-slate-800 transition-colors duration-300">
         <div className="flex justify-between items-start gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div

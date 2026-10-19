@@ -195,7 +195,7 @@ import { PasswordInput } from '../components/UI.jsx';
           <div className="w-full md:max-w-3xl lg:max-w-5xl xl:max-w-6xl mx-auto bg-white dark:bg-slate-900 relative shadow-2xl overflow-hidden flex flex-col h-[100dvh]">
             
             {/* Header / Top Section */}
-            <div className="bg-primary rounded-none px-6 pt-4 pb-4 relative text-white shadow-md z-0 flex-shrink-0">
+            <div className="bg-primary dark:bg-slate-900 rounded-none px-6 pt-4 pb-4 relative text-white shadow-md z-0 flex-shrink-0 dark:border-b dark:border-slate-800 transition-colors duration-300">
               <div className="flex justify-between items-center gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-12 h-12 bg-white/20 rounded-full border-2 border-white/50 overflow-hidden flex-shrink-0 flex items-center justify-center">

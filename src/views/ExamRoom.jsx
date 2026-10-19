@@ -122,6 +122,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
         localStorage.removeItem(`nexa_ans_${jadwal.id_jadwal}`);
       }
       sessionStorage.removeItem('nexa_active_exam');
+      window.dispatchEvent(new Event('storage'));
     } catch (e) {
       console.error('Failed to clear cached answers:', e);
     }
@@ -196,6 +197,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
 
   // Initial mount: Check strike/block status and sync signed status from server
   useEffect(() => {
+    window.dispatchEvent(new Event('storage'));
     if (initialBlocked || initialViolations >= 3) {
       triggerStrike3Kick();
       return;
