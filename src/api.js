@@ -527,7 +527,10 @@ export { supabaseClient };
         kop_meja_baris1: u.kop_meja_baris1 || schoolName,
         kop_meja_baris2: u.kop_meja_baris2 !== undefined ? u.kop_meja_baris2 : 'KARTU MEJA UJIAN CBT',
         kartu_meja_show_logo_kiri: u.kartu_meja_show_logo_kiri !== false,
-        kartu_meja_show_logo_kanan: u.kartu_meja_show_logo_kanan !== false
+        kartu_meja_show_logo_kanan: u.kartu_meja_show_logo_kanan !== false,
+
+        // Student Portal Privacy & Visibility configuration
+        tampilkan_leaderboard: u.tampilkan_leaderboard !== undefined ? u.tampilkan_leaderboard : true
       };
     };
 
@@ -2908,6 +2911,14 @@ export { supabaseClient };
           }
           
           case 'get_leaderboard': {
+             if (payload?.npsn) {
+               try {
+                 const schoolSettings = await get_pengaturan_sekolah(payload.npsn);
+                 if (schoolSettings && schoolSettings.tampilkan_leaderboard === false) {
+                   return { status: 'success', data: [], disabled: true };
+                 }
+               } catch (e) {}
+             }
              const { data: logs, error: err } = await supabaseClient
                  .from('log_ujian')
                  .select('id_siswa, nilai_auto, nilai_uraian, siswa!inner(nama_lengkap, kelas_paralel, angkatan)')

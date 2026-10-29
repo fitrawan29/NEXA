@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Loader from '../components/Loader.jsx';
 import Modal from '../components/Modal.jsx';
 import DigitalSignatureModal from '../components/DigitalSignatureModal.jsx';
+import TutorialModal, { TutorialBadge, resetTutorialProgress } from '../components/TutorialModal.jsx';
 
 function mulberry32(a) {
   return function() {
@@ -82,6 +83,40 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmModal, setConfirmModal] = useState({ isOpen: false });
   const [securityModal, setSecurityModal] = useState({ isOpen: false, title: '', message: '' });
+  const [showTutorialModal, setShowTutorialModal] = useState(false);
+  const examTutorialStorageKey = currentUserId ? `nexa_tutorial_seen_${currentUserId}_exam_room` : null;
+
+  useEffect(() => {
+    try {
+      const seen = (examTutorialStorageKey && localStorage.getItem(examTutorialStorageKey)) || localStorage.getItem('nexa_tutorial_shown_exam_room');
+      if (!seen) {
+        setShowTutorialModal(true);
+      }
+    } catch (e) {
+      console.error('Failed to read exam tutorial state:', e);
+    }
+  }, [examTutorialStorageKey]);
+
+  const handleCloseTutorial = () => {
+    setShowTutorialModal(false);
+    try {
+      if (examTutorialStorageKey) {
+        localStorage.setItem(examTutorialStorageKey, 'true');
+      }
+      localStorage.setItem('nexa_tutorial_shown_exam_room', 'true');
+    } catch (e) {}
+  };
+
+  const handleRestartTutorial = () => {
+    resetTutorialProgress('exam_room');
+    try {
+      if (examTutorialStorageKey) {
+        localStorage.removeItem(examTutorialStorageKey);
+      }
+      localStorage.removeItem('nexa_tutorial_shown_exam_room');
+    } catch (e) {}
+    setShowTutorialModal(true);
+  };
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [blurOverlay, setBlurOverlay] = useState(false);
   const isSubmittingRef = useRef(false);
@@ -91,6 +126,59 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
   const serverOffsetMsRef = useRef(0);
   const perfStartRef = useRef((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now());
   const initialRemainingMsRef = useRef(Math.max(0, endMsRef.current - Date.now()));
+  const hasAlerted5MinRef = useRef(false);
+  const hasAlerted1MinRef = useRef(false);
+
+  // 3-tier Question Font Size State (A- / A / A+)
+  const [fontSize, setFontSize] = useState(() => {
+    try {
+      return localStorage.getItem('nexa_exam_font_size') || localStorage.getItem('nexa_exam_font_scale') || 'normal';
+    } catch {
+      return 'normal';
+    }
+  });
+
+  const handleSetFontSize = (size) => {
+    setFontSize(size);
+    try {
+      localStorage.setItem('nexa_exam_font_size', size);
+      localStorage.setItem('nexa_exam_font_scale', size);
+    } catch (e) {}
+    if (typeof window !== 'undefined' && window.MathJax && window.MathJax.typesetPromise) {
+      setTimeout(() => {
+        window.MathJax.typesetPromise().catch(() => {});
+      }, 100);
+    }
+  };
+
+  const getFontClasses = () => {
+    switch (fontSize) {
+      case 'small':
+      case 'sm':
+        return {
+          stimulus: 'text-xs sm:text-sm',
+          question: 'text-xs sm:text-sm md:text-base',
+          options: 'text-xs sm:text-sm'
+        };
+      case 'large':
+      case 'lg':
+        return {
+          stimulus: 'text-base sm:text-lg md:text-xl',
+          question: 'text-base sm:text-lg md:text-xl font-medium',
+          options: 'text-base sm:text-lg'
+        };
+      case 'normal':
+      case 'base':
+      default:
+        return {
+          stimulus: 'text-sm sm:text-base',
+          question: 'text-sm sm:text-base md:text-lg',
+          options: 'text-sm sm:text-base'
+        };
+    }
+  };
+
+  const fontClasses = getFontClasses();
 
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const examContainerRef = useRef(null);
@@ -301,6 +389,22 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
       const remaining = calculateTimeLeft();
       setTimeLeft(remaining);
 
+      // <= 5 Minutes Proactive Alert
+      if (remaining.total <= 300000 && remaining.total > 60000 && !hasAlerted5MinRef.current) {
+        hasAlerted5MinRef.current = true;
+        if (showMessage) {
+          showMessage('Peringatan Waktu', 'Sisa waktu ujian kurang dari 5 menit! Periksa kembali jawaban Anda.', 'warning');
+        }
+      }
+
+      // <= 1 Minute Urgent Warning
+      if (remaining.total <= 60000 && remaining.total > 0 && !hasAlerted1MinRef.current) {
+        hasAlerted1MinRef.current = true;
+        if (showMessage) {
+          showMessage('Waktu Kritis', 'Sisa waktu ujian kurang dari 1 menit! Ujian akan segera dikumpulkan secara otomatis.', 'error');
+        }
+      }
+
       if (remaining.total <= 0 && !isSubmittingRef.current && !isBlockedRef.current) {
         clearInterval(timerInterval);
         showMessage('Waktu Habis!', 'Waktu ujian telah berakhir. Sistem mengumpulkan jawaban otomatis.', 'warning');
@@ -322,7 +426,15 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
               const correctedNow = Date.now() + serverOffsetMsRef.current;
               initialRemainingMsRef.current = Math.max(0, serverEndMs - correctedNow);
               perfStartRef.current = ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now());
-              setTimeLeft(calculateTimeLeft());
+              const newRemaining = calculateTimeLeft();
+              setTimeLeft(newRemaining);
+              // Reset alert flags if extended beyond thresholds
+              if (newRemaining.total > 300000) {
+                hasAlerted5MinRef.current = false;
+              }
+              if (newRemaining.total > 60000) {
+                hasAlerted1MinRef.current = false;
+              }
               if (showMessage) {
                 showMessage('Waktu Diperpanjang', 'Pengawas telah memperpanjang waktu ujian.', 'info');
               }
@@ -693,7 +805,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
                   </span>
                 )}
                 <div 
-                  className={`text-sm sm:text-base leading-relaxed overflow-x-auto custom-scrollbar [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg ${
+                  className={`${fontClasses.options} leading-relaxed overflow-x-auto custom-scrollbar [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg ${
                     isSelected ? 'text-emerald-900 dark:text-emerald-200 font-medium' : 'text-slate-700 dark:text-slate-200'
                   }`} 
                   dangerouslySetInnerHTML={{ __html: op }}
@@ -733,7 +845,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
                   {letter}.
                 </span>
                 <div 
-                  className={`text-sm sm:text-base leading-relaxed overflow-x-auto custom-scrollbar [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg ${
+                  className={`${fontClasses.options} leading-relaxed overflow-x-auto custom-scrollbar [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg ${
                     isChecked ? 'text-emerald-900 dark:text-emerald-200 font-medium' : 'text-slate-700 dark:text-slate-200'
                   }`} 
                   dangerouslySetInnerHTML={{ __html: op }}
@@ -756,7 +868,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
             <div className="space-y-2.5">
               {premis.map((p, idx) => p && (
                 <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
-                  <span className="flex-1 font-medium text-xs sm:text-sm text-slate-800 dark:text-slate-200 leading-relaxed">
+                  <span className={`flex-1 font-medium ${fontClasses.options} text-slate-800 dark:text-slate-200 leading-relaxed`}>
                     {p}
                   </span>
                   <span className="material-symbols-outlined text-slate-400 hidden sm:block text-[18px]">arrow_forward</span>
@@ -783,7 +895,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
             placeholder="Ketik jawaban Anda di sini..." 
             value={currentAns} 
             onChange={(e) => handleAnswerChange(s.id_soal, e.target.value, s.tipe_soal)} 
-            className="w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm sm:text-base text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all leading-relaxed"
+            className={`w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl ${fontClasses.options} text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all leading-relaxed`}
           />
         );
 
@@ -1021,9 +1133,9 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
           </div>
         </div>
 
-        {/* Right: Calm Timer & Action Controls */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border font-mono font-bold text-xs sm:text-sm tracking-wider transition-colors ${
+        {/* Right: Calm Timer, Font Size Controls & Action Controls */}
+        <div className="flex items-center gap-2 sm:gap-2.5">
+          <div data-tutorial="exam-timer" className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border font-mono font-bold text-xs sm:text-sm tracking-wider transition-colors ${
             timeLeft.total < 60000 
               ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800'
               : timeLeft.total < 300000 
@@ -1032,19 +1144,59 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
           }`}>
             <span className="material-symbols-outlined text-[16px] text-slate-400 dark:text-slate-500">timer</span>
             <span>{String(timeLeft.hours).padStart(2, '0')}:{String(timeLeft.minutes).padStart(2, '0')}:{String(timeLeft.seconds).padStart(2, '0')}</span>
+            <TutorialBadge role="exam_room" targetId="exam-timer" tooltipPosition="bottom" />
           </div>
 
-          <button 
-            onClick={() => setIsDrawerOpen(true)} 
-            className="lg:hidden h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center gap-1 text-xs font-bold hover:border-emerald-500 transition-colors min-w-[44px] min-h-[44px]"
-            title="Daftar Soal"
-          >
-            <span className="material-symbols-outlined text-[18px]">grid_view</span>
-            <span>{currentIndex + 1}/{soal.length}</span>
-          </button>
+          {/* Question Font Size Modifier (A- / A / A+) */}
+          <div data-tutorial="exam-font-size" className="flex items-center rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100/80 dark:bg-slate-800/80 p-0.5">
+            <button
+              type="button"
+              onClick={() => handleSetFontSize('small')}
+              className={`px-2 py-1 rounded-lg text-xs font-bold transition-all min-h-[32px] sm:min-h-[36px] flex items-center justify-center ${
+                fontSize === 'small' || fontSize === 'sm'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+              title="Ukuran teks kecil (A-)"
+              aria-label="Ukuran teks kecil"
+              aria-pressed={fontSize === 'small' || fontSize === 'sm'}
+            >
+              A-
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSetFontSize('normal')}
+              className={`px-2 py-1 rounded-lg text-xs font-bold transition-all min-h-[32px] sm:min-h-[36px] flex items-center justify-center ${
+                fontSize === 'normal' || fontSize === 'base'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+              title="Ukuran teks normal (A)"
+              aria-label="Ukuran teks normal"
+              aria-pressed={fontSize === 'normal' || fontSize === 'base'}
+            >
+              A
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSetFontSize('large')}
+              className={`px-2 py-1 rounded-lg text-xs font-bold transition-all min-h-[32px] sm:min-h-[36px] flex items-center justify-center ${
+                fontSize === 'large' || fontSize === 'lg'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+              title="Ukuran teks besar (A+)"
+              aria-label="Ukuran teks besar"
+              aria-pressed={fontSize === 'large' || fontSize === 'lg'}
+            >
+              A+
+            </button>
+            <TutorialBadge role="exam_room" targetId="exam-font-size" className="ml-1 mr-0.5" tooltipPosition="bottom" />
+          </div>
 
           {setIsDarkMode && (
             <button
+              type="button"
               onClick={() => setIsDarkMode(!isDarkMode)}
               className="w-10 h-10 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors min-w-[44px] min-h-[44px]"
               title="Ganti Tema"
@@ -1052,6 +1204,27 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
               <span className="material-symbols-outlined text-[18px]">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
             </button>
           )}
+
+          <button
+            type="button"
+            data-tutorial="exam-panduan"
+            onClick={() => setShowTutorialModal(true)}
+            className="w-10 h-10 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/80 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors min-w-[44px] min-h-[44px] shadow-xs"
+            title="Panduan & Tutorial Ruang Ujian"
+            aria-label="Panduan & Tutorial Ruang Ujian"
+          >
+            <span className="material-symbols-outlined text-[20px]">help</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleRestartTutorial}
+            className="w-10 h-10 sm:w-auto sm:px-3 sm:py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0"
+            title="Mulai Tutorial Lagi dari awal"
+            aria-label="Mulai Tutorial Lagi"
+          >
+            <span className="material-symbols-outlined text-base text-indigo-600 dark:text-indigo-400">restart_alt</span>
+            <span className="hidden xl:inline">Mulai Tutorial Lagi</span>
+          </button>
         </div>
 
         {/* Slim Linear Progress Line at bottom border */}
@@ -1065,9 +1238,12 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
 
       <div className="flex flex-1 pt-16 h-full">
         {/* Desktop Right Sidebar Palette */}
-        <aside className="hidden lg:flex fixed right-0 top-16 w-80 h-[calc(100vh-64px)] border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex-col p-5 overflow-y-auto custom-scrollbar z-30 transition-colors duration-300">
+        <aside data-tutorial="exam-palette" className="hidden lg:flex fixed right-0 top-16 w-80 h-[calc(100vh-64px)] border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex-col p-5 overflow-y-auto custom-scrollbar z-30 transition-colors duration-300">
           <div className="mb-4">
-            <h2 className="text-sm font-bold text-slate-800 dark:text-white">Navigasi Soal</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-bold text-slate-800 dark:text-white">Navigasi Soal</h2>
+              <TutorialBadge role="exam_room" targetId="exam-palette" />
+            </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">Pilih nomor soal untuk melompat</p>
             {violationCount > 0 && (
               <p className="text-xs text-rose-600 dark:text-rose-400 mt-2 font-bold flex items-center gap-1">
@@ -1116,7 +1292,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
                       </div>
                     </div>
 
-                    <div className="max-h-[40vh] lg:max-h-[calc(100vh-250px)] overflow-y-auto custom-scrollbar pr-2 text-slate-700 dark:text-slate-200 leading-relaxed text-sm sm:text-base select-none [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-xl [&_img]:my-3">
+                    <div id="narasi-soal" className={`max-h-[40vh] lg:max-h-[calc(100vh-250px)] overflow-y-auto custom-scrollbar pr-2 text-slate-700 dark:text-slate-200 leading-relaxed ${fontClasses.stimulus} select-none [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-xl [&_img]:my-3`}>
                       <div dangerouslySetInnerHTML={{ __html: narasiContent }} />
                     </div>
                   </div>
@@ -1141,7 +1317,8 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
                   </div>
 
                   <div 
-                    className="font-medium text-slate-800 dark:text-slate-100 text-sm sm:text-base md:text-lg leading-relaxed mb-6 whitespace-pre-wrap overflow-x-auto custom-scrollbar [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-xl [&_img]:my-3 select-none" 
+                    id="pertanyaan-soal"
+                    className={`font-medium text-slate-800 dark:text-slate-100 ${fontClasses.question} leading-relaxed mb-6 whitespace-pre-wrap overflow-x-auto custom-scrollbar [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-xl [&_img]:my-3 select-none`} 
                     dangerouslySetInnerHTML={{ __html: currentS.pertanyaan }} 
                   />
 
@@ -1168,59 +1345,163 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
 
           {/* Sticky Bottom Navigation Bar */}
           {currentS && (
-            <div className="fixed bottom-0 left-0 right-0 lg:right-80 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-4 py-3 z-40 pb-[max(0.75rem,env(safe-area-inset-bottom))] transition-colors duration-300">
-              <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <button 
-                    onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))} 
-                    disabled={currentIndex === 0} 
-                    className="h-11 px-3.5 sm:px-5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-emerald-500 hover:text-emerald-600 dark:hover:border-emerald-500 dark:hover:text-emerald-400 bg-white dark:bg-slate-800 font-bold text-xs sm:text-sm flex items-center gap-1.5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed min-h-[44px]"
+            <div data-tutorial="exam-bottom-bar" className="fixed bottom-0 left-0 right-0 lg:right-80 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-2.5 sm:px-4 py-2 sm:py-3 z-40 pb-[max(0.75rem,env(safe-area-inset-bottom))] transition-colors duration-300">
+              <div className="max-w-7xl mx-auto flex flex-col gap-2">
+                {/* Critical Countdown Warning Banner */}
+                {timeLeft.total > 0 && timeLeft.total <= 300000 && (
+                  <div className={`py-1.5 px-3 rounded-xl flex items-center justify-center gap-2 text-center text-xs font-bold transition-all shadow-sm ${
+                    timeLeft.total <= 60000
+                      ? 'bg-rose-600 text-white animate-pulse'
+                      : 'bg-amber-500 text-slate-950'
+                  }`}>
+                    <span className="material-symbols-outlined text-[18px]">
+                      {timeLeft.total <= 60000 ? 'error' : 'warning'}
+                    </span>
+                    <span>
+                      {timeLeft.total <= 60000
+                        ? 'Waktu Kritis: Sisa waktu ujian kurang dari 1 menit! Ujian akan segera dikumpulkan secara otomatis.'
+                        : 'Peringatan Waktu: Sisa waktu ujian kurang dari 5 menit! Periksa kembali jawaban Anda.'}
+                    </span>
+                  </div>
+                )}
+
+                {/* Mobile 4-Column Balanced Grid Navigation (< 640px) */}
+                <div className="sm:hidden grid grid-cols-4 gap-1.5 w-full">
+                  {/* Col 1: Sebelumnya */}
+                  <button
+                    type="button"
+                    onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
+                    disabled={currentIndex === 0}
+                    className="min-h-[44px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-emerald-500 hover:text-emerald-600 dark:hover:border-emerald-500 dark:hover:text-emerald-400 flex flex-col items-center justify-center text-[10px] sm:text-xs font-semibold py-1.5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    aria-label="Soal Sebelumnya"
                   >
-                    <span className="material-symbols-outlined text-[20px]">chevron_left</span>
-                    <span className="hidden sm:inline">Sebelumnya</span>
+                    <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                    <span>Prev</span>
                   </button>
 
-                  <button 
-                    onClick={() => setIsDrawerOpen(true)} 
-                    className="lg:hidden h-11 px-3.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 border border-slate-200 dark:border-slate-700 font-bold text-xs flex items-center gap-1.5 transition-colors min-h-[44px]"
+                  {/* Col 2: Ragu-ragu */}
+                  <button
+                    type="button"
+                    onClick={() => toggleRaguRagu(currentS.id_soal)}
+                    className={`relative min-h-[44px] rounded-xl border-2 flex flex-col items-center justify-center text-[10px] sm:text-xs font-semibold py-1.5 transition-colors ${
+                      raguRagu[currentS.id_soal]
+                        ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:border-amber-400 hover:text-amber-600'
+                    }`}
+                    aria-label="Tandai Ragu-ragu"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">help</span>
+                    <span>Ragu</span>
+                    <TutorialBadge role="exam_room" targetId="exam-bottom-bar" className="absolute -top-1 -right-1 scale-75" />
+                  </button>
+
+                  {/* Col 3: Daftar Soal / Palet */}
+                  <button
+                    type="button"
+                    data-tutorial="exam-palette"
+                    onClick={() => setIsDrawerOpen(true)}
+                    className="relative min-h-[44px] rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 flex flex-col items-center justify-center text-[10px] sm:text-xs font-semibold py-1.5 transition-colors"
+                    aria-label="Buka Palet Soal"
                   >
                     <span className="material-symbols-outlined text-[18px]">grid_view</span>
-                    <span className="hidden xs:inline">Daftar</span>
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button 
-                    onClick={() => toggleRaguRagu(currentS.id_soal)} 
-                    className={`h-11 px-3.5 sm:px-4 rounded-xl border-2 font-bold text-xs sm:text-sm flex items-center gap-1.5 transition-colors min-h-[44px] ${
-                      raguRagu[currentS.id_soal] 
-                        ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400' 
-                        : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 hover:border-amber-400 hover:text-amber-600'
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-[20px]">
-                      {raguRagu[currentS.id_soal] ? 'check_box' : 'check_box_outline_blank'}
-                    </span>
-                    <span className="hidden sm:inline">Ragu-ragu</span>
+                    <span>Palet</span>
+                    <TutorialBadge role="exam_room" targetId="exam-palette" className="absolute -top-1 -right-1 scale-75" />
                   </button>
 
+                  {/* Col 4: Lanjut / Selesai */}
                   {currentIndex < soal.length - 1 ? (
-                    <button 
-                      onClick={() => setCurrentIndex(currentIndex + 1)} 
-                      className="h-11 px-5 sm:px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-sm transition-all min-h-[44px]"
+                    <button
+                      type="button"
+                      data-tutorial="exam-selesai-next"
+                      onClick={() => setCurrentIndex(currentIndex + 1)}
+                      className="relative min-h-[44px] rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white flex flex-col items-center justify-center text-[10px] sm:text-xs font-semibold py-1.5 shadow-sm transition-all"
+                      aria-label="Soal Berikutnya"
                     >
-                      <span>Lanjut</span>
-                      <span className="material-symbols-outlined text-[20px]">chevron_right</span>
+                      <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                      <span>Next</span>
+                      <TutorialBadge role="exam_room" targetId="exam-selesai" className="absolute -top-1 -right-1 scale-75" />
                     </button>
                   ) : (
-                    <button 
-                      onClick={requestSubmit} 
-                      className="h-11 px-5 sm:px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-sm hover:shadow transition-all min-h-[44px]"
+                    <button
+                      type="button"
+                      data-tutorial="exam-selesai"
+                      onClick={requestSubmit}
+                      className="relative min-h-[44px] rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white flex flex-col items-center justify-center text-[10px] sm:text-xs font-semibold py-1.5 shadow-sm hover:shadow transition-all"
+                      aria-label="Kumpulkan Ujian"
                     >
-                      <span className="material-symbols-outlined text-[18px]">task_alt</span>
-                      <span>Kumpulkan Ujian</span>
+                      <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                      <span>Selesai</span>
+                      <TutorialBadge role="exam_room" targetId="exam-selesai" className="absolute -top-1 -right-1 scale-75" />
                     </button>
                   )}
+                </div>
+
+                {/* Desktop Spacious Navigation (>= 640px) */}
+                <div className="hidden sm:flex items-center justify-between gap-2 w-full">
+                  <div className="flex items-center gap-2">
+                    <button 
+                      type="button"
+                      onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))} 
+                      disabled={currentIndex === 0} 
+                      className="h-11 px-5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-emerald-500 hover:text-emerald-600 dark:hover:border-emerald-500 dark:hover:text-emerald-400 bg-white dark:bg-slate-800 font-bold text-sm flex items-center gap-1.5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed min-h-[44px]"
+                    >
+                      <span className="material-symbols-outlined text-[20px]">chevron_left</span>
+                      <span>Sebelumnya</span>
+                    </button>
+
+                    <button 
+                      type="button"
+                      data-tutorial="exam-palette"
+                      onClick={() => setIsDrawerOpen(true)} 
+                      className="lg:hidden h-11 px-3.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 border border-slate-200 dark:border-slate-700 font-bold text-xs flex items-center gap-1.5 transition-colors min-h-[44px]"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">grid_view</span>
+                      <span>Daftar Soal</span>
+                      <TutorialBadge role="exam_room" targetId="exam-palette" />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button 
+                      type="button"
+                      onClick={() => toggleRaguRagu(currentS.id_soal)} 
+                      className={`h-11 px-4 rounded-xl border-2 font-bold text-sm flex items-center gap-1.5 transition-colors min-h-[44px] ${
+                        raguRagu[currentS.id_soal] 
+                          ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400' 
+                          : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 hover:border-amber-400 hover:text-amber-600'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[20px]">
+                        {raguRagu[currentS.id_soal] ? 'check_box' : 'check_box_outline_blank'}
+                      </span>
+                      <span>Ragu-ragu</span>
+                      <TutorialBadge role="exam_room" targetId="exam-bottom-bar" />
+                    </button>
+
+                    {currentIndex < soal.length - 1 ? (
+                      <button 
+                        type="button"
+                        data-tutorial="exam-selesai-next"
+                        onClick={() => setCurrentIndex(currentIndex + 1)} 
+                        className="h-11 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-bold text-sm flex items-center gap-1.5 shadow-sm transition-all min-h-[44px]"
+                      >
+                        <span>Lanjut</span>
+                        <span className="material-symbols-outlined text-[20px]">chevron_right</span>
+                        <TutorialBadge role="exam_room" targetId="exam-selesai" />
+                      </button>
+                    ) : (
+                      <button 
+                        type="button"
+                        data-tutorial="exam-selesai"
+                        onClick={requestSubmit} 
+                        className="h-11 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-bold text-sm flex items-center gap-1.5 shadow-sm hover:shadow transition-all min-h-[44px]"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">task_alt</span>
+                        <span>Kumpulkan Ujian</span>
+                        <TutorialBadge role="exam_room" targetId="exam-selesai" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1312,6 +1593,14 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
           </div>
         </div>
       )}
+
+      {/* Interactive ExamRoom Tutorial Modal */}
+      <TutorialModal
+        isOpen={showTutorialModal}
+        initialRole="exam_room"
+        onClose={handleCloseTutorial}
+        onRestart={handleRestartTutorial}
+      />
     </div>
   );
 };

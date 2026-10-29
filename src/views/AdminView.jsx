@@ -17,7 +17,7 @@ import NotificationBell from '../components/NotificationBell.jsx';
 import SkemaPenilaianPanel from '../components/SkemaPenilaianPanel.jsx';
 import KartuUjianPrint from '../components/KartuUjianPrint.jsx';
 import DokumenUjianPrint from '../components/DokumenUjianPrint.jsx';
-import TutorialModal from '../components/TutorialModal.jsx';
+import TutorialModal, { TutorialBadge, resetTutorialProgress } from '../components/TutorialModal.jsx';
 import OfflineAiAssistant from '../components/OfflineAiAssistant.jsx';
 import { compressImageFile } from '../utils/imageHelper.js';
 
@@ -65,9 +65,8 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   const tutorialStorageKey = currentUserId ? `nexa_tutorial_seen_${currentUserId}_admin` : null;
 
   useEffect(() => {
-    if (!tutorialStorageKey) return;
     try {
-      const seen = localStorage.getItem(tutorialStorageKey);
+      const seen = (tutorialStorageKey && localStorage.getItem(tutorialStorageKey)) || localStorage.getItem('nexa_tutorial_shown_admin');
       if (!seen) {
         setShowTutorialModal(true);
       }
@@ -78,13 +77,25 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
 
   const handleCloseTutorial = () => {
     setShowTutorialModal(false);
-    if (tutorialStorageKey) {
-      try {
+    try {
+      if (tutorialStorageKey) {
         localStorage.setItem(tutorialStorageKey, 'true');
-      } catch (e) {
-        console.error('Failed to save tutorial state to localStorage:', e);
       }
+      localStorage.setItem('nexa_tutorial_shown_admin', 'true');
+    } catch (e) {
+      console.error('Failed to save tutorial state to localStorage:', e);
     }
+  };
+
+  const handleRestartTutorial = () => {
+    resetTutorialProgress('admin');
+    try {
+      if (tutorialStorageKey) {
+        localStorage.removeItem(tutorialStorageKey);
+      }
+      localStorage.removeItem('nexa_tutorial_shown_admin');
+    } catch (e) {}
+    setShowTutorialModal(true);
   };
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Backward compat & mobile drawer
@@ -223,6 +234,8 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
 
   const navigateTab = (tabId) => {
     setActiveTab(tabId);
+    const targetTab = tabId === 'kontrol' ? 'jadwal' : tabId;
+    setActiveTab(targetTab);
     setIsSidebarOpen(false);
     setIsMobileDrawerOpen(false);
   };
@@ -657,6 +670,73 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     setIsSubmitting(false);
     showMessage('Berhasil', `Semua jadwal ujian berhasil diubah menjadi ${status_baru}`, 'success');
     fetchData('jadwal');
+  };
+
+  const handleCopyToken = (tokenText) => {
+    if (!tokenText || tokenText === '-') return;
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(tokenText).then(() => {
+        showMessage('Sukses', `Token ${tokenText} disalin ke clipboard`, 'success');
+      }).catch(() => {
+        showMessage('Info', `Token: ${tokenText}`, 'info');
+      });
+    } else {
+      showMessage('Info', `Token: ${tokenText}`, 'info');
+    }
+  };
+
+  const handleRilisToken = async (id_jadwal) => {
+    setIsSubmitting(true);
+    try {
+      const now = await getTrueNow();
+      const newToken = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const nowIso = now.toISOString();
+      const res = await api('update_jadwal', {
+        id_jadwal,
+        token_aktif: newToken,
+        token: newToken,
+        last_update_token: nowIso
+      });
+      if (res.status === 'success') {
+        setDataJadwal(prev => prev.map(j => j.id_jadwal === id_jadwal ? {
+          ...j,
+          token_aktif: newToken,
+          token: newToken,
+          last_update_token: nowIso
+        } : j));
+        showMessage('Sukses', `Token ujian baru berhasil dirilis: ${newToken}`, 'success');
+        if (typeof logActivity === 'function') {
+          logActivity('RILIS_TOKEN', `Rilis token ujian baru: ${newToken} untuk jadwal ${id_jadwal}`);
+        }
+      } else {
+        showMessage('Gagal', res.message || 'Gagal merilis token', 'error');
+      }
+    } catch (err) {
+      showMessage('Error', err.message || 'Terjadi kesalahan saat merilis token', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleToggleLockdown = async (id_jadwal, currentLockState) => {
+    setIsSubmitting(true);
+    try {
+      const nextState = !currentLockState;
+      const res = await api('update_jadwal', { id_jadwal, browser_lockdown: nextState });
+      if (res.status === 'success') {
+        setDataJadwal(prev => prev.map(j => j.id_jadwal === id_jadwal ? { ...j, browser_lockdown: nextState } : j));
+        showMessage('Info', `Mode Kunci Darurat (Browser Lockdown) ${nextState ? 'DIAKTIFKAN' : 'DINONAKTIFKAN'}.`, nextState ? 'warning' : 'info');
+        if (typeof logActivity === 'function') {
+          logActivity('EMERGENCY_LOCK', `${nextState ? 'Mengaktifkan' : 'Menonaktifkan'} browser lockdown jadwal ${id_jadwal}`);
+        }
+      } else {
+        showMessage('Gagal', res.message || 'Gagal mengubah status lockdown', 'error');
+      }
+    } catch (err) {
+      showMessage('Error', err.message || 'Terjadi kesalahan saat mengubah status lockdown', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Proctor Actions with Confirmation Dialogs
@@ -1878,9 +1958,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       items: [
         { id: 'jadwal', label: 'Jadwal Ujian', icon: 'event_note' },
         { id: 'pengawas', label: 'Pengawas & Ruang', icon: 'badge' },
-        { id: 'kontrol', label: 'Kontrol Ujian', icon: 'settings_remote' },
-        { id: 'skema', label: 'Skema Penilaian', icon: 'tune' },
-        { id: 'soal', label: 'Bank Soal (Preview)', icon: 'quiz' }
+        { id: 'skema', label: 'Skema Penilaian', icon: 'tune' }
       ]
     },
     {
@@ -3572,7 +3650,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   if (!user) return null;
 
   return (
-    <div className="h-[100dvh] overflow-hidden bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 flex flex-col lg:flex-row w-full selection:bg-primary/20 selection:text-primary-700">
+    <div className="h-[100dvh] bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 flex flex-col lg:flex-row w-full overflow-hidden selection:bg-primary/20 selection:text-primary-700">
 
       {/* ================================================================= */}
       {/* DESKTOP PERSISTENT COLLAPSIBLE SIDEBAR (lg: and above)           */}
@@ -3638,6 +3716,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 return (
                   <button
                     key={item.id}
+                    data-tutorial={item.id === 'pengawas' ? `admin-${item.id} admin-kontrol` : `admin-${item.id}`}
                     data-assistant-target={item.id}
                     type="button"
                     onClick={() => navigateTab(item.id)}
@@ -3655,6 +3734,11 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     </span>
                     {!isSidebarCollapsed && (
                       <span className="truncate flex-1 text-left">{item.label}</span>
+                    )}
+                    {isSidebarCollapsed ? (
+                      <TutorialBadge role="admin" targetId={item.id === 'pengawas' ? ['admin-pengawas', 'admin-kontrol'] : `admin-${item.id}`} dotOnly={true} className="absolute top-1 right-1" />
+                    ) : (
+                      <TutorialBadge role="admin" targetId={item.id === 'pengawas' ? ['admin-pengawas', 'admin-kontrol'] : `admin-${item.id}`} />
                     )}
                   </button>
                 );
@@ -3745,12 +3829,22 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
         <div className="flex items-center gap-1.5 shrink-0">
           <button
             type="button"
+            data-tutorial="admin-panduan"
             onClick={() => setShowTutorialModal(true)}
             className="w-11 h-11 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50 border border-blue-200/80 dark:border-blue-800/80 hover:bg-blue-100 dark:hover:bg-blue-900/60 active:scale-95 transition-all min-w-[44px] min-h-[44px] shadow-xs"
             title="Panduan & Tutorial"
             aria-label="Panduan & Tutorial"
           >
             <span className="material-symbols-outlined text-xl">help</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleRestartTutorial}
+            className="w-11 h-11 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 transition-all min-w-[44px] min-h-[44px] shadow-xs"
+            title="Mulai Tutorial Lagi"
+            aria-label="Mulai Tutorial Lagi"
+          >
+            <span className="material-symbols-outlined text-xl">restart_alt</span>
           </button>
           <NotificationBell role="admin" npsn={user?.npsn} user={user} />
           <button
@@ -3820,6 +3914,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     return (
                       <button
                         key={item.id}
+                        data-tutorial={item.id === 'pengawas' ? `admin-${item.id} admin-kontrol` : `admin-${item.id}`}
                         data-assistant-target={item.id}
                         type="button"
                         onClick={() => navigateTab(item.id)}
@@ -3831,6 +3926,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                       >
                         <span className="material-symbols-outlined text-xl shrink-0">{item.icon}</span>
                         <span className="truncate flex-1 text-left">{item.label}</span>
+                        <TutorialBadge role="admin" targetId={item.id === 'pengawas' ? ['admin-pengawas', 'admin-kontrol'] : `admin-${item.id}`} />
                       </button>
                     );
                   })}
@@ -3856,7 +3952,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       {/* ================================================================= */}
       {/* MOBILE BOTTOM QUICK BAR (< 1024px)                                */}
       {/* ================================================================= */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 flex-shrink-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-200/80 dark:border-slate-800 px-2 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex justify-around items-center shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
+      <nav className="lg:hidden fixed bottom-0 left-0 w-full right-0 z-40 flex-shrink-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-200/80 dark:border-slate-800 px-2 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex justify-around items-center shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
         {bottomBarItems.map((tab) => {
           const isActive = activeTab === tab.id;
           const isTrigger = tab.isDrawerTrigger;
@@ -3864,6 +3960,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
             <button
               key={tab.id}
               type="button"
+              data-tutorial={!tab.isDrawerTrigger ? (tab.id === 'jadwal' ? `admin-${tab.id} admin-kontrol` : `admin-${tab.id}`) : undefined}
               onClick={() => {
                 if (isTrigger) {
                   setIsMobileDrawerOpen(true);
@@ -3872,7 +3969,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   navigateTab(tab.id);
                 }
               }}
-              className={`flex flex-col items-center justify-center flex-1 py-1 min-h-[44px] min-w-[44px] transition-colors ${
+              className={`flex flex-col items-center justify-center flex-1 py-1 min-h-[44px] min-w-[44px] transition-colors relative ${
                 isActive && !isTrigger
                   ? 'text-primary dark:text-primary-400'
                   : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'
@@ -3880,6 +3977,11 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
             >
               <span className="material-symbols-outlined text-[22px]">{tab.icon}</span>
               <span className="text-[10px] font-bold mt-0.5 truncate max-w-[60px]">{tab.label}</span>
+              {!tab.isDrawerTrigger ? (
+                <TutorialBadge role="admin" targetId={`admin-${tab.id}`} className="mt-0.5" />
+              ) : (
+                <TutorialBadge role="admin" targetId={['admin-pengaturan', 'admin-pengawas', 'admin-dokumen', 'admin-kontrol']} className="absolute top-0 right-1/4 scale-75" />
+              )}
             </button>
           );
         })}
@@ -3903,6 +4005,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
           <div className="flex items-center gap-3">
             <button
               type="button"
+              data-tutorial="admin-panduan"
               onClick={() => setShowTutorialModal(true)}
               className="px-3.5 py-1.5 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/80 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs hover:shadow-sm"
               title="Panduan & Tutorial"
@@ -3910,6 +4013,16 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
             >
               <span className="material-symbols-outlined text-base text-blue-600 dark:text-blue-400">help</span>
               <span>Panduan</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleRestartTutorial}
+              className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs hover:shadow-sm"
+              title="Mulai Tutorial Lagi dari awal"
+              aria-label="Mulai Tutorial Lagi"
+            >
+              <span className="material-symbols-outlined text-base text-blue-600 dark:text-blue-400">restart_alt</span>
+              <span>Mulai Tutorial Lagi</span>
             </button>
             <NotificationBell role="admin" npsn={user?.npsn} user={user} />
             <div className="px-3 py-1 rounded-full bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 border border-primary/30 dark:border-primary/30 text-xs font-bold flex items-center gap-1.5">
@@ -4076,12 +4189,14 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   </button>
                   <button
                     type="button"
+                    data-tutorial="admin-dokumen"
                     onClick={() => handleOpenPrintKartu('peserta')}
                     className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-primary/10 text-primary dark:text-primary-300 hover:bg-primary/20 transition-all border border-primary/20 min-h-[44px]"
                     title="Cetak Kartu Peserta Ujian & Kartu Meja"
                   >
                     <span className="material-symbols-outlined text-[18px]">badge</span>
                     <span className="hidden sm:inline">Cetak Kartu</span>
+                    <TutorialBadge role="admin" targetId="admin-dokumen" />
                   </button>
                   <button
                     onClick={() => setImportModal({ isOpen: true, type: 'siswa' })}
@@ -4670,7 +4785,42 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Atur token, waktu pengerjaan, dan kontrol status sesi</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Bulk Exam Status Operations */}
+                  <div data-tutorial="admin-kontrol" className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-700/60 p-1 rounded-xl">
+                    <TutorialBadge role="admin" targetId="admin-kontrol" className="mr-0.5" />
+                    <button
+                      type="button"
+                      onClick={() => handleBulkUpdateStatusUjian('AKTIF')}
+                      disabled={isSubmitting}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-primary hover:bg-primary/90 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50 shadow-xs min-h-[36px]"
+                      title="Mulai Semua Ujian"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">play_arrow</span>
+                      <span>Mulai Semua</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleBulkUpdateStatusUjian('SELESAI')}
+                      disabled={isSubmitting}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-700 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50 shadow-xs min-h-[36px]"
+                      title="Hentikan Semua Ujian"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">stop</span>
+                      <span>Hentikan Semua</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleBulkUpdateStatusUjian('BELUM MULAI')}
+                      disabled={isSubmitting}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50 shadow-xs min-h-[36px]"
+                      title="Reset Semua Ujian"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">refresh</span>
+                      <span>Reset Semua</span>
+                    </button>
+                  </div>
+
                   <button
                     onClick={() => setImportModal({ isOpen: true, type: 'jadwal' })}
                     className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 transition-colors min-h-[44px]"
@@ -4854,8 +5004,53 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                                 {new Date(j.waktu_mulai).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} - {new Date(j.waktu_selesai).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
                               </span>
                             </td>
-                            <td className="py-3 px-4 font-mono font-bold text-primary dark:text-primary-400">
-                              {j.token || '-'}
+                            <td className="py-3 px-4">
+                              <div className="flex flex-col gap-1.5">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-mono font-bold text-sm text-primary dark:text-primary-400">
+                                    {j.token_aktif || j.token || '-'}
+                                  </span>
+                                  {(j.token_aktif || j.token) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCopyToken(j.token_aktif || j.token)}
+                                      className="p-1 text-slate-400 hover:text-primary hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                                      title="Salin Token"
+                                    >
+                                      <span className="material-symbols-outlined text-[15px]">content_copy</span>
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRilisToken(j.id_jadwal)}
+                                    disabled={isSubmitting}
+                                    className="px-2 py-0.5 rounded text-[11px] font-bold bg-primary/10 hover:bg-primary/20 text-primary dark:text-primary-400 transition-colors inline-flex items-center gap-0.5"
+                                    title="Rilis / Putar Token Baru"
+                                  >
+                                    <span className="material-symbols-outlined text-[13px]">autorenew</span>
+                                    <span>Rilis</span>
+                                  </button>
+                                </div>
+
+                                <div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleLockdown(j.id_jadwal, j.browser_lockdown !== false)}
+                                    disabled={isSubmitting}
+                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold transition-all border ${
+                                      j.browser_lockdown !== false
+                                        ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300 hover:bg-rose-100'
+                                        : 'bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100'
+                                    }`}
+                                    title="Klik untuk mengubah mode Kunci Darurat (Lockdown)"
+                                  >
+                                    <span className="material-symbols-outlined text-[13px]">
+                                      {j.browser_lockdown !== false ? 'lock' : 'lock_open'}
+                                    </span>
+                                    <span>{j.browser_lockdown !== false ? 'Lockdown Aktif' : 'Lockdown Bebas'}</span>
+                                  </button>
+                                </div>
+                              </div>
                             </td>
                             <td className="py-3 px-4">
                               <StatusBadge status={j.status_ujian} pulse={j.status_ujian === 'AKTIF'} />
@@ -4979,9 +5174,54 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                         <StatusBadge status={j.status_ujian} size="xs" pulse={j.status_ujian === 'AKTIF'} />
                       </div>
 
-                      <div className="flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-slate-100 dark:border-slate-700/60">
-                        <span>{new Date(j.waktu_mulai).toLocaleDateString('id-ID')}</span>
-                        <span>Token: <strong className="font-mono text-primary dark:text-primary-400">#{j.token || '-'}</strong></span>
+                      <div className="flex flex-col gap-1.5 pt-1.5 border-t border-slate-100 dark:border-slate-700/60">
+                        <div className="flex items-center justify-between text-xs text-slate-500">
+                          <span>{new Date(j.waktu_mulai).toLocaleDateString('id-ID')}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleLockdown(j.id_jadwal, j.browser_lockdown !== false)}
+                            disabled={isSubmitting}
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border transition-all ${
+                              j.browser_lockdown !== false
+                                ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300'
+                                : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400'
+                            }`}
+                            title="Mode Kunci Darurat (Lockdown)"
+                          >
+                            <span className="material-symbols-outlined text-[13px]">
+                              {j.browser_lockdown !== false ? 'lock' : 'lock_open'}
+                            </span>
+                            <span>{j.browser_lockdown !== false ? 'Lockdown Aktif' : 'Lockdown Bebas'}</span>
+                          </button>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-500">Token Ujian:</span>
+                          <div className="flex items-center gap-1">
+                            <strong className="font-mono text-primary dark:text-primary-400 font-bold">
+                              #{j.token_aktif || j.token || '-'}
+                            </strong>
+                            {(j.token_aktif || j.token) && (
+                              <button
+                                type="button"
+                                onClick={() => handleCopyToken(j.token_aktif || j.token)}
+                                className="p-1 text-slate-400 hover:text-primary rounded"
+                                title="Salin Token"
+                              >
+                                <span className="material-symbols-outlined text-[15px]">content_copy</span>
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleRilisToken(j.id_jadwal)}
+                              disabled={isSubmitting}
+                              className="px-2 py-0.5 rounded text-[11px] font-bold bg-primary/10 text-primary dark:text-primary-400 hover:bg-primary/20 inline-flex items-center gap-0.5 transition-colors"
+                              title="Rilis Token Baru"
+                            >
+                              <span className="material-symbols-outlined text-[13px]">autorenew</span>
+                              <span>Rilis</span>
+                            </button>
+                          </div>
+                        </div>
                       </div>
 
                       <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-slate-100 dark:border-slate-700/60 flex-wrap">
@@ -5952,107 +6192,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
             </div>
           )}
 
-          {/* ================= TAB 5: KONTROL UJIAN (BATCH) ================= */}
-          {activeTab === 'kontrol' && (
-            <div className="space-y-5 animate-fade-in-up">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
-                <div>
-                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg sm:text-xl">Pusat Kontrol Ujian</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Operasi massal untuk memulai, menghentikan, atau mereset seluruh ujian serentak</p>
-                </div>
-                <div className="flex items-center gap-2 w-full md:w-auto flex-wrap">
-                  <button
-                    onClick={() => handleBulkUpdateStatusUjian('AKTIF')}
-                    disabled={isSubmitting}
-                    className="flex-1 md:flex-none px-3.5 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 shadow-sm min-h-[44px]"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">play_arrow</span>
-                    <span>Mulai Semua</span>
-                  </button>
-                  <button
-                    onClick={() => handleBulkUpdateStatusUjian('SELESAI')}
-                    disabled={isSubmitting}
-                    className="flex-1 md:flex-none px-3.5 py-2.5 bg-slate-700 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 shadow-sm min-h-[44px]"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">stop</span>
-                    <span>Hentikan Semua</span>
-                  </button>
-                  <button
-                    onClick={() => handleBulkUpdateStatusUjian('BELUM MULAI')}
-                    disabled={isSubmitting}
-                    className="flex-1 md:flex-none px-3.5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 shadow-sm min-h-[44px]"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">refresh</span>
-                    <span>Reset Semua</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Schedules Control List */}
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
-                {dataJadwal.map((j) => {
-                  const isAktif = j.status_ujian === 'AKTIF';
-                  const isSelesai = j.status_ujian === 'SELESAI';
-                  return (
-                    <div
-                      key={j.id_jadwal}
-                      className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex items-center justify-between gap-3"
-                    >
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
-                          isAktif ? 'bg-primary/10 text-primary dark:bg-primary/10 dark:text-primary-400' :
-                          isSelesai ? 'bg-slate-100 text-slate-500 dark:bg-slate-700' :
-                          'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400'
-                        }`}>
-                          <span className="material-symbols-outlined text-2xl">
-                            {isAktif ? 'play_circle' : isSelesai ? 'check_circle' : 'schedule'}
-                          </span>
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h4 className="font-bold text-xs sm:text-sm text-slate-800 dark:text-slate-100 truncate">{j.nama_mapel}</h4>
-                          <p className="text-[11px] text-slate-500 truncate mt-0.5">{j.guru || '-'} • Token: #{j.token || '-'}</p>
-                          <div className="mt-1">
-                            <StatusBadge status={j.status_ujian} size="xs" pulse={isAktif} />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="shrink-0">
-                        {!isAktif && !isSelesai && (
-                          <button
-                            onClick={() => handleUpdateStatusUjian(j.id_jadwal, 'AKTIF')}
-                            disabled={isSubmitting}
-                            className="px-3.5 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl text-xs font-bold transition-all min-h-[44px]"
-                          >
-                            Mulai
-                          </button>
-                        )}
-                        {isAktif && (
-                          <button
-                            onClick={() => handleUpdateStatusUjian(j.id_jadwal, 'SELESAI')}
-                            disabled={isSubmitting}
-                            className="px-3.5 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 rounded-xl text-xs font-bold transition-all min-h-[44px]"
-                          >
-                            Hentikan
-                          </button>
-                        )}
-                        {isSelesai && (
-                          <button
-                            onClick={() => handleUpdateStatusUjian(j.id_jadwal, 'BELUM MULAI')}
-                            disabled={isSubmitting}
-                            className="px-3.5 py-2 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100 rounded-xl text-xs font-bold transition-all min-h-[44px]"
-                          >
-                            Reset
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
           {/* ================= TAB 6: REAL-TIME LIVE MONITORING HUD ================= */}
           {activeTab === 'monitoring' && (
             <div className="space-y-5 animate-fade-in-up">
@@ -6092,6 +6231,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   {selectedJadwal && (
                     <button
                       type="button"
+                      data-tutorial="admin-dokumen"
                       onClick={() => handleOpenPrintDokumenUjian(selectedJadwal)}
                       disabled={loadingPrintDokumen}
                       className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white shadow-xs transition-all min-h-[40px]"
@@ -6103,6 +6243,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                         <span className="material-symbols-outlined text-[18px]">print</span>
                       )}
                       <span className="hidden sm:inline">Cetak Dokumen Pengawasan</span>
+                      <TutorialBadge role="admin" targetId="admin-dokumen" />
                     </button>
                   )}
                   <button
@@ -7454,6 +7595,51 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 </div>
               </div>
 
+              {/* CARD 5: Privasi & Visibilitas Siswa */}
+              <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-700/80">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                    <span className="material-symbols-outlined text-lg">visibility</span>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-slate-800 dark:text-white">Privasi & Visibilitas Siswa</h4>
+                    <p className="text-[11px] text-slate-500">Kendali privasi hasil ujian, peringkat, dan tampilan fitur di portal siswa</p>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <span className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-primary text-[18px]">leaderboard</span>
+                      Tampilkan Papan Peringkat (Leaderboard) di Portal Siswa
+                    </span>
+                    <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 max-w-xl">
+                      Jika dinonaktifkan, tab Papan Peringkat, widget top 5 peringkat di beranda siswa, serta navigasi leaderboard akan disembunyikan untuk menjaga privasi nilai peserta didik.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const currentVal = kopSettings.tampilkan_leaderboard !== false;
+                      setKopSettings(prev => ({ ...prev, tampilkan_leaderboard: !currentVal }));
+                    }}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
+                      kopSettings.tampilkan_leaderboard !== false ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-600'
+                    }`}
+                    role="switch"
+                    aria-checked={kopSettings.tampilkan_leaderboard !== false}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        kopSettings.tampilkan_leaderboard !== false ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+
               {/* Action Save Bar */}
               <div className="pt-2 flex justify-end">
                 <button
@@ -7664,6 +7850,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
         isOpen={showTutorialModal}
         initialRole="admin"
         onClose={handleCloseTutorial}
+        onRestart={handleRestartTutorial}
       />
 
       {/* Offline AI Assistant Widget (Zero-API, Offline Navigation) */}

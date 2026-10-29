@@ -1,4 +1,5 @@
 import { fetchAPI, isClassMatching } from '../api.js';
+import { get_pengaturan_sekolah } from '../api.js';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import ExamRoom from './ExamRoom.jsx';
 import {
@@ -16,7 +17,7 @@ import {
   PasswordInput
 } from '../components/UI.jsx';
 import NotificationBell from '../components/NotificationBell.jsx';
-import TutorialModal from '../components/TutorialModal.jsx';
+import TutorialModal, { TutorialBadge, resetTutorialProgress } from '../components/TutorialModal.jsx';
 import OfflineAiAssistant from '../components/OfflineAiAssistant.jsx';
 import { compressImageFile } from '../utils/imageHelper.js';
 
@@ -131,9 +132,8 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   const tutorialStorageKey = currentUserId ? `nexa_tutorial_seen_${currentUserId}_siswa` : null;
 
   useEffect(() => {
-    if (!tutorialStorageKey) return;
     try {
-      const seen = localStorage.getItem(tutorialStorageKey);
+      const seen = (tutorialStorageKey && localStorage.getItem(tutorialStorageKey)) || localStorage.getItem('nexa_tutorial_shown_siswa');
       if (!seen) {
         setShowTutorialModal(true);
       }
@@ -144,13 +144,25 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
 
   const handleCloseTutorial = () => {
     setShowTutorialModal(false);
-    if (tutorialStorageKey) {
-      try {
+    try {
+      if (tutorialStorageKey) {
         localStorage.setItem(tutorialStorageKey, 'true');
-      } catch (e) {
-        console.error('Failed to save tutorial state to localStorage:', e);
       }
+      localStorage.setItem('nexa_tutorial_shown_siswa', 'true');
+    } catch (e) {
+      console.error('Failed to save tutorial state to localStorage:', e);
     }
+  };
+
+  const handleRestartTutorial = () => {
+    resetTutorialProgress('siswa');
+    try {
+      if (tutorialStorageKey) {
+        localStorage.removeItem(tutorialStorageKey);
+      }
+      localStorage.removeItem('nexa_tutorial_shown_siswa');
+    } catch (e) {}
+    setShowTutorialModal(true);
   };
 
   const [activeTab, setActiveTab] = useState('beranda');
@@ -158,6 +170,7 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   const [dataPengumuman, setDataPengumuman] = useState([]);
   const [dataRiwayat, setDataRiwayat] = useState([]);
   const [dataLeaderboard, setDataLeaderboard] = useState([]);
+  const [showLeaderboard, setShowLeaderboard] = useState(true);
 
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
@@ -167,8 +180,34 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     loadPengumuman();
     loadRiwayat();
     loadJadwal();
-    loadLeaderboard();
-  }, []);
+
+    const loadSettingsAndLeaderboard = async () => {
+      let isLeaderboardEnabled = true;
+      if (user?.npsn) {
+        try {
+          const res = await get_pengaturan_sekolah(user.npsn);
+          if (res && res.tampilkan_leaderboard !== undefined) {
+            isLeaderboardEnabled = res.tampilkan_leaderboard !== false;
+          }
+        } catch (e) {
+          console.warn('Gagal memuat pengaturan sekolah di SiswaView:', e);
+        }
+      }
+      setShowLeaderboard(isLeaderboardEnabled);
+      if (isLeaderboardEnabled) {
+        loadLeaderboard();
+      }
+    };
+
+    loadSettingsAndLeaderboard();
+  }, [user?.npsn]);
+
+  // Safe redirect if leaderboard is disabled while currently active
+  useEffect(() => {
+    if (!showLeaderboard && activeTab === 'leaderboard') {
+      setActiveTab('beranda');
+    }
+  }, [showLeaderboard, activeTab]);
 
   // Heartbeat session sync
   useEffect(() => {
@@ -435,11 +474,13 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
             <Button
               variant="primary"
               size="md"
-              className="w-full min-h-[44px]"
+              data-tutorial="siswa-presensi"
+              className="w-full min-h-[44px] flex items-center justify-center gap-1.5"
               icon="login"
               onClick={() => handleOpenTokenModal(j)}
             >
-              Mulai Ujian
+              <span>Mulai Ujian</span>
+              <TutorialBadge role="siswa" targetId="siswa-presensi" />
             </Button>
           )}
         </CardFooter>
@@ -507,9 +548,10 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 { id: 'nilai', label: 'Riwayat Nilai', icon: 'military_tech' },
                 { id: 'leaderboard', label: 'Papan Peringkat', icon: 'social_leaderboard' },
                 { id: 'akun', label: 'Profil Saya', icon: 'person' },
-              ].map((tab) => (
+              ].filter(tab => tab.id !== 'leaderboard' || showLeaderboard).map((tab) => (
                 <button
                   key={tab.id}
+                  data-tutorial={tab.id === 'nilai' ? 'siswa-nilai siswa-riwayat' : `siswa-${tab.id}`}
                   data-assistant-target={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all min-h-[44px] ${
@@ -520,6 +562,7 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 >
                   <span className="material-symbols-outlined text-[18px]">{tab.icon}</span>
                   <span>{tab.label}</span>
+                  <TutorialBadge role="siswa" targetId={`siswa-${tab.id}`} />
                 </button>
               ))}
             </nav>
@@ -528,6 +571,7 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
             <div className="flex items-center gap-2">
               <button
                 type="button"
+                data-tutorial="siswa-panduan"
                 onClick={() => setShowTutorialModal(true)}
                 className="px-3.5 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/80 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 hover:text-emerald-900 dark:hover:text-emerald-100 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs hover:shadow-sm"
                 title="Panduan & Tutorial"
@@ -535,6 +579,17 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
               >
                 <span className="material-symbols-outlined text-base text-emerald-600 dark:text-emerald-400">help</span>
                 <span className="hidden sm:inline">Panduan</span>
+                <TutorialBadge role="siswa" targetId="siswa-panduan" />
+              </button>
+              <button
+                type="button"
+                onClick={handleRestartTutorial}
+                className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs hover:shadow-sm"
+                title="Mulai Tutorial Lagi dari awal"
+                aria-label="Mulai Tutorial Lagi"
+              >
+                <span className="material-symbols-outlined text-base text-emerald-600 dark:text-emerald-400">restart_alt</span>
+                <span className="hidden sm:inline">Mulai Tutorial Lagi</span>
               </button>
               <NotificationBell role="siswa" npsn={user?.npsn} user={user} />
               {/* Dark Mode Toggle */}
@@ -619,12 +674,23 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
           <div className="flex items-center gap-1.5 shrink-0">
             <button
               type="button"
+              data-tutorial="siswa-panduan"
               onClick={() => setShowTutorialModal(true)}
-              className="w-11 h-11 rounded-xl bg-white/25 hover:bg-white/35 border border-white/40 backdrop-blur-sm flex items-center justify-center text-white active:scale-95 transition-all shadow-sm min-w-[44px] min-h-[44px] ring-1 ring-white/30"
+              className="relative w-11 h-11 rounded-xl bg-white/25 hover:bg-white/35 border border-white/40 backdrop-blur-sm flex items-center justify-center text-white active:scale-95 transition-all shadow-sm min-w-[44px] min-h-[44px] ring-1 ring-white/30"
               title="Panduan & Tutorial"
               aria-label="Panduan & Tutorial"
             >
               <span className="material-symbols-outlined text-xl">help</span>
+              <TutorialBadge role="siswa" targetId="siswa-panduan" className="absolute -top-1 -right-1 scale-75" />
+            </button>
+            <button
+              type="button"
+              onClick={handleRestartTutorial}
+              className="w-11 h-11 rounded-xl bg-white/15 hover:bg-white/25 border border-white/30 backdrop-blur-sm flex items-center justify-center text-white active:scale-95 transition-all shadow-sm min-w-[44px] min-h-[44px]"
+              title="Mulai Tutorial Lagi"
+              aria-label="Mulai Tutorial Lagi"
+            >
+              <span className="material-symbols-outlined text-xl">restart_alt</span>
             </button>
             <NotificationBell role="siswa" variant="white" npsn={user?.npsn} user={user} />
             <button
@@ -782,42 +848,44 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 </Card>
 
                 {/* Kilas Leaderboard Card */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-amber-500">social_leaderboard</span>
-                      <CardTitle>Peringkat Teratas</CardTitle>
-                    </div>
-                    <Button variant="ghost" size="sm" onClick={() => setActiveTab('leaderboard')}>
-                      Detail
-                    </Button>
-                  </CardHeader>
-                  <CardContent className="pt-2">
-                    {dataLeaderboard.length === 0 ? (
-                      <p className="text-xs text-slate-400 py-4 text-center">Belum ada data nilai.</p>
-                    ) : (
-                      <div className="divide-y divide-slate-100 dark:divide-slate-700">
-                        {dataLeaderboard.slice(0, 3).map((lb, idx) => (
-                          <div key={idx} className="py-2.5 flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${
-                                idx === 0 ? 'bg-amber-400 text-amber-900' : idx === 1 ? 'bg-slate-200 text-slate-700' : 'bg-amber-600/30 text-amber-800 dark:text-amber-300'
-                              }`}>
-                                {idx + 1}
-                              </span>
-                              <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
-                                {lb.nama}
+                {showLeaderboard && (
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-amber-500">social_leaderboard</span>
+                        <CardTitle>Peringkat Teratas</CardTitle>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => setActiveTab('leaderboard')}>
+                        Detail
+                      </Button>
+                    </CardHeader>
+                    <CardContent className="pt-2">
+                      {dataLeaderboard.length === 0 ? (
+                        <p className="text-xs text-slate-400 py-4 text-center">Belum ada data nilai.</p>
+                      ) : (
+                        <div className="divide-y divide-slate-100 dark:divide-slate-700">
+                          {dataLeaderboard.slice(0, 3).map((lb, idx) => (
+                            <div key={idx} className="py-2.5 flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${
+                                  idx === 0 ? 'bg-amber-400 text-amber-900' : idx === 1 ? 'bg-slate-200 text-slate-700' : 'bg-amber-600/30 text-amber-800 dark:text-amber-300'
+                                }`}>
+                                  {idx + 1}
+                                </span>
+                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                                  {lb.nama}
+                                </span>
+                              </div>
+                              <span className="text-xs font-black text-primary dark:text-primary-400 shrink-0">
+                                {lb.rata_rata}
                               </span>
                             </div>
-                            <span className="text-xs font-black text-primary dark:text-primary-400 shrink-0">
-                              {lb.rata_rata}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
 
               </div>
             </div>
@@ -981,7 +1049,7 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
         {/* ============================================================ */}
         {/* TAB 5: PAPAN PERINGKAT (LEADERBOARD)                         */}
         {/* ============================================================ */}
-        {activeTab === 'leaderboard' && (
+        {showLeaderboard && activeTab === 'leaderboard' && (
           <div className="space-y-6 animate-fade-in-up">
             <div className="flex items-center justify-between">
               <div>
@@ -1125,14 +1193,15 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
           { id: 'nilai', label: 'Nilai', icon: 'military_tech' },
           { id: 'leaderboard', label: 'Peringkat', icon: 'social_leaderboard' },
           { id: 'akun', label: 'Profil', icon: 'person' },
-        ].map((tab) => {
+        ].filter(tab => tab.id !== 'leaderboard' || showLeaderboard).map((tab) => {
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
+              data-tutorial={tab.id === 'nilai' ? 'siswa-nilai siswa-riwayat' : `siswa-${tab.id}`}
               data-assistant-target={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex flex-col items-center justify-center flex-1 min-h-[48px] py-1 transition-all ${
+              className={`relative flex flex-col items-center justify-center flex-1 min-h-[48px] py-1 transition-all ${
                 isActive ? 'text-primary dark:text-primary-400 font-bold' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600'
               }`}
             >
@@ -1140,6 +1209,7 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 {tab.icon}
               </span>
               <span className="text-[10px] tracking-tight mt-0.5">{tab.label}</span>
+              <TutorialBadge role="siswa" targetId={`siswa-${tab.id}`} className="absolute top-0 right-1/4 scale-75" />
               {isActive && <div className="w-1.5 h-1.5 bg-primary dark:bg-primary-400 rounded-full mt-0.5"></div>}
             </button>
           );
@@ -1173,6 +1243,7 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
               <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/60 text-center">
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                   Masukkan 6 Digit Token Ujian
+                  <TutorialBadge role="siswa" targetId="siswa-token" className="ml-2" />
                 </label>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-3">
                   Mintalah token rilis ujian kepada guru atau pengawas ruangan.
@@ -1180,6 +1251,7 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
 
                 <input
                   type="text"
+                  data-tutorial="siswa-token"
                   maxLength={6}
                   value={inputToken}
                   autoFocus
@@ -1393,6 +1465,7 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
         isOpen={showTutorialModal}
         initialRole="siswa"
         onClose={handleCloseTutorial}
+        onRestart={handleRestartTutorial}
       />
 
       {/* Offline AI Assistant Widget (Zero-API, Offline Navigation) */}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-const ModalPeriksaUraian = ({ isOpen, logUjian, jawabanUraian = [], onClose, onSave }) => {
+const ModalPeriksaUraian = ({ isOpen, logUjian, jawabanUraian = [], onClose, onSave, hasNext = false, unratedCount = 0 }) => {
   if (!isOpen) return null;
 
   const [scores, setScores] = useState({});
@@ -40,9 +40,18 @@ const ModalPeriksaUraian = ({ isOpen, logUjian, jawabanUraian = [], onClose, onS
       <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl border border-slate-200/80 dark:border-slate-700 animate-scale-up">
         <div className="p-5 sm:p-6 border-b border-slate-200/80 dark:border-slate-700 flex items-center justify-between">
           <div>
-            <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-white">Periksa Jawaban Uraian</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-white">Periksa Jawaban Uraian</h2>
+              {unratedCount > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+                  {unratedCount} Menunggu
+                </span>
+              )}
+            </div>
             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
               Siswa: <span className="font-semibold text-slate-700 dark:text-slate-200">{logUjian?.nama_lengkap || 'Peserta'}</span>
+              {logUjian?.kelas ? ` • ${logUjian.kelas}` : ''}
+              {logUjian?.nisn ? ` • NISN: ${logUjian.nisn}` : ''}
             </p>
           </div>
           <button
@@ -102,20 +111,33 @@ const ModalPeriksaUraian = ({ isOpen, logUjian, jawabanUraian = [], onClose, onS
           )}
         </div>
 
-        <div className="p-4 sm:p-5 border-t border-slate-200/80 dark:border-slate-700 flex justify-end gap-3 bg-slate-50/50 dark:bg-slate-800/50 rounded-b-2xl">
+        <div className="p-4 sm:p-5 border-t border-slate-200/80 dark:border-slate-700 flex flex-wrap justify-end gap-2.5 bg-slate-50/50 dark:bg-slate-800/50 rounded-b-2xl">
           <button
+            type="button"
             onClick={onClose}
             className="px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition-colors"
           >
             Tutup
           </button>
           <button
+            type="button"
             onClick={() => handleSave(false)}
             className="px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 flex items-center gap-1.5"
           >
             <span className="material-symbols-outlined text-[18px]">save</span>
             <span>Simpan Nilai Uraian</span>
           </button>
+          {hasNext && (
+            <button
+              type="button"
+              onClick={() => handleSave(true)}
+              className="px-4 sm:px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-amber-500 hover:bg-amber-600 active:scale-95 text-white shadow-sm transition-all flex items-center gap-1.5"
+              title="Simpan nilai dan lanjut ke siswa berikutnya"
+            >
+              <span className="material-symbols-outlined text-[18px]">skip_next</span>
+              <span>Simpan &amp; Lanjut</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

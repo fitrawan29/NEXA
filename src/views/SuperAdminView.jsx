@@ -1,7 +1,7 @@
 import { fetchAPI } from '../api.js';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import NotificationBell from '../components/NotificationBell.jsx';
-import TutorialModal from '../components/TutorialModal.jsx';
+import TutorialModal, { TutorialBadge, resetTutorialProgress } from '../components/TutorialModal.jsx';
 import OfflineAiAssistant from '../components/OfflineAiAssistant.jsx';
 import { PasswordInput } from '../components/UI.jsx';
 ﻿    const SuperAdminView = ({ user, onLogout, showMessage, isDarkMode, setIsDarkMode }) => {
@@ -11,9 +11,8 @@ import { PasswordInput } from '../components/UI.jsx';
       const tutorialStorageKey = currentUserId ? `nexa_tutorial_seen_${currentUserId}_super_admin` : null;
 
       useEffect(() => {
-        if (!tutorialStorageKey) return;
         try {
-          const seen = localStorage.getItem(tutorialStorageKey);
+          const seen = (tutorialStorageKey && localStorage.getItem(tutorialStorageKey)) || localStorage.getItem('nexa_tutorial_shown_super_admin');
           if (!seen) {
             setShowTutorialModal(true);
           }
@@ -24,13 +23,25 @@ import { PasswordInput } from '../components/UI.jsx';
 
       const handleCloseTutorial = () => {
         setShowTutorialModal(false);
-        if (tutorialStorageKey) {
-          try {
+        try {
+          if (tutorialStorageKey) {
             localStorage.setItem(tutorialStorageKey, 'true');
-          } catch (e) {
-            console.error('Failed to save tutorial state to localStorage:', e);
           }
+          localStorage.setItem('nexa_tutorial_shown_super_admin', 'true');
+        } catch (e) {
+          console.error('Failed to save tutorial state to localStorage:', e);
         }
+      };
+
+      const handleRestartTutorial = () => {
+        resetTutorialProgress('super_admin');
+        try {
+          if (tutorialStorageKey) {
+            localStorage.removeItem(tutorialStorageKey);
+          }
+          localStorage.removeItem('nexa_tutorial_shown_super_admin');
+        } catch (e) {}
+        setShowTutorialModal(true);
       };
       const [dataSekolah, setDataSekolah] = useState([]);
       const [dataAdmin, setDataAdmin] = useState([]);
@@ -213,6 +224,7 @@ import { PasswordInput } from '../components/UI.jsx';
                 <div className="flex items-center gap-2 shrink-0">
                   <button
                     type="button"
+                    data-tutorial="superadmin-panduan"
                     onClick={() => setShowTutorialModal(true)}
                     className="w-11 h-11 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 rounded-xl bg-white/20 hover:bg-white/30 border border-white/30 backdrop-blur-sm flex items-center justify-center gap-1.5 text-white active:scale-95 transition-all shadow-sm text-xs font-bold min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-[36px] shrink-0"
                     title="Panduan & Tutorial"
@@ -220,6 +232,16 @@ import { PasswordInput } from '../components/UI.jsx';
                   >
                     <span className="material-symbols-outlined text-xl sm:text-lg">help</span>
                     <span className="hidden sm:inline">Panduan</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRestartTutorial}
+                    className="w-11 h-11 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 rounded-xl bg-white/20 hover:bg-white/30 border border-white/30 backdrop-blur-sm flex items-center justify-center gap-1.5 text-white active:scale-95 transition-all shadow-sm text-xs font-bold min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-[36px] shrink-0"
+                    title="Mulai Tutorial Lagi dari awal"
+                    aria-label="Mulai Tutorial Lagi"
+                  >
+                    <span className="material-symbols-outlined text-xl sm:text-lg">restart_alt</span>
+                    <span className="hidden sm:inline">Mulai Tutorial Lagi</span>
                   </button>
                   <NotificationBell role="super_admin" variant="white" user={user} />
                   <button type="button" onClick={() => setIsDarkMode(!isDarkMode)} className="relative p-1 rounded-full hover:bg-white/20 transition-colors" title="Mode Gelap/Terang">
@@ -533,25 +555,30 @@ import { PasswordInput } from '../components/UI.jsx';
             {/* Bottom Navigation */}
             <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)]">
               <div className="w-full md:max-w-3xl lg:max-w-5xl xl:max-w-6xl mx-auto px-6 md:px-12 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] flex justify-between md:justify-center md:gap-16 items-center">
-                <button data-assistant-target="analytics" onClick={() => setActiveTab('analytics')} className={`flex flex-col items-center transition-colors min-h-[44px] min-w-[44px] justify-center ${activeTab === 'analytics' ? 'text-primary font-bold' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}>
+                <button data-tutorial="superadmin-analytics" data-assistant-target="analytics" onClick={() => setActiveTab('analytics')} className={`flex flex-col items-center transition-colors min-h-[44px] min-w-[44px] justify-center relative ${activeTab === 'analytics' ? 'text-primary font-bold' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}>
                   <span className="material-symbols-outlined text-[22px] shrink-0">analytics</span>
                   <span className="text-[10px] mt-0.5 truncate max-w-[52px]">Statistik</span>
+                  <TutorialBadge role="super_admin" targetId="superadmin-analytics" className="absolute -top-1 -right-2 scale-75" />
                 </button>
-                <button data-assistant-target="sekolah" onClick={() => setActiveTab('sekolah')} className={`flex flex-col items-center transition-colors min-h-[44px] min-w-[44px] justify-center ${activeTab === 'sekolah' ? 'text-primary font-bold' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}>
+                <button data-tutorial="superadmin-sekolah" data-assistant-target="sekolah" onClick={() => setActiveTab('sekolah')} className={`flex flex-col items-center transition-colors min-h-[44px] min-w-[44px] justify-center relative ${activeTab === 'sekolah' ? 'text-primary font-bold' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}>
                   <span className="material-symbols-outlined text-[22px] shrink-0">account_balance</span>
                   <span className="text-[10px] mt-0.5 truncate max-w-[52px]">Sekolah</span>
+                  <TutorialBadge role="super_admin" targetId="superadmin-sekolah" className="absolute -top-1 -right-2 scale-75" />
                 </button>
-                <button data-assistant-target="admin" onClick={() => setActiveTab('admin')} className={`flex flex-col items-center transition-colors min-h-[44px] min-w-[44px] justify-center ${activeTab === 'admin' ? 'text-primary font-bold' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}>
+                <button data-tutorial="superadmin-admin" data-assistant-target="admin" onClick={() => setActiveTab('admin')} className={`flex flex-col items-center transition-colors min-h-[44px] min-w-[44px] justify-center relative ${activeTab === 'admin' ? 'text-primary font-bold' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}>
                   <span className="material-symbols-outlined text-[22px] shrink-0">manage_accounts</span>
                   <span className="text-[10px] mt-0.5 truncate max-w-[52px]">Admin</span>
+                  <TutorialBadge role="super_admin" targetId="superadmin-admin" className="absolute -top-1 -right-2 scale-75" />
                 </button>
-                <button data-assistant-target="pengumuman" onClick={() => setActiveTab('pengumuman')} className={`flex flex-col items-center transition-colors min-h-[44px] min-w-[44px] justify-center ${activeTab === 'pengumuman' ? 'text-primary font-bold' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}>
+                <button data-tutorial="superadmin-pengumuman" data-assistant-target="pengumuman" onClick={() => setActiveTab('pengumuman')} className={`flex flex-col items-center transition-colors min-h-[44px] min-w-[44px] justify-center relative ${activeTab === 'pengumuman' ? 'text-primary font-bold' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}>
                   <span className="material-symbols-outlined text-[22px] shrink-0">campaign</span>
                   <span className="text-[10px] mt-0.5 truncate max-w-[52px]">Informasi</span>
+                  <TutorialBadge role="super_admin" targetId="superadmin-pengumuman" className="absolute -top-1 -right-2 scale-75" />
                 </button>
-                <button data-assistant-target="akun" onClick={() => setActiveTab('akun')} className={`flex flex-col items-center transition-colors min-h-[44px] min-w-[44px] justify-center ${activeTab === 'akun' ? 'text-primary font-bold' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}>
+                <button data-tutorial="superadmin-akun" data-assistant-target="akun" onClick={() => setActiveTab('akun')} className={`flex flex-col items-center transition-colors min-h-[44px] min-w-[44px] justify-center relative ${activeTab === 'akun' ? 'text-primary font-bold' : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'}`}>
                   <span className="material-symbols-outlined text-[22px] shrink-0">person</span>
                   <span className="text-[10px] mt-0.5 truncate max-w-[52px]">Akun</span>
+                  <TutorialBadge role="super_admin" targetId="superadmin-akun" className="absolute -top-1 -right-2 scale-75" />
                 </button>
               </div>
             </div>
@@ -564,6 +591,7 @@ import { PasswordInput } from '../components/UI.jsx';
               isOpen={showTutorialModal}
               initialRole="super_admin"
               onClose={handleCloseTutorial}
+              onRestart={handleRestartTutorial}
             />
 
             {/* Offline AI Assistant Widget (Zero-API, Offline Navigation) */}
