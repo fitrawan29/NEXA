@@ -1,0 +1,23 @@
+name: Sync Branch to Main
+
+on:
+  push:
+    branches-ignore:
+      - main
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Merge branch into main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout main
+          git merge --ff-only origin/${{ github.ref_name }} || git merge -m "Auto-merge ${{ github.ref_name }} into main" origin/${{ github.ref_name }}
+          git push origin main

@@ -9,7 +9,7 @@ import React, { useState, useEffect, useRef, useCallback, useId } from 'react';
  * - Auto-Scroll: Smoothly scrolls target element into view before spotlighting.
  * - Keyboard Support: ArrowLeft (Prev), ArrowRight (Next), Escape (Close/Skip), Tab focus trap.
  * - Progressive Disclosure: Exports <TutorialBadge /> for nav menus and action buttons. Unlocks topic by topic.
- * - Multi-Role Support: Admin, Guru, Siswa, Super Admin, and ExamRoom.
+ * - Multi-Role Support: Admin, Guru, Siswa, and ExamRoom.
  * - Zero external libraries: 100% native React 18, Tailwind CSS, Material Symbols.
  */
 
@@ -52,19 +52,6 @@ export const ROLE_THEMES = {
     btnPrimary: 'bg-emerald-600 hover:bg-emerald-700 text-white',
     glowColor: 'rgba(16, 185, 129, 0.45)',
     ringGlowColor: 'rgba(16, 185, 129, 0.5)'
-  },
-  super_admin: {
-    name: 'Super Admin',
-    badge: 'Super Admin',
-    color: 'purple',
-    icon: 'shield_person',
-    bgActive: 'bg-purple-600 text-white shadow-purple-500/20',
-    borderActive: 'border-purple-600',
-    textAccent: 'text-purple-600 dark:text-purple-400',
-    cardBg: 'bg-purple-50/70 dark:bg-purple-950/20 border-purple-100 dark:border-purple-900/50',
-    btnPrimary: 'bg-purple-600 hover:bg-purple-700 text-white',
-    glowColor: 'rgba(147, 51, 234, 0.45)',
-    ringGlowColor: 'rgba(168, 85, 247, 0.5)'
   },
   exam_room: {
     name: 'Ruang Ujian Siswa',
@@ -395,78 +382,6 @@ export const TUTORIAL_DATA = {
     }
   ],
 
-  super_admin: [
-    {
-      id: 'superadmin-sekolah',
-      targetId: 'superadmin-sekolah',
-      badgeTargetIds: ['superadmin-sekolah'],
-      targetSelector: '[data-tutorial="superadmin-sekolah"]',
-      fallbackSelector: '[data-assistant-target="sekolah"]',
-      title: 'Manajemen Sekolah & NPSN',
-      shortTitle: 'Sekolah & NPSN',
-      icon: 'apartment',
-      subtitle: 'Pendaftaran sekolah, registrasi NPSN, dan cascade deletion',
-      points: [
-        'Langkah 1: Buka navigasi superadmin > tab **Sekolah** untuk melihat daftar entitas sekolah terdaftar di sistem.',
-        'Langkah 2: Di sudut atas tabel sekolah, klik tombol **+ Tambah Sekolah** untuk membuka formulir registrasi entitas sekolah baru.',
-        'Langkah 3: Pada formulir registrasi, masukkan nomor **NPSN** resmi dan nama instansi sekolah, lalu atur kuota peserta serta status operasionalnya hingga tersimpan.',
-        'Langkah 4: Pada tabel sekolah, gunakan tombol hapus dengan konfirmasi keamanan ganda jika memerlukan **Cascade Deletion** untuk menghapus sekolah sekaligus membersihkan seluruh relasi siswa, guru, jadwal, dan nilai dari database.'
-      ],
-      tip: 'Fitur Cascade Deletion bersifat permanen dan otomatis membersihkan orphan data di seluruh relasi database.'
-    },
-    {
-      id: 'superadmin-admin',
-      targetId: 'superadmin-admin',
-      badgeTargetIds: ['superadmin-admin'],
-      targetSelector: '[data-tutorial="superadmin-admin"]',
-      fallbackSelector: '[data-assistant-target="admin"]',
-      title: 'Manajemen Akun Administrator Sekolah',
-      shortTitle: 'Akun Admin',
-      icon: 'admin_panel_settings',
-      subtitle: 'Pengelolaan akun, penugasan sekolah, dan reset kredensial admin',
-      points: [
-        'Langkah 1: Buka navigasi superadmin, lalu klik tab **Admin** untuk membuka dan mengelola daftar akun administrator sekolah.',
-        'Langkah 2: Pada tabel admin sekolah, klik tombol tambah admin baru atau klik tombol reset kredensial untuk memulihkan akses login administrator yang mengalami kendala.',
-        'Langkah 3: Buka navigasi utama > tab **Akun**, klik tombol simpan profil untuk memperbarui data identitas dan kredensial autentikasi superadmin secara mandiri dan aman.'
-      ],
-      tip: 'Pastikan setiap administrator sekolah memiliki username unik dan password berstandar keamanan tinggi.'
-    },
-    {
-      id: 'superadmin-analytics',
-      targetId: 'superadmin-analytics',
-      badgeTargetIds: ['superadmin-analytics'],
-      targetSelector: '[data-tutorial="superadmin-analytics"]',
-      fallbackSelector: '[data-assistant-target="analytics"]',
-      title: 'Pemantauan Analytics Global Lintas Sekolah',
-      shortTitle: 'Analytics Global',
-      icon: 'insights',
-      subtitle: 'Monitoring beban server, concurrent session, dan total peserta aktif',
-      points: [
-        'Langkah 1: Buka navigasi utama superadmin, lalu klik tab **Statistik** (Analytics) untuk mengakses dasbor performa dan pemantauan beban server.',
-        'Langkah 2: Pada panel grafik analytics, periksa grafik kurva **concurrent sessions** ujian dan pemakaian resource server untuk mendeteksi lonjakan trafik pengerjaan serentak lintas instansi.',
-        'Langkah 3: Pada kartu statistik metrik, pantau total peserta dan sekolah aktif untuk memastikan kapasitas database server Supabase tetap optimal.'
-      ],
-      tip: 'Pantau grafik puncak ujian di pagi hari untuk memastikan kapasitas koneksi Supabase tetap optimal.'
-    },
-    {
-      id: 'superadmin-pengumuman',
-      targetId: 'superadmin-pengumuman',
-      badgeTargetIds: ['superadmin-pengumuman'],
-      targetSelector: '[data-tutorial="superadmin-pengumuman"]',
-      fallbackSelector: '[data-assistant-target="pengumuman"]',
-      title: 'Siaran Pengumuman & Audit Log Global',
-      shortTitle: 'Pengumuman & Log',
-      icon: 'history',
-      subtitle: 'Broadcast informasi, audit trail sistem, dan pembersihan otomatis hari Minggu',
-      points: [
-        'Langkah 1: Buka navigasi superadmin > tab **Informasi** (Pengumuman), klik tombol buat siaran untuk menyiarkan pesan broadcast darurat atau pengumuman resmi ke seluruh sekolah.',
-        'Langkah 2: Buka tab **Log**, telusuri tabel audit trail untuk memeriksa riwayat aktivitas sistem dan jejak operasi krusial seluruh pengguna.',
-        'Langkah 3: Pada tab **Log**, verifikasi mekanisme pembersihan otomatis berkala setiap **hari Minggu** (**auto-purge**) yang secara terjadwal membersihkan log basi demi menjaga performa database.'
-      ],
-      tip: 'Audit log hari Minggu otomatis dipangkas untuk mencegah pembengkakan ukuran tabel tanpa menghapus histori penting.'
-    }
-  ],
-
   exam_room: [
     {
       id: 'exam-timer',
@@ -578,7 +493,6 @@ const renderFormattedText = (text) => {
 export const sanitizeRole = (role) => {
   if (!role || typeof role !== 'string') return 'admin';
   const clean = role.trim().toLowerCase();
-  if (clean === 'superadmin') return 'super_admin';
   if (clean === 'exam' || clean === 'examroom' || clean === 'ujian') return 'exam_room';
   return TUTORIAL_DATA[clean] ? clean : 'admin';
 };
@@ -1292,8 +1206,6 @@ const TutorialModal = ({
                 ? 'bg-amber-600'
                 : activeRole === 'siswa'
                 ? 'bg-emerald-600'
-                : activeRole === 'super_admin'
-                ? 'bg-purple-600'
                 : 'bg-indigo-600'
             }`}
             style={{ width: `${progressPercent}%` }}

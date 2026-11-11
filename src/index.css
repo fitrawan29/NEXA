@@ -3,22 +3,59 @@
 @tailwind utilities;
 
 @layer base {
-  * {
+  *, *::before, *::after {
     touch-action: manipulation;
+    box-sizing: border-box;
   }
 
   html {
     font-family: 'Nunito', ui-sans-serif, system-ui, -apple-system, sans-serif;
     -webkit-tap-highlight-color: transparent;
+    max-width: 100vw;
+    width: 100%;
+    overflow-x: hidden;
   }
 
   body {
     @apply bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans antialiased overflow-x-hidden min-h-screen transition-colors duration-300;
+    max-width: 100vw;
+    width: 100%;
+    position: relative;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  #root {
+    max-width: 100vw;
+    width: 100%;
+    overflow-x: hidden;
+    position: relative;
   }
 
   /* Form controls and headings inherit Nunito typography */
   h1, h2, h3, h4, h5, h6, input, textarea, select, button {
     font-family: inherit;
+  }
+
+  /* Universal Media & Form Containment */
+  img, video, canvas, svg, iframe, embed, object {
+    max-width: 100%;
+    height: auto;
+  }
+
+  input, select, textarea, button {
+    max-width: 100%;
+  }
+
+  table {
+    max-width: 100%;
+  }
+
+  pre, code {
+    max-width: 100%;
+    white-space: pre-wrap;
+    word-break: break-all;
+    overflow-x: auto;
   }
 }
 
@@ -122,20 +159,6 @@
   --color-primary-800: 30 64 175;
   --color-primary-900: 30 58 138;
   --color-primary-950: 23 37 84;
-}
-
-.theme-super_admin {
-  --color-primary-50: 245 243 255;
-  --color-primary-100: 237 233 254;
-  --color-primary-200: 221 214 254;
-  --color-primary-300: 196 181 253;
-  --color-primary-400: 167 139 250;
-  --color-primary-500: 139 92 246;
-  --color-primary-600: 124 58 237;
-  --color-primary-700: 109 40 217;
-  --color-primary-800: 91 33 182;
-  --color-primary-900: 76 29 149;
-  --color-primary-950: 46 16 101;
 }
 
 /* ==========================================================================
@@ -320,4 +343,148 @@
   border-radius: 0.75rem !important;
   transition: all 0.3s ease;
 }
+
+/* ==========================================================================
+   Mobile Layout Responsiveness Across All User Roles (R1 & R2)
+   Prevents any element, card, table, navigation, or container from exceeding
+   the screen or viewport width, eliminating unintended horizontal scrolling.
+   ========================================================================== */
+@media screen and (max-width: 1023px) {
+  /* Enforce viewport containment on mobile */
+  html, body, #root {
+    max-width: 100vw !important;
+    width: 100% !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Fixed overlays and modal backdrops containment */
+  [role="dialog"],
+  .fixed.inset-0,
+  [class*="fixed"][class*="inset-0"] {
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Centralized structural containment for main layouts, headers, navs, cards, and print documents */
+  main,
+  header,
+  nav,
+  footer,
+  aside,
+  section,
+  article,
+  [role="main"],
+  .card,
+  [class*="rounded-2xl"],
+  [class*="rounded-3xl"],
+  #print-document,
+  #print-document > div {
+    max-width: 100% !important;
+  }
+
+  /* Fixed headers, top bars, and bottom bars containment */
+  header,
+  nav,
+  footer,
+  [role="navigation"],
+  .fixed.top-0,
+  .fixed.bottom-0,
+  [class*="fixed"][class*="top-0"],
+  [class*="fixed"][class*="bottom-0"] {
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Allow flex items in headers and navigation bars to shrink below min-content */
+  header > div,
+  header > nav,
+  nav > div {
+    min-width: 0;
+  }
+
+  /* Modal dialog cards and bottom-sheets: strict viewport boundary, max-height, and smooth vertical scrolling */
+  [role="dialog"] > div:not(.fixed):not(.absolute),
+  .fixed.inset-0.items-center > div:not(.fixed):not(.absolute),
+  .fixed.inset-0.items-end > div:not(.fixed):not(.absolute),
+  [class*="fixed"][class*="inset-0"][class*="items-center"] > div:not([class*="fixed"]):not([class*="absolute"]),
+  [class*="fixed"][class*="inset-0"][class*="items-end"] > div:not([class*="fixed"]):not([class*="absolute"]),
+  [role="dialog"] > div[class*="rounded-2xl"],
+  [role="dialog"] > div[class*="rounded-3xl"],
+  [role="dialog"] > [class*="rounded-2xl"],
+  [role="dialog"] > [class*="rounded-3xl"] {
+    max-width: min(100%, 100vw) !important;
+    max-height: calc(100dvh - 1.5rem) !important;
+    max-height: calc(100vh - 1.5rem) !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    scroll-padding: 1rem;
+  }
+
+  /* Flex and Grid width capping to prevent children from expanding beyond screen */
+  .flex,
+  .grid {
+    max-width: 100%;
+  }
+
+  /* Safe container for tables: enables horizontal scroll within the table wrapper */
+  .table-responsive,
+  .overflow-x-auto,
+  .overflow-auto {
+    max-width: 100% !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Progressive enhancement: automatically enable horizontal scrolling for parent of any table */
+  @supports selector(:has(table)) {
+    div:has(> table),
+    div:has(table) {
+      max-width: 100% !important;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+  }
+
+  /* Universal table responsive overflow behavior across modern and legacy engines */
+  table {
+    max-width: 100% !important;
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table:not([class*="w-"]) {
+    width: 100%;
+  }
+
+  /* Math formula & rich-text editor overflow containment (MathJax, KaTeX, Quill) */
+  .mjx-container,
+  .MathJax,
+  .katex-display,
+  .ql-toolbar,
+  .ql-container,
+  .ql-editor {
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .katex,
+  .MathJax,
+  .mjx-container {
+    max-width: 100% !important;
+    display: inline-block !important;
+    vertical-align: middle;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Prevent long unspaced text/tokens from breaking viewport bounds */
+  p, span, h1, h2, h3, h4, h5, h6, td, th, li, a {
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+}
+
+
 

@@ -11,7 +11,6 @@ export const THEME_COLORS = {
   dark: '#0f172a',       // Tailwind slate-900 (dark mode background & dark sticky headers)
   emerald: '#10b981',    // Brand Emerald 500 (Login header, Siswa mobile header, PWA manifest)
   white: '#ffffff',      // Pure White (GuruView, AdminView, ExamRoom light headers)
-  superAdmin: '#7c3aed', // Brand Violet (SuperAdmin header)
   guru: '#f59e0b',       // Brand Amber (Guru login header)
   admin: '#3b82f6',      // Brand Blue (Admin login header)
 };
@@ -37,7 +36,6 @@ export function getStatusBarColor(state = {}) {
 
   const rawRole = safeState.role || 'siswa';
   const role = typeof rawRole === 'string' ? rawRole.toLowerCase() : 'siswa';
-  const isSuperAdmin = role === 'super_admin' || role === 'superadmin';
   const isLoggedIn = safeState.isLoggedIn !== undefined 
     ? Boolean(safeState.isLoggedIn) 
     : (safeState.user !== undefined ? Boolean(safeState.user) : true);
@@ -46,7 +44,6 @@ export function getStatusBarColor(state = {}) {
   if (!isLoggedIn) {
     if (role === 'guru') return THEME_COLORS.guru;
     if (role === 'admin') return THEME_COLORS.admin;
-    if (isSuperAdmin) return THEME_COLORS.superAdmin;
     return THEME_COLORS.emerald;
   }
 
@@ -58,11 +55,6 @@ export function getStatusBarColor(state = {}) {
   // Guru and Admin dashboards have white sticky headers on mobile in light mode
   if (role === 'guru' || role === 'admin') {
     return THEME_COLORS.white;
-  }
-
-  // Super Admin dashboard has violet header in light mode
-  if (isSuperAdmin) {
-    return THEME_COLORS.superAdmin;
   }
 
   // Siswa dashboard and default views use emerald in light mode

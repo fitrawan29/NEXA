@@ -1,6 +1,13 @@
 import { fetchAPI, getTrueNow, get_default_skema_sekolah, save_default_skema_sekolah, get_pengaturan_sekolah, save_pengaturan_sekolah, getDefaultKopSettings, isClassMatching, splitCompoundTargets } from '../api.js';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import * as XLSX from 'xlsx';
+import JSZip from 'jszip';
+import {
+  decodeNexaBundle,
+  verifyNexaBundleChecksum,
+  cloneExamSchedule,
+  generateRandomToken
+} from '../utils/nexaBundle.js';
 import {
   EmptyState,
   TableSkeleton,
@@ -16,9 +23,7 @@ import {
 import NotificationBell from '../components/NotificationBell.jsx';
 import SkemaPenilaianPanel from '../components/SkemaPenilaianPanel.jsx';
 import KartuUjianPrint from '../components/KartuUjianPrint.jsx';
-import DokumenUjianPrint from '../components/DokumenUjianPrint.jsx';
 import TutorialModal, { TutorialBadge, resetTutorialProgress } from '../components/TutorialModal.jsx';
-import OfflineAiAssistant from '../components/OfflineAiAssistant.jsx';
 import { compressImageFile } from '../utils/imageHelper.js';
 
 const isUniversalAlloc = (alloc) => {
@@ -110,7 +115,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   const [dataKelas, setDataKelas] = useState([]);
   const [dataLog, setDataLog] = useState([]); // monitoring / hasil
   const [dataAudit, setDataAudit] = useState([]);
-  const [dataSoal, setDataSoal] = useState([]);
   const [dataPengumuman, setDataPengumuman] = useState([]);
   const [dataAnalisis, setDataAnalisis] = useState([]);
   const [isAnalisisModalOpen, setIsAnalisisModalOpen] = useState(false);
@@ -189,17 +193,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   const [isPrintKartuActive, setIsPrintKartuActive] = useState(false);
   const [printKartuPayload, setPrintKartuPayload] = useState(null);
 
-  // Print Dokumen Pengawasan State (R3)
-  const [printDokumenModalOpen, setPrintDokumenModalOpen] = useState(false);
-  const [printDokumenData, setPrintDokumenData] = useState(null);
-  const [loadingPrintDokumen, setLoadingPrintDokumen] = useState(false);
-  const [roomPickerModal, setRoomPickerModal] = useState({
-    isOpen: false,
-    jadwalId: null,
-    jadwalMapel: '',
-    rooms: []
-  });
-
   // Sorting State
   const [sortConfigSiswa, setSortConfigSiswa] = useState({ key: 'nama_lengkap', direction: 'asc' });
   const [sortConfigGuru, setSortConfigGuru] = useState({ key: 'nama_lengkap', direction: 'asc' });
@@ -218,6 +211,11 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, type: '', id: null, item: null });
   const [importModal, setImportModal] = useState({ isOpen: false, type: '' });
   const [confirmText, setConfirmText] = useState('');
+
+  // M3 Features: Clone Jadwal, Offline Answer Import (.nexa), Backup CBT
+  const [cloneModal, setCloneModal] = useState({ isOpen: false, source: null, targetKelas: '', token: '' });
+  const [nexaImportModal, setNexaImportModal] = useState({ isOpen: false, file: null, bundle: null, status: null, error: null });
+  const [isBackingUp, setIsBackingUp] = useState(false);
 
   // Confirmation Dialog State (for proctor interventions)
   const [confirmDialog, setConfirmDialog] = useState({
@@ -238,19 +236,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     setActiveTab(targetTab);
     setIsSidebarOpen(false);
     setIsMobileDrawerOpen(false);
-  };
-
-  const handleAssistantNavigate = (tab, modal, selector) => {
-    if (tab) {
-      navigateTab(tab);
-    }
-    if (modal === 'kartu') {
-      setPrintKartuModal({ isOpen: true, filterKelas: 'SEMUA', filterRuang: 'SEMUA' });
-    } else if (modal === 'analisis') {
-      setIsAnalisisModalOpen(true);
-    } else if (modal === 'dokumen') {
-      setPrintDokumenModalOpen(true);
-    }
   };
 
   const loadDefaultSkema = async () => {
@@ -473,11 +458,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       } else if (tab === 'logs') {
         const res = await api('get_audit_log', {});
         if (res.status === 'success') setDataAudit(res.data || []);
-      } else if (tab === 'soal') {
-        const res = await api('get_bank_soal_admin', {});
-        if (res.status === 'success') setDataSoal(res.data || []);
-        const resMapel = await api('get_all_mapel', {});
-        if (resMapel.status === 'success') setDataMapel(resMapel.data || []);
       } else if (tab === 'pengumuman') {
         const res = await api('get_pengumuman', { role: 'admin' });
         if (res.status === 'success') setDataPengumuman(res.data || []);
@@ -541,7 +521,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
 
   const confirmDelete = async () => {
     setIsSubmitting(true);
-    let endpoint = deleteModal.type === 'soal' ? 'delete_soal_mapel' : `delete_${deleteModal.type}`;
+    let endpoint = `delete_${deleteModal.type}`;
     let payload = {};
     payload[`id_${deleteModal.type}`] = deleteModal.id;
 
@@ -736,6 +716,196 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       showMessage('Error', err.message || 'Terjadi kesalahan saat mengubah status lockdown', 'error');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // 1-Click Schedule Cloning Handlers (M3 / R4)
+  const handleOpenCloneModal = (source) => {
+    const newToken = generateRandomToken(6);
+    setCloneModal({
+      isOpen: true,
+      source,
+      targetKelas: '',
+      token: newToken
+    });
+  };
+
+  const handleExecuteCloneJadwal = async () => {
+    if (!cloneModal.targetKelas || !cloneModal.targetKelas.trim()) {
+      showMessage('Target Kelas Wajib Diisi', 'Silakan tentukan rombel/kelas target untuk jadwal yang diduplikasi.', 'error');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const source = cloneModal.source;
+      const res = await api('clone_jadwal', {
+        id_jadwal_sumber: source.id_jadwal,
+        target_kelas: cloneModal.targetKelas.trim(),
+        token_baru: cloneModal.token || generateRandomToken(6)
+      });
+
+      if (res && res.status === 'success') {
+        showMessage('Jadwal Berhasil Diduplikasi', `Jadwal untuk kelas ${cloneModal.targetKelas} berhasil dibuat dengan token ${res.data?.token_ujian || cloneModal.token}.`, 'success');
+        setCloneModal({ isOpen: false, source: null, targetKelas: '', token: '' });
+        await fetchData('jadwal');
+      } else {
+        showMessage('Gagal Duplikasi Jadwal', res?.message || 'Terjadi kesalahan saat menduplikasi jadwal', 'error');
+      }
+    } catch (err) {
+      console.error('Error cloning jadwal:', err);
+      showMessage('Gagal Duplikasi', err.message, 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Companion Offline Answer Import (.nexa) Handlers (M3 / R4)
+  const handleOpenNexaImportModal = () => {
+    setNexaImportModal({
+      isOpen: true,
+      file: null,
+      bundle: null,
+      status: null,
+      error: null
+    });
+  };
+
+  const handleNexaFileSelected = async (file) => {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const decoded = decodeNexaBundle(text, 'NEXA_SECRET_SALT', user?.npsn || '');
+      const integrity = verifyNexaBundleChecksum(decoded);
+
+      if (!integrity.valid) {
+        setNexaImportModal(prev => ({
+          ...prev,
+          file,
+          bundle: decoded,
+          status: 'invalid',
+          error: integrity.error || 'Checksum tidak valid. Berkas rusak atau terkorupsi.'
+        }));
+        return;
+      }
+
+      setNexaImportModal({
+        isOpen: true,
+        file,
+        bundle: decoded,
+        status: 'valid',
+        error: null
+      });
+    } catch (err) {
+      console.error('Nexa decode error:', err);
+      setNexaImportModal(prev => ({
+        ...prev,
+        file,
+        bundle: null,
+        status: 'error',
+        error: 'Berkas .nexa tidak dapat dibaca: ' + err.message
+      }));
+    }
+  };
+
+  const handleExecuteNexaImport = async () => {
+    if (!nexaImportModal.bundle) return;
+    setIsSubmitting(true);
+    try {
+      const res = await api('import_jawaban_offline', {
+        bundle: nexaImportModal.bundle
+      });
+
+      if (res && res.status === 'success') {
+        showMessage(
+          'Jawaban Offline Berhasil Diimpor',
+          `Siswa: ${nexaImportModal.bundle.nama_siswa || nexaImportModal.bundle.nisn} | Skor PG/Objektif: ${res.nilai_auto} | Status: SELESAI`,
+          'success'
+        );
+        setNexaImportModal({ isOpen: false, file: null, bundle: null, status: null, error: null });
+        await fetchData('monitoring');
+        await fetchData('jadwal');
+      } else {
+        showMessage('Gagal Impor Jawaban', res?.message || 'Terjadi kesalahan saat memproses jawaban offline', 'error');
+      }
+    } catch (err) {
+      console.error('Error importing offline answers:', err);
+      showMessage('Gagal Impor', err.message, 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // 1-Click CBT Backup & Archive Handlers (M3 / R4)
+  const handleExportBackupArchive = async () => {
+    if (isBackingUp) return;
+    setIsBackingUp(true);
+    try {
+      const effectiveNpsn = user?.npsn;
+      if (!effectiveNpsn) {
+        showMessage('Gagal Backup', 'NPSN sekolah tidak ditemukan.', 'error');
+        return;
+      }
+
+      const res = await api('get_cbt_backup_data', {});
+      if (!res || res.status !== 'success' || !res.data) {
+        showMessage('Gagal Mengambil Data Backup', res?.message || 'Tidak dapat memuat tabel CBT dari server.', 'error');
+        return;
+      }
+
+      const { soal_ujian, jadwal, log_ujian, jawaban_siswa } = res.data;
+      const zip = new JSZip();
+      const timestamp = new Date().toISOString();
+      const dateStr = timestamp.slice(0, 10);
+
+      const manifest = {
+        app: 'NEXA CBT',
+        version: '2.0.0',
+        export_type: 'FULL_BACKUP_ARCHIVE',
+        npsn: String(effectiveNpsn),
+        nama_sekolah: user?.nama_sekolah || 'SEKOLAH',
+        created_at: timestamp,
+        tables: {
+          soal_ujian: { record_count: (soal_ujian || []).length },
+          jadwal: { record_count: (jadwal || []).length },
+          log_ujian: { record_count: (log_ujian || []).length },
+          jawaban_siswa: { record_count: (jawaban_siswa || []).length }
+        }
+      };
+
+      zip.file('manifest.json', JSON.stringify(manifest, null, 2));
+      zip.file('soal_ujian.json', JSON.stringify(soal_ujian || [], null, 2));
+      zip.file('jadwal.json', JSON.stringify(jadwal || [], null, 2));
+      zip.file('log_ujian.json', JSON.stringify(log_ujian || [], null, 2));
+      zip.file('jawaban_siswa.json', JSON.stringify(jawaban_siswa || [], null, 2));
+
+      const blob = await zip.generateAsync({
+        type: 'blob',
+        compression: 'DEFLATE',
+        compressionOptions: { level: 6 }
+      });
+
+      const fileName = `NEXA_CBT_BACKUP_${effectiveNpsn}_${dateStr}.zip`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      const totalRows = (manifest.tables.soal_ujian.record_count + manifest.tables.jadwal.record_count + manifest.tables.log_ujian.record_count + manifest.tables.jawaban_siswa.record_count);
+      showMessage(
+        'Backup CBT Berhasil Diunduh',
+        `Arsip data ujian (${totalRows} baris data dari 4 tabel) berhasil dibundel ke ${fileName}.`,
+        'success'
+      );
+    } catch (err) {
+      console.error('Backup export error:', err);
+      showMessage('Gagal Backup', err.message, 'error');
+    } finally {
+      setIsBackingUp(false);
     }
   };
 
@@ -1991,7 +2161,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     skema: 'Skema Penilaian Default',
     monitoring: 'Live Monitoring Ujian',
     hasil: 'Rekap Hasil Ujian',
-    soal: 'Bank Soal (Preview)',
     pengaturan: 'Pengaturan & Profil Sekolah',
     logs: 'Log Aktivitas Sistem',
     akun: 'Profil Admin'
@@ -3497,150 +3666,219 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     );
   };
 
-  const fetchAndPrintDokumenUjian = async (jadwalId, roomId = null) => {
-    if (!jadwalId) return;
-    setLoadingPrintDokumen(true);
-    try {
-      const res = await api('get_dokumen_ujian_cetak', {
-        id_jadwal: jadwalId,
-        id_ruang: roomId || undefined,
-        npsn: user.npsn
-      });
-      if (res.status === 'success' && res.data) {
-        setPrintDokumenData(res.data);
-        setPrintDokumenModalOpen(true);
-      } else {
-        showMessage('Gagal', res.message || 'Gagal memuat dokumen pengawasan ujian.', 'error');
-      }
-    } catch (err) {
-      console.error('Fetch Dokumen Ujian Cetak error:', err);
-      showMessage('Error', 'Terjadi kesalahan saat memuat berkas cetak dokumen ujian.', 'error');
-    } finally {
-      setLoadingPrintDokumen(false);
-    }
-  };
-
-  const handleOpenPrintDokumenUjian = (jadwalId) => {
-    if (!jadwalId) return;
-    const targetJadwal = dataJadwal.find(j => j.id_jadwal === jadwalId);
-    const jadwalTitle = targetJadwal?.nama_mapel || 'Ujian';
-
-    // Identify rooms associated with this schedule
-    const assignments = (dataPengawasRuang || []).filter(p => p.id_jadwal === jadwalId);
-    let matchedRooms = [];
-
-    if (assignments.length > 0) {
-      const seen = new Set();
-      assignments.forEach(p => {
-        if (!seen.has(p.id_ruang)) {
-          seen.add(p.id_ruang);
-          const rObj = dataRuang.find(r => r.id_ruang === p.id_ruang);
-          matchedRooms.push({
-            id_ruang: p.id_ruang,
-            nama_ruang: rObj?.nama_ruang || p.nama_ruang || p.id_ruang
-          });
-        }
-      });
-    }
-
-    if (matchedRooms.length === 0 && dataRuang && dataRuang.length > 0) {
-      matchedRooms = dataRuang.map(r => ({
-        id_ruang: r.id_ruang,
-        nama_ruang: r.nama_ruang || r.id_ruang
-      }));
-    }
-
-    if (matchedRooms.length > 1) {
-      setRoomPickerModal({
-        isOpen: true,
-        jadwalId: jadwalId,
-        jadwalMapel: jadwalTitle,
-        rooms: matchedRooms
-      });
-    } else if (matchedRooms.length === 1) {
-      fetchAndPrintDokumenUjian(jadwalId, matchedRooms[0].id_ruang);
-    } else {
-      fetchAndPrintDokumenUjian(jadwalId, null);
-    }
-  };
-
-  const renderRoomPickerModal = () => {
-    if (!roomPickerModal.isOpen) return null;
+  const renderCloneModal = () => {
+    if (!cloneModal.isOpen || !cloneModal.source) return null;
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
-        <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-5 border border-slate-200 dark:border-slate-700 shadow-xl space-y-4 animate-scale-up">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-                <span className="material-symbols-outlined text-lg">meeting_room</span>
-              </div>
-              <div>
-                <h4 className="font-bold text-sm text-slate-900 dark:text-white">Pilih Ruangan Ujian</h4>
-                <p className="text-[11px] text-slate-500">{roomPickerModal.jadwalMapel}</p>
-              </div>
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl relative p-5 sm:p-6 border border-slate-200 dark:border-slate-700 animate-scale-up">
+          <div className="flex justify-between items-center mb-3">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-emerald-600 text-xl">content_copy</span>
+              <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">
+                Duplikat / Kloning Jadwal Ujian
+              </h3>
             </div>
             <button
-              type="button"
-              onClick={() => setRoomPickerModal({ isOpen: false, jadwalId: null, jadwalMapel: '', rooms: [] })}
-              className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600"
+              onClick={() => setCloneModal({ isOpen: false, source: null, targetKelas: '', token: '' })}
+              className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
             >
-              <span className="material-symbols-outlined text-xl">close</span>
+              <span className="material-symbols-outlined text-sm">close</span>
             </button>
           </div>
 
-          <p className="text-xs text-slate-600 dark:text-slate-300">
-            Jadwal ini memiliki beberapa ruang ujian. Silakan pilih berkas dokumen ruangan yang ingin dicetak:
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+            Duplikasi seluruh pengaturan ujian ini (mata pelajaran, durasi, aturan acak, dan lockdown) ke rombel/kelas target baru.
           </p>
 
-          <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-            {roomPickerModal.rooms.map((r, idx) => (
-              <button
-                key={r.id_ruang || idx}
-                type="button"
-                onClick={() => {
-                  const jId = roomPickerModal.jadwalId;
-                  const rId = r.id_ruang;
-                  setRoomPickerModal({ isOpen: false, jadwalId: null, jadwalMapel: '', rooms: [] });
-                  fetchAndPrintDokumenUjian(jId, rId);
-                }}
-                className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-500 bg-slate-50/50 dark:bg-slate-900/40 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20 text-left transition-all flex items-center justify-between group"
-              >
-                <div className="flex items-center gap-2.5">
-                  <span className="material-symbols-outlined text-slate-400 group-hover:text-emerald-600 text-lg">meeting_room</span>
-                  <span className="text-xs font-bold text-slate-800 dark:text-white group-hover:text-emerald-600">{r.nama_ruang}</span>
-                </div>
-                <span className="material-symbols-outlined text-slate-400 group-hover:text-emerald-600 text-base">print</span>
-              </button>
-            ))}
-
-            <button
-              type="button"
-              onClick={() => {
-                const jId = roomPickerModal.jadwalId;
-                setRoomPickerModal({ isOpen: false, jadwalId: null, jadwalMapel: '', rooms: [] });
-                fetchAndPrintDokumenUjian(jId, null);
-              }}
-              className="w-full p-3 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 hover:border-primary bg-white dark:bg-slate-800 hover:bg-primary/5 text-left transition-all flex items-center justify-between group"
-            >
-              <div className="flex items-center gap-2.5">
-                <span className="material-symbols-outlined text-primary text-lg">groups</span>
-                <div>
-                  <span className="text-xs font-bold text-slate-800 dark:text-white group-hover:text-primary">Semua Ruangan (Gabungan)</span>
-                  <p className="text-[10px] text-slate-400">Cetak rekap daftar hadir seluruh peserta jadwal ini</p>
-                </div>
+          <div className="space-y-4">
+            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/80 space-y-1.5 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Mata Pelajaran:</span>
+                <span className="font-bold text-slate-800 dark:text-slate-100">{cloneModal.source.nama_mapel}</span>
               </div>
-              <span className="material-symbols-outlined text-primary text-base">print</span>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Durasi Pengerjaan:</span>
+                <span className="font-semibold text-slate-700 dark:text-slate-200">{cloneModal.source.durasi} Menit</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Kelas Sumber Asal:</span>
+                <span className="font-mono font-semibold text-slate-600 dark:text-slate-300">{cloneModal.source.target_kelas}</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                Target Kelas / Rombel Baru <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={cloneModal.targetKelas}
+                onChange={(e) => setCloneModal(prev => ({ ...prev, targetKelas: e.target.value }))}
+                placeholder="Contoh: 7B, 8C, atau X MIPA 2"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs sm:text-sm text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-primary/40 font-semibold"
+              />
+              {dataKelas && dataKelas.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                  <span className="text-[11px] text-slate-400">Pilih cepat:</span>
+                  {dataKelas.slice(0, 8).map(k => (
+                    <button
+                      key={k.id_kelas || k.nama_kelas}
+                      type="button"
+                      onClick={() => setCloneModal(prev => ({ ...prev, targetKelas: k.nama_kelas }))}
+                      className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-[10px] font-bold text-slate-700 dark:text-slate-200 transition-colors"
+                    >
+                      {k.nama_kelas}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                Token Ujian Baru (6 Karakter Uppercase)
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  maxLength={6}
+                  value={cloneModal.token}
+                  onChange={(e) => setCloneModal(prev => ({ ...prev, token: e.target.value.toUpperCase() }))}
+                  className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs sm:text-sm text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-primary/40 font-mono font-bold tracking-widest text-center"
+                />
+                <button
+                  type="button"
+                  onClick={() => setCloneModal(prev => ({ ...prev, token: generateRandomToken(6) }))}
+                  className="px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1 min-h-[44px]"
+                  title="Generate Token Acak Baru"
+                >
+                  <span className="material-symbols-outlined text-[16px]">autorenew</span>
+                  <span>Acak</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-3">
+              <button
+                type="button"
+                onClick={() => setCloneModal({ isOpen: false, source: null, targetKelas: '', token: '' })}
+                className="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xs sm:text-sm hover:bg-slate-50 transition-colors min-h-[44px]"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={isSubmitting || !cloneModal.targetKelas.trim()}
+                onClick={handleExecuteCloneJadwal}
+                className="flex-1 py-2.5 px-4 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs sm:text-sm shadow-sm transition-all disabled:opacity-50 min-h-[44px]"
+              >
+                {isSubmitting ? 'Menduplikasi...' : 'Duplikasi Jadwal Sekarang'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderNexaImportModal = () => {
+    if (!nexaImportModal.isOpen) return null;
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl relative p-5 sm:p-6 border border-slate-200 dark:border-slate-700 animate-scale-up">
+          <div className="flex justify-between items-center mb-3">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-amber-500 text-xl">upload_file</span>
+              <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">
+                Import Jawaban Offline (.nexa)
+              </h3>
+            </div>
+            <button
+              onClick={() => setNexaImportModal({ isOpen: false, file: null, bundle: null, status: null, error: null })}
+              className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+            >
+              <span className="material-symbols-outlined text-sm">close</span>
             </button>
           </div>
 
-          <div className="flex justify-end pt-2 border-t border-slate-100 dark:border-slate-700">
-            <button
-              type="button"
-              onClick={() => setRoomPickerModal({ isOpen: false, jadwalId: null, jadwalMapel: '', rooms: [] })}
-              className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-            >
-              Batal
-            </button>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+            Unggah berkas jawaban darurat <code>.nexa</code> yang diekspor siswa saat koneksi internet padam. Sistem mendekripsi, memverifikasi checksum SHA-256, dan menilai secara otomatis.
+          </p>
+
+          <div className="space-y-4">
+            {/* Dropzone */}
+            <div className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-5 text-center hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+              <span className="material-symbols-outlined text-3xl text-amber-500 mb-1">file_open</span>
+              <p className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                {nexaImportModal.file ? nexaImportModal.file.name : 'Pilih Berkas Jawaban (.nexa)'}
+              </p>
+              <p className="text-[11px] text-slate-400 mt-0.5">Format terenkripsi NEXA Offline Bundle (*.nexa)</p>
+              <label className="inline-block mt-3 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold cursor-pointer transition-all shadow-xs">
+                Pilih Berkas .nexa
+                <input
+                  type="file"
+                  accept=".nexa"
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      handleNexaFileSelected(e.target.files[0]);
+                    }
+                  }}
+                />
+              </label>
+            </div>
+
+            {nexaImportModal.error && (
+              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-xs text-rose-700 dark:text-rose-300 flex items-start gap-2">
+                <span className="material-symbols-outlined text-[18px] text-rose-500 shrink-0">error</span>
+                <span className="leading-relaxed">{nexaImportModal.error}</span>
+              </div>
+            )}
+
+            {nexaImportModal.bundle && (
+              <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 space-y-2 text-xs">
+                <div className="flex items-center gap-1.5 text-emerald-800 dark:text-emerald-200 font-bold mb-1">
+                  <span className="material-symbols-outlined text-[18px]">verified</span>
+                  <span>Berkas Valid & Checksum Terverifikasi</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-slate-700 dark:text-slate-200 pt-1">
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">NISN / Siswa:</span>
+                    <span className="font-bold">{nexaImportModal.bundle.nisn || '-'} ({nexaImportModal.bundle.nama_siswa || 'Siswa'})</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">ID Sesi / Log:</span>
+                    <span className="font-mono text-[11px]">{nexaImportModal.bundle.id_log}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">Jumlah Jawaban:</span>
+                    <span className="font-bold text-emerald-600">{Object.keys(nexaImportModal.bundle.jawaban || {}).length} Butir Soal</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">Waktu Ekspor:</span>
+                    <span className="text-[11px]">{new Date(nexaImportModal.bundle.timestamp).toLocaleString('id-ID')}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setNexaImportModal({ isOpen: false, file: null, bundle: null, status: null, error: null })}
+                className="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xs sm:text-sm hover:bg-slate-50 transition-colors min-h-[44px]"
+              >
+                Tutup
+              </button>
+              <button
+                type="button"
+                disabled={isSubmitting || !nexaImportModal.bundle || nexaImportModal.status !== 'valid'}
+                onClick={handleExecuteNexaImport}
+                className="flex-1 py-2.5 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs sm:text-sm shadow-sm transition-all disabled:opacity-50 min-h-[44px]"
+              >
+                {isSubmitting ? 'Memproses Impor...' : 'Impor & Nilai Jawaban'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -3952,7 +4190,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       {/* ================================================================= */}
       {/* MOBILE BOTTOM QUICK BAR (< 1024px)                                */}
       {/* ================================================================= */}
-      <nav className="lg:hidden fixed bottom-0 left-0 w-full right-0 z-40 flex-shrink-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-200/80 dark:border-slate-800 px-2 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex justify-around items-center shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 flex-shrink-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-200/80 dark:border-slate-800 px-2 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex justify-around items-center shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
         {bottomBarItems.map((tab) => {
           const isActive = activeTab === tab.id;
           const isTrigger = tab.isDrawerTrigger;
@@ -4092,16 +4330,15 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 </div>
 
                 <div
-                  onClick={() => navigateTab('soal')}
-                  className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-3.5 cursor-pointer hover:border-purple-500/50 hover:shadow transition-all group"
+                  className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-3.5"
                 >
-                  <div className="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                  <div className="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
                     <span className="material-symbols-outlined text-2xl">quiz</span>
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-bold text-slate-400 truncate">Bank Soal</p>
+                    <p className="text-xs font-bold text-slate-400 truncate">Total Soal Terdaftar</p>
                     <h4 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white">
-                      {dashboardData?.totalSoal || dataSoal.length || 0}
+                      {dashboardData?.totalSoal || 0}
                     </h4>
                   </div>
                 </div>
@@ -4839,6 +5076,25 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   </button>
                   <button
                     type="button"
+                    onClick={handleOpenNexaImportModal}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50 border border-amber-200 dark:border-amber-800 transition-colors min-h-[44px]"
+                    title="Import Jawaban Siswa dari Berkas Darurat (.nexa)"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">upload_file</span>
+                    <span className="hidden sm:inline">Import Jawaban (.nexa)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportBackupArchive}
+                    disabled={isBackingUp}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800 transition-colors min-h-[44px] disabled:opacity-50"
+                    title="1-Klik Backup & Arsip Data Ujian (.zip)"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">archive</span>
+                    <span className="hidden sm:inline">{isBackingUp ? 'Membuat Backup...' : '1-Klik Backup CBT'}</span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => handleOpenPrintKartu('peserta')}
                     className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-primary/10 text-primary dark:text-primary-300 hover:bg-primary/20 transition-all border border-primary/20 min-h-[44px]"
                     title="Cetak Kartu Peserta Ujian"
@@ -5107,11 +5363,11 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => handleOpenPrintDokumenUjian(j.id_jadwal)}
-                                  className="p-1 text-slate-500 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-                                  title="Cetak Dokumen Pengawasan (Berita Acara & Hadir)"
+                                  onClick={() => handleOpenCloneModal(j)}
+                                  className="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg transition-colors"
+                                  title="Duplikat / Kloning Jadwal Ujian (1-Klik)"
                                 >
-                                  <span className="material-symbols-outlined text-[18px]">description</span>
+                                  <span className="material-symbols-outlined text-[18px]">content_copy</span>
                                 </button>
                                 <button
                                   onClick={() => openEditModal('jadwal', j)}
@@ -5275,11 +5531,11 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleOpenPrintDokumenUjian(j.id_jadwal)}
-                          className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"
-                          title="Cetak Dokumen Pengawasan"
+                          onClick={() => handleOpenCloneModal(j)}
+                          className="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg transition-colors"
+                          title="Duplikat / Kloning Jadwal Ujian"
                         >
-                          <span className="material-symbols-outlined text-[18px]">description</span>
+                          <span className="material-symbols-outlined text-[18px]">content_copy</span>
                         </button>
                         <button
                           onClick={() => openEditModal('jadwal', j)}
@@ -6228,30 +6484,21 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                       </option>
                     ))}
                   </select>
-                  {selectedJadwal && (
-                    <button
-                      type="button"
-                      data-tutorial="admin-dokumen"
-                      onClick={() => handleOpenPrintDokumenUjian(selectedJadwal)}
-                      disabled={loadingPrintDokumen}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white shadow-xs transition-all min-h-[40px]"
-                      title="Cetak Berkas Dokumen Pengawasan"
-                    >
-                      {loadingPrintDokumen ? (
-                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                      ) : (
-                        <span className="material-symbols-outlined text-[18px]">print</span>
-                      )}
-                      <span className="hidden sm:inline">Cetak Dokumen Pengawasan</span>
-                      <TutorialBadge role="admin" targetId="admin-dokumen" />
-                    </button>
-                  )}
                   <button
                     onClick={() => fetchData('monitoring')}
                     className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-slate-200 transition-colors min-h-[44px] min-w-[44px]"
                     title="Refresh Data"
                   >
                     <span className="material-symbols-outlined text-[18px]">refresh</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleOpenNexaImportModal}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-xs transition-colors min-h-[44px]"
+                    title="Import Jawaban Offline (.nexa)"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">upload_file</span>
+                    <span className="hidden sm:inline">Import Jawaban (.nexa)</span>
                   </button>
                 </div>
               </div>
@@ -6669,8 +6916,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex items-center justify-between gap-3"
                   >
                     <div
-                      onClick={() => { setActiveTab('soal'); setFilterMapel(m.nama_mapel); fetchData('soal'); }}
-                      className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
+                      className="flex items-center gap-3 min-w-0 flex-1"
                     >
                       <div className="w-10 h-10 rounded-xl bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 flex items-center justify-center shrink-0">
                         <span className="material-symbols-outlined text-xl">menu_book</span>
@@ -6841,78 +7087,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   onSave={handleSaveDefaultSkema}
                 />
               )}
-            </div>
-          )}
-
-          {/* ================= TAB 10: BANK SOAL PREVIEW ================= */}
-          {activeTab === 'soal' && (
-            <div className="space-y-4 animate-fade-in-up">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg sm:text-xl">Bank Soal (Preview)</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Peninjauan butir soal dari seluruh mata pelajaran</p>
-                </div>
-                <div className="w-full sm:w-60">
-                  <select
-                    value={filterMapel}
-                    onChange={(e) => setFilterMapel(e.target.value)}
-                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white"
-                  >
-                    <option value="">Semua Mata Pelajaran</option>
-                    {dataMapel.map(m => (
-                      <option key={m.id_mapel} value={m.nama_mapel}>{m.nama_mapel}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
-                {dataSoal.filter(s => filterMapel ? s.mata_pelajaran?.nama_mapel === filterMapel : true).map((s) => (
-                  <div key={s.id_soal} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-200/80 dark:border-slate-700/80 flex flex-col justify-between">
-                    <div>
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-xs font-bold text-purple-600 dark:text-purple-400">{s.mata_pelajaran?.nama_mapel}</span>
-                          <span className="text-[10px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded">{s.tipe_soal}</span>
-                        </div>
-                        <button
-                          onClick={() => handleDeleteClick(s.id_soal, 'soal', s)}
-                          className="w-7 h-7 rounded-lg text-rose-500 hover:bg-rose-50 flex items-center justify-center"
-                          title="Hapus Soal"
-                        >
-                          <span className="material-symbols-outlined text-[16px]">delete</span>
-                        </button>
-                      </div>
-                      <div className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 line-clamp-3 mb-3" dangerouslySetInnerHTML={{ __html: s.pertanyaan }} />
-                    </div>
-
-                    <div className="pt-2 border-t border-slate-100 dark:border-slate-700/60 text-xs">
-                      {s.jawaban_benar ? (
-                        <div className="font-semibold text-primary dark:text-primary-400 flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[16px]">check_circle</span>
-                          Kunci: {s.jawaban_benar}
-                        </div>
-                      ) : (
-                        <div className="font-semibold text-amber-500 flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[16px]">warning</span>
-                          Kunci Belum Ditentukan
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-
-                {dataSoal.filter(s => filterMapel ? s.mata_pelajaran?.nama_mapel === filterMapel : true).length === 0 && (
-                  <div className="col-span-full">
-                    <EmptyState
-                      compact={true}
-                      icon="quiz"
-                      title="Belum Ada Soal"
-                      description="Belum ada soal terdaftar untuk mata pelajaran yang dipilih."
-                    />
-                  </div>
-                )}
-              </div>
             </div>
           )}
 
@@ -7765,6 +7939,8 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       {/* Modals & Dialogs */}
       {renderFormModal()}
       {renderImportModal()}
+      {renderCloneModal()}
+      {renderNexaImportModal()}
       {renderDeleteModal()}
       {renderProfileModal()}
       {renderAnalisisModal()}
@@ -7772,7 +7948,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       {renderAssignPengawasModal()}
       {renderRuangModal()}
       {renderPrintKartuModal()}
-      {renderRoomPickerModal()}
 
       {/* Kartu Ujian Print Component (Mounted when isPrintKartuActive is true) */}
       {isPrintKartuActive && printKartuPayload && (
@@ -7781,17 +7956,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
           onClose={() => {
             setIsPrintKartuActive(false);
             setPrintKartuPayload(null);
-          }}
-        />
-      )}
-
-      {/* Dokumen Ujian Print Component (R3 Integration) */}
-      {printDokumenModalOpen && printDokumenData && (
-        <DokumenUjianPrint
-          data={printDokumenData}
-          onClose={() => {
-            setPrintDokumenModalOpen(false);
-            setPrintDokumenData(null);
           }}
         />
       )}
@@ -7851,13 +8015,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
         initialRole="admin"
         onClose={handleCloseTutorial}
         onRestart={handleRestartTutorial}
-      />
-
-      {/* Offline AI Assistant Widget (Zero-API, Offline Navigation) */}
-      <OfflineAiAssistant
-        role="admin"
-        user={user}
-        onNavigate={handleAssistantNavigate}
       />
     </div>
   );

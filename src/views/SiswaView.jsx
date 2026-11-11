@@ -18,7 +18,6 @@ import {
 } from '../components/UI.jsx';
 import NotificationBell from '../components/NotificationBell.jsx';
 import TutorialModal, { TutorialBadge, resetTutorialProgress } from '../components/TutorialModal.jsx';
-import OfflineAiAssistant from '../components/OfflineAiAssistant.jsx';
 import { compressImageFile } from '../utils/imageHelper.js';
 
 /**
@@ -172,6 +171,14 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   const [dataLeaderboard, setDataLeaderboard] = useState([]);
   const [showLeaderboard, setShowLeaderboard] = useState(true);
 
+  // Real-Time Student Leaderboard Suppression (Milestone M2 - R2)
+  const isAnyExamActive = useMemo(() => {
+    if (activeExamData) return true;
+    return (jadwal || []).some(j => j.status_ujian === 'BERLANGSUNG' || j.status_pelaksanaan === 'AKTIF' || j.status_siswa === 'MENGERJAKAN');
+  }, [jadwal, activeExamData]);
+
+  const isLeaderboardVisible = showLeaderboard && !isAnyExamActive;
+
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
   const [detailNilaiModal, setDetailNilaiModal] = useState(null);
@@ -194,7 +201,7 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
         }
       }
       setShowLeaderboard(isLeaderboardEnabled);
-      if (isLeaderboardEnabled) {
+      if (isLeaderboardEnabled && !isAnyExamActive) {
         loadLeaderboard();
       }
     };
@@ -202,12 +209,20 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     loadSettingsAndLeaderboard();
   }, [user?.npsn]);
 
-  // Safe redirect if leaderboard is disabled while currently active
+  // Safe redirect if leaderboard is disabled/suppressed while currently active
   useEffect(() => {
-    if (!showLeaderboard && activeTab === 'leaderboard') {
+    if (!isLeaderboardVisible && activeTab === 'leaderboard') {
       setActiveTab('beranda');
     }
-  }, [showLeaderboard, activeTab]);
+  }, [isLeaderboardVisible, activeTab]);
+
+  useEffect(() => {
+    if (isAnyExamActive) {
+      setDataLeaderboard([]);
+    } else if (showLeaderboard) {
+      loadLeaderboard();
+    }
+  }, [isAnyExamActive, showLeaderboard]);
 
   // Heartbeat session sync
   useEffect(() => {
@@ -223,13 +238,14 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     return () => clearInterval(interval);
   }, [user, currentUserId]);
 
-  // Background polling for exam schedule (15000ms / 15 seconds)
+  // Background polling for exam schedule (non-active exam only, 60000ms anti-429)
   useEffect(() => {
+    if (activeExamData) return;
     const interval = setInterval(() => {
       loadJadwal(false);
-    }, 15000);
+    }, 60000);
     return () => clearInterval(interval);
-  }, [currentUserId]);
+  }, [currentUserId, activeExamData]);
 
   const loadPengumuman = async () => {
     const res = await api('get_pengumuman', { role: 'siswa' });
@@ -244,8 +260,18 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   };
 
   const loadLeaderboard = async () => {
-    const res = await api('get_leaderboard', {});
-    if (res.status === 'success') setDataLeaderboard(res.data || []);
+    if (isAnyExamActive) {
+      setDataLeaderboard([]);
+      return;
+    }
+    const res = await api('get_leaderboard', { npsn: user?.npsn });
+    if (res.status === 'success') {
+      if (res.is_exam_active) {
+        setDataLeaderboard([]);
+      } else {
+        setDataLeaderboard(res.data || []);
+      }
+    }
   };
 
   const loadJadwal = async (showLoading = true) => {
@@ -548,7 +574,7 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 { id: 'nilai', label: 'Riwayat Nilai', icon: 'military_tech' },
                 { id: 'leaderboard', label: 'Papan Peringkat', icon: 'social_leaderboard' },
                 { id: 'akun', label: 'Profil Saya', icon: 'person' },
-              ].filter(tab => tab.id !== 'leaderboard' || showLeaderboard).map((tab) => (
+              ].filter(tab => tab.id !== 'leaderboard' || isLeaderboardVisible).map((tab) => (
                 <button
                   key={tab.id}
                   data-tutorial={tab.id === 'nilai' ? 'siswa-nilai siswa-riwayat' : `siswa-${tab.id}`}
@@ -848,7 +874,7 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 </Card>
 
                 {/* Kilas Leaderboard Card */}
-                {showLeaderboard && (
+                {isLeaderboardVisible && (
                   <Card>
                     <CardHeader className="pb-3">
                       <div className="flex items-center gap-2">
@@ -1049,7 +1075,7 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
         {/* ============================================================ */}
         {/* TAB 5: PAPAN PERINGKAT (LEADERBOARD)                         */}
         {/* ============================================================ */}
-        {showLeaderboard && activeTab === 'leaderboard' && (
+        {isLeaderboardVisible && activeTab === 'leaderboard' && (
           <div className="space-y-6 animate-fade-in-up">
             <div className="flex items-center justify-between">
               <div>
@@ -1193,7 +1219,7 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
           { id: 'nilai', label: 'Nilai', icon: 'military_tech' },
           { id: 'leaderboard', label: 'Peringkat', icon: 'social_leaderboard' },
           { id: 'akun', label: 'Profil', icon: 'person' },
-        ].filter(tab => tab.id !== 'leaderboard' || showLeaderboard).map((tab) => {
+        ].filter(tab => tab.id !== 'leaderboard' || isLeaderboardVisible).map((tab) => {
           const isActive = activeTab === tab.id;
           return (
             <button
@@ -1466,23 +1492,6 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
         initialRole="siswa"
         onClose={handleCloseTutorial}
         onRestart={handleRestartTutorial}
-      />
-
-      {/* Offline AI Assistant Widget (Zero-API, Offline Navigation) */}
-      <OfflineAiAssistant
-        role="siswa"
-        user={user}
-        onNavigate={(tab, modal) => {
-          if (tab) setActiveTab(tab);
-          if (modal === 'token') {
-            const activeExam = jadwal?.find(
-              j => (j.status_pelaksanaan === 'AKTIF' || j.status_siswa === 'MENGERJAKAN' || (!j.status_siswa && !j.is_blocked))
-            );
-            if (activeExam) {
-              handleOpenTokenModal(activeExam);
-            }
-          }
-        }}
       />
     </div>
   );

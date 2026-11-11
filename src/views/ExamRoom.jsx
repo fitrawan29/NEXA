@@ -2,8 +2,8 @@ import { fetchAPI } from '../api.js';
 import React, { useState, useEffect, useRef } from 'react';
 import Loader from '../components/Loader.jsx';
 import Modal from '../components/Modal.jsx';
-import DigitalSignatureModal from '../components/DigitalSignatureModal.jsx';
 import TutorialModal, { TutorialBadge, resetTutorialProgress } from '../components/TutorialModal.jsx';
+import { createNexaBundle, downloadNexaBundle } from '../utils/nexaBundle.js';
 
 function mulberry32(a) {
   return function() {
@@ -52,28 +52,8 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
   const [currentIndex, setCurrentIndex] = useState(0);
   const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'unanswered' | 'flagged' | 'answered'
 
-  // Student Digital Signature Gating State (Requirement 1)
-  const [hasSigned, setHasSigned] = useState(() => {
-    if (dataLog?.tanda_tangan || dataLog?.has_signed) return true;
-    try {
-      const sess = JSON.parse(sessionStorage.getItem('nexa_active_exam') || '{}');
-      if (sess?.dataLog?.tanda_tangan || sess?.dataLog?.has_signed || sess?.has_signed) {
-        return true;
-      }
-    } catch (e) {}
-    return false;
-  });
-  const [isSigningSubmitting, setIsSigningSubmitting] = useState(false);
-  const [isLoading, setIsLoading] = useState(() => {
-    if (dataLog?.tanda_tangan || dataLog?.has_signed) return true;
-    try {
-      const sess = JSON.parse(sessionStorage.getItem('nexa_active_exam') || '{}');
-      if (sess?.dataLog?.tanda_tangan || sess?.dataLog?.has_signed || sess?.has_signed) {
-        return true;
-      }
-    } catch (e) {}
-    return false;
-  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [isHonestyPledged, setIsHonestyPledged] = useState(false);
   const initialViolations = (dataLog && dataLog.pelanggaran) || 0;
   const initialBlocked = Boolean((dataLog && dataLog.is_blocked) || initialViolations >= 3);
   const [violationCount, setViolationCount] = useState(initialViolations);
@@ -82,6 +62,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
   const [timeLeft, setTimeLeft] = useState({ total: 1, hours: 0, minutes: 0, seconds: 0 });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmModal, setConfirmModal] = useState({ isOpen: false });
+  const [offlineModalOpen, setOfflineModalOpen] = useState(false);
   const [securityModal, setSecurityModal] = useState({ isOpen: false, title: '', message: '' });
   const [showTutorialModal, setShowTutorialModal] = useState(false);
   const examTutorialStorageKey = currentUserId ? `nexa_tutorial_seen_${currentUserId}_exam_room` : null;
@@ -230,60 +211,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
     }, 3000);
   };
 
-  const handleSignatureSubmit = async (signatureDataUrl) => {
-    setIsSigningSubmitting(true);
-    try {
-      const res = await api('submit_absensi_siswa', {
-        id_jadwal: jadwal?.id_jadwal,
-        id_siswa: currentUserId,
-        id_ruang: user?.ruang || jadwal?.ruang || null,
-        id_log: idLog,
-        tanda_tangan: signatureDataUrl,
-        npsn: user?.npsn
-      });
-
-      if (res.status === 'success') {
-        // Natural user click gesture: trigger fullscreen if lockdown mode is active
-        if (jadwal?.browser_lockdown && document.documentElement && document.documentElement.requestFullscreen && !document.fullscreenElement) {
-          document.documentElement.requestFullscreen().catch(() => {});
-        }
-
-        // Update sessionStorage immediately so refresh retains signature
-        try {
-          const currentSession = JSON.parse(sessionStorage.getItem('nexa_active_exam') || '{}');
-          if (currentSession) {
-            if (!currentSession.dataLog) currentSession.dataLog = {};
-            currentSession.dataLog.tanda_tangan = signatureDataUrl;
-            currentSession.dataLog.status_kehadiran = 'HADIR';
-            currentSession.dataLog.has_signed = true;
-            currentSession.has_signed = true;
-            sessionStorage.setItem('nexa_active_exam', JSON.stringify(currentSession));
-          }
-        } catch (e) {
-          console.error('Failed to update sessionStorage:', e);
-        }
-
-        setIsSigningSubmitting(false);
-        setIsLoading(true);
-        setHasSigned(true);
-        if (showMessage) {
-          showMessage('Kehadiran Terkonfirmasi', 'Tanda tangan Anda berhasil disimpan. Selamat mengerjakan ujian!', 'success');
-        }
-      } else {
-        setIsSigningSubmitting(false);
-        if (showMessage) {
-          showMessage('Gagal Menyimpan Kehadiran', res.message || 'Terjadi kesalahan saat menyimpan tanda tangan.', 'error');
-        }
-      }
-    } catch (err) {
-      setIsSigningSubmitting(false);
-      if (showMessage) {
-        showMessage('Kesalahan Jaringan', err.message || 'Tidak dapat terhubung ke server.', 'error');
-      }
-    }
-  };
-
-  // Initial mount: Check strike/block status and sync signed status from server
+  // Initial mount: Check strike/block status
   useEffect(() => {
     window.dispatchEvent(new Event('storage'));
     if (initialBlocked || initialViolations >= 3) {
@@ -301,28 +229,13 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
             triggerStrike3Kick();
             return;
           }
-          if (res.has_signed || res.data.tanda_tangan) {
-            setHasSigned(true);
-            try {
-              const currentSession = JSON.parse(sessionStorage.getItem('nexa_active_exam') || '{}');
-              if (currentSession) {
-                if (!currentSession.dataLog) currentSession.dataLog = {};
-                currentSession.dataLog.tanda_tangan = res.data.tanda_tangan || currentSession.dataLog.tanda_tangan;
-                currentSession.dataLog.status_kehadiran = 'HADIR';
-                currentSession.dataLog.has_signed = true;
-                currentSession.has_signed = true;
-                sessionStorage.setItem('nexa_active_exam', JSON.stringify(currentSession));
-              }
-            } catch (e) {}
-          }
         }
       }).catch((err) => console.warn('Sync exam log error:', err));
     }
   }, []);
 
-  // Active exam initialization: runs ONLY once student has signed (Double-Gating)
+  // Active exam initialization: runs on mount
   useEffect(() => {
-    if (!hasSigned) return;
     if (isBlockedRef.current || isSubmittingRef.current) return;
 
     fetchSoal();
@@ -471,7 +384,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
       } catch (err) {
         console.warn('Proctor status sync warning:', err);
       }
-    }, 15000);
+    }, 60000); // Pelonggaran interval 60 detik (anti-429 Kong gateway limit 500 req/menit untuk 415 siswa konkuren)
 
     const handleOnline = () => {
       setIsOffline(false);
@@ -495,7 +408,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
       window.removeEventListener('offline', handleOffline);
       if (wakeLock) wakeLock.release().catch(()=>{});
     };
-  }, [hasSigned]);
+  }, []);
 
   useEffect(() => {
     if (window.MathJax) {
@@ -541,8 +454,6 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
 
       setSoal(parsedSoal);
       if (res.narasiMap) setNarasiMap(res.narasiMap);
-    } else if (res.need_signature) {
-      setHasSigned(false);
     }
     setIsLoading(false);
   };
@@ -722,17 +633,47 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
     setRaguRagu(prev => ({ ...prev, [soalId]: !prev[soalId] }));
   };
 
+  const handleEmergencyOfflineExport = () => {
+    try {
+      const activeNpsn = user?.npsn || jadwal?.npsn || '';
+      const nisnVal = user?.nisn || user?.username || '';
+      const bundle = createNexaBundle({
+        id_log: idLog,
+        id_jadwal: jadwal?.id_jadwal,
+        id_siswa: currentUserId,
+        nisn: nisnVal,
+        nama_siswa: user?.nama || user?.nama_lengkap || '',
+        npsn: activeNpsn,
+        pelanggaran: violationCountRef.current || pelanggaran || 0,
+        jawaban: jawabanSiswa
+      });
+
+      downloadNexaBundle(bundle, `NEXA_JAWABAN_${nisnVal || 'SISWA'}_${idLog}.nexa`);
+      showMessage(
+        'Berkas Unduhan Siap',
+        'Berkas jawaban darurat (.nexa) berhasil diunduh. Simpan berkas ini dan serahkan ke proctor/pengawas ruang jika perangkat Anda tidak dapat terhubung kembali ke jaringan.',
+        'success'
+      );
+    } catch (err) {
+      console.error('Offline export error:', err);
+      showMessage('Gagal Ekspor', 'Terjadi kesalahan saat mengekspor jawaban offline: ' + err.message, 'error');
+    }
+  };
+
   const requestSubmit = () => {
+    setIsHonestyPledged(false);
     setConfirmModal({ isOpen: true });
   };
 
   const executeSubmitExam = async (isAuto = false) => {
     setConfirmModal({ isOpen: false });
+    setIsHonestyPledged(false);
     cancelGracePeriod();
     if (isSubmittingRef.current) return;
 
     if (!isAuto && !navigator.onLine) {
-      showMessage('Koneksi Terputus', 'Tidak dapat mengirim jawaban saat offline. Hubungkan kembali perangkat Anda ke internet sebelum mengumpulkan.', 'error');
+      showMessage('Koneksi Terputus', 'Tidak dapat mengirim jawaban saat offline. Hubungkan kembali perangkat Anda ke internet atau gunakan Ekspor Berkas Jawaban (.nexa).', 'error');
+      setOfflineModalOpen(true);
       return;
     }
 
@@ -760,10 +701,11 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
       showMessage('Ujian Selesai', `Terima kasih! Skor pilihan ganda/objektif Anda: ${res.nilai_auto}. Soal uraian dinilai terpisah oleh guru.`, 'success');
       setTimeout(onFinish, 4000);
     } else {
-      showMessage('Gagal Mengumpulkan', res.message, 'error');
+      showMessage('Gagal Mengumpulkan', (res.message || 'Koneksi ke server terputus') + '. Jika masalah jaringan berlanjut, Anda dapat mengekspor berkas jawaban offline.', 'error');
       setIsLoading(false);
       setIsSubmitting(false);
       isSubmittingRef.current = false;
+      setOfflineModalOpen(true);
     }
   };
 
@@ -919,28 +861,6 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
     );
   }
 
-  // Student Digital Signature Gate (Requirement 1)
-  // Blocks question rendering, palette, timer, and anti-cheat until student submits signature
-  if (!hasSigned) {
-    return (
-      <DigitalSignatureModal
-        isOpen={true}
-        studentInfo={{
-          nama: user?.nama_lengkap || user?.username,
-          nisn: user?.nisn || currentUserId,
-          kelas: user?.kelas || jadwal?.target_kelas || '-',
-          nama_mapel: jadwal?.mata_pelajaran?.nama_mapel || jadwal?.nama_mapel || 'Ujian CBT',
-          nama_guru: jadwal?.nama_guru,
-          ruang: user?.ruang || jadwal?.ruang || 'Ruang Ujian',
-          judul_ujian: jadwal?.nama_ujian || jadwal?.nama_mapel
-        }}
-        onSubmit={handleSignatureSubmit}
-        onCancel={onFinish}
-        isSubmitting={isSigningSubmitting}
-      />
-    );
-  }
-
   if (isLoading) {
     return (
       <div className="min-h-[100dvh] bg-slate-50 dark:bg-slate-900 flex flex-col items-center justify-center">
@@ -1089,9 +1009,20 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
 
       {/* Offline Status Banner (Friendly, No Unfair Violation Penalty) */}
       {isOffline && (
-        <div className="bg-amber-500 text-white px-4 py-2 text-xs font-bold flex items-center justify-center gap-2 z-[60] shadow-sm">
-          <span className="material-symbols-outlined text-[18px]">wifi_off</span>
-          <span>Koneksi internet terputus. Anda tetap dapat melanjutkan pengerjaan; jawaban aman tersimpan lokal di perangkat.</span>
+        <div className="bg-amber-500 text-white px-4 py-2 text-xs font-bold flex flex-wrap items-center justify-between gap-2 z-[60] shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[18px]">wifi_off</span>
+            <span>Koneksi internet terputus. Jawaban aman tersimpan lokal di perangkat.</span>
+          </div>
+          <button
+            type="button"
+            onClick={handleEmergencyOfflineExport}
+            className="px-2.5 py-1 rounded-lg bg-amber-700 hover:bg-amber-800 text-white text-[11px] font-bold inline-flex items-center gap-1 transition-colors cursor-pointer"
+            title="Ekspor berkas jawaban darurat (.nexa)"
+          >
+            <span className="material-symbols-outlined text-[15px]">download_for_offline</span>
+            <span>Ekspor Berkas Jawaban (.nexa)</span>
+          </button>
         </div>
       )}
 
@@ -1514,7 +1445,10 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
         isOpen={confirmModal.isOpen}
         title="Ikhtisar & Konfirmasi Pengumpulan"
         type="info"
-        onClose={() => setConfirmModal({ isOpen: false })}
+        onClose={() => {
+          setIsHonestyPledged(false);
+          setConfirmModal({ isOpen: false });
+        }}
       >
         <div className="space-y-4 pt-1">
           <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">
@@ -1552,20 +1486,101 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
             </div>
           )}
 
+          {/* Native Honesty Confirmation Checkbox (Requirement R2 / F4) */}
+          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/80 mt-2">
+            <label className="flex items-start gap-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                id="checkbox-kejujuran"
+                checked={isHonestyPledged}
+                onChange={(e) => setIsHonestyPledged(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+              />
+              <span className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
+                Saya menyatakan dengan sungguh-sungguh bahwa saya telah mengerjakan ujian ini secara <strong>jujur, mandiri</strong>, dan tanpa bantuan pihak lain atau kecurangan dalam bentuk apa pun.
+              </span>
+            </label>
+          </div>
+
           <div className="flex gap-3 pt-3">
             <button
               type="button"
-              onClick={() => setConfirmModal({ isOpen: false })}
+              onClick={() => {
+                setIsHonestyPledged(false);
+                setConfirmModal({ isOpen: false });
+              }}
               className="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xs sm:text-sm hover:bg-slate-50 transition-colors min-h-[44px]"
             >
               Periksa Kembali
             </button>
             <button
               type="button"
+              disabled={!isHonestyPledged}
               onClick={() => executeSubmitExam(false)}
-              className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm shadow-sm hover:shadow transition-all active:scale-[0.98] min-h-[44px]"
+              className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-xs sm:text-sm shadow-sm transition-all min-h-[44px] ${
+                isHonestyPledged
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer active:scale-[0.98]'
+                  : 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed'
+              }`}
             >
               Ya, Kumpulkan
+            </button>
+          </div>
+
+          {/* Emergency Offline Export Action (.nexa) */}
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-700/60">
+            <button
+              type="button"
+              onClick={handleEmergencyOfflineExport}
+              className="w-full py-2 px-3 rounded-xl border border-amber-300 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer min-h-[40px]"
+              title="Ekspor berkas jawaban terenkripsi (.nexa) jika internet padam"
+            >
+              <span className="material-symbols-outlined text-[17px]">download_for_offline</span>
+              <span>Ekspor Berkas Jawaban (.nexa)</span>
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Emergency Offline Outage Modal */}
+      <Modal
+        isOpen={offlineModalOpen}
+        title="Mode Darurat: Pengumpulan Offline (.nexa)"
+        type="warning"
+        onClose={() => setOfflineModalOpen(false)}
+      >
+        <div className="space-y-4 pt-1">
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300">
+            Koneksi ke server tidak tersedia saat ini. Seluruh jawaban Anda tetap aman tersimpan di perangkat ini. Anda dapat mengunduh berkas jawaban terenkripsi <code>.nexa</code> untuk diserahkan ke proctor/pengawas ruang.
+          </p>
+
+          <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/60 text-xs text-amber-800 dark:text-amber-200 space-y-1">
+            <div className="font-bold flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[18px] text-amber-600">info</span>
+              <span>Langkah Penyerahan Offline:</span>
+            </div>
+            <p className="text-[11px] leading-relaxed">
+              1. Klik tombol di bawah untuk mengunduh berkas <code>.nexa</code>.<br />
+              2. Simpan berkas dan serahkan ke pengawas/proctor ruang ujian.<br />
+              3. Pengawas akan mengimpor berkas ke sistem untuk dinilai secara otomatis.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2 pt-2">
+            <button
+              type="button"
+              onClick={handleEmergencyOfflineExport}
+              className="w-full py-2.5 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs sm:text-sm shadow-sm flex items-center justify-center gap-2 cursor-pointer transition-colors min-h-[44px]"
+            >
+              <span className="material-symbols-outlined text-[18px]">download_for_offline</span>
+              <span>Ekspor Berkas Jawaban (.nexa)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setOfflineModalOpen(false)}
+              className="w-full py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xs hover:bg-slate-50 transition-colors min-h-[40px]"
+            >
+              Tutup & Coba Lagi Nanti
             </button>
           </div>
         </div>

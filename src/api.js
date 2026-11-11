@@ -1,5 +1,12 @@
 import { supabaseClient } from './config.js';
 import React from 'react';
+import {
+  decodeNexaBundle,
+  verifyNexaBundleChecksum,
+  evaluateAKMQuestion,
+  calculateExamScore,
+  cloneExamSchedule
+} from './utils/nexaBundle.js';
 
 export { supabaseClient };
 
@@ -556,18 +563,20 @@ export { supabaseClient };
         }
       }
 
-      // Query Supabase for persisted school settings record
+      // Query dedicated table 'pengaturan_sekolah' (Milestone M2 - R2)
       try {
         const { data, error } = await supabaseClient
-          .from('soal_ujian')
-          .select('kunci_jawaban')
-          .eq('id_soal', 'KOP_SETTINGS_' + cleanNpsn)
+          .from('pengaturan_sekolah')
+          .select('settings')
           .eq('npsn', cleanNpsn)
           .maybeSingle();
 
-        if (!error && data && data.kunci_jawaban) {
+        if (!error && data && data.settings) {
           try {
-            const parsed = JSON.parse(data.kunci_jawaban);
+            let parsed = data.settings;
+            if (typeof parsed === 'string') {
+              parsed = JSON.parse(parsed);
+            }
             if (parsed && typeof parsed === 'object') {
               const merged = { ...fallback, ...parsed };
               if (typeof localStorage !== 'undefined') {
@@ -576,7 +585,7 @@ export { supabaseClient };
               return merged;
             }
           } catch (e) {
-            console.warn('Error parsing kop settings JSON from DB:', e);
+            console.warn('Error parsing kop settings JSON from pengaturan_sekolah DB:', e);
           }
         }
       } catch (err) {
@@ -623,40 +632,29 @@ export { supabaseClient };
         localStorage.setItem('nexa_kop_settings_' + cleanNpsn, JSON.stringify(normalized));
       }
 
-      const recordId = 'KOP_SETTINGS_' + cleanNpsn;
-      const record = {
-        id_soal: recordId,
-        tipe_soal: 'KOP_SETTINGS',
-        id_mapel: null,
-        pertanyaan: 'Pengaturan Kop dan Logo Sekolah',
-        kunci_jawaban: JSON.stringify(normalized),
-        bobot: 1,
-        npsn: cleanNpsn
-      };
-
+      // Persist to dedicated table 'pengaturan_sekolah' (Milestone M2 - R2)
       try {
-        const { data: existing } = await supabaseClient
-          .from('soal_ujian')
-          .select('id_soal')
-          .eq('id_soal', recordId)
-          .eq('npsn', cleanNpsn)
-          .maybeSingle();
+        const { error: upsertErr } = await supabaseClient
+          .from('pengaturan_sekolah')
+          .upsert({
+            npsn: cleanNpsn,
+            settings: normalized,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'npsn' });
 
-        if (existing) {
-          const { error } = await supabaseClient
-            .from('soal_ujian')
-            .update(record)
-            .eq('id_soal', recordId)
-            .eq('npsn', cleanNpsn);
-          if (error) console.warn('Database update error in save_pengaturan_sekolah:', error);
-        } else {
-          const { error } = await supabaseClient
-            .from('soal_ujian')
-            .insert([record]);
-          if (error) console.warn('Database insert error in save_pengaturan_sekolah:', error);
-        }
+        if (upsertErr) console.warn('Database upsert error in save_pengaturan_sekolah:', upsertErr);
       } catch (err) {
         console.warn('save_pengaturan_sekolah DB warning:', err);
+      }
+
+      // Clean up legacy KOP_SETTINGS fake rows from soal_ujian
+      try {
+        await supabaseClient
+          .from('soal_ujian')
+          .delete()
+          .eq('id_soal', 'KOP_SETTINGS_' + cleanNpsn);
+      } catch (err) {
+        console.warn('Legacy KOP_SETTINGS cleanup warning:', err);
       }
 
       // Sync school name to sekolah table if provided
@@ -712,13 +710,7 @@ export { supabaseClient };
           await supabaseClient.from('audit_log').delete().in('id_audit', oldIds);
         }
 
-        // 2. Purge log_aktivitas_global sebelum cutoff
-        await supabaseClient
-          .from('log_aktivitas_global')
-          .delete()
-          .lt('created_at', cutoffIso);
-
-        // 3. Purge arsip audit usang (> 30 hari)
+        // 2. Purge arsip audit usang (> 30 hari)
         const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
         await supabaseClient.from('audit_log_archive').delete().lt('created_at', thirtyDaysAgo);
 
@@ -740,13 +732,10 @@ export { supabaseClient };
         // Menolak kueri jika npsn tidak disertakan untuk rute non-global
         const globalRoutes = [
           'login', 'register', 'get_sekolah', 'create_sekolah', 'delete_sekolah', 'update_sekolah', 
-          'get_admin_all', 'create_admin_sekolah', 'update_admin_sekolah', 'delete_admin_sekolah', 
-          'get_analytics', 'update_admin_profil', 'get_pengumuman_global', 'create_pengumuman_global', 
-          'delete_pengumuman_global', 'get_log_aktivitas_global', 'create_log_aktivitas_global', 'purge_weekly_logs',
-          'update_sekolah_status', 'update_superadmin_password', 'reset_all_data',
+          'update_admin_profil', 'purge_weekly_logs',
           'get_status_log_ujian', 'simpan_kehadiran_siswa', 'submit_absensi_siswa', 
           'verifikasi_absensi', 'verifikasi_absensi_bulk',
-          'get_soal_ujian', 'submit_ujian', 'catat_pelanggaran'
+          'get_soal_ujian', 'submit_ujian', 'catat_pelanggaran', 'import_jawaban_offline'
         ];
         if (!globalRoutes.includes(action)) {
           if (Array.isArray(payload)) {
@@ -760,18 +749,6 @@ export { supabaseClient };
         switch (action) {
           // ================= AUTH =================
           case 'login': {
-            if (payload.role === 'super_admin') {
-              ({ data, error } = await supabaseClient
-                .from('super_admin')
-                .select('*')
-                .eq('username', payload.username)
-                .eq('password', payload.password)
-                .single());
-              if (error || !data) return { status: 'error', message: 'Username atau password Super Admin salah.' };
-              data.role = 'super_admin';
-              return { status: 'success', data };
-            }
-
             if (payload.role === 'guru') {
               const loginId = (payload.username || payload.nip)?.trim();
               ({ data, error } = await supabaseClient
@@ -857,12 +834,7 @@ export { supabaseClient };
             return { status: 'success', message: 'Pendaftaran berhasil. Silakan login.' };
           }
 
-          // ================= SUPER ADMIN =================
-          case 'update_superadmin_password': {
-            ({ error } = await supabaseClient.from('super_admin').update({ password: payload.password }).eq('username', payload.username));
-            if (error) return { status: 'error', message: error.message };
-            return { status: 'success', message: 'Password Super Admin berhasil diperbarui.' };
-          }
+          // ================= SEKOLAH =================
           case 'get_sekolah': {
             ({ data, error } = await supabaseClient.from('sekolah').select('*').order('created_at', { ascending: false }));
             if (error) return { status: 'error', message: error.message };
@@ -888,44 +860,6 @@ export { supabaseClient };
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Sekolah berhasil diperbarui.' };
           }
-          case 'get_admin_all': {
-            const { data: adminData, error: adminErr } = await supabaseClient.from('admin').select('*').order('created_at', { ascending: false });
-            if (adminErr) return { status: 'error', message: adminErr.message };
-            const { data: sekolahData } = await supabaseClient.from('sekolah').select('npsn, nama_sekolah');
-            const data = adminData.map(a => ({
-               ...a,
-               sekolah: sekolahData?.find(s => s.npsn === a.npsn) || { nama_sekolah: '-' }
-            }));
-            return { status: 'success', data };
-          }
-          case 'create_admin_sekolah': {
-            ({ error } = await supabaseClient.from('admin').insert([{ 
-              id_admin: crypto.randomUUID(),
-              nama_lengkap: payload.nama_lengkap, 
-              username: payload.username,
-              password: payload.password,
-              npsn: payload.npsn
-            }]));
-            if (error) return { status: 'error', message: error.message };
-            return { status: 'success', message: 'Admin Sekolah berhasil dibuat.' };
-          }
-          case 'delete_admin_sekolah': {
-            ({ error } = await supabaseClient.from('admin').delete().eq('id_admin', payload.id_admin));
-            if (error) return { status: 'error', message: error.message };
-            return { status: 'success', message: 'Admin Sekolah berhasil dihapus.' };
-          }
-          case 'update_admin_sekolah': {
-            const updateData = {
-              nama_lengkap: payload.nama_lengkap,
-              username: payload.username,
-              npsn: payload.npsn
-            };
-            if (payload.password) updateData.password = payload.password;
-            
-            ({ error } = await supabaseClient.from('admin').update(updateData).eq('id_admin', payload.id_admin));
-            if (error) return { status: 'error', message: error.message };
-            return { status: 'success', message: 'Admin Sekolah berhasil diperbarui.' };
-          }
           case 'update_admin_profil': {
             const updateData = {};
             if (payload.password) updateData.password = payload.password;
@@ -935,88 +869,12 @@ export { supabaseClient };
             return { status: 'success', message: 'Profil berhasil diperbarui.' };
           }
 
-          // ================= SUPERADMIN ANALYTICS =================
-          case 'get_analytics': {
-            const { data: sekolahData, error: sekolahErr } = await supabaseClient.from('sekolah').select('npsn, nama_sekolah');
-            if (sekolahErr) return { status: 'error', message: sekolahErr.message };
-
-            // We count items per school manually since Supabase client doesn't support complex GROUP BY out of the box easily.
-            // For production, a custom PostgreSQL function/RPC is highly recommended.
-            const stats = await Promise.all(sekolahData.map(async (s) => {
-              const [siswaRes, guruRes, soalRes] = await Promise.all([
-                supabaseClient.from('siswa').select('id_siswa', { count: 'exact' }).eq('npsn', s.npsn),
-                supabaseClient.from('guru').select('id_guru', { count: 'exact' }).eq('npsn', s.npsn),
-                supabaseClient.from('soal_ujian').select('id_soal', { count: 'exact' }).eq('npsn', s.npsn)
-              ]);
-              return {
-                npsn: s.npsn,
-                nama_sekolah: s.nama_sekolah,
-                total_siswa: siswaRes.count || 0,
-                total_guru: guruRes.count || 0,
-                total_soal: soalRes.count || 0
-              };
-            }));
-            
-            // Calculate global concurrent users
-            const { count: concurrentUsers } = await supabaseClient
-              .from('log_ujian')
-              .select('id_log', { count: 'exact', head: true })
-              .eq('status_ujian', 'SEDANG KERJA');
-
-            return { status: 'success', data: { stats, concurrentUsers: concurrentUsers || 0 } };
-          }
-
-          // ================= PENGUMUMAN & LOG GLOBAL =================
-          case 'get_pengumuman_global': {
-            ({ data, error } = await supabaseClient.from('pengumuman_global').select('*').order('created_at', { ascending: false }));
-            if (error) return { status: 'error', message: error.message };
-            return { status: 'success', data };
-          }
-          case 'create_pengumuman_global': {
-            ({ error } = await supabaseClient.from('pengumuman_global').insert([{ judul: payload.judul, isi: payload.isi, tipe: payload.tipe }]));
-            if (error) return { status: 'error', message: error.message };
-            return { status: 'success', message: 'Pengumuman berhasil ditambahkan.' };
-          }
-          case 'delete_pengumuman_global': {
-            ({ error } = await supabaseClient.from('pengumuman_global').delete().eq('id_pengumuman', payload.id_pengumuman));
-            if (error) return { status: 'error', message: error.message };
-            return { status: 'success', message: 'Pengumuman berhasil dihapus.' };
-          }
           case 'purge_weekly_logs': {
             const res = await autoPurgeWeeklyLogs(payload.force || false, payload.cutoff);
             return res;
           }
-          case 'get_log_aktivitas_global': {
-            await autoPurgeWeeklyLogs(false);
-            ({ data, error } = await supabaseClient.from('audit_log').select('*').order('created_at', { ascending: false }).limit(100));
-            if (error) return { status: 'error', message: error.message };
-            return { status: 'success', data };
-          }
-          case 'create_log_aktivitas_global': {
-            ({ error } = await supabaseClient.from('log_aktivitas_global').insert([{ username: payload.username, role: payload.role, action: payload.action, detail: payload.detail }]));
-            if (error) return { status: 'error', message: error.message };
-            return { status: 'success', message: 'Log dicatat.' };
-          }
 
           // ================= ADMIN DASHBOARD =================
-          case 'get_bank_soal_admin': {
-            const { data, error } = await supabaseClient
-              .from('soal_ujian')
-              .select('*, mata_pelajaran(nama_mapel)')
-              .eq('npsn', payload.npsn)
-              .neq('tipe_soal', 'SKEMA_DEFAULT')
-              .neq('tipe_soal', 'SKEMA_PENILAIAN')
-              .neq('tipe_soal', 'MAPEL_ALLOC')
-              .neq('tipe_soal', 'KOP_SETTINGS')
-              .order('id_soal', { ascending: false });
-            if (error) return { status: 'error', message: error.message };
-            const mapped = (data || []).map(s => ({
-              ...s,
-              jawaban_benar: s.jawaban_benar || s.kunci_jawaban
-            }));
-            return { status: 'success', data: mapped };
-          }
-          
           case 'get_admin_dashboard_data': {
             const [siswaRes, guruRes, jadwalRes, aktifRes, mapelRes, soalRes] = await Promise.all([
               supabaseClient.from('siswa').select('id_siswa', { count: 'exact' }).eq('npsn', payload.npsn),
@@ -1024,7 +882,7 @@ export { supabaseClient };
               supabaseClient.from('jadwal').select('id_jadwal', { count: 'exact' }).eq('npsn', payload.npsn),
               supabaseClient.from('log_ujian').select('id_log, jadwal!inner(npsn)', { count: 'exact' }).eq('status_ujian', 'SEDANG KERJA').eq('jadwal.npsn', payload.npsn),
               supabaseClient.from('mata_pelajaran').select('id_mapel', { count: 'exact' }).eq('npsn', payload.npsn),
-              supabaseClient.from('soal_ujian').select('id_soal', { count: 'exact' }).eq('npsn', payload.npsn).neq('tipe_soal', 'SKEMA_DEFAULT').neq('tipe_soal', 'SKEMA_PENILAIAN').neq('tipe_soal', 'MAPEL_ALLOC').neq('tipe_soal', 'KOP_SETTINGS')
+              supabaseClient.from('soal_ujian').select('id_soal', { count: 'exact' }).eq('npsn', payload.npsn).neq('tipe_soal', 'SKEMA_DEFAULT').neq('tipe_soal', 'SKEMA_PENILAIAN').neq('tipe_soal', 'MAPEL_ALLOC')
             ]);
 
             const { data: allJadwalData } = await supabaseClient
@@ -1319,8 +1177,7 @@ export { supabaseClient };
                 s.id_mapel === m.id_mapel && 
                 s.tipe_soal !== 'SKEMA_DEFAULT' && 
                 s.tipe_soal !== 'SKEMA_PENILAIAN' && 
-                s.tipe_soal !== 'MAPEL_ALLOC' &&
-                s.tipe_soal !== 'KOP_SETTINGS'
+                s.tipe_soal !== 'MAPEL_ALLOC'
               ).length;
               const alokasi_kelas = allocMap[m.id_mapel] || m.alokasi_kelas || 'Semua Kelas';
               return { ...m, jumlah_soal, alokasi_kelas };
@@ -1453,6 +1310,21 @@ export { supabaseClient };
             ({ error } = await supabaseClient.from('jadwal').insert(bulkData));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Jadwal berhasil ditambahkan secara massal' };
+          }
+          case 'clone_jadwal': {
+            const { id_jadwal_sumber, target_kelas, token_baru, npsn } = payload;
+            const { data: source, error: srcErr } = await supabaseClient
+              .from('jadwal')
+              .select('*')
+              .eq('id_jadwal', id_jadwal_sumber)
+              .single();
+            if (srcErr || !source) return { status: 'error', message: srcErr?.message || 'Jadwal sumber tidak ditemukan' };
+
+            const cloned = cloneExamSchedule(source, target_kelas, token_baru);
+            if (npsn) cloned.npsn = npsn;
+            ({ error } = await supabaseClient.from('jadwal').insert([cloned]));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Jadwal berhasil diduplikasi.', data: cloned };
           }
 
 
@@ -1605,21 +1477,15 @@ export { supabaseClient };
             return { status: 'success', message: 'Alokasi siswa ke ruangan berhasil disimpan.' };
           }
 
+          case 'simpan_tanda_tangan_siswa': {
+            return { status: 'success', message: 'Tanda tangan digital kanvas telah didepresiasi (Milestone M2).', deprecated: true };
+          }
+
           case 'simpan_kehadiran_siswa':
           case 'submit_absensi_siswa': {
             let { id_jadwal, id_siswa, id_ruang, tanda_tangan, npsn, id_log, status_kehadiran } = payload;
-            if (!tanda_tangan || typeof tanda_tangan !== 'string' || !tanda_tangan.startsWith('data:image')) {
-              return { status: 'error', message: 'Tanda tangan digital tidak valid (wajib format Base64 data:image).' };
-            }
-
-            // Minimum signature length validation: reject empty or 0-byte Data URLs and 1x1 blank transparent PNG
-            const base64Data = tanda_tangan.replace(/^data:image\/[a-zA-Z0-9+.-]+;base64,/, '').trim();
-            if (
-              tanda_tangan.length < 100 || 
-              base64Data.length < 50 || 
-              tanda_tangan === 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
-            ) {
-              return { status: 'error', message: 'Tanda tangan digital kosong atau tidak valid.' };
+            if (tanda_tangan && (typeof tanda_tangan !== 'string' || !tanda_tangan.startsWith('data:image') || tanda_tangan.length < 50)) {
+              tanda_tangan = null;
             }
 
             // Retrieve missing fields from log_ujian if id_log is provided
@@ -2181,7 +2047,7 @@ export { supabaseClient };
           }
 
           case 'get_soal_by_mapel': {
-            ({ data, error } = await supabaseClient.from('soal_ujian').select('*').eq('id_mapel', payload.id_mapel).eq('npsn', payload.npsn).neq('tipe_soal', 'MAPEL_ALLOC').neq('tipe_soal', 'SKEMA_DEFAULT').neq('tipe_soal', 'KOP_SETTINGS'));
+            ({ data, error } = await supabaseClient.from('soal_ujian').select('*').eq('id_mapel', payload.id_mapel).eq('npsn', payload.npsn).neq('tipe_soal', 'MAPEL_ALLOC').neq('tipe_soal', 'SKEMA_DEFAULT'));
             if (error) return { status: 'error', message: error.message };
             
             // Format opsi column string to array if it is a JSON string
@@ -2511,7 +2377,7 @@ export { supabaseClient };
               return {
                 status: 'error',
                 message: 'Akses soal ditolak: Log ujian wajib disertakan untuk mengakses soal ujian.',
-                need_signature: true
+                need_signature: false
               };
             }
 
@@ -2553,28 +2419,6 @@ export { supabaseClient };
               }
 
               logStatus = log;
-
-              if (!isPrivileged) {
-                // Exam Entry Gating: Check attendance/signature in log_ujian or absensi_ujian
-                let signed = Boolean(log.tanda_tangan);
-                if (!signed && log.id_jadwal && log.id_siswa) {
-                  const { data: absCheck } = await supabaseClient
-                    .from('absensi_ujian')
-                    .select('tanda_tangan')
-                    .eq('id_jadwal', log.id_jadwal)
-                    .eq('id_siswa', log.id_siswa)
-                    .maybeSingle();
-                  if (absCheck && absCheck.tanda_tangan) signed = true;
-                }
-
-                if (!signed) {
-                  return {
-                    status: 'error',
-                    message: 'Akses soal ditolak: Tanda tangan kehadiran belum disimpan.',
-                    need_signature: true
-                  };
-                }
-              }
             }
 
             return { status: 'success', data: soalAktif, narasiMap, logStatus };
@@ -2630,12 +2474,14 @@ export { supabaseClient };
             const { data: currLog } = await supabaseClient.from('log_ujian').select('is_blocked').eq('id_log', logId).single();
             const isBlocked = currLog?.is_blocked || false;
 
-            // Konversi array jawaban [{id_soal, jawaban}] menjadi object/map {id_soal: jawaban}
+            // Konversi array jawaban [{id_soal, jawaban}] atau object {id_soal: jawaban} menjadi map
             const jawaban = {};
             if (Array.isArray(payload.jawaban)) {
               payload.jawaban.forEach(j => {
                 if (j && j.id_soal) jawaban[j.id_soal] = j.jawaban;
               });
+            } else if (payload.jawaban && typeof payload.jawaban === 'object') {
+              Object.assign(jawaban, payload.jawaban);
             }
 
             const idSiswa = payload.id_siswa;
@@ -2655,7 +2501,8 @@ export { supabaseClient };
             let insertJawaban = [];
 
             if (soalData) {
-              for (const soal of soalData.filter(s => s.tipe_soal !== 'NARASI' && s.tipe_soal !== 'SKEMA_PENILAIAN' && s.tipe_soal !== 'SKEMA_DEFAULT' && s.tipe_soal !== 'MAPEL_ALLOC')) {
+              for (const soal of soalData.filter(s => s.tipe_soal !== 'NARASI' && s.tipe_soal !== 'SKEMA_PENILAIAN' && s.tipe_soal !== 'SKEMA_DEFAULT')) {
+                if (soal.tipe_soal === 'MAPEL_ALLOC') continue;
                 let jwb = jawaban[soal.id_soal];
                 let isCorrect = false;
                 let skorDiperoleh = 0;
@@ -2695,7 +2542,7 @@ export { supabaseClient };
                   }
                 }
 
-                let stringJawaban = (typeof jwb === 'object') ? JSON.stringify(jwb) : String(jwb || '');
+                let stringJawaban = (jwb !== null && typeof jwb === 'object') ? JSON.stringify(jwb) : String(jwb ?? '');
 
                 insertJawaban.push({
                   id_jawaban: 'JWB-' + Math.random().toString(36).substr(2, 9),
@@ -2710,29 +2557,254 @@ export { supabaseClient };
               }
             }
 
-            await supabaseClient.from('jawaban_siswa').delete().eq('id_log', logId);
-            if (insertJawaban.length > 0) {
-              await supabaseClient.from('jawaban_siswa').insert(insertJawaban);
+            let nilaiAuto = 0;
+            if (isBlocked) {
+              nilaiAuto = 0;
+            } else if (totalSkorMaxAuto > 0) {
+              nilaiAuto = (totalSkorDiperolehAuto / totalSkorMaxAuto) * 100;
+              nilaiAuto = Math.round(nilaiAuto * 100) / 100;
             }
 
-              let nilaiAuto = 0;
-              if (isBlocked) {
-                nilaiAuto = 0;
-              } else if (totalSkorMaxAuto > 0) {
-                nilaiAuto = (totalSkorDiperolehAuto / totalSkorMaxAuto) * 100;
-                nilaiAuto = Math.round(nilaiAuto * 100) / 100;
+            // Transaksi Atomik Submit: Menjamin seluruh jawaban tersimpan utuh dan status log diperbarui dalam 1 transaksi ACID
+            let atomicDone = false;
+            let atomicError = null;
+            try {
+              const { data: rpcRes, error: rpcErr } = await supabaseClient.rpc('submit_ujian_atomic', {
+                p_id_log: logId,
+                p_jawaban_list: insertJawaban,
+                p_status_ujian: 'SELESAI',
+                p_nilai_auto: isNaN(nilaiAuto) ? 0 : nilaiAuto
+              });
+              if (!rpcErr && rpcRes && (rpcRes.success || rpcRes.status === 'success' || rpcRes === true)) {
+                atomicDone = true;
+              } else if (rpcErr) {
+                atomicError = rpcErr;
+              } else if (rpcRes && (rpcRes.error || rpcRes.success === false)) {
+                atomicError = { message: rpcRes.message || rpcRes.error || 'Eksekusi transaksi submit_ujian_atomic gagal.' };
+              } else {
+                atomicError = { message: 'Respons transaksi submit_ujian_atomic tidak terduga.' };
               }
-  
-              await supabaseClient.from('log_ujian').update({
+            } catch (err) {
+              atomicError = err;
+            }
+
+            // Fallback: Jika RPC belum terpasang di database, jalankan operasi tabel berurutan
+            if (!atomicDone) {
+              const isFunctionMissing = !atomicError || 
+                atomicError.code === 'PGRST202' || 
+                atomicError.code === '42883' || 
+                (atomicError.message && (
+                  atomicError.message.includes('submit_ujian_atomic') || 
+                  atomicError.message.toLowerCase().includes('could not find the function') ||
+                  atomicError.message.toLowerCase().includes('does not exist')
+                ));
+
+              if (!isFunctionMissing && atomicError) {
+                return { 
+                  status: 'error', 
+                  message: atomicError.message || 'Gagal menyimpan jawaban ujian secara atomik.' 
+                };
+              }
+
+              const { error: delErr } = await supabaseClient.from('jawaban_siswa').delete().eq('id_log', logId);
+              if (delErr) {
+                return { status: 'error', message: 'Gagal membersihkan jawaban lama: ' + delErr.message };
+              }
+
+              if (insertJawaban.length > 0) {
+                const { error: insErr } = await supabaseClient.from('jawaban_siswa').insert(insertJawaban);
+                if (insErr) {
+                  return { status: 'error', message: 'Gagal menyimpan jawaban siswa: ' + insErr.message };
+                }
+              }
+
+              const { error: updErr } = await supabaseClient.from('log_ujian').update({
                 status_ujian: 'SELESAI',
-                nilai_auto: nilaiAuto
+                nilai_auto: nilaiAuto,
+                waktu_selesai: new Date().toISOString()
               }).eq('id_log', logId);
-  
-              return { 
-                status: 'success', 
-                message: isBlocked ? 'Ujian telah berakhir. Karena Anda melanggar lebih dari 3 kali (Terblokir), nilai Anda otomatis menjadi 0.' : 'Ujian berhasil diselesaikan.', 
-                nilai_auto: nilaiAuto 
-              };
+
+              if (updErr) {
+                return { status: 'error', message: 'Gagal memperbarui status ujian: ' + updErr.message };
+              }
+            }
+
+            return { 
+              status: 'success', 
+              message: isBlocked ? 'Ujian telah berakhir. Karena Anda melanggar lebih dari 3 kali (Terblokir), nilai Anda otomatis menjadi 0.' : 'Ujian berhasil diselesaikan.', 
+              nilai_auto: nilaiAuto 
+            };
+          }
+
+          case 'import_jawaban_offline': {
+            let bundle = payload.bundle;
+            if (!bundle && payload.encoded_bundle) {
+              try {
+                bundle = decodeNexaBundle(payload.encoded_bundle, 'NEXA_SECRET_SALT', payload.npsn, payload.id_log);
+              } catch (e) {
+                return { status: 'error', message: 'Gagal mendekripsi berkas .nexa: ' + e.message };
+              }
+            } else if (!bundle && payload.magic && String(payload.magic).startsWith('NEXA_OFFLINE_BUNDLE')) {
+              bundle = payload;
+            }
+
+            if (!bundle || !bundle.id_log) {
+              return { status: 'error', message: 'Berkas .nexa tidak valid atau data sesi hilang.' };
+            }
+
+            // Verifikasi integritas checksum
+            if (bundle.checksum) {
+              const chk = verifyNexaBundleChecksum(bundle);
+              if (!chk.valid) {
+                return { status: 'error', message: chk.error || 'Checksum berkas .nexa tidak cocok (berkas rusak atau dimanipulasi).' };
+              }
+            }
+
+            const logId = bundle.id_log;
+            const activeNpsn = bundle.npsn || payload.npsn;
+
+            // Cek log ujian siswa
+            let currLog = null;
+            const { data: logRow } = await supabaseClient.from('log_ujian').select('*').eq('id_log', logId).single();
+            if (logRow) currLog = logRow;
+
+            const isBlocked = (bundle.pelanggaran >= 3) || (currLog?.pelanggaran >= 3) || (currLog?.is_blocked === true);
+
+            // Ambil jadwal & soal
+            const idJadwal = bundle.id_jadwal || currLog?.id_jadwal;
+            let idMapel = payload.id_mapel;
+            if (!idMapel && idJadwal) {
+              const { data: jRow } = await supabaseClient.from('jadwal').select('id_mapel, npsn').eq('id_jadwal', idJadwal).single();
+              if (jRow) idMapel = jRow.id_mapel;
+            }
+
+            let soalQuery = supabaseClient.from('soal_ujian').select('*');
+            if (idMapel) soalQuery = soalQuery.eq('id_mapel', idMapel);
+            if (activeNpsn) soalQuery = soalQuery.eq('npsn', activeNpsn);
+            const { data: rawSoalData, error: soalErr } = await soalQuery;
+            if (soalErr) return { status: 'error', message: 'Gagal memuat soal ujian: ' + soalErr.message };
+
+            const rawJawaban = bundle.jawaban || {};
+            const jawabanMap = {};
+            if (Array.isArray(rawJawaban)) {
+              rawJawaban.forEach(j => {
+                if (j && j.id_soal) jawabanMap[j.id_soal] = j.jawaban;
+              });
+            } else if (typeof rawJawaban === 'object' && rawJawaban !== null) {
+              Object.assign(jawabanMap, rawJawaban);
+            }
+
+            const evalResult = calculateExamScore(rawSoalData || [], jawabanMap, isBlocked);
+            const nilaiAuto = isBlocked ? 0 : evalResult.nilaiAuto;
+
+            // Format jawaban_siswa rows
+            const insertJawaban = [];
+            for (const q of (rawSoalData || [])) {
+              if (
+                q.tipe_soal === 'NARASI' ||
+                q.tipe_soal === 'SKEMA_PENILAIAN' ||
+                q.tipe_soal === 'SKEMA_DEFAULT' ||
+                q.tipe_soal === 'MAPEL_ALLOC' ||
+                q.tipe_soal === 'KOP_SETTINGS' ||
+                String(q.id_soal || '').startsWith('KOP_SETTINGS')
+              ) {
+                continue;
+              }
+              const jwb = jawabanMap[q.id_soal];
+              const qEval = evaluateAKMQuestion(q, jwb);
+              const stringJawaban = (jwb !== null && typeof jwb === 'object') ? JSON.stringify(jwb) : String(jwb ?? '');
+
+              insertJawaban.push({
+                id_jawaban: 'JWB-' + Math.random().toString(36).substr(2, 9),
+                id_log: logId,
+                id_soal: q.id_soal,
+                jawaban_user: stringJawaban,
+                is_correct: qEval.isCorrect,
+                skor_diperoleh: qEval.skorDiperoleh
+              });
+            }
+
+            // Hapus jawaban lama dan simpan jawaban baru
+            await supabaseClient.from('jawaban_siswa').delete().eq('id_log', logId);
+            if (insertJawaban.length > 0) {
+              const { error: insErr } = await supabaseClient.from('jawaban_siswa').insert(insertJawaban);
+              if (insErr) {
+                console.warn('Simpan jawaban_siswa offline warning:', insErr.message);
+              }
+            }
+
+            // Update log_ujian
+            const updatePayload = {
+              status_ujian: 'SELESAI',
+              nilai_auto: isNaN(nilaiAuto) ? 0 : nilaiAuto,
+              waktu_selesai: bundle.timestamp || new Date().toISOString(),
+              pelanggaran: bundle.pelanggaran || currLog?.pelanggaran || 0
+            };
+
+            const { error: updErr } = await supabaseClient.from('log_ujian').update(updatePayload).eq('id_log', logId);
+            if (updErr) {
+              if (currLog === null) {
+                const newLog = {
+                  id_log: logId,
+                  id_jadwal: idJadwal,
+                  id_siswa: bundle.id_siswa,
+                  npsn: activeNpsn,
+                  nisn: bundle.nisn,
+                  nama: bundle.nama_siswa,
+                  ...updatePayload,
+                  waktu_mulai: bundle.timestamp || new Date().toISOString()
+                };
+                await supabaseClient.from('log_ujian').insert([newLog]);
+              } else {
+                return { status: 'error', message: 'Gagal memperbarui log_ujian: ' + updErr.message };
+              }
+            }
+
+            return {
+              status: 'success',
+              message: isBlocked 
+                ? 'Jawaban offline diimpor. Siswa tercatat melakukan 3 pelanggaran (auto-kick), nilai otomatis 0.'
+                : 'Jawaban offline siswa berhasil diimpor dan dinilai secara otomatis.',
+              nilai_auto: nilaiAuto,
+              id_log: logId,
+              metode_submit: 'OFFLINE_NEXA_IMPORT'
+            };
+          }
+
+          case 'get_cbt_backup_data': {
+            const effectiveNpsn = payload.npsn;
+            if (!effectiveNpsn) return { status: 'error', message: 'NPSN diperlukan untuk backup data.' };
+
+            const [soalRes, jadwalRes, logRes] = await Promise.all([
+              supabaseClient.from('soal_ujian').select('*').eq('npsn', effectiveNpsn),
+              supabaseClient.from('jadwal').select('*').eq('npsn', effectiveNpsn),
+              supabaseClient.from('log_ujian').select('*').eq('npsn', effectiveNpsn)
+            ]);
+
+            if (soalRes.error) return { status: 'error', message: soalRes.error.message };
+            if (jadwalRes.error) return { status: 'error', message: jadwalRes.error.message };
+            if (logRes.error) return { status: 'error', message: logRes.error.message };
+
+            const logIds = (logRes.data || []).map(l => l.id_log).filter(Boolean);
+            let jawabanData = [];
+            if (logIds.length > 0) {
+              const chunkSize = 100;
+              for (let i = 0; i < logIds.length; i += chunkSize) {
+                const chunk = logIds.slice(i, i + chunkSize);
+                const { data: jData } = await supabaseClient.from('jawaban_siswa').select('*').in('id_log', chunk);
+                if (jData) jawabanData.push(...jData);
+              }
+            }
+
+            return {
+              status: 'success',
+              data: {
+                soal_ujian: soalRes.data || [],
+                jadwal: jadwalRes.data || [],
+                log_ujian: logRes.data || [],
+                jawaban_siswa: jawabanData
+              }
+            };
           }
 
           // ================= ADMIN NEW FEATURES =================
@@ -2911,11 +2983,50 @@ export { supabaseClient };
           }
           
           case 'get_leaderboard': {
-             if (payload?.npsn) {
+             const targetNpsn = payload?.npsn;
+             if (targetNpsn) {
                try {
-                 const schoolSettings = await get_pengaturan_sekolah(payload.npsn);
+                 const schoolSettings = await get_pengaturan_sekolah(targetNpsn);
                  if (schoolSettings && schoolSettings.tampilkan_leaderboard === false) {
                    return { status: 'success', data: [], disabled: true };
+                 }
+               } catch (e) {}
+
+               // Check whether any exam has status_ujian === 'BERLANGSUNG' (Milestone M2 - R2)
+               try {
+                 const { data: activeExams } = await supabaseClient
+                   .from('jadwal')
+                   .select('id_jadwal')
+                   .eq('npsn', targetNpsn)
+                   .eq('status_ujian', 'BERLANGSUNG')
+                   .limit(1);
+
+                 if (activeExams && activeExams.length > 0) {
+                   return {
+                     status: 'success',
+                     data: [],
+                     is_exam_active: true,
+                     message: 'Papan peringkat dinonaktifkan selama ujian berlangsung.'
+                   };
+                 }
+               } catch (e) {
+                 console.warn('Check active exam error in get_leaderboard:', e);
+               }
+             } else {
+               try {
+                 const { data: activeExams } = await supabaseClient
+                   .from('jadwal')
+                   .select('id_jadwal')
+                   .eq('status_ujian', 'BERLANGSUNG')
+                   .limit(1);
+
+                 if (activeExams && activeExams.length > 0) {
+                   return {
+                     status: 'success',
+                     data: [],
+                     is_exam_active: true,
+                     message: 'Papan peringkat dinonaktifkan selama ujian berlangsung.'
+                   };
                  }
                } catch (e) {}
              }
@@ -2938,11 +3049,6 @@ export { supabaseClient };
           }
 
           
-          case 'update_sekolah_status': {
-            ({ error } = await supabaseClient.from('sekolah').update({ status: payload.status }).eq('npsn', payload.npsn));
-            if (error) return { status: 'error', message: error.message };
-            return { status: 'success', message: 'Status sekolah berhasil diperbarui.' };
-          }
           case 'reset_login_siswa': {
             ({ error } = await supabaseClient.from('siswa').update({ session_token: null }).eq('id_siswa', payload.id_siswa).eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
@@ -2970,19 +3076,6 @@ export { supabaseClient };
             ({ error } = await supabaseClient.from('soal_ujian').insert(sanitized));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: `${sanitized.length} butir soal berhasil diimpor.` };
-          }
-
-          case 'update_superadmin_password': {
-            ({ error } = await supabaseClient.from('super_admin').update({ password: payload.password }).eq('username', payload.username));
-            if (error) return { status: 'error', message: error.message };
-            return { status: 'success', message: 'Password super admin berhasil diubah.' };
-          }
-          case 'reset_all_data': {
-            const tables = ['log_aktivitas', 'siswa_jawaban', 'siswa_ujian', 'jadwal_ujian', 'soal_ujian', 'mata_pelajaran', 'guru_mapel', 'siswa', 'guru', 'admin', 'pengumuman', 'sekolah'];
-            for (let table of tables) {
-               await supabaseClient.from(table).delete().neq('created_at', '1970-01-01T00:00:00Z');
-            }
-            return { status: 'success', message: 'Semua data sistem berhasil dihapus secara permanen.' };
           }
 
           case 'get_default_skema_sekolah': {
@@ -3105,12 +3198,14 @@ export { supabaseClient };
             };
           }
           case 'get_pengaturan_sekolah': {
+            // Dedicated table: pengaturan_sekolah (Milestone M2 - R2)
             const data = await get_pengaturan_sekolah(payload.npsn);
             return { status: 'success', data };
           }
           case 'save_pengaturan_sekolah': {
+            // Dedicated table: pengaturan_sekolah, cleans up legacy KOP_SETTINGS
             const res = await save_pengaturan_sekolah(payload.npsn, payload.payload || payload.settings || payload);
-            return { status: 'success', data: res.data, message: 'Pengaturan sekolah dan kop berhasil disimpan.' };
+            return { status: 'success', data: res?.data || res, message: 'Pengaturan sekolah dan kop berhasil disimpan.' };
           }
 
           default:

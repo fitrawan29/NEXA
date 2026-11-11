@@ -66,18 +66,6 @@ const subscribeRealtimePengumuman = (channelKey, onUpdate) => {
             }
           }
         )
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'pengumuman_global' },
-          () => {
-            const cur = realtimeChannelPool.get(channelKey);
-            if (cur) {
-              cur.subscribers.forEach((cb) => {
-                try { cb(); } catch {}
-              });
-            }
-          }
-        )
         .subscribe();
     } catch (err) {
       console.warn('Supabase realtime subscription error:', err);
@@ -191,7 +179,7 @@ export const purgeAllLegacyNotificationCaches = () => {
   try {
     const storage = getSafeStorage();
     if (!storage) return;
-    const roles = ['admin', 'super_admin', 'guru', 'siswa', 'generic'];
+    const roles = ['admin', 'guru', 'siswa', 'generic'];
     const keys = new Set([...roles.map((r) => `nexa_notifications_${r}`), 'nexa_notifications']);
     if (typeof storage.length === 'number' && typeof storage.key === 'function') {
       try {
@@ -477,7 +465,6 @@ export default function NotificationBell({
   const normalizedRole = useMemo(() => {
     if (!rawRole || typeof rawRole !== 'string') return 'generic';
     const r = rawRole.toLowerCase().replace(/[- ]/g, '_');
-    if (r.includes('super')) return 'super_admin';
     if (r.includes('admin')) return 'admin';
     if (r.includes('guru') || r.includes('teacher')) return 'guru';
     if (r.includes('siswa') || r.includes('student')) return 'siswa';
@@ -492,7 +479,6 @@ export default function NotificationBell({
       user.id_admin ||
       user.id_guru ||
       user.id_siswa ||
-      user.id_super_admin ||
       user.id_user ||
       user.id ||
       user.username ||
@@ -595,12 +581,8 @@ export default function NotificationBell({
     try {
       setIsLoading(true);
       let res = null;
-      if (normalizedRole === 'super_admin') {
-        res = await fetchPengumumanWithDedupe(activeFetch, 'get_pengumuman_global', {});
-      } else if (effectiveNpsn) {
+      if (effectiveNpsn) {
         res = await fetchPengumumanWithDedupe(activeFetch, 'get_pengumuman', { role: normalizedRole, npsn: effectiveNpsn });
-      } else {
-        res = await fetchPengumumanWithDedupe(activeFetch, 'get_pengumuman_global', {});
       }
 
       if (currentFetchId !== fetchIdRef.current) return;

@@ -464,7 +464,7 @@ export const StatusBadge = ({
  */
 export const Card = ({ children, className = '', ...props }) => (
   <div
-    className={`bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm transition-all ${className}`}
+    className={`bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm transition-all max-w-full ${className}`}
     {...props}
   >
     {children}
