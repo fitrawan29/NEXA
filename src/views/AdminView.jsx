@@ -69,17 +69,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   const currentUserId = user?.id_admin || user?.id_user || user?.id || user?.username || '';
   const tutorialStorageKey = currentUserId ? `nexa_tutorial_seen_${currentUserId}_admin` : null;
 
-  useEffect(() => {
-    try {
-      const seen = (tutorialStorageKey && localStorage.getItem(tutorialStorageKey)) || localStorage.getItem('nexa_tutorial_shown_admin');
-      if (!seen) {
-        setShowTutorialModal(true);
-      }
-    } catch (e) {
-      console.error('Failed to read tutorial state from localStorage:', e);
-    }
-  }, [tutorialStorageKey]);
-
   const handleCloseTutorial = () => {
     setShowTutorialModal(false);
     try {
@@ -2119,23 +2108,21 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       items: [
         { id: 'siswa', label: 'Data Siswa', icon: 'school' },
         { id: 'guru', label: 'Data Guru', icon: 'local_library' },
-        { id: 'mapel', label: 'Mata Pelajaran', icon: 'menu_book' },
-        { id: 'kelas', label: 'Manajemen Kelas', icon: 'meeting_room' }
+        { id: 'kelas', label: 'Data Kelas', icon: 'meeting_room' },
+        { id: 'mapel', label: 'Data Ujian / Mapel', icon: 'menu_book' }
       ]
     },
     {
-      title: 'Ujian & Pelaksanaan',
+      title: 'Rangkaian Ujian',
       items: [
         { id: 'jadwal', label: 'Jadwal Ujian', icon: 'event_note' },
-        { id: 'pengawas', label: 'Pengawas & Ruang', icon: 'badge' },
-        { id: 'skema', label: 'Skema Penilaian', icon: 'tune' }
+        { id: 'pengawas', label: 'Pengawas & Ruang', icon: 'badge' }
       ]
     },
     {
       title: 'Sistem',
       items: [
-        { id: 'pengaturan', label: 'Pengaturan / Profil Sekolah', icon: 'settings' },
-        { id: 'logs', label: 'Log Aktivitas', icon: 'history' },
+        { id: 'pengaturan', label: 'Pengaturan Sekolah', icon: 'settings' },
         { id: 'akun', label: 'Profil Admin', icon: 'person' }
       ]
     }
@@ -3973,11 +3960,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     {!isSidebarCollapsed && (
                       <span className="truncate flex-1 text-left">{item.label}</span>
                     )}
-                    {isSidebarCollapsed ? (
-                      <TutorialBadge role="admin" targetId={item.id === 'pengawas' ? ['admin-pengawas', 'admin-kontrol'] : `admin-${item.id}`} dotOnly={true} className="absolute top-1 right-1" />
-                    ) : (
-                      <TutorialBadge role="admin" targetId={item.id === 'pengawas' ? ['admin-pengawas', 'admin-kontrol'] : `admin-${item.id}`} />
-                    )}
                   </button>
                 );
               })}
@@ -4067,26 +4049,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
         <div className="flex items-center gap-1.5 shrink-0">
           <button
             type="button"
-            data-tutorial="admin-panduan"
-            onClick={() => setShowTutorialModal(true)}
-            className="w-11 h-11 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50 border border-blue-200/80 dark:border-blue-800/80 hover:bg-blue-100 dark:hover:bg-blue-900/60 active:scale-95 transition-all min-w-[44px] min-h-[44px] shadow-xs"
-            title="Panduan & Tutorial"
-            aria-label="Panduan & Tutorial"
-          >
-            <span className="material-symbols-outlined text-xl">help</span>
-          </button>
-          <button
-            type="button"
-            onClick={handleRestartTutorial}
-            className="w-11 h-11 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 transition-all min-w-[44px] min-h-[44px] shadow-xs"
-            title="Mulai Tutorial Lagi"
-            aria-label="Mulai Tutorial Lagi"
-          >
-            <span className="material-symbols-outlined text-xl">restart_alt</span>
-          </button>
-          <NotificationBell role="admin" npsn={user?.npsn} user={user} />
-          <button
-            type="button"
             onClick={() => setIsDarkMode(!isDarkMode)}
             className="w-11 h-11 rounded-xl flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors min-w-[44px] min-h-[44px]"
             aria-label="Toggle Dark Mode"
@@ -4164,7 +4126,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                       >
                         <span className="material-symbols-outlined text-xl shrink-0">{item.icon}</span>
                         <span className="truncate flex-1 text-left">{item.label}</span>
-                        <TutorialBadge role="admin" targetId={item.id === 'pengawas' ? ['admin-pengawas', 'admin-kontrol'] : `admin-${item.id}`} />
                       </button>
                     );
                   })}
@@ -4215,11 +4176,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
             >
               <span className="material-symbols-outlined text-[22px]">{tab.icon}</span>
               <span className="text-[10px] font-bold mt-0.5 truncate max-w-[60px]">{tab.label}</span>
-              {!tab.isDrawerTrigger ? (
-                <TutorialBadge role="admin" targetId={`admin-${tab.id}`} className="mt-0.5" />
-              ) : (
-                <TutorialBadge role="admin" targetId={['admin-pengaturan', 'admin-pengawas', 'admin-dokumen', 'admin-kontrol']} className="absolute top-0 right-1/4 scale-75" />
-              )}
             </button>
           );
         })}
@@ -4241,28 +4197,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
           </div>
 
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              data-tutorial="admin-panduan"
-              onClick={() => setShowTutorialModal(true)}
-              className="px-3.5 py-1.5 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/80 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs hover:shadow-sm"
-              title="Panduan & Tutorial"
-              aria-label="Panduan & Tutorial"
-            >
-              <span className="material-symbols-outlined text-base text-blue-600 dark:text-blue-400">help</span>
-              <span>Panduan</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleRestartTutorial}
-              className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs hover:shadow-sm"
-              title="Mulai Tutorial Lagi dari awal"
-              aria-label="Mulai Tutorial Lagi"
-            >
-              <span className="material-symbols-outlined text-base text-blue-600 dark:text-blue-400">restart_alt</span>
-              <span>Mulai Tutorial Lagi</span>
-            </button>
-            <NotificationBell role="admin" npsn={user?.npsn} user={user} />
             <div className="px-3 py-1 rounded-full bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 border border-primary/30 dark:border-primary/30 text-xs font-bold flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-primary-400 animate-pulse"></span>
               <span>Sistem Online</span>
@@ -8008,14 +7942,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
           </div>
         </div>
       )}
-
-      {/* Tutorial & Panduan Alur Modal (Milestone 3 - R7) */}
-      <TutorialModal
-        isOpen={showTutorialModal}
-        initialRole="admin"
-        onClose={handleCloseTutorial}
-        onRestart={handleRestartTutorial}
-      />
     </div>
   );
 };

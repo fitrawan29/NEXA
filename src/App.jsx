@@ -138,28 +138,9 @@ import { syncThemeColor } from './utils/themeColor';
       const [regNip, setRegNip] = useState('');
       const [regNisn, setRegNisn] = useState('');
       const [regPassword, setRegPassword] = useState('');
-      const [showSplash, setShowSplash] = useState(true);
-
-      useEffect(() => {
-        const timer = setTimeout(() => setShowSplash(false), 950);
-        return () => clearTimeout(timer);
-      }, []);
-
-      const quotes = [
-        { text: "Pendidikan adalah senjata paling mematikan di dunia, karena dengan pendidikan, Anda dapat mengubah dunia.", author: "Nelson Mandela" },
-        { text: "Hiduplah seolah engkau mati besok. Belajarlah seolah engkau hidup selamanya.", author: "Mahatma Gandhi" },
-        { text: "Pendidikan bukan sekadar mengisi wadah, melainkan menyalakan api.", author: "William Butler Yeats" },{ text: "Tujuan pendidikan itu untuk mempertajam kecerdasan, memperkukuh kemauan serta memperhalus perasaan.", author: "Tan Malaka" }
-      ];
-      const [quoteIndex, setQuoteIndex] = useState(0);
+      const [showSplash, setShowSplash] = useState(false);
 
       const usernameInputRef = useRef(null);
-
-      useEffect(() => {
-        const interval = setInterval(() => {
-          setQuoteIndex((prev) => (prev + 1) % quotes.length);
-        }, 8000);
-        return () => clearInterval(interval);
-      }, []);
 
       useEffect(() => {
         const fetchSekolah = async () => {
@@ -295,7 +276,6 @@ import { syncThemeColor } from './utils/themeColor';
         if (typeof document !== 'undefined') {
           document.addEventListener('visibilitychange', checkExamStatus);
         }
-        const interval = setInterval(checkExamStatus, 1000);
         return () => {
           window.removeEventListener('storage', checkExamStatus);
           window.removeEventListener('nexa-exam-status', checkExamStatus);
@@ -304,7 +284,6 @@ import { syncThemeColor } from './utils/themeColor';
           if (typeof document !== 'undefined') {
             document.removeEventListener('visibilitychange', checkExamStatus);
           }
-          clearInterval(interval);
         };
       }, []);
 
@@ -554,10 +533,6 @@ import { syncThemeColor } from './utils/themeColor';
                                </div>
                              )}
                           </form>
-
-                          <p className="text-center text-xs font-bold text-slate-500 mt-6">
-                            Belum punya akun? <button onClick={() => { setIsRegistering(true); setLoginError(''); }} className="text-primary hover:underline">Daftar disini</button>
-                          </p>
                         </>
                       ) : (
                         <>
@@ -731,7 +706,6 @@ import { syncThemeColor } from './utils/themeColor';
             type={modal.type}
             onClose={() => setModal({ ...modal, isOpen: false })}
           />
-          {!isExamActive && <PwaInstallToast isExamActive={isExamActive} />}
         </React.Fragment>
       );
     };

@@ -5,7 +5,8 @@ import {
   verifyNexaBundleChecksum,
   evaluateAKMQuestion,
   calculateExamScore,
-  cloneExamSchedule
+  cloneExamSchedule,
+  normalizeTipeSoal
 } from './utils/nexaBundle.js';
 
 export { supabaseClient };
@@ -2067,7 +2068,7 @@ export { supabaseClient };
               id_soal,
               id_mapel,
               npsn,
-              tipe_soal,
+              tipe_soal: normalizeTipeSoal(tipe_soal),
               pertanyaan,
               opsi: opsi ? (typeof opsi === 'string' ? opsi : JSON.stringify(opsi)) : null,
               kunci_jawaban,
@@ -2088,7 +2089,7 @@ export { supabaseClient };
             if (kunci_jawaban !== undefined) updateData.kunci_jawaban = kunci_jawaban;
             if (id_mapel !== undefined) updateData.id_mapel = id_mapel;
             if (pertanyaan !== undefined) updateData.pertanyaan = pertanyaan;
-            if (tipe_soal !== undefined) updateData.tipe_soal = tipe_soal;
+            if (tipe_soal !== undefined) updateData.tipe_soal = normalizeTipeSoal(tipe_soal);
             if (opsi !== undefined) updateData.opsi = typeof opsi === 'string' ? opsi : JSON.stringify(opsi);
             if (bobot !== undefined) updateData.bobot = bobot;
             if (gambar !== undefined) updateData.gambar = gambar;
@@ -2507,18 +2508,19 @@ export { supabaseClient };
                 let isCorrect = false;
                 let skorDiperoleh = 0;
                 let bobot = Number(soal.bobot) || 1;
+                const tipeSoalNorm = normalizeTipeSoal(soal.tipe_soal);
                 
-                if (soal.tipe_soal !== 'URAIAN') {
+                if (tipeSoalNorm !== 'URAIAN') {
                   totalSkorMaxAuto += bobot;
                 }
 
                 if (jwb !== undefined && jwb !== null) {
-                  if (soal.tipe_soal === 'PG' || soal.tipe_soal === 'BS' || soal.tipe_soal === 'ISIAN') {
+                  if (tipeSoalNorm === 'PG' || tipeSoalNorm === 'BS' || tipeSoalNorm === 'ISIAN') {
                     if (String(jwb).trim().toLowerCase() === String(soal.kunci_jawaban).trim().toLowerCase()) {
                       isCorrect = true;
                       skorDiperoleh = bobot;
                     }
-                  } else if (soal.tipe_soal === 'PGK') {
+                  } else if (tipeSoalNorm === 'PGK') {
                     try {
                       let kunciArr = JSON.parse(soal.kunci_jawaban);
                       if (Array.isArray(jwb) && jwb.length === kunciArr.length && jwb.every(v => kunciArr.includes(v))) {
@@ -2526,7 +2528,7 @@ export { supabaseClient };
                         skorDiperoleh = bobot;
                       }
                     } catch (e) {}
-                  } else if (soal.tipe_soal === 'JODOH') {
+                  } else if (tipeSoalNorm === 'JODOH') {
                     try {
                       let kunciObj = JSON.parse(soal.kunci_jawaban);
                       let jwbObj = typeof jwb === 'string' ? JSON.parse(jwb) : jwb;

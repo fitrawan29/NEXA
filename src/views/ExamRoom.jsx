@@ -67,17 +67,6 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
   const [showTutorialModal, setShowTutorialModal] = useState(false);
   const examTutorialStorageKey = currentUserId ? `nexa_tutorial_seen_${currentUserId}_exam_room` : null;
 
-  useEffect(() => {
-    try {
-      const seen = (examTutorialStorageKey && localStorage.getItem(examTutorialStorageKey)) || localStorage.getItem('nexa_tutorial_shown_exam_room');
-      if (!seen) {
-        setShowTutorialModal(true);
-      }
-    } catch (e) {
-      console.error('Failed to read exam tutorial state:', e);
-    }
-  }, [examTutorialStorageKey]);
-
   const handleCloseTutorial = () => {
     setShowTutorialModal(false);
     try {
@@ -402,6 +391,11 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
       cancelGracePeriod();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('contextmenu', handleBlockClipboardAndContext);
+      document.removeEventListener('copy', handleBlockClipboardAndContext);
+      document.removeEventListener('cut', handleBlockClipboardAndContext);
+      document.removeEventListener('paste', handleBlockClipboardAndContext);
+      document.removeEventListener('keydown', handleBlockShortcuts);
       window.removeEventListener('blur', handleWindowBlur);
       window.removeEventListener('focus', handleWindowFocus);
       window.removeEventListener('online', handleOnline);
@@ -533,17 +527,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
 
   const scheduleSecurityViolation = (reason) => {
     if (isSubmittingRef.current || isBlockedRef.current) return;
-    if (gracePeriodTimer.current || windowBlurTimerRef.current) return;
-
-    // 3000ms grace period: cancels if student returns within 3 seconds
-    const timer = setTimeout(() => {
-      gracePeriodTimer.current = null;
-      windowBlurTimerRef.current = null;
-      handleSecurityViolation(reason);
-    }, 3000);
-
-    gracePeriodTimer.current = timer;
-    windowBlurTimerRef.current = timer;
+    handleSecurityViolation(reason);
   };
 
   const triggerViolationImmediate = (reason) => {
@@ -555,7 +539,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
     if (document.hidden) {
       scheduleSecurityViolation('Terdeteksi keluar dari layar ujian (visibility hidden)');
     } else {
-      if (jadwal?.browser_lockdown && document.documentElement?.requestFullscreen && !document.fullscreenElement) {
+      if (document.documentElement?.requestFullscreen && !document.fullscreenElement) {
         setBlurOverlay(true);
         enforceFullscreen();
       } else {
@@ -565,7 +549,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
   };
 
   const handleFullscreenChange = () => {
-    if (!document.fullscreenElement && jadwal?.browser_lockdown) {
+    if (!document.fullscreenElement) {
       setBlurOverlay(true);
       scheduleSecurityViolation('Terdeteksi keluar dari mode layar penuh (fullscreen exit)');
     } else if (document.fullscreenElement) {
@@ -579,11 +563,27 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
   };
 
   const handleWindowFocus = () => {
-    if (jadwal?.browser_lockdown && document.documentElement?.requestFullscreen && !document.fullscreenElement) {
+    if (document.documentElement?.requestFullscreen && !document.fullscreenElement) {
       setBlurOverlay(true);
       enforceFullscreen();
     } else {
       cancelGracePeriod();
+    }
+  };
+
+  const handleBlockClipboardAndContext = (e) => {
+    e.preventDefault();
+  };
+
+  const handleBlockShortcuts = (e) => {
+    const key = (e.key || '').toUpperCase();
+    if (
+      e.key === 'F12' ||
+      (e.ctrlKey && e.shiftKey && ['I', 'J', 'C'].includes(key)) ||
+      (e.ctrlKey && ['U', 'P', 'S', 'C', 'V', 'X'].includes(key))
+    ) {
+      e.preventDefault();
+      e.stopPropagation();
     }
   };
 
@@ -592,8 +592,14 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
     if (document.documentElement && document.documentElement.requestFullscreen) {
       document.addEventListener('fullscreenchange', handleFullscreenChange);
     }
+    document.addEventListener('contextmenu', handleBlockClipboardAndContext);
+    document.addEventListener('copy', handleBlockClipboardAndContext);
+    document.addEventListener('cut', handleBlockClipboardAndContext);
+    document.addEventListener('paste', handleBlockClipboardAndContext);
+    document.addEventListener('keydown', handleBlockShortcuts);
     window.addEventListener('blur', handleWindowBlur);
     window.addEventListener('focus', handleWindowFocus);
+    enforceFullscreen();
   };
 
   const returnToExam = () => {
@@ -603,7 +609,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
   };
 
   const enforceFullscreen = () => {
-    if (jadwal?.browser_lockdown && !isBlockedRef.current && document.documentElement && document.documentElement.requestFullscreen && !document.fullscreenElement) {
+    if (!isBlockedRef.current && document.documentElement && document.documentElement.requestFullscreen && !document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(() => { });
     }
   };
@@ -830,11 +836,22 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
       }
 
       case 'ISIAN':
+      case 'ISIAN_SINGKAT':
+        return (
+          <input
+            type="text"
+            placeholder="Ketik jawaban singkat Anda di sini..."
+            value={currentAns}
+            onChange={(e) => handleAnswerChange(s.id_soal, e.target.value, s.tipe_soal)}
+            className={`w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl ${fontClasses.options} text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all`}
+          />
+        );
+
       case 'URAIAN':
         return (
           <textarea 
-            rows={s.tipe_soal === 'URAIAN' ? 8 : 3} 
-            placeholder="Ketik jawaban Anda di sini..." 
+            rows={8} 
+            placeholder="Ketik jawaban uraian Anda di sini..." 
             value={currentAns} 
             onChange={(e) => handleAnswerChange(s.id_soal, e.target.value, s.tipe_soal)} 
             className={`w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl ${fontClasses.options} text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all leading-relaxed`}
@@ -1122,7 +1139,6 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
             >
               A+
             </button>
-            <TutorialBadge role="exam_room" targetId="exam-font-size" className="ml-1 mr-0.5" tooltipPosition="bottom" />
           </div>
 
           {setIsDarkMode && (
@@ -1135,27 +1151,6 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
               <span className="material-symbols-outlined text-[18px]">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
             </button>
           )}
-
-          <button
-            type="button"
-            data-tutorial="exam-panduan"
-            onClick={() => setShowTutorialModal(true)}
-            className="w-10 h-10 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/80 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors min-w-[44px] min-h-[44px] shadow-xs"
-            title="Panduan & Tutorial Ruang Ujian"
-            aria-label="Panduan & Tutorial Ruang Ujian"
-          >
-            <span className="material-symbols-outlined text-[20px]">help</span>
-          </button>
-          <button
-            type="button"
-            onClick={handleRestartTutorial}
-            className="w-10 h-10 sm:w-auto sm:px-3 sm:py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0"
-            title="Mulai Tutorial Lagi dari awal"
-            aria-label="Mulai Tutorial Lagi"
-          >
-            <span className="material-symbols-outlined text-base text-indigo-600 dark:text-indigo-400">restart_alt</span>
-            <span className="hidden xl:inline">Mulai Tutorial Lagi</span>
-          </button>
         </div>
 
         {/* Slim Linear Progress Line at bottom border */}
@@ -1173,7 +1168,6 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
           <div className="mb-4">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-bold text-slate-800 dark:text-white">Navigasi Soal</h2>
-              <TutorialBadge role="exam_room" targetId="exam-palette" />
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">Pilih nomor soal untuk melompat</p>
             {violationCount > 0 && (
@@ -1608,14 +1602,6 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
           </div>
         </div>
       )}
-
-      {/* Interactive ExamRoom Tutorial Modal */}
-      <TutorialModal
-        isOpen={showTutorialModal}
-        initialRole="exam_room"
-        onClose={handleCloseTutorial}
-        onRestart={handleRestartTutorial}
-      />
     </div>
   );
 };

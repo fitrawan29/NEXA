@@ -281,8 +281,16 @@ export function downloadNexaBundle(bundleObj, filename = null) {
 /**
  * Evaluates a single AKM question against student answer
  */
+export function normalizeTipeSoal(rawTipe) {
+  const t = String(rawTipe || 'PG').trim().toUpperCase();
+  if (t === 'ISIAN_SINGKAT' || t === 'ISIAN SINGKAT') return 'ISIAN';
+  if (t === 'MENJODOHKAN') return 'JODOH';
+  if (t === 'BENAR_SALAH' || t === 'BENAR SALAH') return 'BS';
+  return t;
+}
+
 export function evaluateAKMQuestion(soal, studentAnswer) {
-  const tipe = (soal.tipe_soal || '').toUpperCase();
+  const tipe = normalizeTipeSoal(soal.tipe_soal);
   const bobot = Number(soal.bobot) || 10;
   let isCorrect = false;
   let skorDiperoleh = 0;

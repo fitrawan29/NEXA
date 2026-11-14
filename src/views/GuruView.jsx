@@ -76,17 +76,6 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
   const currentUserId = user?.id_guru || user?.id_user || user?.id || user?.nip || user?.username || '';
   const tutorialStorageKey = currentUserId ? `nexa_tutorial_seen_${currentUserId}_guru` : null;
 
-  useEffect(() => {
-    try {
-      const seen = (tutorialStorageKey && localStorage.getItem(tutorialStorageKey)) || localStorage.getItem('nexa_tutorial_shown_guru');
-      if (!seen) {
-        setShowTutorialModal(true);
-      }
-    } catch (e) {
-      console.error('Failed to read tutorial state from localStorage:', e);
-    }
-  }, [tutorialStorageKey]);
-
   const handleCloseTutorial = () => {
     setShowTutorialModal(false);
     try {
@@ -345,22 +334,27 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
 
   const getTipeBadge = (tipe) => {
     const t = (tipe || 'PG').toUpperCase();
-    if (t === 'PG') {
-      return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border border-blue-200/70 dark:border-blue-800/60">PG</span>;
+    switch (t) {
+      case 'PG':
+        return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border border-blue-200/70 dark:border-blue-800/60">PG</span>;
+      case 'PGK':
+        return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 border border-primary/30/70 dark:border-primary/30">PGK</span>;
+      case 'BS':
+      case 'BENAR_SALAH':
+        return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 border border-teal-200/70 dark:border-teal-800/60">BENAR / SALAH</span>;
+      case 'JODOH':
+      case 'MENJODOHKAN':
+        return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 border border-amber-200/70 dark:border-amber-800/60">JODOH</span>;
+      case 'ISIAN':
+      case 'ISIAN_SINGKAT':
+        return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-cyan-50 dark:bg-cyan-950/50 text-cyan-600 dark:text-cyan-400 border border-cyan-200/70 dark:border-cyan-800/60">ISIAN SINGKAT</span>;
+      case 'URAIAN':
+        return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 border border-purple-200/70 dark:border-purple-800/60">URAIAN</span>;
+      case 'NARASI':
+        return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200/70 dark:border-emerald-800/60">NARASI SOAL</span>;
+      default:
+        return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">{t}</span>;
     }
-    if (t === 'PGK') {
-      return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 border border-primary/30/70 dark:border-primary/30">PGK</span>;
-    }
-    if (t === 'JODOH') {
-      return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 border border-amber-200/70 dark:border-amber-800/60">JODOH</span>;
-    }
-    if (t === 'URAIAN') {
-      return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 border border-purple-200/70 dark:border-purple-800/60">URAIAN</span>;
-    }
-    if (t === 'NARASI') {
-      return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200/70 dark:border-emerald-800/60">NARASI SOAL</span>;
-    }
-    return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">{t}</span>;
   };
 
   const stripHtml = (html) => {
@@ -1450,11 +1444,6 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                     {!isSidebarCollapsed && (
                       <span className="truncate flex-1 text-left">{item.label}</span>
                     )}
-                    {isSidebarCollapsed ? (
-                      <TutorialBadge role="guru" targetId={item.id === 'hasil' ? ['guru-hasil', 'guru-nilai'] : `guru-${item.id}`} dotOnly={true} className="absolute top-1 right-1" />
-                    ) : (
-                      <TutorialBadge role="guru" targetId={item.id === 'hasil' ? ['guru-hasil', 'guru-nilai'] : `guru-${item.id}`} />
-                    )}
                   </button>
                 );
               })}
@@ -1544,26 +1533,6 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
         <div className="flex items-center gap-1.5 shrink-0">
           <button
             type="button"
-            data-tutorial="guru-panduan"
-            onClick={() => setShowTutorialModal(true)}
-            className="w-11 h-11 rounded-xl flex items-center justify-center text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 border border-amber-200/80 dark:border-amber-800/80 hover:bg-amber-100 dark:hover:bg-amber-900/60 active:scale-95 transition-all min-w-[44px] min-h-[44px] shadow-xs"
-            title="Panduan & Tutorial"
-            aria-label="Panduan & Tutorial"
-          >
-            <span className="material-symbols-outlined text-xl">help</span>
-          </button>
-          <button
-            type="button"
-            onClick={handleRestartTutorial}
-            className="w-11 h-11 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 transition-all min-w-[44px] min-h-[44px] shadow-xs"
-            title="Mulai Tutorial Lagi"
-            aria-label="Mulai Tutorial Lagi"
-          >
-            <span className="material-symbols-outlined text-xl">restart_alt</span>
-          </button>
-          <NotificationBell role="guru" npsn={user?.npsn} user={user} />
-          <button
-            type="button"
             onClick={() => setIsDarkMode(!isDarkMode)}
             className="w-11 h-11 rounded-xl flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors min-w-[44px] min-h-[44px]"
             aria-label="Toggle Dark Mode"
@@ -1645,7 +1614,6 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                       >
                         <span className="material-symbols-outlined text-xl shrink-0">{item.icon}</span>
                         <span className="truncate flex-1 text-left">{item.label}</span>
-                        <TutorialBadge role="guru" targetId={item.id === 'hasil' ? ['guru-hasil', 'guru-nilai'] : `guru-${item.id}`} />
                       </button>
                     );
                   })}
@@ -1689,7 +1657,6 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
             >
               <span className="material-symbols-outlined text-[22px]">{tab.icon}</span>
               <span className="text-[10px] font-bold mt-0.5 truncate max-w-[60px]">{tab.label}</span>
-              <TutorialBadge role="guru" targetId={tab.id === 'hasil' ? ['guru-hasil', 'guru-nilai'] : `guru-${tab.id}`} className="absolute top-0 right-1/4 scale-75" />
             </button>
           );
         })}
@@ -1711,28 +1678,6 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
           </div>
 
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              data-tutorial="guru-panduan"
-              onClick={() => setShowTutorialModal(true)}
-              className="px-3.5 py-1.5 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/80 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-200 hover:text-amber-900 dark:hover:text-amber-100 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs hover:shadow-sm"
-              title="Panduan & Tutorial"
-              aria-label="Panduan & Tutorial"
-            >
-              <span className="material-symbols-outlined text-base text-amber-600 dark:text-amber-400">help</span>
-              <span>Panduan</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleRestartTutorial}
-              className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs hover:shadow-sm"
-              title="Mulai Tutorial Lagi dari awal"
-              aria-label="Mulai Tutorial Lagi"
-            >
-              <span className="material-symbols-outlined text-base text-amber-600 dark:text-amber-400">restart_alt</span>
-              <span>Mulai Tutorial Lagi</span>
-            </button>
-            <NotificationBell role="guru" npsn={user?.npsn} user={user} />
             <div className="px-3 py-1 rounded-full bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 border border-primary/30 dark:border-primary/30 text-xs font-bold flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-primary-400 animate-pulse"></span>
               <span>Sistem Online</span>
@@ -1874,7 +1819,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                         <span className="material-symbols-outlined text-primary text-base shrink-0 mt-0.5">quiz</span>
                         <div>
                           <p className="font-bold text-slate-800 dark:text-slate-200">Bank Soal AKM</p>
-                          <p className="text-[11px] text-slate-500">Kelola 5 tipe soal AKM, stimulus narasi, serta import Word & Excel.</p>
+                          <p className="text-[11px] text-slate-500">Kelola 6 tipe soal AKM, stimulus narasi, serta import Word & Excel.</p>
                         </div>
                       </div>
                       <div className="flex items-start gap-2 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800">
@@ -2108,7 +2053,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                   <div className="bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
                     {/* Tipe Soal Pills */}
                     <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
-                      {['ALL', 'PG', 'PGK', 'JODOH', 'URAIAN', 'NARASI'].map(tipe => (
+                      {['ALL', 'PG', 'PGK', 'BS', 'JODOH', 'ISIAN', 'URAIAN', 'NARASI'].map(tipe => (
                         <button
                           key={tipe}
                           onClick={() => { setFilterTipeSoal(tipe); setBankSoalPage(1); }}
@@ -2118,7 +2063,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                               : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
                           }`}
                         >
-                          {tipe === 'ALL' ? 'Semua Tipe' : tipe === 'NARASI' ? 'Narasi Soal' : tipe}
+                          {tipe === 'ALL' ? 'Semua Tipe' : tipe === 'NARASI' ? 'Narasi Soal' : tipe === 'BS' ? 'Benar / Salah' : tipe === 'ISIAN' ? 'Isian Singkat' : tipe}
                         </button>
                       ))}
                     </div>
@@ -3111,14 +3056,6 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
         data={formNarasi.data}
         onClose={() => setFormNarasi({ isOpen: false, data: null })}
         onSave={saveSoal}
-      />
-
-      {/* Tutorial & Panduan Alur Modal (Milestone 3 - R7) */}
-      <TutorialModal
-        isOpen={showTutorialModal}
-        initialRole="guru"
-        onClose={handleCloseTutorial}
-        onRestart={handleRestartTutorial}
       />
     </div>
   );
