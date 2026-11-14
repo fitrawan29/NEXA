@@ -2,57 +2,11 @@ import { fetchAPI } from './api';
 import React, { useState, useEffect, useRef } from 'react';
 import nexaLogo from './assets/screen_3_logo.png';
 const AdminView = React.lazy(() => import('./views/AdminView'));
-const ExamRoom = React.lazy(() => import('./views/ExamRoom'));
 const GuruView = React.lazy(() => import('./views/GuruView'));
 const SiswaView = React.lazy(() => import('./views/SiswaView'));
 import Modal from './components/Modal';
-import PwaInstallToast from './components/PwaInstallToast';
+import ErrorBoundary from './components/ErrorBoundary';
 import { syncThemeColor } from './utils/themeColor';
-
-
-﻿    class ErrorBoundary extends React.Component { 
-      constructor(props) { super(props); this.state = { hasError: false, error: null }; } 
-      static getDerivedStateFromError(error) { return { hasError: true, error }; } 
-      componentDidCatch(error, errorInfo) { 
-        console.error('ErrorBoundary caught error', error, errorInfo);
-        const msg = (error?.message || error?.name || String(error || '')).toLowerCase();
-        if (
-          msg.includes('failed to fetch dynamically imported module') ||
-          msg.includes('error loading dynamically imported module') ||
-          msg.includes('failed to load module script') ||
-          msg.includes('loading chunk') ||
-          msg.includes('chunkloaderror') ||
-          msg.includes('importing a module script failed')
-        ) {
-          if (typeof navigator !== 'undefined' && !navigator.onLine) {
-            window.addEventListener('online', () => window.location.reload(), { once: true });
-            return;
-          }
-          const CHUNK_RELOAD_KEY = 'nexa_chunk_retry_timestamp';
-          const now = Date.now();
-          try {
-            const last = parseInt(sessionStorage.getItem(CHUNK_RELOAD_KEY) || '0', 10);
-            if (!last || now - last >= 10000) {
-              sessionStorage.setItem(CHUNK_RELOAD_KEY, String(now));
-              window.location.reload();
-            }
-          } catch {
-            const hasRetried = typeof window !== 'undefined' && /[?&]chunk_retry=/.test(window.location.search);
-            if (!hasRetried && typeof window !== 'undefined') {
-              const url = new URL(window.location.href);
-              url.searchParams.set('chunk_retry', String(now));
-              window.location.replace(url.href);
-            }
-          }
-        }
-      } 
-      render() { 
-        if (this.state.hasError) { 
-          return <div className="p-8 h-[100dvh] w-full flex items-center justify-center bg-red-50 text-red-600"><div className="bg-white p-6 rounded-xl shadow-lg border border-red-200"><h1 className="text-xl font-bold mb-4">Something went wrong.</h1><pre className="text-sm bg-red-50 p-4 rounded overflow-auto max-w-full">{this.state.error && this.state.error.toString()}</pre><button onClick={() => window.location.reload()} className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 font-bold">Refresh Page</button></div></div>; 
-        } 
-        return this.props.children; 
-      } 
-    }
 
     const App = () => {
       const [user, setUser] = useState(() => {
@@ -100,7 +54,6 @@ import { syncThemeColor } from './utils/themeColor';
       const [username, setUsername] = useState('');
       const [password, setPassword] = useState('');
       const [showPassword, setShowPassword] = useState(false);
-      const [rememberMe, setRememberMe] = useState(false);
       const [loginError, setLoginError] = useState('');
       const [loginSuccess, setLoginSuccess] = useState(false);
       const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -138,7 +91,6 @@ import { syncThemeColor } from './utils/themeColor';
       const [regNip, setRegNip] = useState('');
       const [regNisn, setRegNisn] = useState('');
       const [regPassword, setRegPassword] = useState('');
-      const [showSplash, setShowSplash] = useState(false);
 
       const usernameInputRef = useRef(null);
 
@@ -325,7 +277,7 @@ import { syncThemeColor } from './utils/themeColor';
       const handleLogout = async () => {
         if (user?.role === 'siswa') {
           try {
-            await fetchAPI('reset_login_siswa', { id_siswa: user.id_user, npsn: user.npsn });
+            await fetchAPI('reset_login_siswa', { id_siswa: user.id_siswa || user.id_user, npsn: user.npsn });
           } catch (e) {
             console.error('Failed to reset session:', e);
           }
@@ -344,7 +296,6 @@ import { syncThemeColor } from './utils/themeColor';
         setUser(null);
         setUsername('');
         setPassword('');
-        setRememberMe(false);
       };
 
       const handleUpdateUser = (fields) => {
@@ -513,11 +464,7 @@ import { syncThemeColor } from './utils/themeColor';
                                    </div>
                                  </div>
 
-                                 <div className="flex justify-between items-center text-[10px] mt-0.5">
-                                   <label className="flex items-center gap-1.5 cursor-pointer group">
-                                     <input type="checkbox" checked={rememberMe} onChange={() => setRememberMe(!rememberMe)} className="rounded text-primary border-slate-300 dark:border-slate-600 focus:ring-primary dark:bg-slate-800 w-3 h-3" />
-                                     <span className="font-bold text-slate-600 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200 transition-colors">Ingat Saya</span>
-                                   </label>
+                                 <div className="flex justify-end items-center text-[10px] mt-0.5">
                                    <button type="button" onClick={handleLupaPassword} className="font-bold text-primary hover:text-primary/80 transition-colors">Lupa Password?</button>
                                  </div>
 
@@ -680,24 +627,6 @@ import { syncThemeColor } from './utils/themeColor';
 
       return (
         <React.Fragment>
-          {showSplash && (
-            <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950 text-white transition-opacity duration-500 ease-out animate-fade-in pointer-events-none">
-              <div className="relative flex flex-col items-center">
-                <div className="w-20 h-20 bg-white/10 backdrop-blur-md rounded-3xl p-3 border border-white/20 shadow-2xl animate-splash-pulse">
-                  <img src={nexaLogo} alt="NEXA Logo" className="w-full h-full object-contain" />
-                </div>
-                <h1 className="text-3xl font-black tracking-wider mt-5 text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-200">
-                  NEXA CBT
-                </h1>
-                <p className="text-[11px] font-semibold text-slate-400 mt-1.5 tracking-widest uppercase">
-                  Smart Assessment Platform
-                </p>
-                <div className="mt-8 w-36 h-1 bg-slate-800 rounded-full overflow-hidden">
-                  <div className="w-full h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 rounded-full animate-pulse"></div>
-                </div>
-              </div>
-            </div>
-          )}
           {renderView()}
           <Modal
             isOpen={modal.isOpen}

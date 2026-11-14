@@ -12,8 +12,8 @@ const FormNarasiModal = ({ isOpen, data, onClose, onSave }) => {
     ],
   };
 
-  if (!isOpen) return null;
   const [pertanyaan, setPertanyaan] = useState(data ? data.pertanyaan : '');
+  if (!isOpen) return null;
   
   const handleSave = () => {
     if (!pertanyaan.trim()) return alert('Isi narasi soal tidak boleh kosong.');

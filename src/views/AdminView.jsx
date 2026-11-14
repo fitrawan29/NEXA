@@ -1,4 +1,4 @@
-import { fetchAPI, getTrueNow, get_default_skema_sekolah, save_default_skema_sekolah, get_pengaturan_sekolah, save_pengaturan_sekolah, getDefaultKopSettings, isClassMatching, splitCompoundTargets } from '../api.js';
+import { fetchAPI, getTrueNow, get_default_skema_sekolah, save_default_skema_sekolah, isClassMatching, splitCompoundTargets } from '../api.js';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import JSZip from 'jszip';
@@ -11,19 +11,12 @@ import {
 import {
   EmptyState,
   TableSkeleton,
-  CardSkeleton,
   StatusBadge,
   Button,
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
   PasswordInput
 } from '../components/UI.jsx';
-import NotificationBell from '../components/NotificationBell.jsx';
 import SkemaPenilaianPanel from '../components/SkemaPenilaianPanel.jsx';
 import KartuUjianPrint from '../components/KartuUjianPrint.jsx';
-import TutorialModal, { TutorialBadge, resetTutorialProgress } from '../components/TutorialModal.jsx';
 import { compressImageFile } from '../utils/imageHelper.js';
 
 const isUniversalAlloc = (alloc) => {
@@ -65,32 +58,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
 
   // Navigation & Shell State
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [showTutorialModal, setShowTutorialModal] = useState(false);
-  const currentUserId = user?.id_admin || user?.id_user || user?.id || user?.username || '';
-  const tutorialStorageKey = currentUserId ? `nexa_tutorial_seen_${currentUserId}_admin` : null;
-
-  const handleCloseTutorial = () => {
-    setShowTutorialModal(false);
-    try {
-      if (tutorialStorageKey) {
-        localStorage.setItem(tutorialStorageKey, 'true');
-      }
-      localStorage.setItem('nexa_tutorial_shown_admin', 'true');
-    } catch (e) {
-      console.error('Failed to save tutorial state to localStorage:', e);
-    }
-  };
-
-  const handleRestartTutorial = () => {
-    resetTutorialProgress('admin');
-    try {
-      if (tutorialStorageKey) {
-        localStorage.removeItem(tutorialStorageKey);
-      }
-      localStorage.removeItem('nexa_tutorial_shown_admin');
-    } catch (e) {}
-    setShowTutorialModal(true);
-  };
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Backward compat & mobile drawer
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
@@ -102,11 +69,8 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   const [dataJadwal, setDataJadwal] = useState([]);
   const [dataMapel, setDataMapel] = useState([]);
   const [dataKelas, setDataKelas] = useState([]);
-  const [dataLog, setDataLog] = useState([]); // monitoring / hasil
+  const [dataLog, setDataLog] = useState([]); // monitoring
   const [dataAudit, setDataAudit] = useState([]);
-  const [dataPengumuman, setDataPengumuman] = useState([]);
-  const [dataAnalisis, setDataAnalisis] = useState([]);
-  const [isAnalisisModalOpen, setIsAnalisisModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [defaultSkemaSekolah, setDefaultSkemaSekolah] = useState({
     mode: 'default',
@@ -115,45 +79,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   const [isSkemaLoading, setIsSkemaLoading] = useState(false);
   const [skemaSuccessMsg, setSkemaSuccessMsg] = useState('');
 
-  // School Profile & Kop Settings State
-  const [kopSettings, setKopSettings] = useState(() => getDefaultKopSettings(user));
-  const [isSavingKop, setIsSavingKop] = useState(false);
-  const [kopSuccessMsg, setKopSuccessMsg] = useState('');
-  const [kopErrorMsg, setKopErrorMsg] = useState('');
-
-  // Proctor & Room Management State (Requirement 2)
-  const [dataRuang, setDataRuang] = useState([]);
-  const [dataPengawasRuang, setDataPengawasRuang] = useState([]);
-  const [pengawasSubTab, setPengawasSubTab] = useState('penugasan'); // 'penugasan' | 'ruang' | 'alokasi_siswa'
-  const [filterRuangJadwal, setFilterRuangJadwal] = useState('ALL');
-  const [searchPengawas, setSearchPengawas] = useState('');
-  const [searchRuang, setSearchRuang] = useState('');
-  const [searchAlokasiSiswa, setSearchAlokasiSiswa] = useState('');
-  const [filterAlokasiKelas, setFilterAlokasiKelas] = useState('ALL');
-  const [filterAlokasiRuang, setFilterAlokasiRuang] = useState('ALL');
-  const [selectedAlokasiSiswa, setSelectedAlokasiSiswa] = useState([]);
-  const [targetRuangAlokasi, setTargetRuangAlokasi] = useState('');
-  const [selectedKelasAlokasi, setSelectedKelasAlokasi] = useState('');
-
-  // Modals for Proctor & Room
-  const [isAssignPengawasModalOpen, setIsAssignPengawasModalOpen] = useState(false);
-  const [assignPengawasForm, setAssignPengawasForm] = useState({
-    id_ruang: '',
-    id_guru: '',
-    id_jadwal: '',
-    peran: 'PENGAWAS UTAMA'
-  });
-  const [isRuangModalOpen, setIsRuangModalOpen] = useState(false);
-  const [editingRuang, setEditingRuang] = useState(null);
-  const [ruangForm, setRuangForm] = useState({
-    nama_ruang: '',
-    kode_ruang: '',
-    kapasitas: 30,
-    keterangan: ''
-  });
-
   // Selection & Filter State
-  const [selectedKelas, setSelectedKelas] = useState(null);
   const [selectedJadwal, setSelectedJadwal] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterKelas, setFilterKelas] = useState('');
@@ -165,19 +91,32 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   const [selectedGuru, setSelectedGuru] = useState([]);
   const [selectedJadwalBulk, setSelectedJadwalBulk] = useState([]);
 
-  // Print Kartu Peserta & Kartu Meja State (Feature 2)
+  // Print Kartu Peserta & KOP Persisten State
+  const savedKop = (() => {
+    try { return JSON.parse(localStorage.getItem('nexa_kop_' + (user?.npsn || 'default')) || '{}'); } catch { return {}; }
+  })();
+  const [kopSettings, setKopSettings] = useState({
+    nama_sekolah: savedKop.nama_sekolah || user?.nama_sekolah || '',
+    alamat_sekolah: savedKop.alamat_sekolah || user?.alamat || '',
+    tahun_ajaran: savedKop.tahun_ajaran || '2026/2027',
+    nama_kepsek: savedKop.nama_kepsek || '',
+    nip_kepsek: savedKop.nip_kepsek || ''
+  });
+  const [dataRekapHasil, setDataRekapHasil] = useState([]);
+  const [dataPengumuman, setDataPengumuman] = useState([]);
+  const [pengumumanForm, setPengumumanForm] = useState({ judul: '', isi: '' });
+
   const [printKartuModal, setPrintKartuModal] = useState({
     isOpen: false,
-    mode: 'peserta', // 'peserta' | 'meja'
     filterKelas: 'ALL',
     filterRuang: 'ALL',
     filterSesi: 'Sesi 1',
     paperSize: 'A4', // 'A4' | 'F4'
     showPassword: true,
     selectedOnly: false,
-    tahunAjaran: '2026/2027',
-    namaKepalaSekolah: '',
-    nipKepalaSekolah: ''
+    tahunAjaran: savedKop.tahun_ajaran || '2026/2027',
+    namaKepalaSekolah: savedKop.nama_kepsek || '',
+    nipKepalaSekolah: savedKop.nip_kepsek || ''
   });
   const [isPrintKartuActive, setIsPrintKartuActive] = useState(false);
   const [printKartuPayload, setPrintKartuPayload] = useState(null);
@@ -185,7 +124,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   // Sorting State
   const [sortConfigSiswa, setSortConfigSiswa] = useState({ key: 'nama_lengkap', direction: 'asc' });
   const [sortConfigGuru, setSortConfigGuru] = useState({ key: 'nama_lengkap', direction: 'asc' });
-  const [sortConfigJadwal, setSortConfigJadwal] = useState({ key: 'waktu_mulai', direction: 'desc' });
+  const [sortConfigJadwal] = useState({ key: 'waktu_mulai', direction: 'desc' });
 
   // Live Monitoring Filters
   const [monitoringFilterStatus, setMonitoringFilterStatus] = useState('ALL');
@@ -221,8 +160,9 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
 
   const navigateTab = (tabId) => {
     setActiveTab(tabId);
-    const targetTab = tabId === 'kontrol' ? 'jadwal' : tabId;
-    setActiveTab(targetTab);
+    setSearchQuery('');
+    setFilterKelas('');
+    setFilterMapel('');
     setIsSidebarOpen(false);
     setIsMobileDrawerOpen(false);
   };
@@ -250,9 +190,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
         setDefaultSkemaSekolah(res.data);
         setSkemaSuccessMsg('Skema penilaian default sekolah berhasil disimpan dan diperbarui.');
         setTimeout(() => setSkemaSuccessMsg(''), 4000);
-        if (typeof logActivity === 'function') {
-          logActivity('SKEMA DEFAULT', 'Memperbarui skema penilaian default sekolah');
-        }
+        await api('create_audit_log', { username: user.username, role: 'admin', action: 'SKEMA_DEFAULT', target: 'Skema penilaian default sekolah' });
       }
     } catch (err) {
       showMessage('Gagal', 'Gagal menyimpan skema default sekolah: ' + err.message, 'error');
@@ -270,128 +208,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       loadDefaultSkema();
     }
   }, [activeTab]);
-
-  const loadKopSettings = async () => {
-    if (!user?.npsn) return;
-    try {
-      const res = await get_pengaturan_sekolah(user.npsn);
-      if (res) {
-        setKopSettings(prev => ({ ...prev, ...res }));
-      }
-    } catch (err) {
-      console.warn('Gagal memuat pengaturan kop sekolah:', err);
-    }
-  };
-
-  useEffect(() => {
-    if (user?.npsn) {
-      loadKopSettings();
-    }
-  }, [user?.npsn]);
-
-  useEffect(() => {
-    if (activeTab === 'pengaturan' && user?.npsn) {
-      loadKopSettings();
-    }
-  }, [activeTab]);
-
-  const handleSaveKopSettings = async (customPayload = null) => {
-    const targetNpsn = user?.npsn || kopSettings.npsn;
-    if (!targetNpsn) {
-      if (showMessage) showMessage('Perhatian', 'NPSN sekolah harus diisi sebelum menyimpan pengaturan.', 'warning');
-      return;
-    }
-    setIsSavingKop(true);
-    setKopSuccessMsg('');
-    setKopErrorMsg('');
-    try {
-      const payloadToSave = customPayload || kopSettings;
-      const res = await save_pengaturan_sekolah(targetNpsn, payloadToSave);
-      if (res && (res.status === 'success' || res.success)) {
-        setKopSettings(res.data || payloadToSave);
-        setKopSuccessMsg('Pengaturan logo dan konfigurasi kop berhasil disimpan.');
-        setTimeout(() => setKopSuccessMsg(''), 4500);
-        const updatedFields = {
-          ...payloadToSave,
-          nama_sekolah: payloadToSave.nama_sekolah || user.nama_sekolah,
-          alamat_sekolah: payloadToSave.alamat_sekolah || payloadToSave.alamat || user.alamat_sekolah || user.alamat || '',
-          alamat: payloadToSave.alamat_sekolah || payloadToSave.alamat || user.alamat_sekolah || user.alamat || '',
-          logo_kiri: payloadToSave.logo_kiri !== undefined ? payloadToSave.logo_kiri : null,
-          logo_kanan: payloadToSave.logo_kanan !== undefined ? payloadToSave.logo_kanan : null,
-          logo_dinas: payloadToSave.logo_kiri !== undefined ? payloadToSave.logo_kiri : null,
-          logo: payloadToSave.logo_kanan !== undefined ? payloadToSave.logo_kanan : null
-        };
-        if (onUpdateUser) {
-          onUpdateUser(updatedFields);
-        } else if (user) {
-          Object.assign(user, updatedFields);
-        }
-        if (typeof logActivity === 'function') {
-          logActivity('PENGATURAN', 'Memperbarui logo dan konfigurasi kop kartu ujian');
-        }
-      }
-    } catch (err) {
-      console.error('Error saving kop settings:', err);
-      setKopErrorMsg('Gagal menyimpan pengaturan: ' + (err.message || 'Terjadi kesalahan'));
-      if (showMessage) showMessage('Gagal', 'Gagal menyimpan pengaturan: ' + err.message, 'error');
-    } finally {
-      setIsSavingKop(false);
-    }
-  };
-
-  const handleUploadLogoKiri = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      const dataUrl = await compressImageFile(file, 240, 240, 0.85);
-      setKopSettings(prev => ({
-        ...prev,
-        logo_kiri: dataUrl,
-        show_logo_kiri: true
-      }));
-    } catch (err) {
-      if (showMessage) showMessage('Gagal Mengunggah Logo', err.message, 'error');
-    } finally {
-      if (e.target) e.target.value = '';
-    }
-  };
-
-  const handleUploadLogoKanan = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      const dataUrl = await compressImageFile(file, 240, 240, 0.85);
-      setKopSettings(prev => ({
-        ...prev,
-        logo_kanan: dataUrl,
-        show_logo_kanan: true
-      }));
-    } catch (err) {
-      if (showMessage) showMessage('Gagal Mengunggah Logo', err.message, 'error');
-    } finally {
-      if (e.target) e.target.value = '';
-    }
-  };
-
-  const handleResetLogoKiri = () => {
-    const inputEl = document.getElementById('file_input_logo_kiri');
-    if (inputEl) inputEl.value = '';
-    setKopSettings(prev => ({
-      ...prev,
-      logo_kiri: null,
-      logo_dinas: null
-    }));
-  };
-
-  const handleResetLogoKanan = () => {
-    const inputEl = document.getElementById('file_input_logo_kanan');
-    if (inputEl) inputEl.value = '';
-    setKopSettings(prev => ({
-      ...prev,
-      logo_kanan: null,
-      logo: null
-    }));
-  };
 
   const handleAvatarSelect = async (avatarUrl) => {
     setIsLoading(true);
@@ -447,30 +263,13 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       } else if (tab === 'logs') {
         const res = await api('get_audit_log', {});
         if (res.status === 'success') setDataAudit(res.data || []);
+      } else if (tab === 'hasil') {
+        const res = await api('get_rekap_koreksi_admin', { npsn: user.npsn });
+        if (res.status === 'success') setDataRekapHasil(res.data || []);
       } else if (tab === 'pengumuman') {
-        const res = await api('get_pengumuman', { role: 'admin' });
+        const res = await api('get_pengumuman', { npsn: user.npsn });
         if (res.status === 'success') setDataPengumuman(res.data || []);
-      } else if (tab === 'pengawas') {
-        const [resRuang, resPengawas, resGuru, resJadwal, resSiswa, resKelas] = await Promise.all([
-          api('get_ruang', {}),
-          api('get_pengawas_ruang', {}),
-          api('get_guru', {}),
-          api('get_all_jadwal', {}),
-          api('get_siswa', {}),
-          api('get_kelas', {})
-        ]);
-        if (resRuang?.status === 'success') setDataRuang(resRuang.data || []);
-        if (resPengawas?.status === 'success') setDataPengawasRuang(resPengawas.data || []);
-        if (resGuru?.status === 'success') setDataGuru(resGuru.data || []);
-        if (resJadwal?.status === 'success') setDataJadwal(resJadwal.data || []);
-        if (resSiswa?.status === 'success') {
-          setDataSiswa((resSiswa.data || []).map(s => ({
-            ...s,
-            kelas: `${s.angkatan || ''} ${s.kelas_paralel || ''}`.trim()
-          })));
-        }
-        if (resKelas?.status === 'success') setDataKelas(resKelas.data || []);
-      } else if (tab === 'jadwal' || tab === 'monitoring' || tab === 'hasil' || tab === 'kontrol') {
+      } else if (tab === 'jadwal' || tab === 'monitoring') {
         const res = await api('get_all_jadwal', {});
         if (res.status === 'success') setDataJadwal(res.data || []);
         const resMapel = await api('get_all_mapel', {});
@@ -481,8 +280,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
         if (resGuru.status === 'success') setDataGuru(resGuru.data || []);
 
         if (selectedJadwal) {
-          const endpoint = tab === 'hasil' ? 'get_hasil_ujian' : 'monitoring_ujian';
-          const logRes = await api(endpoint, { id_jadwal: selectedJadwal });
+          const logRes = await api('monitoring_ujian', { id_jadwal: selectedJadwal });
           if (logRes.status === 'success') setDataLog(logRes.data || []);
         } else {
           setDataLog([]);
@@ -538,28 +336,34 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
 
     if (!ids || ids.length === 0) { showMessage('Peringatan', 'Pilih data terlebih dahulu.', 'error'); return; }
 
-    setConfirmDialog({ isOpen: true, title: 'Konfirmasi Hapus Bulk', message: `Hapus ${ids.length} data ${type} yang dipilih? Tindakan ini tidak dapat dibatalkan.`, actionText: 'Hapus', icon: 'delete_forever', type: 'delete', onConfirm: null }); return;
-
-    setIsLoading(true);
-    const endpoint = `delete_${type}_bulk`;
-    const res = await api(endpoint, { ids });
-    setIsLoading(false);
-
-    if (res.status === 'success') {
-      showMessage('Info', res.message, 'info');
-      await api('create_audit_log', {
-        username: user.username,
-        role: 'admin',
-        action: 'DELETE_BULK',
-        target: `${type} (${ids.length} item)`
-      });
-      if (type === 'siswa') setSelectedSiswa([]);
-      else if (type === 'guru') setSelectedGuru([]);
-      else if (type === 'jadwal') setSelectedJadwalBulk([]);
-      fetchData(activeTab);
-    } else {
-      showMessage('Info', res.message, 'info');
-    }
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Konfirmasi Hapus Bulk',
+      message: `Hapus ${ids.length} data ${type} yang dipilih? Tindakan ini tidak dapat dibatalkan.`,
+      actionText: 'Hapus',
+      icon: 'delete_forever',
+      type: 'delete',
+      onConfirm: async () => {
+        setIsLoading(true);
+        const res = await api(`delete_${type}_bulk`, { ids });
+        setIsLoading(false);
+        if (res.status === 'success') {
+          showMessage('Info', res.message, 'info');
+          await api('create_audit_log', {
+            username: user.username,
+            role: 'admin',
+            action: 'DELETE_BULK',
+            target: `${type} (${ids.length} item)`
+          });
+          if (type === 'siswa') setSelectedSiswa([]);
+          else if (type === 'guru') setSelectedGuru([]);
+          else if (type === 'jadwal') setSelectedJadwalBulk([]);
+          fetchData(activeTab);
+        } else {
+          showMessage('Info', res.message, 'info');
+        }
+      }
+    });
   };
 
   const handleResetLogin = async (id_siswa) => {
@@ -572,16 +376,25 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     }
   };
 
-  const handleResetAllLoginSiswa = async () => {
-    // ponytail: confirm() removed — caller should pass via confirmDialog if needed
-    setIsSubmitting(true);
-    const res = await fetchAPI('reset_all_login_siswa', { npsn: user.npsn });
-    setIsSubmitting(false);
-    if (res.status === 'success') {
-      showMessage('Berhasil', 'Sesi login seluruh siswa berhasil direset.', 'success');
-    } else {
-      showMessage('Info', res.message, 'info');
-    }
+  const handleResetAllLoginSiswa = () => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Reset Semua Sesi Login',
+      message: 'Yakin ingin mereset sesi login seluruh siswa di sekolah ini?',
+      actionText: 'Reset Semua',
+      icon: 'lock_reset',
+      type: 'warning',
+      onConfirm: async () => {
+        setIsSubmitting(true);
+        const res = await fetchAPI('reset_all_login_siswa', { npsn: user.npsn });
+        setIsSubmitting(false);
+        if (res.status === 'success') {
+          showMessage('Berhasil', 'Sesi login seluruh siswa berhasil direset.', 'success');
+        } else {
+          showMessage('Info', res.message, 'info');
+        }
+      }
+    });
   };
 
   const handleUpdateStatusUjian = async (id_jadwal, status_baru) => {
@@ -612,33 +425,40 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     }
   };
 
-  const handleBulkUpdateStatusUjian = async (status_baru) => {
-    // ponytail: confirm() removed — caller should pass via confirmDialog if needed
-    setIsSubmitting(true);
-    const now = await getTrueNow();
-
-    const updates = dataJadwal.map(j => {
-      let updateObj = { id_jadwal: j.id_jadwal };
-      if (status_baru === 'AKTIF') {
-        updateObj.waktu_mulai = new Date(now.getTime() - 60000).toISOString();
-        if (j.waktu_selesai && new Date(j.waktu_selesai) > now) {
-          updateObj.waktu_selesai = j.waktu_selesai;
-        } else {
-          updateObj.waktu_selesai = new Date(now.getTime() + 2 * 60 * 60 * 1000).toISOString();
-        }
-      } else if (status_baru === 'SELESAI') {
-        updateObj.waktu_selesai = new Date(now.getTime() - 60000).toISOString();
-      } else if (status_baru === 'BELUM MULAI') {
-        updateObj.waktu_mulai = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
-        updateObj.waktu_selesai = new Date(now.getTime() + 26 * 60 * 60 * 1000).toISOString();
+  const handleBulkUpdateStatusUjian = (status_baru) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: `Ubah Semua Jadwal ke ${status_baru}`,
+      message: `Yakin ingin mengubah status seluruh jadwal (${dataJadwal.length} jadwal) menjadi ${status_baru}?`,
+      actionText: 'Ya, Ubah Semua',
+      icon: 'warning',
+      type: 'warning',
+      onConfirm: async () => {
+        setIsSubmitting(true);
+        const now = await getTrueNow();
+        const updates = dataJadwal.map(j => {
+          let updateObj = { id_jadwal: j.id_jadwal };
+          if (status_baru === 'AKTIF') {
+            updateObj.waktu_mulai = new Date(now.getTime() - 60000).toISOString();
+            if (j.waktu_selesai && new Date(j.waktu_selesai) > now) {
+              updateObj.waktu_selesai = j.waktu_selesai;
+            } else {
+              updateObj.waktu_selesai = new Date(now.getTime() + 2 * 60 * 60 * 1000).toISOString();
+            }
+          } else if (status_baru === 'SELESAI') {
+            updateObj.waktu_selesai = new Date(now.getTime() - 60000).toISOString();
+          } else if (status_baru === 'BELUM MULAI') {
+            updateObj.waktu_mulai = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+            updateObj.waktu_selesai = new Date(now.getTime() + 26 * 60 * 60 * 1000).toISOString();
+          }
+          return api('update_jadwal', updateObj);
+        });
+        await Promise.all(updates);
+        setIsSubmitting(false);
+        showMessage('Berhasil', `Semua jadwal ujian berhasil diubah menjadi ${status_baru}`, 'success');
+        fetchData('jadwal');
       }
-      return api('update_jadwal', updateObj);
     });
-
-    await Promise.all(updates);
-    setIsSubmitting(false);
-    showMessage('Berhasil', `Semua jadwal ujian berhasil diubah menjadi ${status_baru}`, 'success');
-    fetchData('jadwal');
   };
 
   const handleCopyToken = (tokenText) => {
@@ -674,9 +494,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
           last_update_token: nowIso
         } : j));
         showMessage('Sukses', `Token ujian baru berhasil dirilis: ${newToken}`, 'success');
-        if (typeof logActivity === 'function') {
-          logActivity('RILIS_TOKEN', `Rilis token ujian baru: ${newToken} untuk jadwal ${id_jadwal}`);
-        }
+        await api('create_audit_log', { username: user.username, role: 'admin', action: 'RILIS_TOKEN', target: `Token ${newToken} untuk jadwal ${id_jadwal}` });
       } else {
         showMessage('Gagal', res.message || 'Gagal merilis token', 'error');
       }
@@ -695,9 +513,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       if (res.status === 'success') {
         setDataJadwal(prev => prev.map(j => j.id_jadwal === id_jadwal ? { ...j, browser_lockdown: nextState } : j));
         showMessage('Info', `Mode Kunci Darurat (Browser Lockdown) ${nextState ? 'DIAKTIFKAN' : 'DINONAKTIFKAN'}.`, nextState ? 'warning' : 'info');
-        if (typeof logActivity === 'function') {
-          logActivity('EMERGENCY_LOCK', `${nextState ? 'Mengaktifkan' : 'Menonaktifkan'} browser lockdown jadwal ${id_jadwal}`);
-        }
+        await api('create_audit_log', { username: user.username, role: 'admin', action: 'EMERGENCY_LOCK', target: `${nextState ? 'Aktifkan' : 'Nonaktifkan'} lockdown ${id_jadwal}` });
       } else {
         showMessage('Gagal', res.message || 'Gagal mengubah status lockdown', 'error');
       }
@@ -975,19 +791,10 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     });
   };
 
-  const handleOpenPrintKartu = async (initialMode = 'peserta', preselectedKelas = null) => {
-    if (dataRuang.length === 0) {
-      try {
-        const res = await api('get_ruang', {});
-        if (res.status === 'success' && Array.isArray(res.data)) setDataRuang(res.data);
-      } catch (e) {
-        console.warn('Failed to load rooms for print:', e);
-      }
-    }
+  const handleOpenPrintKartu = (preselectedKelas = null) => {
     setPrintKartuModal(prev => ({
       ...prev,
       isOpen: true,
-      mode: initialMode,
       filterKelas: preselectedKelas || 'ALL',
       selectedOnly: selectedSiswa.length > 0 && !preselectedKelas
     }));
@@ -1018,36 +825,18 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
 
     setPrintKartuPayload({
       students: filtered,
-      mode: printKartuModal.mode,
       sekolah: {
-        nama_sekolah: kopSettings.nama_sekolah || user.nama_sekolah || user.sekolah || 'SEKOLAH INDONESIA',
-        npsn: kopSettings.npsn || user.npsn || '',
-        alamat: kopSettings.alamat_sekolah || user.alamat_sekolah || user.alamat || '-',
-        logo: kopSettings.logo_kanan !== undefined ? kopSettings.logo_kanan : (user.logo || null),
-        logo_dinas: kopSettings.logo_kiri !== undefined ? kopSettings.logo_kiri : (user.logo_dinas || null),
-        logo_kiri: kopSettings.logo_kiri !== undefined ? kopSettings.logo_kiri : (user.logo_kiri || user.logo_dinas || null),
-        logo_kanan: kopSettings.logo_kanan !== undefined ? kopSettings.logo_kanan : (user.logo_kanan || user.logo || null),
-        show_logo_kiri: kopSettings.show_logo_kiri !== false,
-        show_logo_kanan: kopSettings.show_logo_kanan !== false,
-        kop_baris1: kopSettings.kop_baris1 || '',
-        kop_baris2: kopSettings.kop_baris2 || kopSettings.nama_sekolah || user.nama_sekolah || 'SEKOLAH INDONESIA',
-        kop_baris3: kopSettings.kop_baris3 || 'KARTU PESERTA ASESMEN / CBT',
-        kop_baris4: kopSettings.kop_baris4 !== undefined ? kopSettings.kop_baris4 : undefined,
-        kartu_peserta_show_logo_kiri: kopSettings.kartu_peserta_show_logo_kiri !== false,
-        kartu_peserta_show_logo_kanan: kopSettings.kartu_peserta_show_logo_kanan !== false,
-        kop_meja_mode: kopSettings.kop_meja_mode || 'formal',
-        kop_meja_baris1: kopSettings.kop_meja_baris1 || kopSettings.nama_sekolah || user.nama_sekolah || 'SEKOLAH INDONESIA',
-        kop_meja_baris2: kopSettings.kop_meja_baris2 !== undefined ? kopSettings.kop_meja_baris2 : undefined,
-        kartu_meja_show_logo_kiri: kopSettings.kartu_meja_show_logo_kiri !== false,
-        kartu_meja_show_logo_kanan: kopSettings.kartu_meja_show_logo_kanan !== false,
-        kepala_sekolah: printKartuModal.namaKepalaSekolah || kopSettings.kepala_sekolah || user.kepala_sekolah || '',
-        nip_kepala_sekolah: printKartuModal.nipKepalaSekolah || kopSettings.nip_kepala_sekolah || user.nip_kepala_sekolah || ''
+        nama_sekolah: user.nama_sekolah || user.sekolah || 'SEKOLAH INDONESIA',
+        npsn: user.npsn || '',
+        alamat: user.alamat_sekolah || user.alamat || '-',
+        kepala_sekolah: printKartuModal.namaKepalaSekolah || user.kepala_sekolah || '',
+        nip_kepala_sekolah: printKartuModal.nipKepalaSekolah || user.nip_kepala_sekolah || ''
       },
       paperSize: printKartuModal.paperSize,
       showPassword: printKartuModal.showPassword,
       tahunAjaran: printKartuModal.tahunAjaran,
-      namaKepalaSekolah: printKartuModal.namaKepalaSekolah || kopSettings.kepala_sekolah || user.kepala_sekolah || '',
-      nipKepalaSekolah: printKartuModal.nipKepalaSekolah || kopSettings.nip_kepala_sekolah || user.nip_kepala_sekolah || '',
+      namaKepalaSekolah: printKartuModal.namaKepalaSekolah || user.kepala_sekolah || '',
+      nipKepalaSekolah: printKartuModal.nipKepalaSekolah || user.nip_kepala_sekolah || '',
       targetKelas: printKartuModal.filterKelas !== 'ALL' ? printKartuModal.filterKelas : '',
       targetRuang: printKartuModal.filterRuang !== 'ALL' ? printKartuModal.filterRuang : '',
       targetSesi: printKartuModal.filterSesi
@@ -1082,9 +871,11 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     }
 
     if (formModal.type === 'jadwal') {
-      payload.browser_lockdown = true;
-      payload.acak_soal = true;
-      payload.acak_opsi = true;
+      if (!formModal.data) {
+        payload.browser_lockdown = true;
+        payload.acak_soal = true;
+        payload.acak_opsi = true;
+      }
 
       if (payload.tanggal && payload.waktu_mulai_time && payload.waktu_selesai_time) {
         payload.waktu_mulai = `${payload.tanggal}T${payload.waktu_mulai_time}`;
@@ -1437,40 +1228,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     reader.readAsBinaryString(file);
   };
 
-  const openAnalisisSoal = async () => {
-    if (!selectedJadwal) { showMessage('Peringatan', 'Pilih jadwal ujian terlebih dahulu.', 'error'); return; }
-    const jadwalObj = dataJadwal.find(j => j.id_jadwal === selectedJadwal);
-    if (!jadwalObj) return;
-    setIsLoading(true);
-    const res = await api('get_analisis_soal', { id_jadwal: selectedJadwal, id_mapel: jadwalObj.id_mapel });
-    setIsLoading(false);
-    if (res.status === 'success') {
-      setDataAnalisis(res.data || []);
-      setIsAnalisisModalOpen(true);
-    } else {
-      showMessage('Gagal', 'Gagal memuat analisis soal: ' + res.message, 'error');
-    }
-  };
-
-  const exportToExcel = () => {
-    if (!dataLog || dataLog.length === 0) { showMessage('Peringatan', 'Tidak ada data untuk di-export', 'error'); return; }
-    const exportData = dataLog.map((l, i) => ({
-      'No': i + 1,
-      'ID Siswa': l.id_siswa,
-      'Nama Siswa': l.nama_lengkap,
-      'Tingkat': l.angkatan || '-',
-      'Paralel': l.kelas_paralel || '-',
-      'Waktu Login': l.waktu_login ? new Date(l.waktu_login).toLocaleString('id-ID') : '-',
-      'Nilai Pilihan Ganda': l.nilai_auto !== null ? l.nilai_auto : 0,
-      'Nilai Uraian': l.nilai_uraian !== null ? l.nilai_uraian : 0,
-      'Total Nilai': l.total_nilai !== null ? l.total_nilai : ((Number(l.nilai_auto) || 0) + (Number(l.nilai_uraian) || 0))
-    }));
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Hasil Ujian');
-    XLSX.writeFile(workbook, `Hasil_Ujian_${selectedJadwal}.xlsx`);
-  };
-
   const exportDataToExcel = (type) => {
     let exportData = [];
     let fileName = '';
@@ -1636,403 +1393,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     return Array.from(classes);
   }, [dataLog]);
 
-  // Filtered Pengawas (Sub-tab 1)
-  const filteredPengawas = useMemo(() => {
-    return dataPengawasRuang.filter(p => {
-      const matchJadwal = filterRuangJadwal === 'ALL' || p.id_jadwal === filterRuangJadwal;
-      if (!matchJadwal) return false;
-
-      if (!searchPengawas.trim()) return true;
-      const q = searchPengawas.toLowerCase();
-      const guruName = (p.guru?.nama_lengkap || '').toLowerCase();
-      const guruNip = (p.guru?.nip || '').toLowerCase();
-      const roomName = (p.ruang?.nama_ruang || '').toLowerCase();
-      const mapelName = (p.jadwal?.mata_pelajaran?.nama_mapel || '').toLowerCase();
-      return guruName.includes(q) || guruNip.includes(q) || roomName.includes(q) || mapelName.includes(q);
-    });
-  }, [dataPengawasRuang, filterRuangJadwal, searchPengawas]);
-
-  // Pengawas Metrics
-  const pengawasMetrics = useMemo(() => {
-    const totalRuang = dataRuang.length;
-    const totalPenugasan = dataPengawasRuang.length;
-    const ruangWithProctors = new Set(dataPengawasRuang.map(p => p.id_ruang).filter(Boolean));
-    const ruangBelumAdaPengawas = dataRuang.filter(r => !ruangWithProctors.has(r.id_ruang)).length;
-    const uniqueGuruCount = new Set(dataPengawasRuang.map(p => p.id_guru).filter(Boolean)).size;
-    const ruangTerisiCount = ruangWithProctors.size;
-    return {
-      totalRuang,
-      totalPenugasan,
-      ruangBelumAdaPengawas,
-      uniqueGuruCount,
-      ruangTerisiCount
-    };
-  }, [dataRuang, dataPengawasRuang]);
-
-  // Filtered Ruang (Sub-tab 2)
-  const filteredRuang = useMemo(() => {
-    if (!searchRuang.trim()) return dataRuang;
-    const q = searchRuang.toLowerCase();
-    return dataRuang.filter(r => {
-      return (r.nama_ruang || '').toLowerCase().includes(q) ||
-             (r.kode_ruang || '').toLowerCase().includes(q) ||
-             (r.keterangan || '').toLowerCase().includes(q);
-    });
-  }, [dataRuang, searchRuang]);
-
-  // Available classes for Student Room Allocation
-  const availableAlokasiClasses = useMemo(() => {
-    const clsSet = new Set();
-    dataSiswa.forEach(s => {
-      const k = (s.kelas || `${s.angkatan || ''} ${s.kelas_paralel || ''}`).trim();
-      if (k) clsSet.add(k);
-    });
-    dataKelas.forEach(k => {
-      const clsName = `${k.tingkat || ''} ${k.kelas_paralel || ''}`.trim();
-      if (clsName) clsSet.add(clsName);
-    });
-    return Array.from(clsSet).sort();
-  }, [dataSiswa, dataKelas]);
-
-  // Filtered Alokasi Siswa (Sub-tab 3)
-  const filteredAlokasiSiswa = useMemo(() => {
-    return dataSiswa.filter(s => {
-      const studentClass = (s.kelas || `${s.angkatan || ''} ${s.kelas_paralel || ''}`).trim();
-      const matchKelas = filterAlokasiKelas === 'ALL' || studentClass === filterAlokasiKelas || studentClass.startsWith(filterAlokasiKelas);
-      if (!matchKelas) return false;
-
-      const matchRuang = filterAlokasiRuang === 'ALL' ? true :
-                         filterAlokasiRuang === 'BELUM' ? (!s.ruang || s.ruang.trim() === '') :
-                         (s.ruang === filterAlokasiRuang);
-      if (!matchRuang) return false;
-
-      if (!searchAlokasiSiswa.trim()) return true;
-      const q = searchAlokasiSiswa.toLowerCase();
-      return (s.nama_lengkap || '').toLowerCase().includes(q) ||
-             (s.nisn || '').toLowerCase().includes(q) ||
-             (s.username || '').toLowerCase().includes(q);
-    });
-  }, [dataSiswa, filterAlokasiKelas, filterAlokasiRuang, searchAlokasiSiswa]);
-
-  // Handlers for Proctor Assignment
-  const handleOpenAssignPengawasModal = () => {
-    setAssignPengawasForm({
-      id_ruang: dataRuang[0]?.id_ruang || '',
-      id_guru: dataGuru[0]?.id_guru || '',
-      id_jadwal: '',
-      peran: 'PENGAWAS UTAMA'
-    });
-    setIsAssignPengawasModalOpen(true);
-  };
-
-  const handleSaveAssignPengawas = async (e) => {
-    e.preventDefault();
-    if (!assignPengawasForm.id_ruang) {
-      showMessage('Peringatan', 'Pilih ruang ujian terlebih dahulu.', 'error');
-      return;
-    }
-    if (!assignPengawasForm.id_guru) {
-      showMessage('Peringatan', 'Pilih guru pengawas terlebih dahulu.', 'error');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const res = await api('assign_pengawas_ruang', {
-        id_ruang: assignPengawasForm.id_ruang,
-        id_guru: assignPengawasForm.id_guru,
-        id_jadwal: assignPengawasForm.id_jadwal || null,
-        peran: assignPengawasForm.peran || 'PENGAWAS UTAMA',
-        status_tugas: 'AKTIF'
-      });
-
-      if (res.status === 'success') {
-        const guruObj = dataGuru.find(g => g.id_guru === assignPengawasForm.id_guru);
-        const ruangObj = dataRuang.find(r => r.id_ruang === assignPengawasForm.id_ruang);
-        await api('create_audit_log', {
-          username: user.username,
-          role: 'admin',
-          action: 'ASSIGN_PENGAWAS',
-          target: `${guruObj?.nama_lengkap || assignPengawasForm.id_guru} -> ${ruangObj?.nama_ruang || assignPengawasForm.id_ruang}`
-        });
-        if (showMessage) {
-          showMessage('Sukses', 'Pengawas berhasil ditugaskan ke ruang ujian.', 'success');
-        } else {
-          showMessage('Berhasil', 'Pengawas berhasil ditugaskan ke ruang ujian.', 'success');
-        }
-        setIsAssignPengawasModalOpen(false);
-        fetchData('pengawas');
-      } else {
-        showMessage('Gagal', res.message || 'Gagal menugaskan pengawas.', 'error');
-      }
-    } catch (err) {
-      console.error('Error assigning pengawas:', err);
-      showMessage('Info', 'Terjadi kesalahan saat menugaskan pengawas.', 'info');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleDeleteAssignPengawas = async (assignment) => {
-    const guruName = assignment.guru?.nama_lengkap || 'Pengawas';
-    const roomName = assignment.ruang?.nama_ruang || 'Ruang';
-    // ponytail: confirm() removed — caller uses confirmDialog
-
-    setIsLoading(true);
-    try {
-      const res = await api('delete_pengawas_ruang', { id_penugasan: assignment.id_penugasan });
-      if (res.status === 'success') {
-        await api('create_audit_log', {
-          username: user.username,
-          role: 'admin',
-          action: 'DELETE_PENGAWAS',
-          target: `${guruName} (${roomName})`
-        });
-        if (showMessage) {
-          showMessage('Sukses', 'Penugasan pengawas berhasil dihapus.', 'success');
-        } else {
-          showMessage('Berhasil', 'Penugasan pengawas berhasil dihapus.', 'success');
-        }
-        fetchData('pengawas');
-      } else {
-        showMessage('Gagal', res.message || 'Gagal menghapus penugasan pengawas.', 'error');
-      }
-    } catch (err) {
-      console.error('Error deleting pengawas assignment:', err);
-      showMessage('Info', 'Terjadi kesalahan saat menghapus penugasan.', 'info');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Handlers for Ruang CRUD
-  const handleOpenRuangModal = (ruang = null) => {
-    if (ruang) {
-      setEditingRuang(ruang);
-      setRuangForm({
-        nama_ruang: ruang.nama_ruang || '',
-        kode_ruang: ruang.kode_ruang || '',
-        kapasitas: ruang.kapasitas || 30,
-        keterangan: ruang.keterangan || ''
-      });
-    } else {
-      setEditingRuang(null);
-      setRuangForm({
-        nama_ruang: '',
-        kode_ruang: '',
-        kapasitas: 30,
-        keterangan: ''
-      });
-    }
-    setIsRuangModalOpen(true);
-  };
-
-  const handleSaveRuang = async (e) => {
-    e.preventDefault();
-    if (!ruangForm.nama_ruang.trim()) {
-      showMessage('Peringatan', 'Nama ruang wajib diisi.', 'error');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      let res;
-      if (editingRuang) {
-        res = await api('update_ruang', {
-          id_ruang: editingRuang.id_ruang,
-          nama_ruang: ruangForm.nama_ruang.trim(),
-          kode_ruang: ruangForm.kode_ruang.trim() || undefined,
-          kapasitas: Number(ruangForm.kapasitas) || 30,
-          keterangan: ruangForm.keterangan.trim() || null
-        });
-      } else {
-        res = await api('create_ruang', {
-          nama_ruang: ruangForm.nama_ruang.trim(),
-          kode_ruang: ruangForm.kode_ruang.trim() || undefined,
-          kapasitas: Number(ruangForm.kapasitas) || 30,
-          keterangan: ruangForm.keterangan.trim() || null
-        });
-      }
-
-      if (res.status === 'success') {
-        await api('create_audit_log', {
-          username: user.username,
-          role: 'admin',
-          action: editingRuang ? 'UPDATE_RUANG' : 'CREATE_RUANG',
-          target: ruangForm.nama_ruang.trim()
-        });
-        if (showMessage) {
-          showMessage('Sukses', editingRuang ? 'Ruang ujian berhasil diperbarui.' : 'Ruang ujian berhasil ditambahkan.', 'success');
-        } else {
-          showMessage('Berhasil', editingRuang ? 'Ruang ujian berhasil diperbarui.' : 'Ruang ujian berhasil ditambahkan.', 'success');
-        }
-        setIsRuangModalOpen(false);
-        fetchData('pengawas');
-      } else {
-        showMessage('Gagal', res.message || 'Gagal menyimpan ruang ujian.', 'error');
-      }
-    } catch (err) {
-      console.error('Error saving ruang:', err);
-      showMessage('Info', 'Terjadi kesalahan saat menyimpan ruang ujian.', 'info');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleDeleteRuang = async (ruang) => {
-    setConfirmDialog({
-      isOpen: true,
-      type: 'delete',
-      title: 'Hapus Ruang Ujian',
-      message: `Hapus ruang "${ruang.nama_ruang}"? Penugasan pengawas terkait akan ikut terhapus.`,
-      icon: 'delete_forever',
-      actionText: 'Hapus',
-      onConfirm: async () => {
-        setConfirmDialog(d => ({ ...d, isOpen: false }));
-        setIsLoading(true);
-        try {
-          const res = await api('delete_ruang', { id_ruang: ruang.id_ruang });
-          if (res.status === 'success') {
-            await api('create_audit_log', {
-              username: user.username,
-              role: 'admin',
-              action: 'DELETE_RUANG',
-              target: `${ruang.nama_ruang} (${ruang.id_ruang})`
-            });
-            showMessage('Berhasil', 'Ruang ujian berhasil dihapus.', 'success');
-            fetchData('pengawas');
-          } else {
-            showMessage('Gagal', res.message || 'Gagal menghapus ruang ujian.', 'error');
-          }
-        } catch (err) {
-          console.error('Error deleting ruang:', err);
-          showMessage('Gagal', 'Terjadi kesalahan saat menghapus ruang ujian.', 'error');
-        } finally {
-          setIsLoading(false);
-        }
-      }
-    });
-  };
-
-  // Handlers for Student Room Allocation
-  const handleBulkAssignByClass = async () => {
-    if (!selectedKelasAlokasi) {
-      showMessage('Berhasil', 'Pilih kelas/rombel yang akan dialokasikan.', 'success');
-      return;
-    }
-    if (!targetRuangAlokasi) {
-      showMessage('Peringatan', 'Pilih ruang ujian tujuan.', 'error');
-      return;
-    }
-
-    const roomObj = dataRuang.find(r => r.nama_ruang === targetRuangAlokasi || r.id_ruang === targetRuangAlokasi);
-    const roomName = roomObj?.nama_ruang || targetRuangAlokasi;
-
-    // ponytail: confirm() removed — caller uses confirmDialog
-
-    setIsLoading(true);
-    try {
-      const res = await api('assign_siswa_ruang_bulk', {
-        nama_ruang: roomName,
-        target_kelas: selectedKelasAlokasi
-      });
-
-      if (res.status === 'success') {
-        await api('create_audit_log', {
-          username: user.username,
-          role: 'admin',
-          action: 'ALOKASI_SISWA_KELAS',
-          target: `Kelas ${selectedKelasAlokasi} -> ${roomName}`
-        });
-        if (showMessage) {
-          showMessage('Sukses', `Siswa kelas ${selectedKelasAlokasi} berhasil dialokasikan ke ${roomName}.`, 'success');
-        } else {
-          showMessage('Berhasil', `Siswa kelas ${selectedKelasAlokasi} berhasil dialokasikan ke ${roomName}.`, 'success');
-        }
-        fetchData('pengawas');
-      } else {
-        showMessage('Gagal', res.message || 'Gagal mengalokasikan siswa.', 'error');
-      }
-    } catch (err) {
-      console.error('Error bulk assigning students by class:', err);
-      showMessage('Info', 'Terjadi kesalahan saat mengalokasikan siswa.', 'info');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleBulkAssignSelectedSiswa = async () => {
-    if (selectedAlokasiSiswa.length === 0) {
-      showMessage('Peringatan', 'Pilih minimal satu siswa dari tabel terlebih dahulu.', 'error');
-      return;
-    }
-    if (!targetRuangAlokasi) {
-      showMessage('Peringatan', 'Pilih ruang ujian tujuan.', 'error');
-      return;
-    }
-
-    const roomObj = dataRuang.find(r => r.nama_ruang === targetRuangAlokasi || r.id_ruang === targetRuangAlokasi);
-    const roomName = roomObj?.nama_ruang || targetRuangAlokasi;
-
-    // ponytail: confirm() removed — caller uses confirmDialog
-
-    setIsLoading(true);
-    try {
-      const res = await api('assign_siswa_ruang_bulk', {
-        nama_ruang: roomName,
-        list_id_siswa: selectedAlokasiSiswa
-      });
-
-      if (res.status === 'success') {
-        await api('create_audit_log', {
-          username: user.username,
-          role: 'admin',
-          action: 'ALOKASI_SISWA_BULK',
-          target: `${selectedAlokasiSiswa.length} Siswa -> ${roomName}`
-        });
-        if (showMessage) {
-          showMessage('Sukses', `${selectedAlokasiSiswa.length} siswa berhasil dialokasikan ke ${roomName}.`, 'success');
-        } else {
-          showMessage('Berhasil', `${selectedAlokasiSiswa.length} siswa berhasil dialokasikan ke ${roomName}.`, 'success');
-        }
-        setSelectedAlokasiSiswa([]);
-        fetchData('pengawas');
-      } else {
-        showMessage('Gagal', res.message || 'Gagal mengalokasikan siswa.', 'error');
-      }
-    } catch (err) {
-      console.error('Error bulk assigning selected students:', err);
-      showMessage('Info', 'Terjadi kesalahan saat mengalokasikan siswa.', 'info');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSingleAssignSiswaRuang = async (id_siswa, newRoomName) => {
-    if (!newRoomName) return;
-    setIsLoading(true);
-    try {
-      const res = await api('assign_siswa_ruang_bulk', {
-        nama_ruang: newRoomName,
-        list_id_siswa: [id_siswa]
-      });
-
-      if (res.status === 'success') {
-        if (showMessage) {
-          showMessage('Sukses', 'Ruang siswa berhasil diperbarui.', 'success');
-        }
-        fetchData('pengawas');
-      } else {
-        showMessage('Gagal', res.message || 'Gagal memperbarui ruang siswa.', 'error');
-      }
-    } catch (err) {
-      console.error('Error assigning single student room:', err);
-      showMessage('Info', 'Terjadi kesalahan saat memperbarui ruang siswa.', 'info');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const [autoUsername, setAutoUsername] = useState('');
   const [jadwalTargetKelas, setJadwalTargetKelas] = useState('');
   const [jadwalGuruId, setJadwalGuruId] = useState('');
@@ -2116,13 +1476,13 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       title: 'Rangkaian Ujian',
       items: [
         { id: 'jadwal', label: 'Jadwal Ujian', icon: 'event_note' },
-        { id: 'pengawas', label: 'Pengawas & Ruang', icon: 'badge' }
+        { id: 'hasil', label: 'Hasil & Leger Nilai', icon: 'leaderboard' },
+        { id: 'pengumuman', label: 'Pengumuman', icon: 'campaign' }
       ]
     },
     {
       title: 'Sistem',
       items: [
-        { id: 'pengaturan', label: 'Pengaturan Sekolah', icon: 'settings' },
         { id: 'akun', label: 'Profil Admin', icon: 'person' }
       ]
     }
@@ -2143,83 +1503,15 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     mapel: 'Mata Pelajaran',
     kelas: 'Manajemen Kelas',
     jadwal: 'Jadwal Ujian',
-    pengawas: 'Manajemen Pengawas & Ruang Ujian',
-    kontrol: 'Kontrol Ujian',
+    hasil: 'Hasil & Leger Nilai Sekolah',
+    pengumuman: 'Pengumuman Sekolah',
     skema: 'Skema Penilaian Default',
     monitoring: 'Live Monitoring Ujian',
-    hasil: 'Rekap Hasil Ujian',
-    pengaturan: 'Pengaturan & Profil Sekolah',
     logs: 'Log Aktivitas Sistem',
     akun: 'Profil Admin'
   };
 
   // ================= MODALS RENDERERS (PHANTOM FREE) =================
-
-  const renderAnalisisModal = () => {
-    if (!isAnalisisModalOpen) return null;
-    return (
-      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] animate-fade-in">
-        <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-4xl shadow-2xl p-5 sm:p-6 relative border border-slate-200 dark:border-slate-700 max-h-[90vh] overflow-y-auto flex flex-col animate-scale-up">
-          <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-700">
-            <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary dark:text-primary-400">analytics</span>
-              Analisis Butir Soal
-            </h2>
-            <button
-              onClick={() => setIsAnalisisModalOpen(false)}
-              className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-            >
-              <span className="material-symbols-outlined text-xl">close</span>
-            </button>
-          </div>
-          <div className="flex-1 overflow-auto rounded-xl border border-slate-200 dark:border-slate-700">
-            <table className="w-full text-left border-collapse text-xs sm:text-sm">
-              <thead className="bg-slate-50 dark:bg-slate-900 sticky top-0 z-10 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                <tr>
-                  <th className="p-3 border-b border-slate-200 dark:border-slate-700">ID Soal</th>
-                  <th className="p-3 border-b border-slate-200 dark:border-slate-700 w-1/2">Pertanyaan</th>
-                  <th className="p-3 border-b border-slate-200 dark:border-slate-700 text-center">Tipe</th>
-                  <th className="p-3 border-b border-slate-200 dark:border-slate-700 text-center">Benar</th>
-                  <th className="p-3 border-b border-slate-200 dark:border-slate-700 text-center">Salah</th>
-                  <th className="p-3 border-b border-slate-200 dark:border-slate-700 text-right">Tingkat Kesukaran</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
-                {dataAnalisis.length > 0 ? dataAnalisis.map((soal, idx) => (
-                  <tr key={idx} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors">
-                    <td className="p-3 font-mono">{soal.id_soal}</td>
-                    <td className="p-3 truncate max-w-[200px]" dangerouslySetInnerHTML={{ __html: soal.pertanyaan }}></td>
-                    <td className="p-3 text-center">
-                      <span className="bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 px-2 py-0.5 rounded text-xs font-semibold">
-                        {soal.tipe_soal}
-                      </span>
-                    </td>
-                    <td className="p-3 text-center text-primary font-bold">{soal.correct}</td>
-                    <td className="p-3 text-center text-rose-600 font-bold">{soal.wrong}</td>
-                    <td className="p-3 text-right">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                        parseFloat(soal.difficulty) > 70 ? 'bg-primary/15 text-primary-700' :
-                        parseFloat(soal.difficulty) < 30 ? 'bg-rose-100 text-rose-700' :
-                        'bg-amber-100 text-amber-700'
-                      }`}>
-                        {soal.difficulty}%
-                      </span>
-                    </td>
-                  </tr>
-                )) : (
-                  <tr>
-                    <td colSpan="6" className="p-6 text-center text-slate-500">
-                      Belum ada data pengerjaan untuk dianalisis.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   const renderFormModal = () => {
     if (!formModal.isOpen) return null;
@@ -2517,6 +1809,16 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     ))}
                   </select>
                 </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Ruang Ujian (Opsional)</label>
+                    <input name="ruang" defaultValue={data?.ruang || ''} placeholder="Contoh: R.01" className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Sesi (Opsional)</label>
+                    <input name="sesi" defaultValue={data?.sesi || ''} placeholder="Contoh: Sesi 1" className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
+                  </div>
+                </div>
               </>
             )}
 
@@ -2715,16 +2017,16 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Tanggal Ujian</label>
-                  <input type="date" name="tanggal" defaultValue={data?.waktu_mulai ? new Date(data.waktu_mulai).toISOString().slice(0, 10) : ''} required className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
+                  <input type="date" name="tanggal" defaultValue={data?.waktu_mulai ? (() => { const d = new Date(data.waktu_mulai); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })() : ''} required className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Jam Mulai</label>
-                    <input type="time" name="waktu_mulai_time" defaultValue={data?.waktu_mulai ? new Date(data.waktu_mulai).toISOString().slice(11, 16) : ''} required className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
+                    <input type="time" name="waktu_mulai_time" defaultValue={data?.waktu_mulai ? (() => { const d = new Date(data.waktu_mulai); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; })() : ''} required className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Jam Selesai</label>
-                    <input type="time" name="waktu_selesai_time" defaultValue={data?.waktu_selesai ? new Date(data.waktu_selesai).toISOString().slice(11, 16) : ''} required className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
+                    <input type="time" name="waktu_selesai_time" defaultValue={data?.waktu_selesai ? (() => { const d = new Date(data.waktu_selesai); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; })() : ''} required className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
                   </div>
                 </div>
               </>
@@ -2993,286 +2295,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     );
   };
 
-  const renderAssignPengawasModal = () => {
-    if (!isAssignPengawasModalOpen) return null;
-    return (
-      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] animate-fade-in">
-        <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-lg shadow-2xl p-5 sm:p-6 relative border border-slate-200 dark:border-slate-700 max-h-[90vh] overflow-y-auto animate-scale-up">
-          <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-700">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary-400 flex items-center justify-center">
-                <span className="material-symbols-outlined text-xl">assignment_ind</span>
-              </div>
-              <div>
-                <h3 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white">Tugaskan Pengawas Ruang</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Kaitkan guru pengawas dengan ruang dan jadwal ujian</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setIsAssignPengawasModalOpen(false)}
-              className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-            >
-              <span className="material-symbols-outlined text-xl">close</span>
-            </button>
-          </div>
-
-          <form onSubmit={handleSaveAssignPengawas} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                Ruang Ujian <span className="text-rose-500">*</span>
-              </label>
-              {dataRuang.length === 0 ? (
-                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 text-xs text-amber-800 dark:text-amber-300 flex items-center justify-between">
-                  <span>Belum ada data ruang ujian. Buat ruang terlebih dahulu.</span>
-                  <button
-                    type="button"
-                    onClick={() => { setIsAssignPengawasModalOpen(false); setPengawasSubTab('ruang'); handleOpenRuangModal(); }}
-                    className="font-bold underline text-primary ml-2 shrink-0"
-                  >
-                    + Buat Ruang
-                  </button>
-                </div>
-              ) : (
-                <select
-                  value={assignPengawasForm.id_ruang}
-                  onChange={(e) => setAssignPengawasForm(prev => ({ ...prev, id_ruang: e.target.value }))}
-                  required
-                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                >
-                  <option value="">-- Pilih Ruang Ujian --</option>
-                  {dataRuang.map(r => (
-                    <option key={r.id_ruang} value={r.id_ruang}>
-                      {r.nama_ruang} {r.kode_ruang ? `(${r.kode_ruang})` : ''} - Kapasitas: {r.kapasitas}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                Guru Pengawas <span className="text-rose-500">*</span>
-              </label>
-              <select
-                value={assignPengawasForm.id_guru}
-                onChange={(e) => setAssignPengawasForm(prev => ({ ...prev, id_guru: e.target.value }))}
-                required
-                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              >
-                <option value="">-- Pilih Guru --</option>
-                {dataGuru.map(g => (
-                  <option key={g.id_guru} value={g.id_guru}>
-                    {g.nama_lengkap} {g.nip ? `(NIP: ${g.nip})` : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                Jadwal Ujian (Opsional)
-              </label>
-              <select
-                value={assignPengawasForm.id_jadwal}
-                onChange={(e) => setAssignPengawasForm(prev => ({ ...prev, id_jadwal: e.target.value }))}
-                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              >
-                <option value="">Semua Jadwal di Ruangan Ini (Tetap / Permanen)</option>
-                {dataJadwal.map(j => (
-                  <option key={j.id_jadwal} value={j.id_jadwal}>
-                    {j.mata_pelajaran?.nama_mapel || j.id_mapel} - Kelas: {j.target_kelas || 'Semua'} ({j.waktu_mulai ? new Date(j.waktu_mulai).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) : ''})
-                  </option>
-                ))}
-              </select>
-              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-                Pilih &quot;Semua Jadwal&quot; jika guru bertugas penuh mengawasi seluruh sesi di ruangan ini.
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                Peran Penugasan
-              </label>
-              <div className="grid grid-cols-2 gap-2.5">
-                {[
-                  { value: 'PENGAWAS UTAMA', label: 'Pengawas Utama', desc: 'Verifikasi tanda tangan & kehadiran' },
-                  { value: 'PROKTOR', label: 'Proktor Ruangan', desc: 'Bantuan teknis & anticheat' }
-                ].map(role => (
-                  <label
-                    key={role.value}
-                    className={`flex flex-col p-3 rounded-xl border cursor-pointer transition-all ${
-                      assignPengawasForm.peran === role.value
-                        ? 'border-primary bg-primary/5 dark:bg-primary/10 text-primary dark:text-primary-400 ring-1 ring-primary'
-                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-slate-50/50 dark:bg-slate-900/50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-bold text-slate-800 dark:text-white">{role.label}</span>
-                      <input
-                        type="radio"
-                        name="peran_pengawas"
-                        value={role.value}
-                        checked={assignPengawasForm.peran === role.value}
-                        onChange={(e) => setAssignPengawasForm(prev => ({ ...prev, peran: e.target.value }))}
-                        className="text-primary focus:ring-primary"
-                      />
-                    </div>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400">{role.desc}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-slate-100 dark:border-slate-700/80 flex items-center justify-end gap-2.5">
-              <button
-                type="button"
-                onClick={() => setIsAssignPengawasModalOpen(false)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors min-h-[40px]"
-              >
-                Batal
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting || dataRuang.length === 0}
-                className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 disabled:opacity-50 min-h-[40px]"
-              >
-                {isSubmitting ? (
-                  <>
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                    <span>Menyimpan...</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="material-symbols-outlined text-[18px]">check</span>
-                    <span>Simpan Penugasan</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    );
-  };
-
-  const renderRuangModal = () => {
-    if (!isRuangModalOpen) return null;
-    const isEdit = Boolean(editingRuang);
-    return (
-      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] animate-fade-in">
-        <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md shadow-2xl p-5 sm:p-6 relative border border-slate-200 dark:border-slate-700 max-h-[90vh] overflow-y-auto animate-scale-up">
-          <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-700">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary-400 flex items-center justify-center">
-                <span className="material-symbols-outlined text-xl">meeting_room</span>
-              </div>
-              <div>
-                <h3 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white">
-                  {isEdit ? 'Edit Ruang Ujian' : 'Tambah Ruang Ujian'}
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {isEdit ? 'Perbarui informasi dan kapasitas ruangan' : 'Tambahkan ruangan baru untuk pelaksanaan ujian'}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => setIsRuangModalOpen(false)}
-              className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-            >
-              <span className="material-symbols-outlined text-xl">close</span>
-            </button>
-          </div>
-
-          <form onSubmit={handleSaveRuang} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                Nama Ruang <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={ruangForm.nama_ruang}
-                onChange={(e) => setRuangForm(prev => ({ ...prev, nama_ruang: e.target.value }))}
-                placeholder="Contoh: Ruang 01, Lab Komputer A"
-                required
-                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Kode Ruang
-                </label>
-                <input
-                  type="text"
-                  value={ruangForm.kode_ruang}
-                  onChange={(e) => setRuangForm(prev => ({ ...prev, kode_ruang: e.target.value }))}
-                  placeholder="Contoh: R-01, LAB-A"
-                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Kapasitas (Kursi) <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="500"
-                  value={ruangForm.kapasitas}
-                  onChange={(e) => setRuangForm(prev => ({ ...prev, kapasitas: e.target.value }))}
-                  required
-                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary font-mono"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                Keterangan / Lokasi (Opsional)
-              </label>
-              <textarea
-                rows="3"
-                value={ruangForm.keterangan}
-                onChange={(e) => setRuangForm(prev => ({ ...prev, keterangan: e.target.value }))}
-                placeholder="Contoh: Gedung Timur Lantai 2, dilengkapi 35 PC dan AC"
-                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
-              ></textarea>
-            </div>
-
-            <div className="pt-3 border-t border-slate-100 dark:border-slate-700/80 flex items-center justify-end gap-2.5">
-              <button
-                type="button"
-                onClick={() => setIsRuangModalOpen(false)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors min-h-[40px]"
-              >
-                Batal
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 disabled:opacity-50 min-h-[40px]"
-              >
-                {isSubmitting ? (
-                  <>
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                    <span>Menyimpan...</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="material-symbols-outlined text-[18px]">check</span>
-                    <span>{isEdit ? 'Perbarui Ruang' : 'Tambah Ruang'}</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    );
-  };
-
   const renderPrintKartuModal = () => {
     if (!printKartuModal.isOpen) return null;
 
@@ -3281,14 +2303,9 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       new Set(dataSiswa.map(s => s.kelas).filter(Boolean))
     ).sort();
 
-    // Distinct list of rooms
+    // Distinct list of rooms from student data
     const availableRooms = Array.from(
-      new Set(
-        [
-          ...dataRuang.map(r => r.nama_ruang),
-          ...dataSiswa.map(s => s.ruang).filter(Boolean)
-        ]
-      )
+      new Set(dataSiswa.map(s => s.ruang).filter(Boolean))
     ).sort();
 
     // Calculate preview count
@@ -3322,10 +2339,10 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
               </div>
               <div>
                 <h3 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white">
-                  Cetak Kartu Ujian & Meja
+                  Cetak Kartu Peserta Ujian
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Pilih tipe kartu, filter data, dan pengaturan format kertas
+                  Pilih filter data dan pengaturan format kertas
                 </p>
               </div>
             </div>
@@ -3339,45 +2356,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
           </div>
 
           <div className="space-y-4">
-            {/* Mode Selector (Kartu Peserta vs Kartu Meja) */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                Tipe Dokumen Kartu
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPrintKartuModal(prev => ({ ...prev, mode: 'peserta' }))}
-                  className={`p-3 rounded-xl border text-left transition-all flex items-center gap-2.5 ${
-                    printKartuModal.mode === 'peserta'
-                      ? 'border-primary bg-primary/10 text-primary font-bold shadow-2xs'
-                      : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-xl">badge</span>
-                  <div>
-                    <div className="text-xs font-bold">Kartu Peserta</div>
-                    <div className="text-[10px] text-slate-400">Identitas, Login & Foto</div>
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPrintKartuModal(prev => ({ ...prev, mode: 'meja' }))}
-                  className={`p-3 rounded-xl border text-left transition-all flex items-center gap-2.5 ${
-                    printKartuModal.mode === 'meja'
-                      ? 'border-primary bg-primary/10 text-primary font-bold shadow-2xs'
-                      : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-xl">table_restaurant</span>
-                  <div>
-                    <div className="text-xs font-bold">Kartu Meja</div>
-                    <div className="text-[10px] text-slate-400">Nomor Meja & Info Peserta</div>
-                  </div>
-                </button>
-              </div>
-            </div>
-
             {/* Checkbox: Selected Only (if students are checked in table) */}
             {selectedSiswa.length > 0 && (
               <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/40 flex items-center gap-2.5">
@@ -3485,106 +2463,17 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
             </div>
 
             {/* Password toggle for Kartu Peserta */}
-            {printKartuModal.mode === 'peserta' && (
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="showPasswordCheck"
-                  checked={printKartuModal.showPassword}
-                  onChange={(e) => setPrintKartuModal(prev => ({ ...prev, showPassword: e.target.checked }))}
-                  className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/20"
-                />
-                <label htmlFor="showPasswordCheck" className="text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
-                  Cetak password akun siswa secara jelas (clear-text)
-                </label>
-              </div>
-            )}
-
-            {/* Pengaturan Kop & Logo Dokumen */}
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-sm text-primary">image</span>
-                  Pengaturan Kop & Logo
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPrintKartuModal(prev => ({ ...prev, isOpen: false }));
-                    navigateTab('pengaturan');
-                  }}
-                  className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1"
-                >
-                  <span className="material-symbols-outlined text-[14px]">tune</span>
-                  Atur di Menu Profil
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <label className="flex items-center gap-2 cursor-pointer bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={kopSettings.show_logo_kiri !== false && (printKartuModal.mode === 'meja' ? kopSettings.kartu_meja_show_logo_kiri !== false : kopSettings.kartu_peserta_show_logo_kiri !== false)}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      setKopSettings(prev => ({
-                        ...prev,
-                        show_logo_kiri: checked ? true : prev.show_logo_kiri,
-                        [printKartuModal.mode === 'meja' ? 'kartu_meja_show_logo_kiri' : 'kartu_peserta_show_logo_kiri']: checked
-                      }));
-                    }}
-                    className="w-3.5 h-3.5 rounded text-primary"
-                  />
-                  <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">Logo Kiri</span>
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={kopSettings.show_logo_kanan !== false && (printKartuModal.mode === 'meja' ? kopSettings.kartu_meja_show_logo_kanan !== false : kopSettings.kartu_peserta_show_logo_kanan !== false)}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      setKopSettings(prev => ({
-                        ...prev,
-                        show_logo_kanan: checked ? true : prev.show_logo_kanan,
-                        [printKartuModal.mode === 'meja' ? 'kartu_meja_show_logo_kanan' : 'kartu_peserta_show_logo_kanan']: checked
-                      }));
-                    }}
-                    className="w-3.5 h-3.5 rounded text-primary"
-                  />
-                  <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">Logo Kanan</span>
-                </label>
-              </div>
-
-              {printKartuModal.mode === 'meja' && (
-                <div className="flex items-center justify-between pt-1 border-t border-slate-200 dark:border-slate-700 text-xs">
-                  <span className="text-[11px] text-slate-500">Format Kop Meja:</span>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setKopSettings(prev => ({ ...prev, kop_meja_mode: 'formal' }))}
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        kopSettings.kop_meja_mode === 'formal'
-                          ? 'bg-primary text-white'
-                          : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
-                      }`}
-                    >
-                      Formal
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setKopSettings(prev => ({ ...prev, kop_meja_mode: 'minimalis' }))}
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        kopSettings.kop_meja_mode === 'minimalis'
-                          ? 'bg-primary text-white'
-                          : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
-                      }`}
-                    >
-                      Minimalis
-                    </button>
-                  </div>
-                </div>
-              )}
+            <div className="flex items-center gap-2 pt-1">
+              <input
+                type="checkbox"
+                id="showPasswordCheck"
+                checked={printKartuModal.showPassword}
+                onChange={(e) => setPrintKartuModal(prev => ({ ...prev, showPassword: e.target.checked }))}
+                className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/20"
+              />
+              <label htmlFor="showPasswordCheck" className="text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
+                Cetak password akun siswa secara jelas (clear-text)
+              </label>
             </div>
 
             {/* Kepala Sekolah & Tahun Ajaran Customizer */}
@@ -3595,7 +2484,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 </label>
                 <input
                   type="text"
-                  placeholder={kopSettings.kepala_sekolah || user.kepala_sekolah || 'Nama Kepala Sekolah'}
+                  placeholder={user.kepala_sekolah || 'Nama Kepala Sekolah'}
                   value={printKartuModal.namaKepalaSekolah}
                   onChange={(e) => setPrintKartuModal(prev => ({ ...prev, namaKepalaSekolah: e.target.value }))}
                   className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2 text-xs bg-white dark:bg-slate-900 dark:text-white"
@@ -3607,7 +2496,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 </label>
                 <input
                   type="text"
-                  placeholder={kopSettings.nip_kepala_sekolah || user.nip_kepala_sekolah || '-'}
+                  placeholder={user.nip_kepala_sekolah || '-'}
                   value={printKartuModal.nipKepalaSekolah}
                   onChange={(e) => setPrintKartuModal(prev => ({ ...prev, nipKepalaSekolah: e.target.value }))}
                   className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2 text-xs bg-white dark:bg-slate-900 dark:text-white"
@@ -3685,7 +2574,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Durasi Pengerjaan:</span>
-                <span className="font-semibold text-slate-700 dark:text-slate-200">{cloneModal.source.durasi} Menit</span>
+                <span className="font-semibold text-slate-700 dark:text-slate-200">{cloneModal.source.durasi_menit || cloneModal.source.durasi || '-'} Menit</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Kelas Sumber Asal:</span>
@@ -3707,16 +2596,19 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
               {dataKelas && dataKelas.length > 0 && (
                 <div className="flex items-center gap-1.5 flex-wrap mt-2">
                   <span className="text-[11px] text-slate-400">Pilih cepat:</span>
-                  {dataKelas.slice(0, 8).map(k => (
-                    <button
-                      key={k.id_kelas || k.nama_kelas}
-                      type="button"
-                      onClick={() => setCloneModal(prev => ({ ...prev, targetKelas: k.nama_kelas }))}
-                      className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-[10px] font-bold text-slate-700 dark:text-slate-200 transition-colors"
-                    >
-                      {k.nama_kelas}
-                    </button>
-                  ))}
+                  {dataKelas.slice(0, 8).map(k => {
+                    const labelKelas = k.nama_kelas || `${k.tingkat || ''} ${k.kelas_paralel || ''}`.trim();
+                    return (
+                      <button
+                        key={k.id_kelas || labelKelas}
+                        type="button"
+                        onClick={() => setCloneModal(prev => ({ ...prev, targetKelas: labelKelas }))}
+                        className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-[10px] font-bold text-slate-700 dark:text-slate-200 transition-colors"
+                      >
+                        {labelKelas}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -3941,7 +2833,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 return (
                   <button
                     key={item.id}
-                    data-tutorial={item.id === 'pengawas' ? `admin-${item.id} admin-kontrol` : `admin-${item.id}`}
                     data-assistant-target={item.id}
                     type="button"
                     onClick={() => navigateTab(item.id)}
@@ -4114,7 +3005,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     return (
                       <button
                         key={item.id}
-                        data-tutorial={item.id === 'pengawas' ? `admin-${item.id} admin-kontrol` : `admin-${item.id}`}
                         data-assistant-target={item.id}
                         type="button"
                         onClick={() => navigateTab(item.id)}
@@ -4159,7 +3049,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
             <button
               key={tab.id}
               type="button"
-              data-tutorial={!tab.isDrawerTrigger ? (tab.id === 'jadwal' ? `admin-${tab.id} admin-kontrol` : `admin-${tab.id}`) : undefined}
               onClick={() => {
                 if (isTrigger) {
                   setIsMobileDrawerOpen(true);
@@ -4360,14 +3249,12 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   </button>
                   <button
                     type="button"
-                    data-tutorial="admin-dokumen"
-                    onClick={() => handleOpenPrintKartu('peserta')}
+                    onClick={() => handleOpenPrintKartu()}
                     className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-primary/10 text-primary dark:text-primary-300 hover:bg-primary/20 transition-all border border-primary/20 min-h-[44px]"
-                    title="Cetak Kartu Peserta Ujian & Kartu Meja"
+                    title="Cetak Kartu Peserta Ujian"
                   >
                     <span className="material-symbols-outlined text-[18px]">badge</span>
                     <span className="hidden sm:inline">Cetak Kartu</span>
-                    <TutorialBadge role="admin" targetId="admin-dokumen" />
                   </button>
                   <button
                     onClick={() => setImportModal({ isOpen: true, type: 'siswa' })}
@@ -4958,8 +3845,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   {/* Bulk Exam Status Operations */}
-                  <div data-tutorial="admin-kontrol" className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-700/60 p-1 rounded-xl">
-                    <TutorialBadge role="admin" targetId="admin-kontrol" className="mr-0.5" />
+                  <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-700/60 p-1 rounded-xl">
                     <button
                       type="button"
                       onClick={() => handleBulkUpdateStatusUjian('AKTIF')}
@@ -5026,15 +3912,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   >
                     <span className="material-symbols-outlined text-[18px]">archive</span>
                     <span className="hidden sm:inline">{isBackingUp ? 'Membuat Backup...' : '1-Klik Backup CBT'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleOpenPrintKartu('peserta')}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-primary/10 text-primary dark:text-primary-300 hover:bg-primary/20 transition-all border border-primary/20 min-h-[44px]"
-                    title="Cetak Kartu Peserta Ujian"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">badge</span>
-                    <span className="hidden sm:inline">Cetak Kartu</span>
                   </button>
                   <button
                     onClick={() => openCreateModal('jadwal')}
@@ -5255,14 +4132,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                                     Monitoring
                                   </button>
                                 )}
-                                {j.status_ujian === 'SELESAI' && (
-                                  <button
-                                    onClick={() => { setSelectedJadwal(j.id_jadwal); navigateTab('hasil'); }}
-                                    className="px-2.5 py-1 rounded-lg text-xs font-bold bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors"
-                                  >
-                                    Hasil
-                                  </button>
-                                )}
                                 {j.status_ujian !== 'AKTIF' && j.status_ujian !== 'SELESAI' && (
                                   <button
                                     onClick={() => handleUpdateStatusUjian(j.id_jadwal, 'AKTIF')}
@@ -5289,7 +4158,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                                 )}
                                 <button
                                   type="button"
-                                  onClick={() => handleOpenPrintKartu('peserta', j.target_kelas)}
+                                  onClick={() => handleOpenPrintKartu(j.target_kelas)}
                                   className="p-1 text-slate-500 hover:text-primary hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
                                   title="Cetak Kartu Peserta untuk Kelas Ini"
                                 >
@@ -5423,14 +4292,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                             Monitoring
                           </button>
                         )}
-                        {j.status_ujian === 'SELESAI' && (
-                          <button
-                            onClick={() => { setSelectedJadwal(j.id_jadwal); navigateTab('hasil'); }}
-                            className="px-3 py-1.5 bg-purple-50 text-purple-600 rounded-xl text-xs font-bold"
-                          >
-                            Hasil
-                          </button>
-                        )}
                         {j.status_ujian !== 'AKTIF' && j.status_ujian !== 'SELESAI' && (
                           <button
                             onClick={() => handleUpdateStatusUjian(j.id_jadwal, 'AKTIF')}
@@ -5457,7 +4318,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                         )}
                         <button
                           type="button"
-                          onClick={() => handleOpenPrintKartu('peserta', j.target_kelas)}
+                          onClick={() => handleOpenPrintKartu(j.target_kelas)}
                           className="p-1.5 text-slate-500 hover:text-primary hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"
                           title="Cetak Kartu untuk Kelas Ini"
                         >
@@ -5491,898 +4352,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
             </div>
           )}
 
-          {/* ================= TAB: PENGAWAS & RUANG UJIAN ================= */}
-          {activeTab === 'pengawas' && (
-            <div className="space-y-5 animate-fade-in-up">
-              {/* Header Title & Actions */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2.5">
-                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg sm:text-xl">
-                      Manajemen Pengawas & Ruang Ujian
-                    </h3>
-                    <StatusBadge variant="neutral" size="xs">
-                      {pengawasSubTab === 'penugasan'
-                        ? `${filteredPengawas.length} Tugas`
-                        : pengawasSubTab === 'ruang'
-                        ? `${filteredRuang.length} Ruang`
-                        : `${dataSiswa.filter(s => s.ruang).length}/${dataSiswa.length} Siswa`}
-                    </StatusBadge>
-                  </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Atur master ruang ujian, penugasan pengawas guru, dan alokasi ruangan siswa
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {pengawasSubTab === 'penugasan' && (
-                    <button
-                      onClick={handleOpenAssignPengawasModal}
-                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 min-h-[44px]"
-                    >
-                      <span className="material-symbols-outlined text-[18px]">add_circle</span>
-                      <span>Tugaskan Pengawas</span>
-                    </button>
-                  )}
-                  {pengawasSubTab === 'ruang' && (
-                    <button
-                      onClick={() => handleOpenRuangModal()}
-                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 min-h-[44px]"
-                    >
-                      <span className="material-symbols-outlined text-[18px]">add_circle</span>
-                      <span>Tambah Ruang Baru</span>
-                    </button>
-                  )}
-                  {pengawasSubTab === 'alokasi_siswa' && (
-                    <button
-                      onClick={() => fetchData('pengawas')}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 transition-colors min-h-[44px]"
-                      title="Segarkan Data"
-                    >
-                      <span className="material-symbols-outlined text-[18px]">refresh</span>
-                      <span className="hidden sm:inline">Refresh Data</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Sub-Tab Navigation Pills */}
-              <div className="flex items-center gap-2 border-b border-slate-200/80 dark:border-slate-700/80 pb-3 overflow-x-auto scrollbar-none">
-                <button
-                  type="button"
-                  onClick={() => setPengawasSubTab('penugasan')}
-                  className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all min-h-[44px] ${
-                    pengawasSubTab === 'penugasan'
-                      ? 'bg-primary text-white shadow-sm shadow-primary/20'
-                      : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/70 border border-slate-200/80 dark:border-slate-700/80'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-[18px]">badge</span>
-                  <span>Penugasan Pengawas</span>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-                    pengawasSubTab === 'penugasan' ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                  }`}>
-                    {dataPengawasRuang.length}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setPengawasSubTab('ruang')}
-                  className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all min-h-[44px] ${
-                    pengawasSubTab === 'ruang'
-                      ? 'bg-primary text-white shadow-sm shadow-primary/20'
-                      : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/70 border border-slate-200/80 dark:border-slate-700/80'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-[18px]">meeting_room</span>
-                  <span>Master Ruang Ujian</span>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-                    pengawasSubTab === 'ruang' ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                  }`}>
-                    {dataRuang.length}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setPengawasSubTab('alokasi_siswa')}
-                  className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all min-h-[44px] ${
-                    pengawasSubTab === 'alokasi_siswa'
-                      ? 'bg-primary text-white shadow-sm shadow-primary/20'
-                      : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/70 border border-slate-200/80 dark:border-slate-700/80'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-[18px]">group_add</span>
-                  <span>Alokasi Siswa</span>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-                    pengawasSubTab === 'alokasi_siswa' ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                  }`}>
-                    {dataSiswa.filter(s => s.ruang).length} / {dataSiswa.length}
-                  </span>
-                </button>
-              </div>
-
-              {/* ================= SUB-TAB 1: PENUGASAN PENGAWAS ================= */}
-              {pengawasSubTab === 'penugasan' && (
-                <div className="space-y-4 animate-fade-in">
-                  {/* 4 Metric KPI Cards */}
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-                    <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-3.5">
-                      <div className="w-12 h-12 rounded-xl bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary-400 flex items-center justify-center shrink-0">
-                        <span className="material-symbols-outlined text-2xl">meeting_room</span>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold text-slate-400 truncate">Total Ruang</p>
-                        <h4 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white">
-                          {pengawasMetrics.totalRuang}
-                        </h4>
-                        <span className="text-[10px] text-slate-500">Ruangan terdaftar</span>
-                      </div>
-                    </div>
-
-                    <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-3.5">
-                      <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                        <span className="material-symbols-outlined text-2xl">assignment_ind</span>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold text-slate-400 truncate">Pengawas Ditugaskan</p>
-                        <h4 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white">
-                          {pengawasMetrics.totalPenugasan}
-                        </h4>
-                        <span className="text-[10px] text-slate-500">{pengawasMetrics.uniqueGuruCount} guru pengawas</span>
-                      </div>
-                    </div>
-
-                    <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-3.5">
-                      <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                        <span className="material-symbols-outlined text-2xl">check_circle</span>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold text-slate-400 truncate">Ruang Terisi</p>
-                        <h4 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white">
-                          {pengawasMetrics.ruangTerisiCount} / {pengawasMetrics.totalRuang}
-                        </h4>
-                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
-                          {pengawasMetrics.totalRuang > 0 ? `${Math.round((pengawasMetrics.ruangTerisiCount / pengawasMetrics.totalRuang) * 100)}% terisi` : '0%'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className={`bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border flex items-center gap-3.5 ${
-                      pengawasMetrics.ruangBelumAdaPengawas > 0
-                        ? 'border-amber-300 dark:border-amber-800/80 bg-amber-50/20'
-                        : 'border-slate-200/80 dark:border-slate-700/80'
-                    }`}>
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
-                        pengawasMetrics.ruangBelumAdaPengawas > 0
-                          ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'
-                          : 'bg-slate-100 text-slate-500 dark:bg-slate-800'
-                      }`}>
-                        <span className="material-symbols-outlined text-2xl">
-                          {pengawasMetrics.ruangBelumAdaPengawas > 0 ? 'warning' : 'verified'}
-                        </span>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold text-slate-400 truncate">Ruang Belum Ada Pengawas</p>
-                        <h4 className={`text-xl sm:text-2xl font-black ${
-                          pengawasMetrics.ruangBelumAdaPengawas > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-800 dark:text-white'
-                        }`}>
-                          {pengawasMetrics.ruangBelumAdaPengawas}
-                        </h4>
-                        <span className={`text-[10px] ${
-                          pengawasMetrics.ruangBelumAdaPengawas > 0 ? 'text-amber-600 dark:text-amber-400 font-bold' : 'text-slate-500'
-                        }`}>
-                          {pengawasMetrics.ruangBelumAdaPengawas > 0 ? 'Perlu ditugaskan' : 'Semua ruang terisi'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Filter & Search Bar */}
-                  <div className="bg-white dark:bg-slate-800 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1">
-                      {/* Filter by Jadwal */}
-                      <div className="relative min-w-[220px]">
-                        <select
-                          value={filterRuangJadwal}
-                          onChange={(e) => setFilterRuangJadwal(e.target.value)}
-                          className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none pr-8 cursor-pointer"
-                        >
-                          <option value="ALL">Semua Jadwal Ujian</option>
-                          {dataJadwal.map(j => (
-                            <option key={j.id_jadwal} value={j.id_jadwal}>
-                              {j.mata_pelajaran?.nama_mapel || j.id_mapel} ({j.target_kelas || 'Semua Kelas'})
-                            </option>
-                          ))}
-                        </select>
-                        <span className="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">
-                          expand_more
-                        </span>
-                      </div>
-
-                      {/* Search Input */}
-                      <div className="relative flex-1">
-                        <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">
-                          search
-                        </span>
-                        <input
-                          type="text"
-                          value={searchPengawas}
-                          onChange={(e) => setSearchPengawas(e.target.value)}
-                          placeholder="Cari nama guru, NIP, atau nama ruangan..."
-                          className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20"
-                        />
-                        {searchPengawas && (
-                          <button
-                            onClick={() => setSearchPengawas('')}
-                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
-                          >
-                            <span className="material-symbols-outlined text-sm">close</span>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={handleOpenAssignPengawasModal}
-                      className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 shrink-0"
-                    >
-                      <span className="material-symbols-outlined text-[18px]">add</span>
-                      <span>Tugaskan Pengawas</span>
-                    </button>
-                  </div>
-
-                  {/* List / Table of Assignments */}
-                  {filteredPengawas.length === 0 ? (
-                    <EmptyState
-                      icon="badge"
-                      title={dataPengawasRuang.length === 0 ? "Belum Ada Penugasan Pengawas" : "Tidak Ada Data yang Cocok"}
-                      description={
-                        dataPengawasRuang.length === 0
-                          ? "Tugaskan guru untuk mengawasi ruang ujian tertentu agar guru dapat memantau dan memverifikasi kehadiran siswa."
-                          : "Coba sesuaikan kata kunci pencarian atau filter jadwal ujian Anda."
-                      }
-                      actionText={dataPengawasRuang.length === 0 ? "+ Tugaskan Pengawas Pertama" : undefined}
-                      onAction={dataPengawasRuang.length === 0 ? handleOpenAssignPengawasModal : undefined}
-                    />
-                  ) : (
-                    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm overflow-hidden">
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse text-xs sm:text-sm">
-                          <thead className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-700/80 text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                            <tr>
-                              <th className="p-3.5 pl-4 sm:pl-6">Ruang Ujian</th>
-                              <th className="p-3.5">Guru Pengawas</th>
-                              <th className="p-3.5">Jadwal / Sesi</th>
-                              <th className="p-3.5 text-center">Peran</th>
-                              <th className="p-3.5 text-center">Status</th>
-                              <th className="p-3.5 pr-4 sm:pr-6 text-right">Aksi</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                            {filteredPengawas.map((p) => {
-                              const guruFoto = p.guru?.foto || `https://api.dicebear.com/7.x/bottts/svg?seed=${p.guru?.nama_lengkap || p.id_guru}`;
-                              return (
-                                <tr key={p.id_penugasan} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/60 transition-colors">
-                                  {/* Room info */}
-                                  <td className="p-3.5 pl-4 sm:pl-6">
-                                    <div className="flex items-center gap-2.5">
-                                      <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary dark:text-primary-400 flex items-center justify-center shrink-0">
-                                        <span className="material-symbols-outlined text-base">meeting_room</span>
-                                      </div>
-                                      <div>
-                                        <div className="font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
-                                          <span>{p.ruang?.nama_ruang || 'Ruang Tidak Diketahui'}</span>
-                                          {p.ruang?.kode_ruang && (
-                                            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
-                                              {p.ruang.kode_ruang}
-                                            </span>
-                                          )}
-                                        </div>
-                                        <span className="text-[11px] text-slate-400">
-                                          Kapasitas: {p.ruang?.kapasitas || 30} kursi
-                                        </span>
-                                      </div>
-                                    </div>
-                                  </td>
-
-                                  {/* Guru info */}
-                                  <td className="p-3.5">
-                                    <div className="flex items-center gap-2.5">
-                                      <img
-                                        src={guruFoto}
-                                        alt={p.guru?.nama_lengkap || 'Guru'}
-                                        className="w-8 h-8 rounded-full object-cover bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-700 shrink-0"
-                                        onError={(e) => { e.target.src = `https://api.dicebear.com/7.x/bottts/svg?seed=${p.id_guru}`; }}
-                                      />
-                                      <div>
-                                        <div className="font-bold text-slate-800 dark:text-white">
-                                          {p.guru?.nama_lengkap || 'Guru Pengawas'}
-                                        </div>
-                                        <div className="text-[11px] text-slate-400 font-mono">
-                                          {p.guru?.nip ? `NIP. ${p.guru.nip}` : p.guru?.username ? `@${p.guru.username}` : '-'}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </td>
-
-                                  {/* Jadwal info */}
-                                  <td className="p-3.5">
-                                    {p.id_jadwal && p.jadwal ? (
-                                      <div>
-                                        <span className="font-bold text-slate-700 dark:text-slate-300 block">
-                                          {p.jadwal.mata_pelajaran?.nama_mapel || p.jadwal.id_mapel || 'Jadwal Terdaftar'}
-                                        </span>
-                                        <span className="text-[11px] text-slate-400">
-                                          Kelas: {p.jadwal.target_kelas || 'Semua'}
-                                        </span>
-                                      </div>
-                                    ) : (
-                                      <span className="inline-flex items-center gap-1 text-slate-500 dark:text-slate-400 text-xs italic">
-                                        <span className="material-symbols-outlined text-[14px]">all_inclusive</span>
-                                        Semua Jadwal di Ruangan Ini
-                                      </span>
-                                    )}
-                                  </td>
-
-                                  {/* Peran badge */}
-                                  <td className="p-3.5 text-center">
-                                    <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
-                                      p.peran === 'PROKTOR'
-                                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
-                                        : p.peran === 'PENGAWAS CADANGAN'
-                                        ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
-                                        : 'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-300'
-                                    }`}>
-                                      {p.peran || 'PENGAWAS UTAMA'}
-                                    </span>
-                                  </td>
-
-                                  {/* Status */}
-                                  <td className="p-3.5 text-center">
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                      {p.status_tugas || 'AKTIF'}
-                                    </span>
-                                  </td>
-
-                                  {/* Action */}
-                                  <td className="p-3.5 pr-4 sm:pr-6 text-right">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeleteAssignPengawas(p)}
-                                      className="p-1.5 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors"
-                                      title="Hapus Penugasan"
-                                    >
-                                      <span className="material-symbols-outlined text-lg">delete</span>
-                                    </button>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* ================= SUB-TAB 2: MASTER RUANG UJIAN ================= */}
-              {pengawasSubTab === 'ruang' && (
-                <div className="space-y-4 animate-fade-in">
-                  {/* Header & Search */}
-                  <div className="bg-white dark:bg-slate-800 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                    <div className="relative flex-1">
-                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">
-                        search
-                      </span>
-                      <input
-                        type="text"
-                        value={searchRuang}
-                        onChange={(e) => setSearchRuang(e.target.value)}
-                        placeholder="Cari nama ruang, kode ruang, atau keterangan..."
-                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20"
-                      />
-                      {searchRuang && (
-                        <button
-                          onClick={() => setSearchRuang('')}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
-                        >
-                          <span className="material-symbols-outlined text-sm">close</span>
-                        </button>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => handleOpenRuangModal()}
-                      className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 shrink-0"
-                    >
-                      <span className="material-symbols-outlined text-[18px]">add</span>
-                      <span>Tambah Ruang</span>
-                    </button>
-                  </div>
-
-                  {/* Room Cards Grid */}
-                  {filteredRuang.length === 0 ? (
-                    <EmptyState
-                      icon="meeting_room"
-                      title={dataRuang.length === 0 ? "Belum Ada Ruang Ujian" : "Tidak Ada Ruang yang Cocok"}
-                      description={
-                        dataRuang.length === 0
-                          ? "Tambahkan master ruangan ujian seperti 'Ruang 01' atau 'Lab Komputer' untuk mengalokasikan siswa dan menugaskan guru pengawas."
-                          : "Coba gunakan kata kunci pencarian yang lain."
-                      }
-                      actionText={dataRuang.length === 0 ? "+ Tambah Ruang Sekarang" : undefined}
-                      onAction={dataRuang.length === 0 ? () => handleOpenRuangModal() : undefined}
-                    />
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {filteredRuang.map((r) => {
-                        const siswaInRoom = dataSiswa.filter(s => s.ruang === r.nama_ruang || s.ruang === r.id_ruang);
-                        const pengawasInRoom = dataPengawasRuang.filter(p => p.id_ruang === r.id_ruang);
-                        const kapasitasNum = Number(r.kapasitas) || 30;
-                        const fillPercent = Math.min(100, Math.round((siswaInRoom.length / kapasitasNum) * 100));
-
-                        return (
-                          <div
-                            key={r.id_ruang}
-                            className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm p-4 hover:shadow-md hover:border-primary/40 transition-all flex flex-col justify-between"
-                          >
-                            <div>
-                              {/* Top Bar: Icon, Name & Code */}
-                              <div className="flex items-start justify-between gap-2 mb-3">
-                                <div className="flex items-center gap-2.5">
-                                  <div className="w-10 h-10 rounded-xl bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary-400 flex items-center justify-center shrink-0">
-                                    <span className="material-symbols-outlined text-xl">meeting_room</span>
-                                  </div>
-                                  <div>
-                                    <h4 className="font-bold text-slate-800 dark:text-white text-base">
-                                      {r.nama_ruang}
-                                    </h4>
-                                    <div className="flex items-center gap-1.5 mt-0.5">
-                                      {r.kode_ruang && (
-                                        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
-                                          {r.kode_ruang}
-                                        </span>
-                                      )}
-                                      <span className="text-[11px] text-slate-400">
-                                        Kapasitas: {kapasitasNum} kursi
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    onClick={() => handleOpenRuangModal(r)}
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                                    title="Edit Ruangan"
-                                  >
-                                    <span className="material-symbols-outlined text-base">edit</span>
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteRuang(r)}
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                                    title="Hapus Ruangan"
-                                  >
-                                    <span className="material-symbols-outlined text-base">delete</span>
-                                  </button>
-                                </div>
-                              </div>
-
-                              {/* Capacity & Allocation Progress */}
-                              <div className="space-y-1.5 my-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
-                                <div className="flex items-center justify-between text-xs">
-                                  <span className="text-slate-500 dark:text-slate-400 font-medium">Siswa Teralokasi:</span>
-                                  <span className="font-bold text-slate-700 dark:text-slate-200">
-                                    {siswaInRoom.length} / {kapasitasNum}
-                                    <span className="text-[10px] font-normal text-slate-400 ml-1">({fillPercent}%)</span>
-                                  </span>
-                                </div>
-                                <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
-                                  <div
-                                    className={`h-full rounded-full transition-all ${
-                                      fillPercent > 100
-                                        ? 'bg-rose-500'
-                                        : fillPercent >= 80
-                                        ? 'bg-amber-500'
-                                        : 'bg-primary'
-                                    }`}
-                                    style={{ width: `${Math.min(100, fillPercent)}%` }}
-                                  ></div>
-                                </div>
-                              </div>
-
-                              {/* Pengawas Assigned */}
-                              <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between mb-2">
-                                <span className="flex items-center gap-1">
-                                  <span className="material-symbols-outlined text-sm text-slate-400">badge</span>
-                                  <span>Pengawas Ditugaskan:</span>
-                                </span>
-                                <span className={`font-bold ${pengawasInRoom.length > 0 ? 'text-primary' : 'text-amber-600 dark:text-amber-400'}`}>
-                                  {pengawasInRoom.length > 0 ? `${pengawasInRoom.length} Guru` : 'Belum Ada'}
-                                </span>
-                              </div>
-
-                              {r.keterangan && (
-                                <p className="text-[11px] text-slate-400 dark:text-slate-500 italic line-clamp-2 mt-1">
-                                  &quot;{r.keterangan}&quot;
-                                </p>
-                              )}
-                            </div>
-
-                            {/* Card Footer: Quick action to assign proctor */}
-                            <div className="pt-3 mt-3 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between">
-                              <button
-                                onClick={() => {
-                                  setAssignPengawasForm({
-                                    id_ruang: r.id_ruang,
-                                    id_guru: dataGuru[0]?.id_guru || '',
-                                    id_jadwal: '',
-                                    peran: 'PENGAWAS UTAMA'
-                                  });
-                                  setIsAssignPengawasModalOpen(true);
-                                }}
-                                className="text-xs font-bold text-primary hover:text-primary/80 flex items-center gap-1"
-                              >
-                                <span className="material-symbols-outlined text-[16px]">person_add</span>
-                                <span>+ Tugaskan Guru</span>
-                              </button>
-
-                              <button
-                                onClick={() => {
-                                  setTargetRuangAlokasi(r.nama_ruang);
-                                  setFilterAlokasiRuang('ALL');
-                                  setPengawasSubTab('alokasi_siswa');
-                                }}
-                                className="text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center gap-1"
-                              >
-                                <span>Alokasi Siswa</span>
-                                <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* ================= SUB-TAB 3: ALOKASI SISWA KE RUANGAN ================= */}
-              {pengawasSubTab === 'alokasi_siswa' && (
-                <div className="space-y-4 animate-fade-in">
-                  {/* Allocation Operations Card */}
-                  <div className="bg-white dark:bg-slate-800 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-700/80">
-                      <div>
-                        <h4 className="font-bold text-slate-800 dark:text-white text-base flex items-center gap-2">
-                          <span className="material-symbols-outlined text-primary">groups</span>
-                          Distribusi Ruangan Siswa
-                        </h4>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                          Tentukan ruang ujian bagi siswa secara cepat per Rombel/Kelas atau tandai siswa terpilih
-                        </p>
-                      </div>
-
-                      {/* Room Stats Pill */}
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="px-2.5 py-1 rounded-xl text-xs font-bold bg-primary/10 text-primary dark:text-primary-400">
-                          {dataSiswa.filter(s => s.ruang).length} Siswa Terbagi
-                        </span>
-                        <span className="px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
-                          {dataSiswa.filter(s => !s.ruang).length} Belum Ada Ruang
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Step 1: Target Room Selector */}
-                    <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-700/80">
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
-                        <span className="w-5 h-5 rounded-full bg-primary text-white text-[11px] flex items-center justify-center font-bold">1</span>
-                        <span>Pilih Ruangan Ujian Tujuan</span>
-                      </label>
-                      {dataRuang.length === 0 ? (
-                        <div className="text-xs text-rose-500 flex items-center justify-between">
-                          <span>Belum ada ruang terdaftar. Silakan buat ruang ujian terlebih dahulu.</span>
-                          <button
-                            type="button"
-                            onClick={() => { setPengawasSubTab('ruang'); handleOpenRuangModal(); }}
-                            className="font-bold underline text-primary ml-2"
-                          >
-                            + Tambah Ruang
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                          {dataRuang.map(r => {
-                            const countInRoom = dataSiswa.filter(s => s.ruang === r.nama_ruang || s.ruang === r.id_ruang).length;
-                            const isSelected = targetRuangAlokasi === r.nama_ruang;
-                            return (
-                              <button
-                                key={r.id_ruang}
-                                type="button"
-                                onClick={() => setTargetRuangAlokasi(r.nama_ruang)}
-                                className={`p-2.5 rounded-xl border text-left transition-all flex items-center justify-between ${
-                                  isSelected
-                                    ? 'border-primary bg-primary/10 text-primary ring-2 ring-primary/20 dark:bg-primary/20 dark:text-primary-300'
-                                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-slate-300 text-slate-700 dark:text-slate-300'
-                                }`}
-                              >
-                                <div className="min-w-0">
-                                  <div className="font-bold text-xs truncate">{r.nama_ruang}</div>
-                                  <div className="text-[10px] text-slate-400">
-                                    Kapasitas: {r.kapasitas} kursi
-                                  </div>
-                                </div>
-                                <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-full ${
-                                  countInRoom >= r.kapasitas
-                                    ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400'
-                                    : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                                }`}>
-                                  {countInRoom}/{r.kapasitas}
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Step 2: Allocation Execution Options */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                      {/* Option A: Bulk by Class */}
-                      <div className="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-900/40 flex flex-col justify-between">
-                        <div>
-                          <div className="flex items-center gap-1.5 mb-1.5">
-                            <span className="w-5 h-5 rounded-full bg-slate-700 text-white text-[11px] flex items-center justify-center font-bold">2A</span>
-                            <h5 className="font-bold text-xs text-slate-800 dark:text-white">Alokasi Cepat per Rombel / Kelas</h5>
-                          </div>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-3">
-                            Semua siswa dalam satu kelas langsung ditetapkan ke ruangan sasaran di atas.
-                          </p>
-
-                          <div className="space-y-2 mb-3">
-                            <select
-                              value={selectedKelasAlokasi}
-                              onChange={(e) => setSelectedKelasAlokasi(e.target.value)}
-                              className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2 dark:bg-slate-900 text-xs text-slate-700 dark:text-white"
-                            >
-                              <option value="">-- Pilih Kelas / Rombel --</option>
-                              {availableAlokasiClasses.map(k => {
-                                const countInClass = dataSiswa.filter(s => (s.kelas || `${s.angkatan || ''} ${s.kelas_paralel || ''}`).trim() === k).length;
-                                return (
-                                  <option key={k} value={k}>
-                                    {k} ({countInClass} Siswa)
-                                  </option>
-                                );
-                              })}
-                            </select>
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={handleBulkAssignByClass}
-                          disabled={!targetRuangAlokasi || !selectedKelasAlokasi || isLoading}
-                          className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 disabled:opacity-50"
-                        >
-                          <span className="material-symbols-outlined text-[16px]">how_to_reg</span>
-                          <span>Tetapkan Seluruh Siswa Kelas Ini</span>
-                        </button>
-                      </div>
-
-                      {/* Option B: Bulk Selected Students */}
-                      <div className="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-900/40 flex flex-col justify-between">
-                        <div>
-                          <div className="flex items-center gap-1.5 mb-1.5">
-                            <span className="w-5 h-5 rounded-full bg-slate-700 text-white text-[11px] flex items-center justify-center font-bold">2B</span>
-                            <h5 className="font-bold text-xs text-slate-800 dark:text-white">Alokasi Siswa Tertentu (Multi-Select)</h5>
-                          </div>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-3">
-                            Centang satu atau beberapa siswa pada tabel di bawah lalu tetapkan ke ruangan sasaran.
-                          </p>
-
-                          <div className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 text-xs flex items-center justify-between mb-3">
-                            <span className="text-slate-500">Siswa Dipilih di Tabel:</span>
-                            <span className="font-bold text-primary dark:text-primary-400">
-                              {selectedAlokasiSiswa.length} Siswa
-                            </span>
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={handleBulkAssignSelectedSiswa}
-                          disabled={!targetRuangAlokasi || selectedAlokasiSiswa.length === 0 || isLoading}
-                          className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white dark:bg-slate-700 dark:hover:bg-slate-600 shadow-sm transition-all active:scale-95 disabled:opacity-50"
-                        >
-                          <span className="material-symbols-outlined text-[16px]">check_box</span>
-                          <span>Tugaskan {selectedAlokasiSiswa.length} Siswa Terpilih</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Student Table & Filters */}
-                  <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm overflow-hidden space-y-3 p-4">
-                    {/* Filters Row */}
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-                      <div className="flex flex-wrap items-center gap-2 flex-1">
-                        {/* Search Input */}
-                        <div className="relative min-w-[200px] flex-1">
-                          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">
-                            search
-                          </span>
-                          <input
-                            type="text"
-                            value={searchAlokasiSiswa}
-                            onChange={(e) => setSearchAlokasiSiswa(e.target.value)}
-                            placeholder="Cari siswa (nama/NISN)..."
-                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20"
-                          />
-                        </div>
-
-                        {/* Filter by Kelas */}
-                        <div className="relative">
-                          <select
-                            value={filterAlokasiKelas}
-                            onChange={(e) => setFilterAlokasiKelas(e.target.value)}
-                            className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
-                          >
-                            <option value="ALL">Semua Kelas</option>
-                            {availableAlokasiClasses.map(k => (
-                              <option key={k} value={k}>{k}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        {/* Filter by Ruang */}
-                        <div className="relative">
-                          <select
-                            value={filterAlokasiRuang}
-                            onChange={(e) => setFilterAlokasiRuang(e.target.value)}
-                            className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
-                          >
-                            <option value="ALL">Semua Status Ruang</option>
-                            <option value="BELUM">Belum Ada Ruang</option>
-                            {dataRuang.map(r => (
-                              <option key={r.id_ruang} value={r.nama_ruang}>{r.nama_ruang}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
-                      {/* Select All / Deselect All Toggle */}
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (selectedAlokasiSiswa.length === filteredAlokasiSiswa.length) {
-                              setSelectedAlokasiSiswa([]);
-                            } else {
-                              setSelectedAlokasiSiswa(filteredAlokasiSiswa.map(s => s.id_siswa));
-                            }
-                          }}
-                          className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-                        >
-                          {selectedAlokasiSiswa.length === filteredAlokasiSiswa.length && filteredAlokasiSiswa.length > 0
-                            ? 'Batal Pilih Semua'
-                            : 'Pilih Semua di Filter'}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Table View */}
-                    <div className="overflow-x-auto rounded-xl border border-slate-100 dark:border-slate-700/80">
-                      <table className="w-full text-left border-collapse text-xs sm:text-sm">
-                        <thead className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-700/80 text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                          <tr>
-                            <th className="p-3 pl-4 w-10 text-center">
-                              <input
-                                type="checkbox"
-                                checked={filteredAlokasiSiswa.length > 0 && selectedAlokasiSiswa.length === filteredAlokasiSiswa.length}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setSelectedAlokasiSiswa(filteredAlokasiSiswa.map(s => s.id_siswa));
-                                  } else {
-                                    setSelectedAlokasiSiswa([]);
-                                  }
-                                }}
-                                className="rounded text-primary focus:ring-primary"
-                              />
-                            </th>
-                            <th className="p-3">Nama Siswa</th>
-                            <th className="p-3">NISN / Username</th>
-                            <th className="p-3">Kelas</th>
-                            <th className="p-3">Ruang Ujian Saat Ini</th>
-                            <th className="p-3 pr-4 text-right">Tugaskan Ruang Cepat</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                          {filteredAlokasiSiswa.length === 0 ? (
-                            <tr>
-                              <td colSpan="6" className="p-8 text-center text-slate-400">
-                                Tidak ada siswa yang sesuai dengan filter.
-                              </td>
-                            </tr>
-                          ) : (
-                            filteredAlokasiSiswa.map((s) => {
-                              const isChecked = selectedAlokasiSiswa.includes(s.id_siswa);
-                              return (
-                                <tr
-                                  key={s.id_siswa}
-                                  className={`transition-colors ${
-                                    isChecked ? 'bg-primary/5 dark:bg-primary/10' : 'hover:bg-slate-50/70 dark:hover:bg-slate-800/60'
-                                  }`}
-                                >
-                                  <td className="p-3 pl-4 text-center">
-                                    <input
-                                      type="checkbox"
-                                      checked={isChecked}
-                                      onChange={() => {
-                                        if (isChecked) {
-                                          setSelectedAlokasiSiswa(prev => prev.filter(id => id !== s.id_siswa));
-                                        } else {
-                                          setSelectedAlokasiSiswa(prev => [...prev, s.id_siswa]);
-                                        }
-                                      }}
-                                      className="rounded text-primary focus:ring-primary"
-                                    />
-                                  </td>
-                                  <td className="p-3">
-                                    <span className="font-bold text-slate-800 dark:text-white block">
-                                      {s.nama_lengkap}
-                                    </span>
-                                  </td>
-                                  <td className="p-3 font-mono text-slate-500 dark:text-slate-400">
-                                    {s.nisn || s.username || '-'}
-                                  </td>
-                                  <td className="p-3">
-                                    <span className="px-2 py-0.5 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
-                                      {s.kelas || `${s.angkatan || ''} ${s.kelas_paralel || ''}`.trim() || '-'}
-                                    </span>
-                                  </td>
-                                  <td className="p-3">
-                                    {s.ruang ? (
-                                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-300 border border-primary/20">
-                                        <span className="material-symbols-outlined text-[14px]">meeting_room</span>
-                                        {s.ruang}
-                                      </span>
-                                    ) : (
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40">
-                                        <span className="material-symbols-outlined text-[13px]">help</span>
-                                        Belum Diatur
-                                      </span>
-                                    )}
-                                  </td>
-                                  <td className="p-3 pr-4 text-right">
-                                    <select
-                                      value={s.ruang || ''}
-                                      onChange={(e) => handleSingleAssignSiswaRuang(s.id_siswa, e.target.value)}
-                                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer max-w-[150px]"
-                                    >
-                                      <option value="">-- Pindah Ruang --</option>
-                                      {dataRuang.map(r => (
-                                        <option key={r.id_ruang} value={r.nama_ruang}>
-                                          {r.nama_ruang}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </td>
-                                </tr>
-                              );
-                            })
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ================= TAB 6: REAL-TIME LIVE MONITORING HUD ================= */}
           {activeTab === 'monitoring' && (
             <div className="space-y-5 animate-fade-in-up">
               {/* Monitoring Navigation Bar */}
@@ -6424,15 +4393,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     title="Refresh Data"
                   >
                     <span className="material-symbols-outlined text-[18px]">refresh</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleOpenNexaImportModal}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-xs transition-colors min-h-[44px]"
-                    title="Import Jawaban Offline (.nexa)"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">upload_file</span>
-                    <span className="hidden sm:inline">Import Jawaban (.nexa)</span>
                   </button>
                 </div>
               </div>
@@ -6747,75 +4707,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
             </div>
           )}
 
-          {/* ================= TAB 7: HASIL REKAP UJIAN ================= */}
-          {activeTab === 'hasil' && (
-            <div className="space-y-4 animate-fade-in-up">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => { setSelectedJadwal(null); navigateTab('jadwal'); }}
-                    className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-slate-200 transition-colors min-h-[44px] min-w-[44px]"
-                  >
-                    <span className="material-symbols-outlined text-xl">arrow_back</span>
-                  </button>
-                  <div className="min-w-0">
-                    <h3 className="font-bold text-sm sm:text-base text-slate-800 dark:text-white truncate">
-                      {dataJadwal.find(j => j.id_jadwal === selectedJadwal)?.nama_mapel || 'Rekap Hasil Nilai Ujian'}
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Daftar perolehan skor siswa</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 self-end sm:self-auto">
-                  <button
-                    onClick={openAnalisisSoal}
-                    className="flex items-center gap-1.5 bg-purple-50 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400 px-3.5 py-2 rounded-xl text-xs font-bold hover:bg-purple-100 transition-colors min-h-[44px]"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">analytics</span>
-                    <span>Analisis Butir Soal</span>
-                  </button>
-                  <button
-                    onClick={exportToExcel}
-                    className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95 min-h-[44px]"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">download</span>
-                    <span>Export Excel</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Hasil List */}
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                {dataLog.map((l, idx) => (
-                  <div
-                    key={idx}
-                    className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex items-center justify-between"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <h5 className="font-bold text-xs sm:text-sm text-slate-800 dark:text-white truncate">{l.nama_lengkap}</h5>
-                      <p className="text-xs text-slate-500 mt-0.5">Kelas {l.angkatan} {l.kelas_paralel}</p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <div className="text-[10px] uppercase tracking-wider font-bold text-slate-400">Total Skor</div>
-                      <div className="font-black text-xl text-primary dark:text-primary-400">
-                        {l.total_nilai !== null ? l.total_nilai : l.nilai_auto}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {dataLog.length === 0 && (
-                  <div className="col-span-full">
-                    <EmptyState
-                      compact={true}
-                      icon="assessment"
-                      title="Belum Ada Hasil"
-                      description="Belum ada data nilai ujian terkumpul untuk jadwal ini."
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
           {/* ================= TAB 8: MATA PELAJARAN ================= */}
           {activeTab === 'mapel' && (
             <div className="space-y-4 animate-fade-in-up">
@@ -7072,697 +4963,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
             </div>
           )}
 
-          {/* ================= TAB PENGATURAN / PROFIL SEKOLAH ================= */}
-          {activeTab === 'pengaturan' && (
-            <div className="space-y-6 animate-fade-in-up pb-12">
-              {/* Header Title & Status */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg sm:text-xl flex items-center gap-2">
-                    <span className="material-symbols-outlined text-primary text-2xl">settings</span>
-                    Pengaturan & Profil Sekolah
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Kelola data identitas sekolah, logo kop (Dinas & Sekolah), serta konfigurasi cetak Kartu Peserta dan Kartu Meja
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  disabled={isSavingKop}
-                  onClick={() => handleSaveKopSettings()}
-                  className="px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all active:scale-95 disabled:opacity-50 min-h-[44px]"
-                >
-                  <span className="material-symbols-outlined text-[18px]">save</span>
-                  <span>{isSavingKop ? 'Menyimpan...' : 'Simpan Pengaturan'}</span>
-                </button>
-              </div>
-
-              {/* Success / Error Alerts */}
-              {kopSuccessMsg && (
-                <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 flex items-center gap-2.5 animate-fade-in">
-                  <span className="material-symbols-outlined text-emerald-600 dark:text-emerald-400 text-xl">check_circle</span>
-                  <span className="text-xs sm:text-sm font-semibold">{kopSuccessMsg}</span>
-                </div>
-              )}
-              {kopErrorMsg && (
-                <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200 flex items-center gap-2.5 animate-fade-in">
-                  <span className="material-symbols-outlined text-rose-600 dark:text-rose-400 text-xl">error</span>
-                  <span className="text-xs sm:text-sm font-semibold">{kopErrorMsg}</span>
-                </div>
-              )}
-
-              {/* CARD 1: Identitas & Data Pokok Sekolah */}
-              <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-4">
-                <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-700/80">
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                    <span className="material-symbols-outlined text-lg">domain</span>
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-sm text-slate-800 dark:text-white">Identitas Sekolah</h4>
-                    <p className="text-[11px] text-slate-500">Informasi nama sekolah, NPSN, dan pimpinan</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
-                      Nama Sekolah / Lembaga
-                    </label>
-                    <input
-                      type="text"
-                      value={kopSettings.nama_sekolah || ''}
-                      onChange={(e) => setKopSettings(prev => ({ ...prev, nama_sekolah: e.target.value }))}
-                      placeholder="Contoh: SMA NEGERI 1 INDONESIA"
-                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 text-xs sm:text-sm bg-white dark:bg-slate-900 dark:text-white font-medium"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
-                      NPSN (Nomor Pokok Sekolah Nasional)
-                    </label>
-                    <input
-                      type="text"
-                      value={kopSettings.npsn !== undefined ? kopSettings.npsn : (user.npsn || '')}
-                      onChange={(e) => setKopSettings(prev => ({ ...prev, npsn: e.target.value }))}
-                      placeholder="NPSN Sekolah"
-                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 text-xs sm:text-sm bg-white dark:bg-slate-900 dark:text-white font-mono"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
-                      Alamat Sekolah / Instansi
-                    </label>
-                    <input
-                      type="text"
-                      value={kopSettings.alamat_sekolah || ''}
-                      onChange={(e) => setKopSettings(prev => ({ ...prev, alamat_sekolah: e.target.value }))}
-                      placeholder="Jalan, Kelurahan, Kecamatan, Kota/Kabupaten, Provinsi"
-                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 text-xs sm:text-sm bg-white dark:bg-slate-900 dark:text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
-                      Nama Kepala Sekolah / Penanggung Jawab
-                    </label>
-                    <input
-                      type="text"
-                      value={kopSettings.kepala_sekolah || ''}
-                      onChange={(e) => setKopSettings(prev => ({ ...prev, kepala_sekolah: e.target.value }))}
-                      placeholder="Nama lengkap beserta gelar"
-                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 text-xs sm:text-sm bg-white dark:bg-slate-900 dark:text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
-                      NIP Kepala Sekolah
-                    </label>
-                    <input
-                      type="text"
-                      value={kopSettings.nip_kepala_sekolah || ''}
-                      onChange={(e) => setKopSettings(prev => ({ ...prev, nip_kepala_sekolah: e.target.value }))}
-                      placeholder="NIP Kepala Sekolah (atau strip - jika tidak ada)"
-                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 text-xs sm:text-sm bg-white dark:bg-slate-900 dark:text-white font-mono"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* CARD 2: Pengaturan Logo Kiri & Logo Kanan */}
-              <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-4">
-                <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-700/80">
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                    <span className="material-symbols-outlined text-lg">image</span>
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-sm text-slate-800 dark:text-white">Pengaturan Logo Kop (Kiri & Kanan)</h4>
-                    <p className="text-[11px] text-slate-500">Unggah berkas logo langsung dari perangkat Anda dan atur visibilitas pada kop</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  {/* Left Logo Card: Dinas / Pemda */}
-                  <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/40 flex flex-col justify-between space-y-3">
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                          Logo Kiri (Dinas / Pemda / Lembaga)
-                        </span>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          kopSettings.show_logo_kiri
-                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
-                            : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                        }`}>
-                          {kopSettings.show_logo_kiri ? 'Aktif' : 'Disembunyikan'}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                        Posisi di sisi kiri kop pada dokumen cetak kartu.
-                      </p>
-                    </div>
-
-                    {/* Logo Preview */}
-                    <div className="flex items-center justify-center py-2">
-                      <div className="w-24 h-24 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-center p-2.5 overflow-hidden shadow-2xs">
-                        {kopSettings.logo_kiri ? (
-                          <img src={kopSettings.logo_kiri} alt="Logo Kiri Preview" className="w-full h-full object-contain" />
-                        ) : (
-                          <div className="flex flex-col items-center text-center">
-                            <svg className="w-12 h-12 object-contain text-slate-800 dark:text-slate-200" viewBox="0 0 100 100" fill="none">
-                              <circle cx="50" cy="50" r="46" stroke="currentColor" strokeWidth="6" fill="#f8fafc" />
-                              <polygon points="50,15 80,45 68,85 32,85 20,45" stroke="currentColor" strokeWidth="4" fill="#fbbf24" />
-                            </svg>
-                            <span className="text-[9px] text-slate-400 mt-1">Default SVG</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Upload & Reset Controls */}
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="file"
-                          id="file_input_logo_kiri"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={handleUploadLogoKiri}
-                        />
-                        <label
-                          htmlFor="file_input_logo_kiri"
-                          className="flex-1 cursor-pointer px-3 py-2 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-95"
-                        >
-                          <span className="material-symbols-outlined text-[16px]">upload_file</span>
-                          <span>{kopSettings.logo_kiri ? 'Ganti Berkas Logo' : 'Pilih Berkas Logo'}</span>
-                        </label>
-
-                        {kopSettings.logo_kiri && (
-                          <button
-                            type="button"
-                            onClick={handleResetLogoKiri}
-                            className="px-3 py-2 rounded-xl bg-slate-200 hover:bg-rose-100 text-slate-700 hover:text-rose-700 dark:bg-slate-700 dark:hover:bg-rose-950/60 dark:text-slate-300 dark:hover:text-rose-300 text-xs font-bold flex items-center gap-1 transition-colors"
-                            title="Hapus Logo Kiri & Kembali ke Default"
-                          >
-                            <span className="material-symbols-outlined text-[16px]">delete</span>
-                            <span>Reset</span>
-                          </button>
-                        )}
-                      </div>
-
-                      <label className="flex items-center gap-2 cursor-pointer pt-1 text-xs font-bold text-slate-700 dark:text-slate-300 select-none">
-                        <input
-                          type="checkbox"
-                          checked={kopSettings.show_logo_kiri !== false}
-                          onChange={(e) => setKopSettings(prev => ({ ...prev, show_logo_kiri: e.target.checked }))}
-                          className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/20"
-                        />
-                        <span>Tampilkan Logo Kiri pada Kop Dokumen</span>
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* Right Logo Card: Sekolah / Yayasan */}
-                  <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/40 flex flex-col justify-between space-y-3">
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                          Logo Kanan (Sekolah / Yayasan)
-                        </span>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          kopSettings.show_logo_kanan
-                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
-                            : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                        }`}>
-                          {kopSettings.show_logo_kanan ? 'Aktif' : 'Disembunyikan'}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                        Posisi di sisi kanan kop pada dokumen cetak kartu.
-                      </p>
-                    </div>
-
-                    {/* Logo Preview */}
-                    <div className="flex items-center justify-center py-2">
-                      <div className="w-24 h-24 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-center p-2.5 overflow-hidden shadow-2xs">
-                        {kopSettings.logo_kanan ? (
-                          <img src={kopSettings.logo_kanan} alt="Logo Kanan Preview" className="w-full h-full object-contain" />
-                        ) : (
-                          <div className="flex flex-col items-center text-center">
-                            <svg className="w-12 h-12 object-contain text-slate-800 dark:text-slate-200" viewBox="0 0 100 100" fill="none">
-                              <circle cx="50" cy="50" r="46" stroke="currentColor" strokeWidth="6" fill="#f8fafc" />
-                              <polygon points="50,20 75,45 65,80 35,80 25,45" stroke="currentColor" strokeWidth="4" fill="#e2e8f0" />
-                              <circle cx="50" cy="50" r="12" fill="#0f172a" />
-                            </svg>
-                            <span className="text-[9px] text-slate-400 mt-1">Default SVG</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Upload & Reset Controls */}
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="file"
-                          id="file_input_logo_kanan"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={handleUploadLogoKanan}
-                        />
-                        <label
-                          htmlFor="file_input_logo_kanan"
-                          className="flex-1 cursor-pointer px-3 py-2 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-95"
-                        >
-                          <span className="material-symbols-outlined text-[16px]">upload_file</span>
-                          <span>{kopSettings.logo_kanan ? 'Ganti Berkas Logo' : 'Pilih Berkas Logo'}</span>
-                        </label>
-
-                        {kopSettings.logo_kanan && (
-                          <button
-                            type="button"
-                            onClick={handleResetLogoKanan}
-                            className="px-3 py-2 rounded-xl bg-slate-200 hover:bg-rose-100 text-slate-700 hover:text-rose-700 dark:bg-slate-700 dark:hover:bg-rose-950/60 dark:text-slate-300 dark:hover:text-rose-300 text-xs font-bold flex items-center gap-1 transition-colors"
-                            title="Hapus Logo Kanan & Kembali ke Default"
-                          >
-                            <span className="material-symbols-outlined text-[16px]">delete</span>
-                            <span>Reset</span>
-                          </button>
-                        )}
-                      </div>
-
-                      <label className="flex items-center gap-2 cursor-pointer pt-1 text-xs font-bold text-slate-700 dark:text-slate-300 select-none">
-                        <input
-                          type="checkbox"
-                          checked={kopSettings.show_logo_kanan !== false}
-                          onChange={(e) => setKopSettings(prev => ({ ...prev, show_logo_kanan: e.target.checked }))}
-                          className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/20"
-                        />
-                        <span>Tampilkan Logo Kanan pada Kop Dokumen</span>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* CARD 3: Konfigurasi Kop Kartu Peserta Ujian */}
-              <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-4">
-                <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-700/80">
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                    <span className="material-symbols-outlined text-lg">badge</span>
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-sm text-slate-800 dark:text-white">Konfigurasi Kop Kartu Peserta</h4>
-                    <p className="text-[11px] text-slate-500">Atur teks baris 1, 2, 3, dan penggunaan logo khusus Kartu Peserta Ujian</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
-                      Kop Baris 1 (Pemerintah / Instansi / Yayasan)
-                    </label>
-                    <input
-                      type="text"
-                      value={kopSettings.kop_baris1 || ''}
-                      onChange={(e) => setKopSettings(prev => ({ ...prev, kop_baris1: e.target.value }))}
-                      placeholder="Contoh: PEMERINTAH PROVINSI / DAERAH"
-                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 text-xs sm:text-sm bg-white dark:bg-slate-900 dark:text-white uppercase"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
-                      Kop Baris 2 (Nama Satuan Pendidikan)
-                    </label>
-                    <input
-                      type="text"
-                      value={kopSettings.kop_baris2 !== undefined ? kopSettings.kop_baris2 : (kopSettings.nama_sekolah || user.nama_sekolah || '')}
-                      onChange={(e) => setKopSettings(prev => ({ ...prev, kop_baris2: e.target.value }))}
-                      placeholder="Nama Sekolah"
-                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 text-xs sm:text-sm bg-white dark:bg-slate-900 dark:text-white font-bold uppercase"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
-                      Kop Baris 3 (Judul Dokumen Kartu)
-                    </label>
-                    <input
-                      type="text"
-                      value={kopSettings.kop_baris3 || ''}
-                      onChange={(e) => setKopSettings(prev => ({ ...prev, kop_baris3: e.target.value }))}
-                      placeholder="KARTU PESERTA ASESMEN / CBT"
-                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 text-xs sm:text-sm bg-white dark:bg-slate-900 dark:text-white font-semibold uppercase"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
-                      Kop Baris 4 (Sub-keterangan / Info Tambahan)
-                    </label>
-                    <input
-                      type="text"
-                      value={kopSettings.kop_baris4 || ''}
-                      onChange={(e) => setKopSettings(prev => ({ ...prev, kop_baris4: e.target.value }))}
-                      placeholder={`NPSN: ${kopSettings.npsn || user.npsn || '-'} • TP 2026/2027`}
-                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 text-xs sm:text-sm bg-white dark:bg-slate-900 dark:text-white"
-                    />
-                  </div>
-                </div>
-
-                {/* Logo Toggles for Kartu Peserta */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100 dark:border-slate-700/80">
-                  <label className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={kopSettings.kartu_peserta_show_logo_kiri !== false}
-                      onChange={(e) => setKopSettings(prev => ({ ...prev, kartu_peserta_show_logo_kiri: e.target.checked }))}
-                      className="w-4 h-4 rounded text-primary focus:ring-primary/20"
-                    />
-                    <div>
-                      <div className="text-xs font-bold text-slate-800 dark:text-slate-200">Gunakan Logo Kiri pada Kartu Peserta</div>
-                      <div className="text-[10px] text-slate-400">Tampilkan logo dinas/lembaga di sebelah kiri kop</div>
-                    </div>
-                  </label>
-
-                  <label className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={kopSettings.kartu_peserta_show_logo_kanan !== false}
-                      onChange={(e) => setKopSettings(prev => ({ ...prev, kartu_peserta_show_logo_kanan: e.target.checked }))}
-                      className="w-4 h-4 rounded text-primary focus:ring-primary/20"
-                    />
-                    <div>
-                      <div className="text-xs font-bold text-slate-800 dark:text-slate-200">Gunakan Logo Kanan pada Kartu Peserta</div>
-                      <div className="text-[10px] text-slate-400">Tampilkan logo sekolah/yayasan di sebelah kanan kop</div>
-                    </div>
-                  </label>
-                </div>
-
-                {/* Live Preview Kop Kartu Peserta */}
-                <div className="pt-2">
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                    Pratinjau Kop Kartu Peserta:
-                  </label>
-                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 max-w-md mx-auto shadow-xs text-black dark:text-white">
-                    <div className="border-b border-black dark:border-slate-400 pb-1.5 flex items-center justify-between gap-2">
-                      {kopSettings.kartu_peserta_show_logo_kiri !== false && kopSettings.show_logo_kiri !== false && (
-                        <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center">
-                          {kopSettings.logo_kiri ? (
-                            <img src={kopSettings.logo_kiri} alt="Logo" className="w-8 h-8 object-contain" />
-                          ) : (
-                            <svg className="w-8 h-8 object-contain text-slate-900 dark:text-slate-100" viewBox="0 0 100 100" fill="none">
-                              <circle cx="50" cy="50" r="46" stroke="currentColor" strokeWidth="6" fill="#f8fafc" />
-                              <polygon points="50,15 80,45 68,85 32,85 20,45" stroke="currentColor" strokeWidth="4" fill="#fbbf24" />
-                            </svg>
-                          )}
-                        </div>
-                      )}
-
-                      <div className="flex-1 text-center min-w-0 px-1">
-                        {kopSettings.kop_baris1 && (
-                          <div className="text-[8px] font-bold uppercase tracking-tight truncate text-slate-500 dark:text-slate-400 leading-none mb-0.5">
-                            {kopSettings.kop_baris1}
-                          </div>
-                        )}
-                        <div className="text-[10px] font-black uppercase tracking-tight truncate text-slate-950 dark:text-white leading-tight">
-                          {kopSettings.kop_baris2 || kopSettings.nama_sekolah || user.nama_sekolah || 'SEKOLAH INDONESIA'}
-                        </div>
-                        <div className="text-[8px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 leading-tight">
-                          {kopSettings.kop_baris3 || 'KARTU PESERTA ASESMEN / CBT'}
-                        </div>
-                        {kopSettings.kop_baris4 ? (
-                          <div className="text-[7.5px] text-slate-500 leading-none mt-0.5 truncate">
-                            {kopSettings.kop_baris4}
-                          </div>
-                        ) : (
-                          <div className="text-[7.5px] text-slate-500 leading-none mt-0.5 truncate">
-                            {(kopSettings.alamat_sekolah || user.alamat_sekolah || user.alamat)
-                              ? `${kopSettings.alamat_sekolah || user.alamat_sekolah || user.alamat} • NPSN: ${kopSettings.npsn || user.npsn || '-'}`
-                              : `NPSN: ${kopSettings.npsn || user.npsn || '-'} • TP 2026/2027`}
-                          </div>
-                        )}
-                        {(kopSettings.alamat_sekolah || user.alamat_sekolah || user.alamat) && (
-                          <div className="text-[7px] text-slate-400 dark:text-slate-500 leading-none mt-0.5 truncate">
-                            📍 {kopSettings.alamat_sekolah || user.alamat_sekolah || user.alamat}
-                          </div>
-                        )}
-                      </div>
-
-                      {kopSettings.kartu_peserta_show_logo_kanan !== false && kopSettings.show_logo_kanan !== false && (
-                        <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center">
-                          {kopSettings.logo_kanan ? (
-                            <img src={kopSettings.logo_kanan} alt="Logo" className="w-8 h-8 object-contain" />
-                          ) : (
-                            <svg className="w-8 h-8 object-contain text-slate-900 dark:text-slate-100" viewBox="0 0 100 100" fill="none">
-                              <circle cx="50" cy="50" r="46" stroke="currentColor" strokeWidth="6" fill="#f8fafc" />
-                              <polygon points="50,20 75,45 65,80 35,80 25,45" stroke="currentColor" strokeWidth="4" fill="#e2e8f0" />
-                              <circle cx="50" cy="50" r="12" fill="#0f172a" />
-                            </svg>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* CARD 4: Konfigurasi Kop Kartu Meja Ujian */}
-              <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-4">
-                <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-700/80">
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                    <span className="material-symbols-outlined text-lg">table_restaurant</span>
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-sm text-slate-800 dark:text-white">Konfigurasi Kop Kartu Meja</h4>
-                    <p className="text-[11px] text-slate-500">Pilih mode tampilan kop (formal/minimalis) dan pengaturan logo kartu meja</p>
-                  </div>
-                </div>
-
-                {/* Mode Selector: Formal vs Minimalis */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                    Mode Desain Kop Kartu Meja
-                  </label>
-                  <div className="grid grid-cols-2 gap-3 max-w-md">
-                    <button
-                      type="button"
-                      onClick={() => setKopSettings(prev => ({ ...prev, kop_meja_mode: 'formal' }))}
-                      className={`p-3 rounded-xl border text-left transition-all flex items-center gap-2.5 ${
-                        kopSettings.kop_meja_mode === 'formal'
-                          ? 'border-primary bg-primary/10 text-primary font-bold shadow-2xs'
-                          : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300'
-                      }`}
-                    >
-                      <span className="material-symbols-outlined text-xl">view_compact</span>
-                      <div>
-                        <div className="text-xs font-bold">Format Formal</div>
-                        <div className="text-[10px] text-slate-400">Kop lengkap dengan logo</div>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setKopSettings(prev => ({ ...prev, kop_meja_mode: 'minimalis' }))}
-                      className={`p-3 rounded-xl border text-left transition-all flex items-center gap-2.5 ${
-                        kopSettings.kop_meja_mode === 'minimalis'
-                          ? 'border-primary bg-primary/10 text-primary font-bold shadow-2xs'
-                          : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300'
-                      }`}
-                    >
-                      <span className="material-symbols-outlined text-xl">density_small</span>
-                      <div>
-                        <div className="text-xs font-bold">Format Minimalis</div>
-                        <div className="text-[10px] text-slate-400">Ringkas & tanpa logo</div>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
-                      Kop Baris 1 (Nama Sekolah / Lembaga)
-                    </label>
-                    <input
-                      type="text"
-                      value={kopSettings.kop_meja_baris1 !== undefined ? kopSettings.kop_meja_baris1 : (kopSettings.nama_sekolah || user.nama_sekolah || '')}
-                      onChange={(e) => setKopSettings(prev => ({ ...prev, kop_meja_baris1: e.target.value }))}
-                      placeholder="Nama Sekolah"
-                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 text-xs sm:text-sm bg-white dark:bg-slate-900 dark:text-white uppercase font-bold"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
-                      Kop Baris 2 (Sub-judul Kartu Meja)
-                    </label>
-                    <input
-                      type="text"
-                      value={kopSettings.kop_meja_baris2 || ''}
-                      onChange={(e) => setKopSettings(prev => ({ ...prev, kop_meja_baris2: e.target.value }))}
-                      placeholder="KARTU MEJA UJIAN CBT • TP 2026/2027"
-                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 text-xs sm:text-sm bg-white dark:bg-slate-900 dark:text-white uppercase font-semibold"
-                    />
-                  </div>
-                </div>
-
-                {/* Logo Toggles for Kartu Meja */}
-                {kopSettings.kop_meja_mode === 'formal' && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100 dark:border-slate-700/80">
-                    <label className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={kopSettings.kartu_meja_show_logo_kiri !== false}
-                        onChange={(e) => setKopSettings(prev => ({ ...prev, kartu_meja_show_logo_kiri: e.target.checked }))}
-                        className="w-4 h-4 rounded text-primary focus:ring-primary/20"
-                      />
-                      <div>
-                        <div className="text-xs font-bold text-slate-800 dark:text-slate-200">Tampilkan Logo Kiri pada Kartu Meja</div>
-                        <div className="text-[10px] text-slate-400">Logo dinas/pemda di sebelah kiri judul meja</div>
-                      </div>
-                    </label>
-
-                    <label className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={kopSettings.kartu_meja_show_logo_kanan !== false}
-                        onChange={(e) => setKopSettings(prev => ({ ...prev, kartu_meja_show_logo_kanan: e.target.checked }))}
-                        className="w-4 h-4 rounded text-primary focus:ring-primary/20"
-                      />
-                      <div>
-                        <div className="text-xs font-bold text-slate-800 dark:text-slate-200">Tampilkan Logo Kanan pada Kartu Meja</div>
-                        <div className="text-[10px] text-slate-400">Logo sekolah/yayasan di dekat nomor meja</div>
-                      </div>
-                    </label>
-                  </div>
-                )}
-
-                {/* Live Preview Kop Kartu Meja */}
-                <div className="pt-2">
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                    Pratinjau Kop Kartu Meja (Nomor Meja Tetap Jelas Terbaca):
-                  </label>
-                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 max-w-md mx-auto shadow-xs text-black dark:text-white">
-                    <div className="border-b border-black dark:border-slate-400 pb-1.5 flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        {kopSettings.kop_meja_mode === 'formal' && kopSettings.kartu_meja_show_logo_kiri !== false && kopSettings.show_logo_kiri !== false && (
-                          <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center">
-                            {kopSettings.logo_kiri ? (
-                              <img src={kopSettings.logo_kiri} alt="Logo" className="w-7 h-7 object-contain" />
-                            ) : (
-                              <svg className="w-7 h-7 object-contain text-slate-900 dark:text-slate-100" viewBox="0 0 100 100" fill="none">
-                                <circle cx="50" cy="50" r="46" stroke="currentColor" strokeWidth="6" fill="#f8fafc" />
-                                <polygon points="50,15 80,45 68,85 32,85 20,45" stroke="currentColor" strokeWidth="4" fill="#fbbf24" />
-                              </svg>
-                            )}
-                          </div>
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <div className="text-[10px] font-black uppercase tracking-tight truncate text-slate-900 dark:text-white leading-tight">
-                            {kopSettings.kop_meja_baris1 || kopSettings.nama_sekolah || user.nama_sekolah || 'SEKOLAH INDONESIA'}
-                          </div>
-                          {kopSettings.kop_meja_baris2 ? (
-                            <div className="text-[8px] font-bold text-slate-600 dark:text-slate-400 uppercase truncate leading-tight">
-                              {kopSettings.kop_meja_baris2}
-                            </div>
-                          ) : kopSettings.kop_meja_baris2 === undefined ? (
-                            <div className="text-[8px] font-bold text-slate-600 dark:text-slate-400 uppercase truncate leading-tight">
-                              KARTU MEJA UJIAN CBT • TP 2026/2027
-                            </div>
-                          ) : null}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        {kopSettings.kop_meja_mode === 'formal' && kopSettings.kartu_meja_show_logo_kanan !== false && kopSettings.show_logo_kanan !== false && (
-                          <div className="w-7 h-7 flex-shrink-0 flex items-center justify-center">
-                            {kopSettings.logo_kanan ? (
-                              <img src={kopSettings.logo_kanan} alt="Logo" className="w-7 h-7 object-contain" />
-                            ) : (
-                              <svg className="w-7 h-7 object-contain text-slate-900 dark:text-slate-100" viewBox="0 0 100 100" fill="none">
-                                <circle cx="50" cy="50" r="46" stroke="currentColor" strokeWidth="6" fill="#f8fafc" />
-                                <polygon points="50,20 75,45 65,80 35,80 25,45" stroke="currentColor" strokeWidth="4" fill="#e2e8f0" />
-                                <circle cx="50" cy="50" r="12" fill="#0f172a" />
-                              </svg>
-                            )}
-                          </div>
-                        )}
-                        <div className="bg-slate-900 text-white font-mono font-black text-xs px-2.5 py-1 rounded shadow-xs">
-                          MEJA 01
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* CARD 5: Privasi & Visibilitas Siswa */}
-              <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-4">
-                <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-700/80">
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                    <span className="material-symbols-outlined text-lg">visibility</span>
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-sm text-slate-800 dark:text-white">Privasi & Visibilitas Siswa</h4>
-                    <p className="text-[11px] text-slate-500">Kendali privasi hasil ujian, peringkat, dan tampilan fitur di portal siswa</p>
-                  </div>
-                </div>
-
-                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="space-y-1">
-                    <span className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-primary text-[18px]">leaderboard</span>
-                      Tampilkan Papan Peringkat (Leaderboard) di Portal Siswa
-                    </span>
-                    <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 max-w-xl">
-                      Jika dinonaktifkan, tab Papan Peringkat, widget top 5 peringkat di beranda siswa, serta navigasi leaderboard akan disembunyikan untuk menjaga privasi nilai peserta didik.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const currentVal = kopSettings.tampilkan_leaderboard !== false;
-                      setKopSettings(prev => ({ ...prev, tampilkan_leaderboard: !currentVal }));
-                    }}
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
-                      kopSettings.tampilkan_leaderboard !== false ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-600'
-                    }`}
-                    role="switch"
-                    aria-checked={kopSettings.tampilkan_leaderboard !== false}
-                  >
-                    <span
-                      aria-hidden="true"
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                        kopSettings.tampilkan_leaderboard !== false ? 'translate-x-5' : 'translate-x-0'
-                      }`}
-                    />
-                  </button>
-                </div>
-              </div>
-
-              {/* Action Save Bar */}
-              <div className="pt-2 flex justify-end">
-                <button
-                  type="button"
-                  disabled={isSavingKop}
-                  onClick={() => handleSaveKopSettings()}
-                  className="w-full sm:w-auto px-8 py-3 rounded-2xl bg-primary hover:bg-primary-hover text-white text-sm font-bold flex items-center justify-center gap-2 shadow-md transition-all active:scale-98 disabled:opacity-50 min-h-[48px]"
-                >
-                  <span className="material-symbols-outlined text-xl">save</span>
-                  <span>{isSavingKop ? 'Menyimpan Perubahan...' : 'Simpan Pengaturan Sekolah'}</span>
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* ================= TAB 12: PROFIL ADMIN ================= */}
           {activeTab === 'akun' && (
             <div className="max-w-md mx-auto py-6 animate-fade-in-up flex flex-col items-center">
@@ -7800,22 +5000,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 </button>
 
                 <button
-                  onClick={() => navigateTab('pengaturan')}
-                  className="w-full bg-white dark:bg-slate-800 p-4 rounded-2xl flex items-center justify-between border border-slate-200/80 dark:border-slate-700/80 shadow-sm active:scale-95 transition-all min-h-[44px]"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-primary/10 dark:bg-primary/10 flex items-center justify-center text-primary dark:text-primary-400">
-                      <span className="material-symbols-outlined text-xl">settings</span>
-                    </div>
-                    <div className="text-left">
-                      <h4 className="font-bold text-sm text-slate-800 dark:text-white">Pengaturan / Profil Sekolah</h4>
-                      <p className="text-xs text-slate-500">Logo kop dinas & sekolah, konfigurasi kartu ujian</p>
-                    </div>
-                  </div>
-                  <span className="material-symbols-outlined text-slate-400">chevron_right</span>
-                </button>
-
-                <button
                   onClick={() => navigateTab('logs')}
                   className="w-full bg-white dark:bg-slate-800 p-4 rounded-2xl flex items-center justify-between border border-slate-200/80 dark:border-slate-700/80 shadow-sm active:scale-95 transition-all min-h-[44px]"
                 >
@@ -7847,6 +5031,65 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   <span className="material-symbols-outlined text-slate-400">chevron_right</span>
                 </button>
 
+                {/* Pengaturan KOP & Identitas Sekolah Persisten */}
+                <div className="w-full bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-3">
+                  <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-700 pb-2">
+                    <span className="material-symbols-outlined text-primary text-xl">domain</span>
+                    <div>
+                      <h4 className="font-bold text-sm text-slate-800 dark:text-white">Pengaturan KOP & Kepala Sekolah</h4>
+                      <p className="text-[11px] text-slate-500">Dipakai otomatis saat mencetak Kartu Peserta Ujian</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                    <input
+                      type="text"
+                      value={kopSettings.nama_kepsek}
+                      onChange={(e) => setKopSettings(prev => ({ ...prev, nama_kepsek: e.target.value }))}
+                      placeholder="Nama Kepala Sekolah"
+                      className="rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 dark:text-white"
+                    />
+                    <input
+                      type="text"
+                      value={kopSettings.nip_kepsek}
+                      onChange={(e) => setKopSettings(prev => ({ ...prev, nip_kepsek: e.target.value }))}
+                      placeholder="NIP Kepala Sekolah"
+                      className="rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 dark:text-white"
+                    />
+                    <input
+                      type="text"
+                      value={kopSettings.tahun_ajaran}
+                      onChange={(e) => setKopSettings(prev => ({ ...prev, tahun_ajaran: e.target.value }))}
+                      placeholder="Tahun Ajaran (mis. 2026/2027)"
+                      className="rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 dark:text-white"
+                    />
+                    <input
+                      type="text"
+                      value={kopSettings.alamat_sekolah}
+                      onChange={(e) => setKopSettings(prev => ({ ...prev, alamat_sekolah: e.target.value }))}
+                      placeholder="Alamat Sekolah"
+                      className="rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 dark:text-white"
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        localStorage.setItem('nexa_kop_' + (user?.npsn || 'default'), JSON.stringify(kopSettings));
+                        setPrintKartuModal(prev => ({
+                          ...prev,
+                          tahunAjaran: kopSettings.tahun_ajaran || prev.tahunAjaran,
+                          namaKepalaSekolah: kopSettings.nama_kepsek || '',
+                          nipKepalaSekolah: kopSettings.nip_kepsek || ''
+                        }));
+                        showMessage('Berhasil', 'Pengaturan KOP Sekolah berhasil disimpan.', 'success');
+                      }}
+                      className="px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-white text-xs font-bold transition-colors"
+                    >
+                      Simpan KOP Sekolah
+                    </button>
+                  </div>
+                </div>
+
                 <div className="w-full h-px bg-slate-200/80 dark:border-slate-800 my-2"></div>
 
                 <button
@@ -7867,6 +5110,183 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
             </div>
           )}
 
+          {/* TAB: HASIL & LEGER NILAI SEKOLAH (GURU -> ADMIN) */}
+          {activeTab === 'hasil' && (
+            <div className="space-y-4">
+              <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="font-bold text-base text-slate-800 dark:text-white">Rekap Nilai & Progres Koreksi Guru</h3>
+                  <p className="text-xs text-slate-500">Pantau status koreksi uraian guru pengampu dan ekspor leger nilai sekolah.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => fetchData('hasil')}
+                  className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 self-start"
+                >
+                  <span className="material-symbols-outlined text-base">refresh</span>
+                  <span>Muat Ulang</span>
+                </button>
+              </div>
+
+              <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700 overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700 text-slate-500 uppercase">
+                      <th className="p-3 font-bold">Mata Pelajaran</th>
+                      <th className="p-3 font-bold">Guru Pengampu</th>
+                      <th className="p-3 font-bold">Kelas</th>
+                      <th className="p-3 font-bold text-center">Selesai</th>
+                      <th className="p-3 font-bold text-center">Status Koreksi Uraian</th>
+                      <th className="p-3 font-bold text-center">Rata-Rata</th>
+                      <th className="p-3 font-bold text-right">Aksi Leger</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                    {dataRekapHasil.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="p-8 text-center text-slate-400">Belum ada data jadwal ujian.</td>
+                      </tr>
+                    ) : dataRekapHasil.map(item => (
+                      <tr key={item.id_jadwal} className="hover:bg-slate-50/70 dark:hover:bg-slate-900/30">
+                        <td className="p-3 font-bold text-slate-800 dark:text-white">{item.nama_mapel}</td>
+                        <td className="p-3 text-slate-600 dark:text-slate-300">{item.nama_guru}</td>
+                        <td className="p-3 font-mono text-slate-600 dark:text-slate-300">{item.target_kelas}</td>
+                        <td className="p-3 text-center font-bold">{item.total_selesai} / {item.total_peserta}</td>
+                        <td className="p-3 text-center">
+                          {!item.has_uraian ? (
+                            <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold text-[10px]">Objektif Saja</span>
+                          ) : item.belum_dinilai > 0 ? (
+                            <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 font-bold text-[10px]">
+                              {item.belum_dinilai} Belum Dinilai
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 font-bold text-[10px]">
+                              Selesai Dikoreksi
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3 text-center font-black text-primary">{item.rata_rata}</td>
+                        <td className="p-3 text-right">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              setIsLoading(true);
+                              const res = await api('get_hasil_ujian', { id_jadwal: item.id_jadwal, npsn: user.npsn });
+                              setIsLoading(false);
+                              if (res.status === 'success' && (res.data || []).length > 0) {
+                                const rows = res.data.map((r, idx) => ({
+                                  No: idx + 1,
+                                  NISN: r.nisn,
+                                  Nama: r.nama_lengkap,
+                                  Kelas: `${r.angkatan || ''} ${r.kelas_paralel || ''}`.trim(),
+                                  Nilai_Objektif: r.nilai_auto || 0,
+                                  Nilai_Uraian: r.nilai_uraian ?? 'Belum Dinilai',
+                                  Total_Nilai: r.total_nilai,
+                                  Status: r.is_blocked ? 'TERBLOKIR' : (r.belum_dikoreksi ? 'MENUNGGU KOREKSI' : 'FINAL')
+                                }));
+                                const ws = XLSX.utils.json_to_sheet(rows);
+                                const wb = XLSX.utils.book_new();
+                                XLSX.utils.book_append_sheet(wb, ws, 'Leger Nilai');
+                                XLSX.writeFile(wb, `Leger_${item.nama_mapel}_${item.target_kelas}.xlsx`.replace(/\s+/g, '_'));
+                              } else {
+                                showMessage('Info', 'Belum ada peserta yang menyelesaikan ujian ini.', 'info');
+                              }
+                            }}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] inline-flex items-center gap-1"
+                          >
+                            <span className="material-symbols-outlined text-[14px]">download</span>
+                            <span>Leger Excel</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: PENGUMUMAN SEKOLAH */}
+          {activeTab === 'pengumuman' && (
+            <div className="space-y-4 max-w-3xl">
+              <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700 space-y-3">
+                <h3 className="font-bold text-sm text-slate-800 dark:text-white">Buat Pengumuman Baru</h3>
+                <input
+                  type="text"
+                  value={pengumumanForm.judul}
+                  onChange={(e) => setPengumumanForm(prev => ({ ...prev, judul: e.target.value }))}
+                  placeholder="Judul Pengumuman"
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white"
+                />
+                <textarea
+                  rows={3}
+                  value={pengumumanForm.isi}
+                  onChange={(e) => setPengumumanForm(prev => ({ ...prev, isi: e.target.value }))}
+                  placeholder="Isi pengumuman untuk siswa..."
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white"
+                />
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!pengumumanForm.judul.trim() || !pengumumanForm.isi.trim()) {
+                        showMessage('Peringatan', 'Judul dan isi pengumuman wajib diisi.', 'error');
+                        return;
+                      }
+                      setIsLoading(true);
+                      const res = await api('create_pengumuman', {
+                        npsn: user.npsn,
+                        judul: pengumumanForm.judul.trim(),
+                        isi: pengumumanForm.isi.trim(),
+                        penulis: user.nama_lengkap || 'Admin Sekolah'
+                      });
+                      setIsLoading(false);
+                      if (res.status === 'success') {
+                        setPengumumanForm({ judul: '', isi: '' });
+                        fetchData('pengumuman');
+                        showMessage('Berhasil', 'Pengumuman berhasil diterbitkan.', 'success');
+                      } else {
+                        showMessage('Gagal', res.message || 'Gagal menerbitkan pengumuman.', 'error');
+                      }
+                    }}
+                    className="px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-white text-xs font-bold"
+                  >
+                    Terbitkan Pengumuman
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2.5">
+                {dataPengumuman.length === 0 ? (
+                  <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200/80 dark:border-slate-700 text-center text-xs text-slate-400">
+                    Belum ada pengumuman aktif.
+                  </div>
+                ) : dataPengumuman.map(p => (
+                  <div key={p.id_pengumuman} className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700 flex items-start justify-between gap-3">
+                    <div>
+                      <h4 className="font-bold text-sm text-slate-800 dark:text-white">{p.judul}</h4>
+                      <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 whitespace-pre-line">{p.isi}</p>
+                      <p className="text-[10px] text-slate-400 mt-2">{p.penulis || 'Admin'} • {p.created_at ? new Date(p.created_at).toLocaleString('id-ID') : ''}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setIsLoading(true);
+                        const res = await api('delete_pengumuman', { id_pengumuman: p.id_pengumuman });
+                        setIsLoading(false);
+                        if (res.status === 'success') fetchData('pengumuman');
+                      }}
+                      className="p-2 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                      title="Hapus Pengumuman"
+                    >
+                      <span className="material-symbols-outlined text-lg">delete</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
         </main>
       </div>
 
@@ -7877,10 +5297,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       {renderNexaImportModal()}
       {renderDeleteModal()}
       {renderProfileModal()}
-      {renderAnalisisModal()}
       {renderConfirmDialog()}
-      {renderAssignPengawasModal()}
-      {renderRuangModal()}
       {renderPrintKartuModal()}
 
       {/* Kartu Ujian Print Component (Mounted when isPrintKartuActive is true) */}

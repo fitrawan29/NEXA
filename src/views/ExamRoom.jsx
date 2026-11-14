@@ -2,7 +2,7 @@ import { fetchAPI } from '../api.js';
 import React, { useState, useEffect, useRef } from 'react';
 import Loader from '../components/Loader.jsx';
 import Modal from '../components/Modal.jsx';
-import TutorialModal, { TutorialBadge, resetTutorialProgress } from '../components/TutorialModal.jsx';
+import { safeJSONParse } from '../components/UI.jsx';
 import { createNexaBundle, downloadNexaBundle } from '../utils/nexaBundle.js';
 
 function mulberry32(a) {
@@ -26,7 +26,7 @@ function seededShuffle(array, seed) {
 }
 
 const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkMode, setIsDarkMode }) => {
-  const currentUserId = user?.id_user || user?.id_siswa;
+  const currentUserId = user?.id_siswa || user?.id_user || user?.id;
 
   const api = (action, p = {}) => {
     if (Array.isArray(p)) return fetchAPI(action, p.map(item => ({ ...item, npsn: user.npsn })));
@@ -40,10 +40,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
       if (typeof localStorage !== 'undefined') {
         const saved = localStorage.getItem(`nexa_ans_${idLog}`);
         if (!saved) return {};
-        if (typeof window !== 'undefined' && window.safeJSONParse) {
-          return window.safeJSONParse(saved, {});
-        }
-        return JSON.parse(saved);
+        return safeJSONParse(saved, {});
       }
     } catch (e) {}
     return {};
@@ -64,29 +61,6 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
   const [confirmModal, setConfirmModal] = useState({ isOpen: false });
   const [offlineModalOpen, setOfflineModalOpen] = useState(false);
   const [securityModal, setSecurityModal] = useState({ isOpen: false, title: '', message: '' });
-  const [showTutorialModal, setShowTutorialModal] = useState(false);
-  const examTutorialStorageKey = currentUserId ? `nexa_tutorial_seen_${currentUserId}_exam_room` : null;
-
-  const handleCloseTutorial = () => {
-    setShowTutorialModal(false);
-    try {
-      if (examTutorialStorageKey) {
-        localStorage.setItem(examTutorialStorageKey, 'true');
-      }
-      localStorage.setItem('nexa_tutorial_shown_exam_room', 'true');
-    } catch (e) {}
-  };
-
-  const handleRestartTutorial = () => {
-    resetTutorialProgress('exam_room');
-    try {
-      if (examTutorialStorageKey) {
-        localStorage.removeItem(examTutorialStorageKey);
-      }
-      localStorage.removeItem('nexa_tutorial_shown_exam_room');
-    } catch (e) {}
-    setShowTutorialModal(true);
-  };
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [blurOverlay, setBlurOverlay] = useState(false);
   const isSubmittingRef = useRef(false);
@@ -467,9 +441,10 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
         setIsSubmitting(true);
         isSubmittingRef.current = true;
 
-        // Clean local storage so no cached answers remain for this exam
+        // Clean local storage & active exam session so no cached answers remain for this exam
         try {
           localStorage.removeItem(`nexa_ans_${idLog}`);
+          sessionStorage.removeItem('nexa_active_exam');
           if (jadwal?.id_jadwal) {
             localStorage.removeItem(`jawaban_${jadwal.id_jadwal}`);
             localStorage.removeItem(`nexa_ans_${jadwal.id_jadwal}`);
@@ -650,7 +625,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
         nisn: nisnVal,
         nama_siswa: user?.nama || user?.nama_lengkap || '',
         npsn: activeNpsn,
-        pelanggaran: violationCountRef.current || pelanggaran || 0,
+        pelanggaran: violationCount || 0,
         jawaban: jawabanSiswa
       });
 
@@ -704,6 +679,10 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
     if (document.fullscreenElement) document.exitFullscreen().catch(() => { });
 
     if (res.status === 'success') {
+      try {
+        localStorage.removeItem(`nexa_ans_${idLog}`);
+        sessionStorage.removeItem('nexa_active_exam');
+      } catch (e) {}
       showMessage('Ujian Selesai', `Terima kasih! Skor pilihan ganda/objektif Anda: ${res.nilai_auto}. Soal uraian dinilai terpisah oleh guru.`, 'success');
       setTimeout(onFinish, 4000);
     } else {
@@ -1083,7 +1062,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
 
         {/* Right: Calm Timer, Font Size Controls & Action Controls */}
         <div className="flex items-center gap-2 sm:gap-2.5">
-          <div data-tutorial="exam-timer" className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border font-mono font-bold text-xs sm:text-sm tracking-wider transition-colors ${
+          <div className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border font-mono font-bold text-xs sm:text-sm tracking-wider transition-colors ${
             timeLeft.total < 60000 
               ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800'
               : timeLeft.total < 300000 
@@ -1092,11 +1071,10 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
           }`}>
             <span className="material-symbols-outlined text-[16px] text-slate-400 dark:text-slate-500">timer</span>
             <span>{String(timeLeft.hours).padStart(2, '0')}:{String(timeLeft.minutes).padStart(2, '0')}:{String(timeLeft.seconds).padStart(2, '0')}</span>
-            <TutorialBadge role="exam_room" targetId="exam-timer" tooltipPosition="bottom" />
           </div>
 
           {/* Question Font Size Modifier (A- / A / A+) */}
-          <div data-tutorial="exam-font-size" className="flex items-center rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100/80 dark:bg-slate-800/80 p-0.5">
+          <div className="flex items-center rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100/80 dark:bg-slate-800/80 p-0.5">
             <button
               type="button"
               onClick={() => handleSetFontSize('small')}
@@ -1164,7 +1142,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
 
       <div className="flex flex-1 pt-16 h-full">
         {/* Desktop Right Sidebar Palette */}
-        <aside data-tutorial="exam-palette" className="hidden lg:flex fixed right-0 top-16 w-80 h-[calc(100vh-64px)] border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex-col p-5 overflow-y-auto custom-scrollbar z-30 transition-colors duration-300">
+        <aside className="hidden lg:flex fixed right-0 top-16 w-80 h-[calc(100vh-64px)] border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex-col p-5 overflow-y-auto custom-scrollbar z-30 transition-colors duration-300">
           <div className="mb-4">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-bold text-slate-800 dark:text-white">Navigasi Soal</h2>
@@ -1270,7 +1248,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
 
           {/* Sticky Bottom Navigation Bar */}
           {currentS && (
-            <div data-tutorial="exam-bottom-bar" className="fixed bottom-0 left-0 right-0 lg:right-80 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-2.5 sm:px-4 py-2 sm:py-3 z-40 pb-[max(0.75rem,env(safe-area-inset-bottom))] transition-colors duration-300">
+            <div className="fixed bottom-0 left-0 right-0 lg:right-80 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-2.5 sm:px-4 py-2 sm:py-3 z-40 pb-[max(0.75rem,env(safe-area-inset-bottom))] transition-colors duration-300">
               <div className="max-w-7xl mx-auto flex flex-col gap-2">
                 {/* Critical Countdown Warning Banner */}
                 {timeLeft.total > 0 && timeLeft.total <= 300000 && (
@@ -1317,46 +1295,39 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
                   >
                     <span className="material-symbols-outlined text-[18px]">help</span>
                     <span>Ragu</span>
-                    <TutorialBadge role="exam_room" targetId="exam-bottom-bar" className="absolute -top-1 -right-1 scale-75" />
                   </button>
 
                   {/* Col 3: Daftar Soal / Palet */}
                   <button
                     type="button"
-                    data-tutorial="exam-palette"
                     onClick={() => setIsDrawerOpen(true)}
                     className="relative min-h-[44px] rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 flex flex-col items-center justify-center text-[10px] sm:text-xs font-semibold py-1.5 transition-colors"
                     aria-label="Buka Palet Soal"
                   >
                     <span className="material-symbols-outlined text-[18px]">grid_view</span>
                     <span>Palet</span>
-                    <TutorialBadge role="exam_room" targetId="exam-palette" className="absolute -top-1 -right-1 scale-75" />
                   </button>
 
                   {/* Col 4: Lanjut / Selesai */}
                   {currentIndex < soal.length - 1 ? (
                     <button
                       type="button"
-                      data-tutorial="exam-selesai-next"
                       onClick={() => setCurrentIndex(currentIndex + 1)}
                       className="relative min-h-[44px] rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white flex flex-col items-center justify-center text-[10px] sm:text-xs font-semibold py-1.5 shadow-sm transition-all"
                       aria-label="Soal Berikutnya"
                     >
                       <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                       <span>Next</span>
-                      <TutorialBadge role="exam_room" targetId="exam-selesai" className="absolute -top-1 -right-1 scale-75" />
                     </button>
                   ) : (
                     <button
                       type="button"
-                      data-tutorial="exam-selesai"
                       onClick={requestSubmit}
                       className="relative min-h-[44px] rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white flex flex-col items-center justify-center text-[10px] sm:text-xs font-semibold py-1.5 shadow-sm hover:shadow transition-all"
                       aria-label="Kumpulkan Ujian"
                     >
                       <span className="material-symbols-outlined text-[18px]">check_circle</span>
                       <span>Selesai</span>
-                      <TutorialBadge role="exam_room" targetId="exam-selesai" className="absolute -top-1 -right-1 scale-75" />
                     </button>
                   )}
                 </div>
@@ -1376,13 +1347,11 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
 
                     <button 
                       type="button"
-                      data-tutorial="exam-palette"
                       onClick={() => setIsDrawerOpen(true)} 
                       className="lg:hidden h-11 px-3.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 border border-slate-200 dark:border-slate-700 font-bold text-xs flex items-center gap-1.5 transition-colors min-h-[44px]"
                     >
                       <span className="material-symbols-outlined text-[18px]">grid_view</span>
                       <span>Daftar Soal</span>
-                      <TutorialBadge role="exam_room" targetId="exam-palette" />
                     </button>
                   </div>
 
@@ -1400,30 +1369,25 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
                         {raguRagu[currentS.id_soal] ? 'check_box' : 'check_box_outline_blank'}
                       </span>
                       <span>Ragu-ragu</span>
-                      <TutorialBadge role="exam_room" targetId="exam-bottom-bar" />
                     </button>
 
                     {currentIndex < soal.length - 1 ? (
                       <button 
                         type="button"
-                        data-tutorial="exam-selesai-next"
                         onClick={() => setCurrentIndex(currentIndex + 1)} 
                         className="h-11 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-bold text-sm flex items-center gap-1.5 shadow-sm transition-all min-h-[44px]"
                       >
                         <span>Lanjut</span>
                         <span className="material-symbols-outlined text-[20px]">chevron_right</span>
-                        <TutorialBadge role="exam_room" targetId="exam-selesai" />
                       </button>
                     ) : (
                       <button 
                         type="button"
-                        data-tutorial="exam-selesai"
                         onClick={requestSubmit} 
                         className="h-11 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-bold text-sm flex items-center gap-1.5 shadow-sm hover:shadow transition-all min-h-[44px]"
                       >
                         <span className="material-symbols-outlined text-[18px]">task_alt</span>
                         <span>Kumpulkan Ujian</span>
-                        <TutorialBadge role="exam_room" targetId="exam-selesai" />
                       </button>
                     )}
                   </div>

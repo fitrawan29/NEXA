@@ -47,7 +47,3 @@ ALTER TABLE public.log_aktivitas_global ENABLE ROW LEVEL SECURITY;
 -- Kebijakan RLS Dasar (Ubah sesuai dengan kebijakan keamanan Supabase Anda)
 -- Contoh: Semua role bisa baca pengumuman global
 CREATE POLICY "Enable read access for all users" ON public.pengumuman_global FOR SELECT USING (true);
-CREATE POLICY "Enable all access for superadmin" ON public.pengumuman_global FOR ALL USING (true);
-
--- Contoh: Hanya super_admin yang bisa baca log aktivitas global
-CREATE POLICY "Enable all access for superadmin" ON public.log_aktivitas_global FOR ALL USING (true);

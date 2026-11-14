@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
 const ModalPeriksaUraian = ({ isOpen, logUjian, jawabanUraian = [], onClose, onSave, hasNext = false, unratedCount = 0 }) => {
-  if (!isOpen) return null;
-
   const [scores, setScores] = useState({});
 
   useEffect(() => {
@@ -10,15 +8,19 @@ const ModalPeriksaUraian = ({ isOpen, logUjian, jawabanUraian = [], onClose, onS
       const initialScores = {};
       jawabanUraian.forEach((j) => {
         const key = j.id_jawaban || j.id_soal;
-        initialScores[key] = j.skor !== undefined && j.skor !== null 
-          ? j.skor 
-          : (j.nilai !== undefined && j.nilai !== null ? j.nilai : '');
+        initialScores[key] = j.skor_diperoleh !== undefined && j.skor_diperoleh !== null
+          ? j.skor_diperoleh
+          : (j.skor !== undefined && j.skor !== null
+            ? j.skor
+            : (j.nilai !== undefined && j.nilai !== null ? j.nilai : ''));
       });
       setScores(initialScores);
     } else {
       setScores({});
     }
   }, [jawabanUraian]);
+
+  if (!isOpen) return null;
 
   const handleScoreChange = (id, val) => {
     setScores(prev => ({
@@ -29,10 +31,13 @@ const ModalPeriksaUraian = ({ isOpen, logUjian, jawabanUraian = [], onClose, onS
 
   const handleSave = (isNext = false) => {
     let totalUraian = 0;
+    const detailSkor = [];
     for (let key in scores) {
-      totalUraian += Number(scores[key] || 0);
+      const val = Number(scores[key] || 0);
+      totalUraian += val;
+      detailSkor.push({ id_jawaban: key, skor_diperoleh: val });
     }
-    onSave(totalUraian, isNext);
+    onSave(totalUraian, isNext, detailSkor);
   };
 
   return (

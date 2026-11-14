@@ -121,22 +121,7 @@ export { supabaseClient };
         return fallbackDefault;
       }
 
-      // Check localStorage cache first
-      if (typeof localStorage !== 'undefined') {
-        try {
-          const cached = localStorage.getItem('nexa_default_skema_' + npsn);
-          if (cached) {
-            const parsed = JSON.parse(cached);
-            if (parsed && typeof parsed === 'object') {
-              return parsed;
-            }
-          }
-        } catch (e) {
-          console.warn('Error reading default skema from localStorage cache:', e);
-        }
-      }
-
-      // Query Supabase soal_ujian table for reserved default record
+      // Query Supabase soal_ujian table for reserved default record first
       try {
         const { data, error } = await supabaseClient
           .from('soal_ujian')
@@ -160,6 +145,21 @@ export { supabaseClient };
         }
       } catch (err) {
         console.warn('get_default_skema_sekolah DB error:', err);
+      }
+
+      // Fallback to localStorage cache if DB unavailable or empty
+      if (typeof localStorage !== 'undefined') {
+        try {
+          const cached = localStorage.getItem('nexa_default_skema_' + npsn);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed && typeof parsed === 'object') {
+              return parsed;
+            }
+          }
+        } catch (e) {
+          console.warn('Error reading default skema from localStorage cache:', e);
+        }
       }
 
       return fallbackDefault;
@@ -211,21 +211,27 @@ export { supabaseClient };
           .eq('npsn', npsn)
           .maybeSingle();
 
+        let dbError = null;
         if (existing) {
           const { error } = await supabaseClient
             .from('soal_ujian')
             .update(record)
             .eq('id_soal', recordId)
             .eq('npsn', npsn);
-          if (error) console.warn('Database update error in save_default_skema_sekolah:', error);
+          if (error) dbError = error;
         } else {
           const { error } = await supabaseClient
             .from('soal_ujian')
             .insert([record]);
-          if (error) console.warn('Database insert error in save_default_skema_sekolah:', error);
+          if (error) dbError = error;
+        }
+        if (dbError) {
+          console.warn('Database error in save_default_skema_sekolah:', dbError);
+          return { success: false, message: dbError.message, data: payload };
         }
       } catch (err) {
         console.warn('save_default_skema_sekolah network/DB warning:', err);
+        return { success: false, message: err.message || 'Gagal menyimpan ke database', data: payload };
       }
 
       // Sync cache to localStorage
@@ -504,175 +510,6 @@ export { supabaseClient };
       }
     };
 
-    export const getDefaultKopSettings = (user = {}) => {
-      const u = user || {};
-      const schoolName = u.nama_sekolah || u.sekolah || 'SEKOLAH INDONESIA';
-      const schoolNpsn = u.npsn || '';
-      const schoolAddress = u.alamat_sekolah || u.alamat || '';
-      return {
-        nama_sekolah: schoolName,
-        npsn: schoolNpsn,
-        alamat_sekolah: schoolAddress,
-        kepala_sekolah: u.kepala_sekolah || '',
-        nip_kepala_sekolah: u.nip_kepala_sekolah || '',
-
-        // Logo configuration
-        logo_kiri: u.logo_kiri || u.logo_dinas || null,
-        logo_kanan: u.logo_kanan || u.logo || null,
-        show_logo_kiri: u.show_logo_kiri !== false,
-        show_logo_kanan: u.show_logo_kanan !== false,
-
-        // Kartu Peserta configuration
-        kop_baris1: u.kop_baris1 !== undefined ? u.kop_baris1 : 'PEMERINTAH PROVINSI DAERAH KHUSUS',
-        kop_baris2: u.kop_baris2 || schoolName,
-        kop_baris3: u.kop_baris3 || 'KARTU PESERTA ASESMEN / CBT',
-        kop_baris4: u.kop_baris4 !== undefined ? u.kop_baris4 : (schoolAddress ? `${schoolAddress}${schoolNpsn ? ' • NPSN: ' + schoolNpsn : ''}` : (schoolNpsn ? `NPSN: ${schoolNpsn}` : '')),
-        kartu_peserta_show_logo_kiri: u.kartu_peserta_show_logo_kiri !== false,
-        kartu_peserta_show_logo_kanan: u.kartu_peserta_show_logo_kanan !== false,
-
-        // Kartu Meja configuration
-        kop_meja_mode: u.kop_meja_mode || 'formal', // 'formal' | 'minimalis'
-        kop_meja_baris1: u.kop_meja_baris1 || schoolName,
-        kop_meja_baris2: u.kop_meja_baris2 !== undefined ? u.kop_meja_baris2 : 'KARTU MEJA UJIAN CBT',
-        kartu_meja_show_logo_kiri: u.kartu_meja_show_logo_kiri !== false,
-        kartu_meja_show_logo_kanan: u.kartu_meja_show_logo_kanan !== false,
-
-        // Student Portal Privacy & Visibility configuration
-        tampilkan_leaderboard: u.tampilkan_leaderboard !== undefined ? u.tampilkan_leaderboard : true
-      };
-    };
-
-    export const get_pengaturan_sekolah = async (npsn) => {
-      const cleanNpsn = npsn !== null && npsn !== undefined ? String(npsn).trim() : '';
-      const fallback = getDefaultKopSettings({ npsn: cleanNpsn });
-      if (!cleanNpsn) {
-        return fallback;
-      }
-
-      // Check localStorage cache
-      if (typeof localStorage !== 'undefined') {
-        try {
-          const cached = localStorage.getItem('nexa_kop_settings_' + cleanNpsn);
-          if (cached) {
-            const parsed = JSON.parse(cached);
-            if (parsed && typeof parsed === 'object') {
-              return { ...fallback, ...parsed };
-            }
-          }
-        } catch (e) {
-          console.warn('Error reading kop settings from localStorage cache:', e);
-        }
-      }
-
-      // Query dedicated table 'pengaturan_sekolah' (Milestone M2 - R2)
-      try {
-        const { data, error } = await supabaseClient
-          .from('pengaturan_sekolah')
-          .select('settings')
-          .eq('npsn', cleanNpsn)
-          .maybeSingle();
-
-        if (!error && data && data.settings) {
-          try {
-            let parsed = data.settings;
-            if (typeof parsed === 'string') {
-              parsed = JSON.parse(parsed);
-            }
-            if (parsed && typeof parsed === 'object') {
-              const merged = { ...fallback, ...parsed };
-              if (typeof localStorage !== 'undefined') {
-                localStorage.setItem('nexa_kop_settings_' + cleanNpsn, JSON.stringify(merged));
-              }
-              return merged;
-            }
-          } catch (e) {
-            console.warn('Error parsing kop settings JSON from pengaturan_sekolah DB:', e);
-          }
-        }
-      } catch (err) {
-        console.warn('get_pengaturan_sekolah DB error:', err);
-      }
-
-      return fallback;
-    };
-
-    export const save_pengaturan_sekolah = async (npsn, payload) => {
-      const cleanNpsn = npsn !== null && npsn !== undefined ? String(npsn).trim() : '';
-      if (!cleanNpsn) {
-        throw new Error('NPSN must be a non-empty string');
-      }
-      if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-        throw new Error('Payload must be an object');
-      }
-
-      // Retrieve existing cache for partial updates to avoid wiping logos
-      let existingCached = null;
-      if (typeof localStorage !== 'undefined') {
-        try {
-          const cachedStr = localStorage.getItem('nexa_kop_settings_' + cleanNpsn);
-          if (cachedStr) existingCached = JSON.parse(cachedStr);
-        } catch (_) {}
-      }
-      const prevLogoKiri = existingCached ? (existingCached.logo_kiri !== undefined ? existingCached.logo_kiri : existingCached.logo_dinas) : null;
-      const prevLogoKanan = existingCached ? (existingCached.logo_kanan !== undefined ? existingCached.logo_kanan : existingCached.logo) : null;
-
-      // Normalize logo aliases for backward compatibility, honoring explicit null
-      const resolvedLogoKiri = payload.logo_kiri !== undefined ? payload.logo_kiri : (payload.logo_dinas !== undefined ? payload.logo_dinas : prevLogoKiri);
-      const resolvedLogoKanan = payload.logo_kanan !== undefined ? payload.logo_kanan : (payload.logo !== undefined ? payload.logo : prevLogoKanan);
-
-      const normalized = {
-        ...payload,
-        logo_kiri: resolvedLogoKiri,
-        logo_dinas: resolvedLogoKiri,
-        logo_kanan: resolvedLogoKanan,
-        logo: resolvedLogoKanan
-      };
-
-      // Sync cache to localStorage
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('nexa_kop_settings_' + cleanNpsn, JSON.stringify(normalized));
-      }
-
-      // Persist to dedicated table 'pengaturan_sekolah' (Milestone M2 - R2)
-      try {
-        const { error: upsertErr } = await supabaseClient
-          .from('pengaturan_sekolah')
-          .upsert({
-            npsn: cleanNpsn,
-            settings: normalized,
-            updated_at: new Date().toISOString()
-          }, { onConflict: 'npsn' });
-
-        if (upsertErr) console.warn('Database upsert error in save_pengaturan_sekolah:', upsertErr);
-      } catch (err) {
-        console.warn('save_pengaturan_sekolah DB warning:', err);
-      }
-
-      // Clean up legacy KOP_SETTINGS fake rows from soal_ujian
-      try {
-        await supabaseClient
-          .from('soal_ujian')
-          .delete()
-          .eq('id_soal', 'KOP_SETTINGS_' + cleanNpsn);
-      } catch (err) {
-        console.warn('Legacy KOP_SETTINGS cleanup warning:', err);
-      }
-
-      // Sync school name to sekolah table if provided
-      if (normalized.nama_sekolah) {
-        try {
-          await supabaseClient
-            .from('sekolah')
-            .update({ nama_sekolah: normalized.nama_sekolah })
-            .eq('npsn', cleanNpsn);
-        } catch (err) {
-          console.warn('update nama_sekolah warning:', err);
-        }
-      }
-
-      return { success: true, status: 'success', data: normalized, message: 'Pengaturan profil sekolah dan kop berhasil disimpan.' };
-    };
-
     export const autoPurgeWeeklyLogs = async (force = false, customCutoff = null) => {
       try {
         const now = new Date();
@@ -841,26 +678,6 @@ export { supabaseClient };
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', data };
           }
-          case 'create_sekolah': {
-            ({ error } = await supabaseClient.from('sekolah').insert([{ npsn: payload.npsn, nama_sekolah: payload.nama_sekolah }]));
-            if (error) return { status: 'error', message: error.message };
-            return { status: 'success', message: 'Sekolah berhasil ditambahkan.' };
-          }
-          case 'delete_sekolah': {
-            const { data: rpcData, error: rpcError } = await supabaseClient.rpc('delete_sekolah_cascade', { p_npsn: payload.npsn });
-            if (!rpcError && rpcData) {
-              if (rpcData.status === 'error') return { status: 'error', message: rpcData.message };
-              return { status: 'success', message: rpcData.message, data: rpcData };
-            }
-            ({ error } = await supabaseClient.from('sekolah').delete().eq('npsn', payload.npsn));
-            if (error) return { status: 'error', message: error.message };
-            return { status: 'success', message: 'Sekolah berhasil dihapus.' };
-          }
-          case 'update_sekolah': {
-            ({ error } = await supabaseClient.from('sekolah').update({ nama_sekolah: payload.nama_sekolah }).eq('npsn', payload.npsn));
-            if (error) return { status: 'error', message: error.message };
-            return { status: 'success', message: 'Sekolah berhasil diperbarui.' };
-          }
           case 'update_admin_profil': {
             const updateData = {};
             if (payload.password) updateData.password = payload.password;
@@ -868,11 +685,6 @@ export { supabaseClient };
             ({ error } = await supabaseClient.from('admin').update(updateData).eq('id_admin', payload.id_admin));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Profil berhasil diperbarui.' };
-          }
-
-          case 'purge_weekly_logs': {
-            const res = await autoPurgeWeeklyLogs(payload.force || false, payload.cutoff);
-            return res;
           }
 
           // ================= ADMIN DASHBOARD =================
@@ -970,7 +782,6 @@ export { supabaseClient };
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: `${payload.ids.length} siswa berhasil dihapus.` };
           }
-          case 'buka_blokir_siswa':
           case 'reset_sesi_siswa': {
             const idSiswa = payload.id_siswa || payload.p_id_siswa;
             const idJadwal = payload.id_jadwal || payload.p_id_jadwal;
@@ -1341,691 +1152,19 @@ export { supabaseClient };
             return { status: 'success', message: `${payload.ids.length} jadwal berhasil dihapus.` };
           }
 
-          // ================= RUANG & PENGAWAS UJIAN =================
-          case 'get_ruang': {
-            const { data: ruangList, error: errRuang } = await supabaseClient
-              .from('ruang_ujian')
-              .select('*')
-              .eq('npsn', payload.npsn)
-              .order('nama_ruang', { ascending: true });
-            if (errRuang) return { status: 'error', message: errRuang.message };
-            return { status: 'success', data: ruangList || [] };
-          }
-
-          case 'create_ruang': {
-            if (!payload.nama_ruang) return { status: 'error', message: 'Nama ruang wajib diisi.' };
-            const newId = payload.id_ruang || generateId('R');
-            const insertPayload = {
-              id_ruang: newId,
-              npsn: payload.npsn,
-              nama_ruang: payload.nama_ruang,
-              kode_ruang: payload.kode_ruang || newId,
-              kapasitas: Number(payload.kapasitas) || 30,
-              keterangan: payload.keterangan || null
-            };
-            const { error: errInsert } = await supabaseClient.from('ruang_ujian').insert([insertPayload]);
-            if (errInsert) return { status: 'error', message: errInsert.message };
-            return { status: 'success', message: 'Ruang ujian berhasil ditambahkan.', data: insertPayload };
-          }
-
-          case 'update_ruang': {
-            if (!payload.id_ruang) return { status: 'error', message: 'ID ruang wajib diisi.' };
-            const { id_ruang, npsn, ...updates } = payload;
-            if (updates.kapasitas !== undefined) updates.kapasitas = Number(updates.kapasitas);
-            const { error: errUpdate } = await supabaseClient
-              .from('ruang_ujian')
-              .update(updates)
-              .eq('id_ruang', id_ruang)
-              .eq('npsn', npsn);
-            if (errUpdate) return { status: 'error', message: errUpdate.message };
-            return { status: 'success', message: 'Ruang ujian berhasil diperbarui.' };
-          }
-
-          case 'delete_ruang': {
-            if (!payload.id_ruang) return { status: 'error', message: 'ID ruang wajib diisi.' };
-            const { error: errDelete } = await supabaseClient
-              .from('ruang_ujian')
-              .delete()
-              .eq('id_ruang', payload.id_ruang)
-              .eq('npsn', payload.npsn);
-            if (errDelete) return { status: 'error', message: errDelete.message };
-            return { status: 'success', message: 'Ruang ujian berhasil dihapus.' };
-          }
-
-          case 'get_pengawas_ruang': {
-            let query = supabaseClient
-              .from('pengawas_ruang')
-              .select(`
-                *,
-                guru:id_guru (id_guru, nama_lengkap, nip, foto, username),
-                ruang:id_ruang (id_ruang, nama_ruang, kapasitas, kode_ruang),
-                jadwal:id_jadwal (id_jadwal, target_kelas, waktu_mulai, waktu_selesai, id_mapel, mata_pelajaran(nama_mapel))
-              `)
-              .eq('npsn', payload.npsn);
-
-            if (payload.id_jadwal) query = query.eq('id_jadwal', payload.id_jadwal);
-            if (payload.id_ruang) query = query.eq('id_ruang', payload.id_ruang);
-            if (payload.id_guru) query = query.eq('id_guru', payload.id_guru);
-
-            const { data: pengawasData, error: errPengawas } = await query.order('created_at', { ascending: false });
-            if (errPengawas) return { status: 'error', message: errPengawas.message };
-            return { status: 'success', data: pengawasData || [] };
-          }
-
-          case 'assign_pengawas_ruang': {
-            if (!payload.id_ruang || !payload.id_guru) {
-              return { status: 'error', message: 'Ruang dan Guru pengawas wajib dipilih.' };
-            }
-            const newId = payload.id_penugasan || generateId('TGS');
-            const record = {
-              id_penugasan: newId,
-              npsn: payload.npsn,
-              id_ruang: payload.id_ruang,
-              id_guru: payload.id_guru,
-              id_jadwal: payload.id_jadwal || null,
-              peran: payload.peran || 'PENGAWAS UTAMA',
-              status_tugas: payload.status_tugas || 'AKTIF'
-            };
-            const { error: errAssign } = await supabaseClient.from('pengawas_ruang').insert([record]);
-            if (errAssign) return { status: 'error', message: errAssign.message };
-            return { status: 'success', message: 'Pengawas berhasil ditugaskan ke ruang ujian.', data: record };
-          }
-
-          case 'delete_pengawas_ruang': {
-            if (!payload.id_penugasan) return { status: 'error', message: 'ID penugasan wajib diisi.' };
-            const { error: errDel } = await supabaseClient
-              .from('pengawas_ruang')
-              .delete()
-              .eq('id_penugasan', payload.id_penugasan)
-              .eq('npsn', payload.npsn);
-            if (errDel) return { status: 'error', message: errDel.message };
-            return { status: 'success', message: 'Penugasan pengawas berhasil dihapus.' };
-          }
-
-          case 'get_ruang_guru_pengawas': {
-            const { data: listTugas, error: errTugas } = await supabaseClient
-              .from('pengawas_ruang')
-              .select(`
-                *,
-                ruang:id_ruang (*),
-                jadwal:id_jadwal (*, mata_pelajaran(nama_mapel))
-              `)
-              .eq('id_guru', payload.id_guru)
-              .eq('npsn', payload.npsn)
-              .eq('status_tugas', 'AKTIF');
-
-            if (errTugas) return { status: 'error', message: errTugas.message };
-            return { status: 'success', data: listTugas || [] };
-          }
-
-          case 'assign_siswa_ruang_bulk': {
-            const { npsn, id_ruang, nama_ruang, target_kelas, list_id_siswa } = payload;
-            const roomValue = nama_ruang || id_ruang;
-            if (!roomValue) return { status: 'error', message: 'Nama ruang atau ID ruang wajib diisi.' };
-
-            let q = supabaseClient.from('siswa').update({ ruang: roomValue }).eq('npsn', npsn);
-            
-            if (Array.isArray(list_id_siswa) && list_id_siswa.length > 0) {
-              q = q.in('id_siswa', list_id_siswa);
-            } else if (target_kelas) {
-              q = q.ilike('kelas', `${target_kelas}%`);
-            } else {
-              return { status: 'error', message: 'Kriteria alokasi siswa tidak lengkap (list_id_siswa atau target_kelas).' };
-            }
-
-            const { error: errBulk } = await q;
-            if (errBulk) return { status: 'error', message: errBulk.message };
-            return { status: 'success', message: 'Alokasi siswa ke ruangan berhasil disimpan.' };
-          }
-
-          case 'simpan_tanda_tangan_siswa': {
-            return { status: 'success', message: 'Tanda tangan digital kanvas telah didepresiasi (Milestone M2).', deprecated: true };
-          }
-
-          case 'simpan_kehadiran_siswa':
-          case 'submit_absensi_siswa': {
-            let { id_jadwal, id_siswa, id_ruang, tanda_tangan, npsn, id_log, status_kehadiran } = payload;
-            if (tanda_tangan && (typeof tanda_tangan !== 'string' || !tanda_tangan.startsWith('data:image') || tanda_tangan.length < 50)) {
-              tanda_tangan = null;
-            }
-
-            // Retrieve missing fields from log_ujian if id_log is provided
-            if (id_log && (!id_jadwal || !id_siswa || !npsn)) {
-              const { data: logInfo } = await supabaseClient
-                .from('log_ujian')
-                .select('id_log, id_jadwal, id_siswa')
-                .eq('id_log', id_log)
-                .maybeSingle();
-
-              if (logInfo) {
-                id_jadwal = id_jadwal || logInfo.id_jadwal;
-                id_siswa = id_siswa || logInfo.id_siswa;
-              }
-            }
-
-            // Retrieve missing npsn or id_ruang from siswa
-            if (id_siswa && (!npsn || !id_ruang)) {
-              const { data: siswaInfo } = await supabaseClient
-                .from('siswa')
-                .select('npsn, ruang')
-                .eq('id_siswa', id_siswa)
-                .maybeSingle();
-
-              if (siswaInfo) {
-                npsn = npsn || siswaInfo.npsn;
-                id_ruang = id_ruang || siswaInfo.ruang;
-              }
-            }
-
-            // Retrieve missing npsn from jadwal
-            if (id_jadwal && !npsn) {
-              const { data: jadwalInfo } = await supabaseClient
-                .from('jadwal')
-                .select('npsn')
-                .eq('id_jadwal', id_jadwal)
-                .maybeSingle();
-              if (jadwalInfo) npsn = jadwalInfo.npsn;
-            }
-
-            if (!npsn || !id_jadwal || !id_siswa) {
-              return { status: 'error', message: 'Data absensi tidak lengkap (npsn, id_jadwal, id_siswa).' };
-            }
-
-            // Safe room resolution: verify if id_ruang matches an existing record in ruang_ujian
-            // If not found (e.g. legacy free-text student room name), fallback to null to satisfy absensi_ujian_ruang_fkey
-            let verifiedRoomId = null;
-            let roomNameForLog = id_ruang || null;
-
-            if (id_ruang) {
-              const { data: matchById } = await supabaseClient
-                .from('ruang_ujian')
-                .select('id_ruang, nama_ruang')
-                .eq('id_ruang', id_ruang)
-                .maybeSingle();
-
-              if (matchById) {
-                verifiedRoomId = matchById.id_ruang;
-                roomNameForLog = matchById.nama_ruang || matchById.id_ruang;
-              } else {
-                const { data: matchByName } = await supabaseClient
-                  .from('ruang_ujian')
-                  .select('id_ruang, nama_ruang')
-                  .eq('nama_ruang', id_ruang)
-                  .maybeSingle();
-
-                if (matchByName) {
-                  verifiedRoomId = matchByName.id_ruang;
-                  roomNameForLog = matchByName.nama_ruang;
-                } else {
-                  verifiedRoomId = null;
-                }
-              }
-            }
-
-            const waktuAbsen = new Date().toISOString();
-            const absensiRecord = {
-              id_absensi: payload.id_absensi || generateId('ABS'),
-              npsn,
-              id_jadwal,
-              id_siswa,
-              id_ruang: verifiedRoomId,
-              id_log: id_log || null,
-              tanda_tangan,
-              status_kehadiran: status_kehadiran || 'HADIR',
-              status_verifikasi: 'MENUNGGU',
-              waktu_absen: waktuAbsen
-            };
-
-            const { error: errAbs } = await supabaseClient
-              .from('absensi_ujian')
-              .upsert(absensiRecord, { onConflict: 'id_jadwal, id_siswa' });
-
-            if (errAbs) return { status: 'error', message: errAbs.message };
-
-            // Dual-write to log_ujian
-            const logUpdate = {
-              tanda_tangan,
-              status_kehadiran: status_kehadiran || 'HADIR',
-              waktu_absen: waktuAbsen
-            };
-            if (roomNameForLog) logUpdate.ruang = roomNameForLog;
-
-            if (id_log) {
-              await supabaseClient.from('log_ujian').update(logUpdate).eq('id_log', id_log);
-            } else {
-              await supabaseClient.from('log_ujian').update(logUpdate).eq('id_jadwal', id_jadwal).eq('id_siswa', id_siswa);
-            }
-
-            return { status: 'success', message: 'Absensi dan tanda tangan berhasil disimpan.', data: absensiRecord };
-          }
-
-          case 'get_absensi_ruang': {
-            let q = supabaseClient
-              .from('absensi_ujian')
-              .select(`
-                *,
-                siswa:id_siswa (id_siswa, nama_lengkap, nisn, username, kelas, angkatan, kelas_paralel, foto_profil)
-              `)
-              .eq('id_jadwal', payload.id_jadwal)
-              .eq('npsn', payload.npsn);
-
-            if (payload.id_ruang) q = q.eq('id_ruang', payload.id_ruang);
-
-            const { data: absData, error: errAbs } = await q.order('waktu_absen', { ascending: true });
-            if (errAbs) return { status: 'error', message: errAbs.message };
-            return { status: 'success', data: absData || [] };
-          }
-
-          case 'verifikasi_absensi': {
-            const { id_absensi, status_verifikasi, id_guru, catatan, id_log } = payload;
-            const newStatus = status_verifikasi || 'DISETUJUI';
-            const nowIso = new Date().toISOString();
-            const updatePayload = {
-              status_verifikasi: newStatus,
-              verified_by: id_guru || null,
-              verified_at: nowIso,
-              catatan_pengawas: catatan || null
-            };
-
-            let q = supabaseClient.from('absensi_ujian').update(updatePayload);
-            if (id_absensi) {
-              q = q.eq('id_absensi', id_absensi);
-            } else if (id_log) {
-              q = q.eq('id_log', id_log);
-            } else {
-              return { status: 'error', message: 'id_absensi atau id_log wajib diberikan.' };
-            }
-
-            const { error: errVerif } = await q;
-            if (errVerif) return { status: 'error', message: errVerif.message };
-
-            // Also update log_ujian
-            const logVerifUpdate = {
-              is_verified_kehadiran: newStatus === 'DISETUJUI',
-              verified_by: id_guru || null,
-              verified_at: nowIso
-            };
-            if (newStatus === 'DISETUJUI') logVerifUpdate.status_kehadiran = 'TERVERIFIKASI';
-            else if (newStatus === 'DITOLAK') logVerifUpdate.status_kehadiran = 'DITOLAK';
-
-            if (id_log) {
-              await supabaseClient.from('log_ujian').update(logVerifUpdate).eq('id_log', id_log);
-            } else if (id_absensi) {
-              const { data: absRec } = await supabaseClient.from('absensi_ujian').select('id_jadwal, id_siswa, id_log').eq('id_absensi', id_absensi).maybeSingle();
-              if (absRec) {
-                if (absRec.id_log) {
-                  await supabaseClient.from('log_ujian').update(logVerifUpdate).eq('id_log', absRec.id_log);
-                } else {
-                  await supabaseClient.from('log_ujian').update(logVerifUpdate).eq('id_jadwal', absRec.id_jadwal).eq('id_siswa', absRec.id_siswa);
-                }
-              }
-            }
-
-            return { status: 'success', message: 'Status kehadiran siswa berhasil diverifikasi.' };
-          }
-
-          case 'verifikasi_absensi_bulk': {
-            const { list_id_absensi, id_guru, status_verifikasi } = payload;
-            if (!Array.isArray(list_id_absensi) || list_id_absensi.length === 0) {
-              return { status: 'error', message: 'Daftar ID absensi kosong atau tidak valid.' };
-            }
-
-            const newStatus = status_verifikasi || 'DISETUJUI';
-            const nowIso = new Date().toISOString();
-            const { error: errBulk } = await supabaseClient
-              .from('absensi_ujian')
-              .update({
-                status_verifikasi: newStatus,
-                verified_by: id_guru || null,
-                verified_at: nowIso
-              })
-              .in('id_absensi', list_id_absensi);
-
-            if (errBulk) return { status: 'error', message: errBulk.message };
-
-            // Update associated log_ujian records
-            const { data: updatedAbs } = await supabaseClient
-              .from('absensi_ujian')
-              .select('id_log, id_jadwal, id_siswa')
-              .in('id_absensi', list_id_absensi);
-
-            if (updatedAbs && updatedAbs.length > 0) {
-              const logIds = updatedAbs.map(a => a.id_log).filter(Boolean);
-              if (logIds.length > 0) {
-                await supabaseClient
-                  .from('log_ujian')
-                  .update({
-                    is_verified_kehadiran: newStatus === 'DISETUJUI',
-                    verified_by: id_guru || null,
-                    verified_at: nowIso,
-                    status_kehadiran: newStatus === 'DISETUJUI' ? 'TERVERIFIKASI' : (newStatus === 'DITOLAK' ? 'DITOLAK' : 'HADIR')
-                  })
-                  .in('id_log', logIds);
-              }
-            }
-
-            return { status: 'success', message: `${list_id_absensi.length} kehadiran siswa berhasil diproses.` };
-          }
-
-          case 'save_berita_acara': {
-            const { 
-              id_jadwal, 
-              id_ruang, 
-              npsn, 
-              id_guru, 
-              jumlah_peserta_terdaftar, 
-              jumlah_peserta_hadir, 
-              jumlah_peserta_absen, 
-              daftar_siswa_tidak_hadir, 
-              catatan_pelaksanaan, 
-              tanda_tangan_pengawas,
-              foto_dokumentasi,
-              drive_url,
-              drive_link
-            } = payload;
-            if (!id_jadwal || !id_ruang || !npsn) {
-              return { status: 'error', message: 'id_jadwal, id_ruang, dan npsn wajib diisi.' };
-            }
-
-            const resolvedDriveUrl = drive_url || drive_link || null;
-            // Encapsulate foto_dokumentasi & drive_url safely into catatan_pelaksanaan JSON
-            // to avoid PostgreSQL 42703 error (column foto_dokumentasi does not exist on berita_acara_ujian)
-            let finalCatatan = catatan_pelaksanaan || null;
-            if (foto_dokumentasi || resolvedDriveUrl) {
-              finalCatatan = JSON.stringify({
-                catatan: catatan_pelaksanaan || '',
-                foto_dokumentasi: foto_dokumentasi || null,
-                drive_url: resolvedDriveUrl
-              });
-            }
-
-            const record = {
-              id_berita_acara: payload.id_berita_acara || generateId('BA'),
-              npsn,
-              id_jadwal,
-              id_ruang,
-              id_guru: id_guru || null,
-              jumlah_peserta_terdaftar: Number(jumlah_peserta_terdaftar) || 0,
-              jumlah_peserta_hadir: Number(jumlah_peserta_hadir) || 0,
-              jumlah_peserta_absen: Number(jumlah_peserta_absen) || 0,
-              daftar_siswa_tidak_hadir: typeof daftar_siswa_tidak_hadir === 'object' ? JSON.stringify(daftar_siswa_tidak_hadir) : (daftar_siswa_tidak_hadir || null),
-              catatan_pelaksanaan: finalCatatan,
-              tanda_tangan_pengawas: tanda_tangan_pengawas || null,
-              updated_at: new Date().toISOString()
-            };
-
-            const { error: errBA } = await supabaseClient
-              .from('berita_acara_ujian')
-              .upsert(record, { onConflict: 'id_jadwal, id_ruang' });
-
-            if (errBA) return { status: 'error', message: errBA.message };
-            return { 
-              status: 'success', 
-              message: 'Berita acara ujian berhasil disimpan.', 
-              data: {
-                ...record,
-                catatan_pelaksanaan: catatan_pelaksanaan || null,
-                foto_dokumentasi: foto_dokumentasi || null,
-                drive_url: resolvedDriveUrl
-              } 
-            };
-          }
-
-          case 'get_berita_acara': {
-            const { id_jadwal, id_ruang, npsn } = payload;
-            if (!id_jadwal || !id_ruang) {
-              return { status: 'error', message: 'id_jadwal dan id_ruang wajib diisi.' };
-            }
-
-            let q = supabaseClient
-              .from('berita_acara_ujian')
-              .select('*, guru:id_guru(nama_lengkap, nip)')
-              .eq('id_jadwal', id_jadwal)
-              .eq('id_ruang', id_ruang);
-            if (npsn) q = q.eq('npsn', npsn);
-            const { data: ba, error: errBA } = await q.maybeSingle();
-            if (errBA) return { status: 'error', message: errBA.message };
-
-            let unpackedCatatan = ba?.catatan_pelaksanaan || null;
-            let fotoDokumentasi = null;
-            let driveUrl = null;
-
-            if (ba?.catatan_pelaksanaan && typeof ba.catatan_pelaksanaan === 'string' && ba.catatan_pelaksanaan.trim().startsWith('{')) {
-              try {
-                const parsed = JSON.parse(ba.catatan_pelaksanaan);
-                if (parsed && typeof parsed === 'object') {
-                  unpackedCatatan = parsed.catatan !== undefined ? parsed.catatan : ba.catatan_pelaksanaan;
-                  fotoDokumentasi = parsed.foto_dokumentasi || parsed.drive_url || null;
-                  driveUrl = parsed.drive_url || parsed.drive_link || null;
-                }
-              } catch (_) {}
-            }
-
-            const processedBa = ba ? {
-              ...ba,
-              catatan_pelaksanaan: unpackedCatatan,
-              foto_dokumentasi: fotoDokumentasi,
-              drive_url: driveUrl
-            } : null;
-
-            return { status: 'success', data: processedBa };
-          }
-
-          case 'get_dokumen_ujian_cetak': {
-            const { id_jadwal, id_ruang, npsn } = payload;
-            if (!id_jadwal || !npsn) {
-              return { status: 'error', message: 'id_jadwal dan npsn wajib diisi.' };
-            }
-
-            // 1. Data Sekolah & Kop Settings (Merged)
-            const { data: sek } = await supabaseClient
-              .from('sekolah')
-              .select('*')
-              .eq('npsn', npsn)
-              .maybeSingle();
-
-            const kopSettings = await get_pengaturan_sekolah(npsn);
-            const resolvedAddress = kopSettings?.alamat_sekolah || kopSettings?.alamat || sek?.alamat || '';
-            const mergedSekolah = {
-              ...(sek || {}),
-              nama_sekolah: sek?.nama_sekolah || kopSettings?.nama_sekolah || 'SEKOLAH INDONESIA',
-              npsn: npsn,
-              alamat: resolvedAddress,
-              alamat_sekolah: resolvedAddress,
-              logo: kopSettings?.logo_kanan || kopSettings?.logo || sek?.logo || null,
-              logo_dinas: kopSettings?.logo_kiri || kopSettings?.logo_dinas || sek?.logo_dinas || null,
-              kepala_sekolah: kopSettings?.kepala_sekolah || sek?.kepala_sekolah || '',
-              nip_kepala_sekolah: kopSettings?.nip_kepala_sekolah || sek?.nip_kepala_sekolah || ''
-            };
-
-            // 2. Data Jadwal
-            const { data: jdw } = await supabaseClient
-              .from('jadwal')
-              .select('*, mata_pelajaran(nama_mapel), guru(nama_lengkap, nip)')
-              .eq('id_jadwal', id_jadwal)
-              .maybeSingle();
-
-            // 3. Data Ruang
-            let rng = null;
-            if (id_ruang) {
-              const { data: rData } = await supabaseClient
-                .from('ruang_ujian')
-                .select('*')
-                .eq('id_ruang', id_ruang)
-                .maybeSingle();
-              rng = rData;
-            }
-
-            // 4. Data Pengawas Ruang (Fetch all assigned proctors)
-            let pgwQuery = supabaseClient
-              .from('pengawas_ruang')
-              .select('*, guru:id_guru(*)')
-              .eq('npsn', npsn);
-            if (id_jadwal) pgwQuery = pgwQuery.eq('id_jadwal', id_jadwal);
-            if (id_ruang) pgwQuery = pgwQuery.eq('id_ruang', id_ruang);
-            const { data: pgwRows } = await pgwQuery;
-            const primaryProctor = (pgwRows && pgwRows.length > 0) ? pgwRows[0].guru : null;
-            const allProctors = (pgwRows || []).map(r => r.guru).filter(Boolean);
-
-            // 5. Data Berita Acara & Unpack Encapsulated Photo/Drive URL
-            let baQuery = supabaseClient
-              .from('berita_acara_ujian')
-              .select('*, guru:id_guru(nama_lengkap, nip)')
-              .eq('id_jadwal', id_jadwal);
-            if (id_ruang) baQuery = baQuery.eq('id_ruang', id_ruang);
-            const { data: ba } = await baQuery.maybeSingle();
-
-            let unpackedCatatan = ba?.catatan_pelaksanaan || null;
-            let fotoDokumentasi = null;
-            let driveUrl = null;
-
-            if (ba?.catatan_pelaksanaan && typeof ba.catatan_pelaksanaan === 'string' && ba.catatan_pelaksanaan.trim().startsWith('{')) {
-              try {
-                const parsed = JSON.parse(ba.catatan_pelaksanaan);
-                if (parsed && typeof parsed === 'object') {
-                  unpackedCatatan = parsed.catatan !== undefined ? parsed.catatan : ba.catatan_pelaksanaan;
-                  fotoDokumentasi = parsed.foto_dokumentasi || parsed.drive_url || null;
-                  driveUrl = parsed.drive_url || parsed.drive_link || null;
-                }
-              } catch (_) {}
-            }
-
-            const processedBa = ba ? {
-              ...ba,
-              catatan_pelaksanaan: unpackedCatatan,
-              foto_dokumentasi: fotoDokumentasi,
-              drive_url: driveUrl
-            } : null;
-
-            // 6. Daftar Siswa
-            let qSiswa = supabaseClient
-              .from('siswa')
-              .select('id_siswa, nama_lengkap, nisn, username, kelas, ruang')
-              .eq('npsn', npsn);
-            if (rng && (rng.nama_ruang || rng.id_ruang)) {
-              qSiswa = qSiswa.or(`ruang.eq.${rng.nama_ruang},ruang.eq.${rng.id_ruang}`);
-            }
-            const { data: daftarSiswa } = await qSiswa.order('nama_lengkap', { ascending: true });
-
-            // 7. Absensi Ujian
-            let absQuery = supabaseClient
-              .from('absensi_ujian')
-              .select('*')
-              .eq('id_jadwal', id_jadwal);
-            if (id_ruang) absQuery = absQuery.eq('id_ruang', id_ruang);
-            const { data: absensiList } = await absQuery;
-
-            const absensiMap = {};
-            (absensiList || []).forEach(a => { absensiMap[a.id_siswa] = a; });
-
-            const rekapPeserta = (daftarSiswa || []).map((s, idx) => {
-              const abs = absensiMap[s.id_siswa];
-              return {
-                no: idx + 1,
-                id_siswa: s.id_siswa,
-                nama_lengkap: s.nama_lengkap,
-                nisn: s.nisn || '-',
-                kelas: s.kelas || '-',
-                ruang: s.ruang || (rng ? rng.nama_ruang : '-'),
-                tanda_tangan: abs ? abs.tanda_tangan : null,
-                status_kehadiran: abs ? abs.status_kehadiran : 'TIDAK HADIR',
-                status_verifikasi: abs ? abs.status_verifikasi : 'BELUM ABSEN',
-                waktu_absen: abs ? abs.waktu_absen : null
-              };
-            });
-
-            return {
-              status: 'success',
-              data: {
-                sekolah: mergedSekolah,
-                jadwal: jdw || null,
-                ruang: rng || null,
-                pengawas: primaryProctor,
-                daftar_pengawas: allProctors,
-                berita_acara: processedBa,
-                foto_dokumentasi: fotoDokumentasi,
-                drive_url: driveUrl,
-                peserta: rekapPeserta
-              }
-            };
-          }
-
-          // ================= GURU / PENGAWAS =================
-          case 'update_profil_guru': {
-            const { id_guru, password, foto } = payload;
-            const updateData = {};
-            if (password) updateData.password = password;
-            if (foto) updateData.foto = foto;
-            if (Object.keys(updateData).length === 0) return { status: 'error', message: 'Tidak ada data yang diubah.' };
-            ({ error } = await supabaseClient.from('guru').update(updateData).eq('id_guru', id_guru).eq('npsn', payload.npsn));
-            if (error) return { status: 'error', message: error.message };
-            return { status: 'success', message: 'Profil berhasil diperbarui.' };
-          }
-
-          case 'get_guru_dashboard_data': {
-            const { data: jadwalData, error: jadwalError } = await supabaseClient
-              .from('jadwal')
-              .select('id_jadwal')
-              .eq('npsn', payload.npsn)
-              .eq('id_guru', payload.id_guru);
-            if (jadwalError) return { status: 'error', message: jadwalError.message };
-
-            const jadwalIds = jadwalData.map(j => j.id_jadwal);
-            if (jadwalIds.length === 0) {
-              return { status: 'success', data: { totalJadwal: 0, totalSelesai: 0, rataNilai: 0 } };
-            }
-
-            const { data: logData, error: logError } = await supabaseClient
-              .from('log_ujian')
-              .select('nilai_auto, nilai_uraian')
-              .in('id_jadwal', jadwalIds)
-              .eq('status_ujian', 'SELESAI');
-            
-            if (logError) return { status: 'error', message: logError.message };
-
-            const totalSelesai = logData.length;
-            const rataNilai = totalSelesai > 0 ? (logData.reduce((sum, log) => sum + ((Number(log.nilai_auto) || 0) + (Number(log.nilai_uraian) || 0)), 0) / totalSelesai).toFixed(1) : 0;
-
-            return {
-              status: 'success',
-              data: {
-                totalJadwal: jadwalIds.length,
-                totalSelesai,
-                rataNilai
-              }
-            };
-          }
+          // ================= GURU =================
           case 'get_jadwal_pengawas': {
             let q = supabaseClient.from('jadwal').select('*, mata_pelajaran(nama_mapel)').eq('npsn', payload.npsn);
             if (payload.id_guru) {
-              // 1. Query taught subjects from guru_mapel
               const { data: gmData } = await supabaseClient
                 .from('guru_mapel')
                 .select('id_mapel')
                 .eq('id_guru', payload.id_guru);
               const taughtMapelIds = (gmData || []).map(g => g.id_mapel).filter(Boolean);
-
-              // 2. Query assigned rooms from pengawas_ruang
-              const { data: assignedRooms } = await supabaseClient
-                .from('pengawas_ruang')
-                .select('id_jadwal')
-                .eq('id_guru', payload.id_guru)
-                .eq('npsn', payload.npsn);
-              const assignedJadwalIds = (assignedRooms || []).map(r => r.id_jadwal).filter(Boolean);
-
-              // If teacher has neither taught subjects nor proctor assignments, return empty list
-              if (taughtMapelIds.length === 0 && assignedJadwalIds.length === 0) {
+              if (taughtMapelIds.length === 0) {
                 return { status: 'success', data: [] };
               }
-
-              const orConditions = [];
-              if (taughtMapelIds.length > 0) {
-                orConditions.push(`id_mapel.in.(${taughtMapelIds.join(',')})`);
-              }
-              if (assignedJadwalIds.length > 0) {
-                orConditions.push(`id_jadwal.in.(${assignedJadwalIds.join(',')})`);
-              }
-              q = q.or(orConditions.join(','));
+              q = q.in('id_mapel', taughtMapelIds);
             }
             ({ data, error } = await q);
             if (error) return { status: 'error', message: error.message };
@@ -2117,34 +1256,22 @@ export { supabaseClient };
           }
 
           case 'update_nilai_uraian': {
-            const { id_log, nilai_uraian_total } = payload;
-            ({ error } = await supabaseClient.from('log_ujian').update({ nilai_uraian: nilai_uraian_total }).eq('id_log', id_log));
+            const { id_log, nilai_uraian_total, detail_skor } = payload;
+            if (Array.isArray(detail_skor) && detail_skor.length > 0) {
+              await Promise.all(
+                detail_skor
+                  .filter(d => d && d.id_jawaban)
+                  .map(d =>
+                    supabaseClient
+                      .from('jawaban_siswa')
+                      .update({ skor_diperoleh: Number(d.skor_diperoleh) || 0 })
+                      .eq('id_jawaban', d.id_jawaban)
+                  )
+              );
+            }
+            ({ error } = await supabaseClient.from('log_ujian').update({ nilai_uraian: Number(nilai_uraian_total) || 0 }).eq('id_log', id_log));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Nilai uraian berhasil disimpan.' };
-          }
-
-          case 'get_token': {
-            ({ data, error } = await supabaseClient.from('jadwal').select('token_aktif, last_update_token').eq('id_jadwal', payload.id_jadwal).single());
-            if (error) return { status: 'error', message: error.message };
-
-            let token = data.token_aktif;
-            let lastUpdate = data.last_update_token ? new Date(data.last_update_token).getTime() : 0;
-            let nowTime = await getTrueNow();
-
-            if (nowTime.getTime() - lastUpdate > 480000 || !token) {
-              token = generateComplexToken(payload.id_jadwal);
-              let updateQuery = supabaseClient.from('jadwal').update({
-                token_aktif: token,
-                last_update_token: nowTime.toISOString()
-              }).eq('id_jadwal', payload.id_jadwal);
-
-              updateQuery = data.last_update_token != null
-                ? updateQuery.eq('last_update_token', data.last_update_token)
-                : updateQuery.is('last_update_token', null);
-
-              await updateQuery;
-            }
-            return { status: 'success', token };
           }
 
           case 'monitoring_ujian': {
@@ -2186,21 +1313,19 @@ export { supabaseClient };
                 username: l.siswa ? l.siswa.username : '-',
                 angkatan: l.siswa ? l.siswa.angkatan : '-',
                 kelas_paralel: l.siswa ? l.siswa.kelas_paralel : '-',
-                total_nilai: (Number(l.nilai_auto) || 0) + (Number(l.nilai_uraian) || 0)
+                belum_dikoreksi: !l.is_blocked && (l.nilai_uraian === null || l.nilai_uraian === undefined),
+                total_nilai: l.is_blocked ? 0 : Math.min(100, Math.round(((Number(l.nilai_auto) || 0) + (Number(l.nilai_uraian) || 0)) * 100) / 100)
               }))
             };
           }
 
           case 'buka_blokir': {
-            ({ error } = await supabaseClient.from('log_ujian').update({ is_blocked: false, pelanggaran: 0 }).eq('id_log', payload.id_log));
+            ({ error } = await supabaseClient
+              .from('log_ujian')
+              .update({ is_blocked: false, pelanggaran: 0, status_ujian: 'SEDANG KERJA', waktu_selesai: null })
+              .eq('id_log', payload.id_log));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Blokir berhasil dibuka.' };
-          }
-
-          case 'submit_nilai_uraian': {
-            ({ error } = await supabaseClient.from('log_ujian').update({ nilai_uraian: payload.nilai }).eq('id_log', payload.id_log));
-            if (error) return { status: 'error', message: error.message };
-            return { status: 'success', message: 'Nilai uraian berhasil diupdate.' };
           }
 
           // ================= SISWA =================
@@ -2255,21 +1380,10 @@ export { supabaseClient };
           case 'get_status_log_ujian': {
             const { data: log, error: logErr } = await supabaseClient
               .from('log_ujian')
-              .select('id_log, id_jadwal, id_siswa, pelanggaran, is_blocked, status_ujian, nilai_auto, tanda_tangan, status_kehadiran, is_verified_kehadiran')
+              .select('id_log, id_jadwal, id_siswa, pelanggaran, is_blocked, status_ujian, nilai_auto')
               .eq('id_log', payload.id_log)
               .single();
             if (logErr || !log) return { status: 'error', message: logErr?.message || 'Log tidak ditemukan' };
-            
-            let hasSigned = Boolean(log.tanda_tangan);
-            if (!hasSigned && log.id_jadwal && log.id_siswa) {
-              const { data: absCheck } = await supabaseClient
-                .from('absensi_ujian')
-                .select('tanda_tangan')
-                .eq('id_jadwal', log.id_jadwal)
-                .eq('id_siswa', log.id_siswa)
-                .maybeSingle();
-              if (absCheck && absCheck.tanda_tangan) hasSigned = true;
-            }
 
             let waktu_selesai = null;
             let durasi_menit = null;
@@ -2290,8 +1404,7 @@ export { supabaseClient };
               data: {
                 ...log,
                 waktu_selesai,
-                durasi_menit,
-                has_signed: hasSigned
+                durasi_menit
               } 
             };
           }
@@ -2328,46 +1441,21 @@ export { supabaseClient };
                 id_log: idLog,
                 id_jadwal: payload.id_jadwal,
                 id_siswa: payload.id_siswa,
+                npsn: payload.npsn,
                 status_ujian: 'SEDANG KERJA',
-                pelanggaran: 0,
-                status_kehadiran: 'BELUM_HADIR'
+                pelanggaran: 0
               }]);
             }
-
-            // Check signature in logData or absensi_ujian
-            let hasSigned = Boolean(logData && logData.tanda_tangan);
-            if (!hasSigned) {
-              const { data: absCheck } = await supabaseClient
-                .from('absensi_ujian')
-                .select('tanda_tangan, status_kehadiran, status_verifikasi')
-                .eq('id_jadwal', payload.id_jadwal)
-                .eq('id_siswa', payload.id_siswa)
-                .maybeSingle();
-              if (absCheck && absCheck.tanda_tangan) {
-                hasSigned = true;
-              }
-            }
-
-            const currentStatusKehadiran = logData?.status_kehadiran || (hasSigned ? 'HADIR' : 'BELUM_HADIR');
 
             return { 
               status: 'success', 
               id_log: idLog,
               pelanggaran: logData ? (logData.pelanggaran || 0) : 0,
               is_blocked: logData ? (logData.is_blocked || false) : false,
-              has_signed: hasSigned,
-              status_kehadiran: currentStatusKehadiran,
-              dataLog: logData ? { 
-                ...logData, 
-                has_signed: hasSigned, 
-                status_kehadiran: currentStatusKehadiran 
-              } : { 
+              dataLog: logData || { 
                 id_log: idLog, 
                 pelanggaran: 0, 
-                is_blocked: false, 
-                has_signed: hasSigned, 
-                status_kehadiran: currentStatusKehadiran, 
-                tanda_tangan: null 
+                is_blocked: false
               }
             };
           }
@@ -2377,8 +1465,7 @@ export { supabaseClient };
             if (!isPrivileged && !payload.id_log) {
               return {
                 status: 'error',
-                message: 'Akses soal ditolak: Log ujian wajib disertakan untuk mengakses soal ujian.',
-                need_signature: false
+                message: 'Akses soal ditolak: Log ujian wajib disertakan untuk mengakses soal ujian.'
               };
             }
 
@@ -2408,7 +1495,7 @@ export { supabaseClient };
             if (payload.id_log) {
               const { data: log } = await supabaseClient
                 .from('log_ujian')
-                .select('pelanggaran, is_blocked, status_ujian, nilai_auto, tanda_tangan, id_jadwal, id_siswa')
+                .select('pelanggaran, is_blocked, status_ujian, nilai_auto, id_jadwal, id_siswa')
                 .eq('id_log', payload.id_log)
                 .maybeSingle();
 
@@ -2505,43 +1592,10 @@ export { supabaseClient };
               for (const soal of soalData.filter(s => s.tipe_soal !== 'NARASI' && s.tipe_soal !== 'SKEMA_PENILAIAN' && s.tipe_soal !== 'SKEMA_DEFAULT')) {
                 if (soal.tipe_soal === 'MAPEL_ALLOC') continue;
                 let jwb = jawaban[soal.id_soal];
-                let isCorrect = false;
-                let skorDiperoleh = 0;
-                let bobot = Number(soal.bobot) || 1;
-                const tipeSoalNorm = normalizeTipeSoal(soal.tipe_soal);
-                
-                if (tipeSoalNorm !== 'URAIAN') {
-                  totalSkorMaxAuto += bobot;
-                }
-
-                if (jwb !== undefined && jwb !== null) {
-                  if (tipeSoalNorm === 'PG' || tipeSoalNorm === 'BS' || tipeSoalNorm === 'ISIAN') {
-                    if (String(jwb).trim().toLowerCase() === String(soal.kunci_jawaban).trim().toLowerCase()) {
-                      isCorrect = true;
-                      skorDiperoleh = bobot;
-                    }
-                  } else if (tipeSoalNorm === 'PGK') {
-                    try {
-                      let kunciArr = JSON.parse(soal.kunci_jawaban);
-                      if (Array.isArray(jwb) && jwb.length === kunciArr.length && jwb.every(v => kunciArr.includes(v))) {
-                        isCorrect = true;
-                        skorDiperoleh = bobot;
-                      }
-                    } catch (e) {}
-                  } else if (tipeSoalNorm === 'JODOH') {
-                    try {
-                      let kunciObj = JSON.parse(soal.kunci_jawaban);
-                      let jwbObj = typeof jwb === 'string' ? JSON.parse(jwb) : jwb;
-                      let isMatch = true;
-                      for (let key in kunciObj) {
-                        if (kunciObj[key] !== jwbObj[key]) isMatch = false;
-                      }
-                      if (isMatch) {
-                        isCorrect = true;
-                        skorDiperoleh = bobot;
-                      }
-                    } catch (e) {}
-                  }
+                const evalRes = evaluateAKMQuestion(soal, jwb);
+                if (!evalRes.isEssay) {
+                  totalSkorMaxAuto += evalRes.maxSkor;
+                  totalSkorDiperolehAuto += evalRes.skorDiperoleh;
                 }
 
                 let stringJawaban = (jwb !== null && typeof jwb === 'object') ? JSON.stringify(jwb) : String(jwb ?? '');
@@ -2551,11 +1605,9 @@ export { supabaseClient };
                   id_log: logId,
                   id_soal: soal.id_soal,
                   jawaban_user: stringJawaban,
-                  is_correct: isCorrect,
-                  skor_diperoleh: skorDiperoleh
+                  is_correct: evalRes.isCorrect,
+                  skor_diperoleh: evalRes.skorDiperoleh
                 });
-                
-                totalSkorDiperolehAuto += skorDiperoleh;
               }
             }
 
@@ -2706,9 +1758,7 @@ export { supabaseClient };
                 q.tipe_soal === 'NARASI' ||
                 q.tipe_soal === 'SKEMA_PENILAIAN' ||
                 q.tipe_soal === 'SKEMA_DEFAULT' ||
-                q.tipe_soal === 'MAPEL_ALLOC' ||
-                q.tipe_soal === 'KOP_SETTINGS' ||
-                String(q.id_soal || '').startsWith('KOP_SETTINGS')
+                q.tipe_soal === 'MAPEL_ALLOC'
               ) {
                 continue;
               }
@@ -2874,44 +1924,6 @@ export { supabaseClient };
             return { status: 'success', data: data || [] };
           }
 
-          case 'get_audit_log_archive': {
-            try {
-              const oneMonthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-              await supabaseClient.from('audit_log_archive').delete().lt('created_at', oneMonthAgo);
-            } catch (err) {
-              console.warn('Purge audit_log_archive warning:', err);
-            }
-            let q = supabaseClient.from('audit_log_archive').select('*').eq('npsn', payload.npsn);
-            if (payload.username) q = q.eq('username', payload.username);
-            ({ data, error } = await q.order('created_at', { ascending: false }).limit(200));
-            if (error) return { status: 'error', message: error.message };
-            return { status: 'success', data: data || [] };
-          }
-
-          case 'reset_and_archive_audit_log': {
-            let q = supabaseClient.from('audit_log').select('*').eq('npsn', payload.npsn);
-            if (payload.username) q = q.eq('username', payload.username);
-            const { data: logsToArchive, error: fetchErr } = await q;
-            if (fetchErr) return { status: 'error', message: fetchErr.message };
-            if (logsToArchive && logsToArchive.length > 0) {
-              const archiveEntries = logsToArchive.map(l => ({
-                id_archive: 'ARC-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
-                id_audit: l.id_audit,
-                npsn: l.npsn,
-                username: l.username,
-                role: l.role,
-                action: l.action,
-                target: l.target,
-                created_at: l.created_at,
-                archived_at: new Date().toISOString()
-              }));
-              await supabaseClient.from('audit_log_archive').insert(archiveEntries);
-              const ids = logsToArchive.map(l => l.id_audit);
-              await supabaseClient.from('audit_log').delete().in('id_audit', ids);
-            }
-            return { status: 'success', message: 'Semua log berhasil direset dan disimpan ke arsip riwayat.' };
-          }
-          
           case 'create_audit_log': {
             const auditPayload = {
               id_audit: generateId('LOG'),
@@ -2962,94 +1974,116 @@ export { supabaseClient };
           case 'get_riwayat_ujian_siswa': {
             ({ data, error } = await supabaseClient
               .from('log_ujian')
-              .select('*, jadwal!inner(waktu_mulai, waktu_selesai, mata_pelajaran(nama_mapel))')
+              .select('*, jadwal!inner(id_jadwal, id_mapel, waktu_mulai, waktu_selesai, mata_pelajaran(nama_mapel))')
               .eq('id_siswa', payload.id_siswa)
               .eq('status_ujian', 'SELESAI')
               .order('waktu_selesai', { ascending: false }));
             if (error) return { status: 'error', message: error.message };
+
+            const mapelIds = [...new Set((data || []).map(l => l.jadwal?.id_mapel).filter(Boolean))];
+            let uraianMapels = new Set();
+            if (mapelIds.length > 0) {
+              const { data: uData } = await supabaseClient
+                .from('soal_ujian')
+                .select('id_mapel')
+                .in('id_mapel', mapelIds)
+                .eq('tipe_soal', 'URAIAN');
+              (uData || []).forEach(u => uraianMapels.add(u.id_mapel));
+            }
             
             return { 
               status: 'success', 
-              data: data.map(log => ({
-                id_log: log.id_log,
-                waktu_mulai: log.jadwal?.waktu_mulai,
-                waktu_selesai: log.jadwal?.waktu_selesai,
-                nilai_auto: log.nilai_auto || 0,
-                nilai_uraian: log.nilai_uraian || 0,
-                total_nilai: (Number(log.nilai_auto) || 0) + (Number(log.nilai_uraian) || 0),
-                nama_mapel: log.jadwal?.mata_pelajaran?.nama_mapel || 'Unknown',
-                is_blocked: log.is_blocked || false,
-                pelanggaran_detail: log.pelanggaran_detail || []
-              })) 
+              data: (data || []).map(log => {
+                const hasUraian = uraianMapels.has(log.jadwal?.id_mapel);
+                const menungguKoreksi = !log.is_blocked && hasUraian && (log.nilai_uraian === null || log.nilai_uraian === undefined);
+                const rawTotal = log.is_blocked ? 0 : Math.min(100, Math.round(((Number(log.nilai_auto) || 0) + (Number(log.nilai_uraian) || 0)) * 100) / 100);
+                return {
+                  id_log: log.id_log,
+                  id_jadwal: log.id_jadwal || log.jadwal?.id_jadwal,
+                  id_mapel: log.jadwal?.id_mapel,
+                  waktu_mulai: log.jadwal?.waktu_mulai,
+                  waktu_selesai: log.jadwal?.waktu_selesai,
+                  nilai_auto: log.is_blocked ? 0 : (log.nilai_auto || 0),
+                  nilai_uraian: log.is_blocked ? 0 : (log.nilai_uraian || 0),
+                  total_nilai: rawTotal,
+                  menunggu_koreksi: menungguKoreksi,
+                  has_uraian: hasUraian,
+                  nama_mapel: log.jadwal?.mata_pelajaran?.nama_mapel || 'Unknown',
+                  is_blocked: log.is_blocked || false,
+                  pelanggaran_detail: log.pelanggaran_detail || []
+                };
+              }) 
             };
           }
-          
-          case 'get_leaderboard': {
-             const targetNpsn = payload?.npsn;
-             if (targetNpsn) {
-               try {
-                 const schoolSettings = await get_pengaturan_sekolah(targetNpsn);
-                 if (schoolSettings && schoolSettings.tampilkan_leaderboard === false) {
-                   return { status: 'success', data: [], disabled: true };
-                 }
-               } catch (e) {}
 
-               // Check whether any exam has status_ujian === 'BERLANGSUNG' (Milestone M2 - R2)
-               try {
-                 const { data: activeExams } = await supabaseClient
-                   .from('jadwal')
-                   .select('id_jadwal')
-                   .eq('npsn', targetNpsn)
-                   .eq('status_ujian', 'BERLANGSUNG')
-                   .limit(1);
-
-                 if (activeExams && activeExams.length > 0) {
-                   return {
-                     status: 'success',
-                     data: [],
-                     is_exam_active: true,
-                     message: 'Papan peringkat dinonaktifkan selama ujian berlangsung.'
-                   };
-                 }
-               } catch (e) {
-                 console.warn('Check active exam error in get_leaderboard:', e);
-               }
-             } else {
-               try {
-                 const { data: activeExams } = await supabaseClient
-                   .from('jadwal')
-                   .select('id_jadwal')
-                   .eq('status_ujian', 'BERLANGSUNG')
-                   .limit(1);
-
-                 if (activeExams && activeExams.length > 0) {
-                   return {
-                     status: 'success',
-                     data: [],
-                     is_exam_active: true,
-                     message: 'Papan peringkat dinonaktifkan selama ujian berlangsung.'
-                   };
-                 }
-               } catch (e) {}
-             }
-             const { data: logs, error: err } = await supabaseClient
-                 .from('log_ujian')
-                 .select('id_siswa, nilai_auto, nilai_uraian, siswa!inner(nama_lengkap, kelas_paralel, angkatan)')
-                 .eq('status_ujian', 'SELESAI')
-                 .eq('siswa.npsn', payload.npsn);
-             if (err) return { status: 'error', message: err.message };
-             
-             const map = {};
-             logs.forEach(l => {
-                 if (!map[l.id_siswa]) map[l.id_siswa] = { id: l.id_siswa, nama: l.siswa?.nama_lengkap, kelas: `${l.siswa?.angkatan || ''} ${l.siswa?.kelas_paralel || ''}`.trim(), total_nilai: 0, count: 0 };
-                 map[l.id_siswa].total_nilai += (Number(l.nilai_auto) || 0) + (Number(l.nilai_uraian) || 0);
-                 map[l.id_siswa].count++;
-             });
-             let arr = Object.values(map).map(item => ({ ...item, rata_rata: parseFloat((item.total_nilai / item.count).toFixed(1)) }));
-             arr.sort((a, b) => b.rata_rata - a.rata_rata);
-             return { status: 'success', data: arr.slice(0, 10) }; // Top 10
+          case 'finalisasi_nilai_jadwal': {
+            const { id_jadwal } = payload;
+            if (!id_jadwal) return { status: 'error', message: 'ID Jadwal diperlukan.' };
+            ({ error } = await supabaseClient
+              .from('log_ujian')
+              .update({ nilai_uraian: 0 })
+              .eq('id_jadwal', id_jadwal)
+              .eq('status_ujian', 'SELESAI')
+              .is('nilai_uraian', null));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Nilai jadwal berhasil difinalisasi.' };
           }
 
+          case 'get_rekap_koreksi_admin': {
+            const { data: jadwalList, error: jErr } = await supabaseClient
+              .from('jadwal')
+              .select('*, mata_pelajaran(nama_mapel), guru(nama_lengkap)')
+              .eq('npsn', payload.npsn)
+              .order('waktu_mulai', { ascending: false });
+            if (jErr) return { status: 'error', message: jErr.message };
+
+            const jadwalIds = (jadwalList || []).map(j => j.id_jadwal);
+            const mapelIds = [...new Set((jadwalList || []).map(j => j.id_mapel).filter(Boolean))];
+            let logsData = [];
+            if (jadwalIds.length > 0) {
+              const { data: lData } = await supabaseClient
+                .from('log_ujian')
+                .select('id_log, id_jadwal, status_ujian, nilai_auto, nilai_uraian, is_blocked')
+                .in('id_jadwal', jadwalIds);
+              logsData = lData || [];
+            }
+
+            let uraianMapels = new Set();
+            if (mapelIds.length > 0) {
+              const { data: uData } = await supabaseClient
+                .from('soal_ujian')
+                .select('id_mapel')
+                .in('id_mapel', mapelIds)
+                .eq('tipe_soal', 'URAIAN');
+              (uData || []).forEach(u => uraianMapels.add(u.id_mapel));
+            }
+
+            const summary = (jadwalList || []).map(j => {
+              const jLogs = logsData.filter(l => l.id_jadwal === j.id_jadwal);
+              const selesaiLogs = jLogs.filter(l => l.status_ujian === 'SELESAI');
+              const hasUraian = uraianMapels.has(j.id_mapel);
+              const belumDinilai = hasUraian
+                ? selesaiLogs.filter(l => !l.is_blocked && (l.nilai_uraian === null || l.nilai_uraian === undefined)).length
+                : 0;
+              const scores = selesaiLogs.map(l => l.is_blocked ? 0 : Math.min(100, (Number(l.nilai_auto) || 0) + (Number(l.nilai_uraian) || 0)));
+              const rataRata = scores.length > 0 ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10 : 0;
+              return {
+                id_jadwal: j.id_jadwal,
+                nama_mapel: j.mata_pelajaran?.nama_mapel || '-',
+                nama_guru: j.guru?.nama_lengkap || '-',
+                target_kelas: j.target_kelas || '-',
+                status_ujian: j.status_ujian,
+                waktu_mulai: j.waktu_mulai,
+                has_uraian: hasUraian,
+                total_peserta: jLogs.length,
+                total_selesai: selesaiLogs.length,
+                belum_dinilai: belumDinilai,
+                sudah_dinilai: selesaiLogs.length - belumDinilai,
+                rata_rata: rataRata
+              };
+            });
+            return { status: 'success', data: summary };
+          }
           
           case 'reset_login_siswa': {
             ({ error } = await supabaseClient.from('siswa').update({ session_token: null }).eq('id_siswa', payload.id_siswa).eq('npsn', payload.npsn));
@@ -3060,11 +2094,6 @@ export { supabaseClient };
             ({ error } = await supabaseClient.from('siswa').update({ session_token: null }).eq('npsn', payload.npsn));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Semua sesi login siswa berhasil direset.' };
-          }
-          case 'force_stop_ujian': {
-            ({ error } = await supabaseClient.from('log_ujian').update({ status_ujian: 'SELESAI', waktu_selesai: new Date().toISOString() }).eq('id_log', payload.id_log));
-            if (error) return { status: 'error', message: error.message };
-            return { status: 'success', message: 'Ujian berhasil dihentikan paksa.' };
           }
           case 'import_soal_bulk': {
             const sanitized = (payload.data || []).map((item, idx) => {
@@ -3086,25 +2115,8 @@ export { supabaseClient };
           }
           case 'save_default_skema_sekolah': {
             const res = await save_default_skema_sekolah(payload.npsn, payload.payload || payload.format || payload.skema_data || payload);
+            if (!res.success) return { status: 'error', message: res.message || 'Gagal menyimpan skema penilaian default sekolah.' };
             return { status: 'success', data: res.data, message: 'Skema penilaian default sekolah berhasil disimpan.' };
-          }
-          case 'get_skema_penilaian': {
-            let q = supabaseClient.from('soal_ujian').select('*').eq('tipe_soal', 'SKEMA_PENILAIAN');
-            if (payload.npsn) q = q.eq('npsn', payload.npsn);
-            if (payload.id_mapel) {
-              q = q.eq('id_mapel', payload.id_mapel);
-              const { data: rec, error } = await q.maybeSingle();
-              if (error) return { status: 'error', message: error.message };
-              return { status: 'success', data: rec };
-            } else if (payload.id_mapels && Array.isArray(payload.id_mapels)) {
-              q = q.in('id_mapel', payload.id_mapels);
-              const { data: recs, error } = await q;
-              if (error) return { status: 'error', message: error.message };
-              return { status: 'success', data: recs || [] };
-            }
-            ({ data, error } = await q);
-            if (error) return { status: 'error', message: error.message };
-            return { status: 'success', data: data || [] };
           }
           case 'save_skema_penilaian': {
             const targetMapelIds = (payload.id_mapels && Array.isArray(payload.id_mapels) && payload.id_mapels.length > 0)
@@ -3199,17 +2211,6 @@ export { supabaseClient };
               }
             };
           }
-          case 'get_pengaturan_sekolah': {
-            // Dedicated table: pengaturan_sekolah (Milestone M2 - R2)
-            const data = await get_pengaturan_sekolah(payload.npsn);
-            return { status: 'success', data };
-          }
-          case 'save_pengaturan_sekolah': {
-            // Dedicated table: pengaturan_sekolah, cleans up legacy KOP_SETTINGS
-            const res = await save_pengaturan_sekolah(payload.npsn, payload.payload || payload.settings || payload);
-            return { status: 'success', data: res?.data || res, message: 'Pengaturan sekolah dan kop berhasil disimpan.' };
-          }
-
           default:
             return { status: 'error', message: 'Action tidak dikenali oleh router Supabase.' };
         }

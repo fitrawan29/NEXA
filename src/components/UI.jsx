@@ -601,33 +601,11 @@ export const PasswordInput = ({
   );
 };
 
-// Aliases
-export const Badge = StatusBadge;
-
-// Global Attachments for Backward Compatibility
-if (typeof window !== 'undefined') {
-  window.EmptyState = EmptyState;
-  window.TableSkeleton = TableSkeleton;
-  window.CardSkeleton = CardSkeleton;
-  window.StatusBadge = StatusBadge;
-  window.Badge = StatusBadge;
-  window.Card = Card;
-  window.CardHeader = CardHeader;
-  window.CardTitle = CardTitle;
-  window.CardDescription = CardDescription;
-  window.CardContent = CardContent;
-  window.CardFooter = CardFooter;
-  window.Button = Button;
-  window.PasswordInput = PasswordInput;
-  window.safeJSONParse = window.safeJSONParse || safeJSONParse;
-}
-
 export default {
   EmptyState,
   TableSkeleton,
   CardSkeleton,
   StatusBadge,
-  Badge,
   Card,
   CardHeader,
   CardTitle,

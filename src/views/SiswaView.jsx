@@ -1,5 +1,4 @@
 import { fetchAPI, isClassMatching } from '../api.js';
-import { get_pengaturan_sekolah } from '../api.js';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import ExamRoom from './ExamRoom.jsx';
 import {
@@ -13,11 +12,8 @@ import {
   StatusBadge,
   EmptyState,
   CardSkeleton,
-  safeJSONParse,
   PasswordInput
 } from '../components/UI.jsx';
-import NotificationBell from '../components/NotificationBell.jsx';
-import TutorialModal, { TutorialBadge, resetTutorialProgress } from '../components/TutorialModal.jsx';
 import { compressImageFile } from '../utils/imageHelper.js';
 
 /**
@@ -62,7 +58,7 @@ const Countdown = ({ targetDate }) => {
  */
 const ProgressChart = ({ data }) => {
   if (!data || data.length < 2) return null;
-  const max = Math.max(...data.map((d) => d.total_nilai)) || 100;
+  const max = Math.max(100, ...data.map((d) => (d.is_blocked ? 0 : (d.total_nilai || 0))));
   const recentData = data.slice(0, 8).reverse();
 
   return (
@@ -127,46 +123,11 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   const [inputToken, setInputToken] = useState('');
   const [tokenError, setTokenError] = useState('');
   const [isVerifyingToken, setIsVerifyingToken] = useState(false);
-  const [showTutorialModal, setShowTutorialModal] = useState(false);
-  const tutorialStorageKey = currentUserId ? `nexa_tutorial_seen_${currentUserId}_siswa` : null;
-
-  const handleCloseTutorial = () => {
-    setShowTutorialModal(false);
-    try {
-      if (tutorialStorageKey) {
-        localStorage.setItem(tutorialStorageKey, 'true');
-      }
-      localStorage.setItem('nexa_tutorial_shown_siswa', 'true');
-    } catch (e) {
-      console.error('Failed to save tutorial state to localStorage:', e);
-    }
-  };
-
-  const handleRestartTutorial = () => {
-    resetTutorialProgress('siswa');
-    try {
-      if (tutorialStorageKey) {
-        localStorage.removeItem(tutorialStorageKey);
-      }
-      localStorage.removeItem('nexa_tutorial_shown_siswa');
-    } catch (e) {}
-    setShowTutorialModal(true);
-  };
 
   const [activeTab, setActiveTab] = useState('beranda');
   const [jadwalFilter, setJadwalFilter] = useState('HARI INI');
   const [dataPengumuman, setDataPengumuman] = useState([]);
   const [dataRiwayat, setDataRiwayat] = useState([]);
-  const [dataLeaderboard, setDataLeaderboard] = useState([]);
-  const [showLeaderboard, setShowLeaderboard] = useState(true);
-
-  // Real-Time Student Leaderboard Suppression (Milestone M2 - R2)
-  const isAnyExamActive = useMemo(() => {
-    if (activeExamData) return true;
-    return (jadwal || []).some(j => j.status_ujian === 'BERLANGSUNG' || j.status_pelaksanaan === 'AKTIF' || j.status_siswa === 'MENGERJAKAN');
-  }, [jadwal, activeExamData]);
-
-  const isLeaderboardVisible = showLeaderboard && !isAnyExamActive;
 
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
@@ -175,23 +136,8 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   useEffect(() => {
     loadPengumuman();
     loadJadwal();
-    setShowLeaderboard(false);
+    loadRiwayat();
   }, [user?.npsn]);
-
-  // Safe redirect if leaderboard is disabled/suppressed while currently active
-  useEffect(() => {
-    if (!isLeaderboardVisible && activeTab === 'leaderboard') {
-      setActiveTab('beranda');
-    }
-  }, [isLeaderboardVisible, activeTab]);
-
-  useEffect(() => {
-    if (isAnyExamActive) {
-      setDataLeaderboard([]);
-    } else if (showLeaderboard) {
-      loadLeaderboard();
-    }
-  }, [isAnyExamActive, showLeaderboard]);
 
   // Heartbeat session sync
   useEffect(() => {
@@ -226,21 +172,6 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   const loadRiwayat = async () => {
     const res = await api('get_riwayat_ujian_siswa', { id_siswa: currentUserId });
     if (res.status === 'success') setDataRiwayat(res.data || []);
-  };
-
-  const loadLeaderboard = async () => {
-    if (isAnyExamActive) {
-      setDataLeaderboard([]);
-      return;
-    }
-    const res = await api('get_leaderboard', { npsn: user?.npsn });
-    if (res.status === 'success') {
-      if (res.is_exam_active) {
-        setDataLeaderboard([]);
-      } else {
-        setDataLeaderboard(res.data || []);
-      }
-    }
   };
 
   const loadJadwal = async (showLoading = true) => {
@@ -360,8 +291,8 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     const isSedangKerja = j.status_siswa === 'SEDANG KERJA';
     const isBlocked = j.is_blocked && j.status_siswa !== 'SELESAI';
 
-    // Find score if completed
-    const matchingRiwayat = dataRiwayat.find(r => r.id_log && (r.nama_mapel === j.nama_mapel || r.id_jadwal === j.id_jadwal));
+    // Find score if completed (match by id_jadwal first to avoid subject name collisions)
+    const matchingRiwayat = dataRiwayat.find(r => r.id_log && (r.id_jadwal ? r.id_jadwal === j.id_jadwal : r.nama_mapel === j.nama_mapel));
 
     let statusType = 'AKTIF';
     let statusLabel = 'Aktif';
@@ -416,10 +347,18 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
 
           {isSelesai && matchingRiwayat && (
             <div className="pt-2 flex items-center justify-between border-t border-slate-100 dark:border-slate-700/60">
-              <span className="text-xs text-slate-500 dark:text-slate-400">Nilai Akhir:</span>
-              <span className="text-sm font-black text-primary dark:text-primary-400 bg-primary/10 dark:bg-primary/10 px-2.5 py-0.5 rounded-lg border border-primary/30 dark:border-primary/30">
-                {matchingRiwayat.total_nilai}
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                {matchingRiwayat.menunggu_koreksi ? 'Status Nilai:' : 'Nilai Akhir:'}
               </span>
+              {matchingRiwayat.menunggu_koreksi ? (
+                <span className="text-[11px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2.5 py-0.5 rounded-lg border border-amber-200 dark:border-amber-800">
+                  Menunggu Koreksi Uraian
+                </span>
+              ) : (
+                <span className="text-sm font-black text-primary dark:text-primary-400 bg-primary/10 dark:bg-primary/10 px-2.5 py-0.5 rounded-lg border border-primary/30 dark:border-primary/30">
+                  {matchingRiwayat.is_blocked ? 0 : matchingRiwayat.total_nilai}
+                </span>
+              )}
             </div>
           )}
         </CardContent>
@@ -469,13 +408,11 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
             <Button
               variant="primary"
               size="md"
-              data-tutorial="siswa-presensi"
               className="w-full min-h-[44px] flex items-center justify-center gap-1.5"
               icon="login"
               onClick={() => handleOpenTokenModal(j)}
             >
               <span>Mulai Ujian</span>
-              <TutorialBadge role="siswa" targetId="siswa-presensi" />
             </Button>
           )}
         </CardFooter>
@@ -502,7 +439,6 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
           setInputToken('');
           loadJadwal();
           loadRiwayat();
-          loadLeaderboard();
         }}
         isDarkMode={isDarkMode}
         setIsDarkMode={setIsDarkMode}
@@ -540,6 +476,8 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
               {[
                 { id: 'beranda', label: 'Beranda Ujian', icon: 'home' },
                 { id: 'jadwal', label: 'Jadwal Ujian', icon: 'event_note' },
+                { id: 'nilai', label: 'Riwayat Nilai', icon: 'grade' },
+                { id: 'akun', label: 'Akun', icon: 'person' },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -702,7 +640,7 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 <div className="min-w-0">
                   <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Rata-Rata Nilai</p>
                   <p className="text-xl font-bold text-slate-800 dark:text-white">
-                    {dataRiwayat.length > 0 ? (dataRiwayat.reduce((sum, r) => sum + (r.total_nilai || 0), 0) / dataRiwayat.length).toFixed(1) : '-'}
+                    {dataRiwayat.length > 0 ? (dataRiwayat.reduce((sum, r) => sum + (r.is_blocked ? 0 : (r.total_nilai || 0)), 0) / dataRiwayat.length).toFixed(1) : '-'}
                   </p>
                 </div>
               </Card>
@@ -714,7 +652,7 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 <div className="min-w-0">
                   <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Nilai Tertinggi</p>
                   <p className="text-xl font-bold text-slate-800 dark:text-white">
-                    {dataRiwayat.length > 0 ? Math.max(...dataRiwayat.map(r => r.total_nilai || 0)) : '-'}
+                    {dataRiwayat.length > 0 ? Math.max(...dataRiwayat.map(r => (r.is_blocked ? 0 : (r.total_nilai || 0)))) : '-'}
                   </p>
                 </div>
               </Card>
@@ -769,7 +707,7 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                       <span className="material-symbols-outlined text-amber-500">campaign</span>
                       <CardTitle>Pengumuman Sekolah</CardTitle>
                     </div>
-                    <Button data-assistant-target="pengumuman" variant="ghost" size="sm" onClick={() => setActiveTab('pengumuman')}>
+                    <Button variant="ghost" size="sm" onClick={() => setActiveTab('pengumuman')}>
                       Semua
                     </Button>
                   </CardHeader>
@@ -791,46 +729,6 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     )}
                   </CardContent>
                 </Card>
-
-                {/* Kilas Leaderboard Card */}
-                {isLeaderboardVisible && (
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-amber-500">social_leaderboard</span>
-                        <CardTitle>Peringkat Teratas</CardTitle>
-                      </div>
-                      <Button variant="ghost" size="sm" onClick={() => setActiveTab('leaderboard')}>
-                        Detail
-                      </Button>
-                    </CardHeader>
-                    <CardContent className="pt-2">
-                      {dataLeaderboard.length === 0 ? (
-                        <p className="text-xs text-slate-400 py-4 text-center">Belum ada data nilai.</p>
-                      ) : (
-                        <div className="divide-y divide-slate-100 dark:divide-slate-700">
-                          {dataLeaderboard.slice(0, 3).map((lb, idx) => (
-                            <div key={idx} className="py-2.5 flex items-center justify-between gap-3">
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${
-                                  idx === 0 ? 'bg-amber-400 text-amber-900' : idx === 1 ? 'bg-slate-200 text-slate-700' : 'bg-amber-600/30 text-amber-800 dark:text-amber-300'
-                                }`}>
-                                  {idx + 1}
-                                </span>
-                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
-                                  {lb.nama}
-                                </span>
-                              </div>
-                              <span className="text-xs font-black text-primary dark:text-primary-400 shrink-0">
-                                {lb.rata_rata}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
 
               </div>
             </div>
@@ -886,7 +784,7 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
         {/* TAB 3: PAPAN PENGUMUMAN                                      */}
         {/* ============================================================ */}
         {activeTab === 'pengumuman' && (
-          <div data-assistant-target="pengumuman" className="space-y-6 animate-fade-in-up">
+          <div className="space-y-6 animate-fade-in-up">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
@@ -978,95 +876,16 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                       </div>
 
                       <div className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center font-black text-lg text-white shadow-sm shrink-0 ${
-                        r.is_blocked ? 'bg-rose-500' : 'bg-gradient-to-br from-primary-500 to-primary-400'
+                        r.is_blocked ? 'bg-rose-500' : r.menunggu_koreksi ? 'bg-amber-500' : 'bg-gradient-to-br from-primary-500 to-primary-400'
                       }`}>
-                        <span>{r.is_blocked ? 0 : r.total_nilai}</span>
-                        <span className="text-[8px] uppercase tracking-wider font-semibold opacity-90">Poin</span>
+                        <span>{r.is_blocked ? 0 : (r.menunggu_koreksi ? '...' : r.total_nilai)}</span>
+                        <span className="text-[8px] uppercase tracking-wider font-semibold opacity-90">{r.menunggu_koreksi ? 'Koreksi' : 'Poin'}</span>
                       </div>
                     </Card>
                   ))}
                 </div>
               )}
             </div>
-          </div>
-        )}
-
-        {/* ============================================================ */}
-        {/* TAB 5: PAPAN PERINGKAT (LEADERBOARD)                         */}
-        {/* ============================================================ */}
-        {isLeaderboardVisible && activeTab === 'leaderboard' && (
-          <div className="space-y-6 animate-fade-in-up">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-bold text-slate-800 dark:text-white">Papan Peringkat Kelas</h3>
-                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">10 Siswa terbaik dengan rata-rata nilai tertinggi</p>
-              </div>
-              <div className="bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 border border-primary/30 dark:border-primary/20 text-xs font-bold px-3 py-1 rounded-full">
-                Top 10
-              </div>
-            </div>
-
-            {dataLeaderboard.length === 0 ? (
-              <EmptyState
-                icon="social_leaderboard"
-                title="Belum Ada Data Peringkat"
-                description="Papan peringkat akan otomatis diperbarui setelah ujian selesai dievaluasi."
-              />
-            ) : (
-              <Card className="overflow-hidden">
-                <div className="divide-y divide-slate-100 dark:divide-slate-700">
-                  {dataLeaderboard.map((lb, idx) => {
-                    const isSelf = currentUserId === lb.id;
-                    return (
-                      <div
-                        key={idx}
-                        className={`p-4 flex items-center gap-4 transition-colors ${
-                          isSelf ? 'bg-primary/10 dark:bg-primary/10' : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'
-                        }`}
-                      >
-                        {/* Rank Badge */}
-                        <div
-                          className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm shrink-0 ${
-                            idx === 0
-                              ? 'bg-amber-400 text-amber-950 shadow-md shadow-amber-400/30'
-                              : idx === 1
-                              ? 'bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-white'
-                              : idx === 2
-                              ? 'bg-amber-600/30 text-amber-800 dark:text-amber-300'
-                              : 'bg-slate-100 dark:bg-slate-700 text-slate-400'
-                          }`}
-                        >
-                          {idx + 1}
-                        </div>
-
-                        {/* Name & Class */}
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-bold text-sm text-slate-800 dark:text-slate-100 truncate flex items-center gap-2">
-                            <span>{lb.nama}</span>
-                            {isSelf && (
-                              <span className="text-[10px] bg-primary text-white px-2 py-0.5 rounded-full font-semibold">
-                                Anda
-                              </span>
-                            )}
-                          </h4>
-                          <p className="text-xs text-slate-400 mt-0.5">Kelas: {lb.kelas || '-'}</p>
-                        </div>
-
-                        {/* Average Score */}
-                        <div className="text-right shrink-0">
-                          <div className="font-black text-base sm:text-lg text-primary dark:text-primary-400">
-                            {lb.rata_rata}
-                          </div>
-                          <div className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold">
-                            Rata-Rata
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </Card>
-            )}
           </div>
         )}
 
@@ -1135,6 +954,8 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
         {[
           { id: 'beranda', label: 'Beranda', icon: 'home' },
           { id: 'jadwal', label: 'Jadwal', icon: 'event_note' },
+          { id: 'nilai', label: 'Nilai', icon: 'grade' },
+          { id: 'akun', label: 'Akun', icon: 'person' },
         ].map((tab) => {
           const isActive = activeTab === tab.id;
           return (
@@ -1182,7 +1003,6 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
               <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/60 text-center">
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                   Masukkan 6 Digit Token Ujian
-                  <TutorialBadge role="siswa" targetId="siswa-token" className="ml-2" />
                 </label>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-3">
                   Mintalah token rilis ujian kepada guru atau pengawas ruangan.
@@ -1190,7 +1010,6 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
 
                 <input
                   type="text"
-                  data-tutorial="siswa-token"
                   maxLength={6}
                   value={inputToken}
                   autoFocus
@@ -1260,11 +1079,13 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
             <div className="p-6">
               <div className="flex flex-col items-center justify-center mb-6 relative">
                 <div className={`w-28 h-28 rounded-full border-4 border-slate-50 dark:border-slate-900 flex items-center justify-center ${
-                  detailNilaiModal.is_blocked ? 'bg-rose-500' : 'bg-gradient-to-br from-primary-500 to-primary-400'
+                  detailNilaiModal.is_blocked ? 'bg-rose-500' : detailNilaiModal.menunggu_koreksi ? 'bg-amber-500' : 'bg-gradient-to-br from-primary-500 to-primary-400'
                 } shadow-xl z-10 text-white relative -mt-14`}>
-                  <span className="font-black text-3xl">{detailNilaiModal.is_blocked ? 0 : detailNilaiModal.total_nilai}</span>
+                  <span className="font-black text-3xl">{detailNilaiModal.is_blocked ? 0 : (detailNilaiModal.menunggu_koreksi ? '...' : detailNilaiModal.total_nilai)}</span>
                 </div>
-                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-2">Skor Akhir</p>
+                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-2">
+                  {detailNilaiModal.menunggu_koreksi ? 'Menunggu Koreksi Uraian' : 'Skor Akhir'}
+                </p>
               </div>
 
               {detailNilaiModal.is_blocked && (
@@ -1288,7 +1109,9 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/60 rounded-2xl p-4 text-center">
                   <span className="material-symbols-outlined text-purple-500 mb-1">edit_document</span>
                   <span className="block text-xs text-slate-500">Uraian / Essay</span>
-                  <span className="font-bold text-lg text-slate-800 dark:text-white">{detailNilaiModal.nilai_uraian}</span>
+                  <span className="font-bold text-lg text-slate-800 dark:text-white">
+                    {detailNilaiModal.menunggu_koreksi ? 'Menunggu' : detailNilaiModal.nilai_uraian}
+                  </span>
                 </div>
               </div>
 

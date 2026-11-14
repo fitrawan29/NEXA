@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { safeJSONParse } from './UI';
 
 const EMPTY_DATA_SOAL = [];
 
@@ -39,9 +40,7 @@ const SkemaPenilaianPanel = ({
       if (skemaRecord && skemaRecord.kunci_jawaban) {
         let parsed = null;
         try {
-          parsed = typeof window !== 'undefined' && window.safeJSONParse
-            ? window.safeJSONParse(skemaRecord.kunci_jawaban, null)
-            : JSON.parse(skemaRecord.kunci_jawaban);
+          parsed = safeJSONParse(skemaRecord.kunci_jawaban, null);
         } catch {
           parsed = null;
         }

@@ -12,53 +12,22 @@ class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     console.error('ErrorBoundary caught error', error, errorInfo);
-    const msg = (error?.message || error?.name || String(error || '')).toLowerCase();
-    if (
-      msg.includes('failed to fetch dynamically imported module') ||
-      msg.includes('error loading dynamically imported module') ||
-      msg.includes('failed to load module script') ||
-      msg.includes('loading chunk') ||
-      msg.includes('chunkloaderror') ||
-      msg.includes('importing a module script failed')
-    ) {
-      if (typeof navigator !== 'undefined' && !navigator.onLine) {
-        window.addEventListener('online', () => window.location.reload(), { once: true });
-        return;
-      }
-      const CHUNK_RELOAD_KEY = 'nexa_chunk_retry_timestamp';
-      const now = Date.now();
-      try {
-        const last = parseInt(sessionStorage.getItem(CHUNK_RELOAD_KEY) || '0', 10);
-        if (!last || now - last >= 10000) {
-          sessionStorage.setItem(CHUNK_RELOAD_KEY, String(now));
-          window.location.reload();
-        }
-      } catch {
-        const hasRetried = typeof window !== 'undefined' && /[?&]chunk_retry=/.test(window.location.search);
-        if (!hasRetried && typeof window !== 'undefined') {
-          const url = new URL(window.location.href);
-          url.searchParams.set('chunk_retry', String(now));
-          window.location.replace(url.href);
-        }
-      }
-    }
   }
 
   render() {
     if (this.state.hasError) {
       return (
-        <div className="p-5 text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 rounded-xl border border-rose-200 dark:border-rose-800">
-          <h1 className="text-xl font-bold mb-2">Something went wrong.</h1>
-          <pre className="text-xs overflow-auto font-mono">{this.state.error ? this.state.error.toString() : 'Unknown error'}</pre>
+        <div className="p-8 h-[100dvh] w-full flex items-center justify-center bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-xl shadow-lg border border-rose-200 dark:border-rose-800 max-w-full">
+            <h1 className="text-xl font-bold mb-2">Something went wrong.</h1>
+            <pre className="text-xs overflow-auto font-mono bg-rose-50 dark:bg-rose-950/50 p-3 rounded">{this.state.error ? this.state.error.toString() : 'Unknown error'}</pre>
+            <button onClick={() => window.location.reload()} className="mt-4 px-4 py-2 bg-rose-600 text-white rounded hover:bg-rose-700 font-bold text-sm">Refresh Page</button>
+          </div>
         </div>
       );
     }
     return this.props.children;
   }
-}
-
-if (typeof window !== 'undefined') {
-  window.ErrorBoundary = ErrorBoundary;
 }
 
 export default ErrorBoundary;

@@ -1,6 +1,7 @@
 import ReactQuill from 'react-quill';
 import React, { useState, useEffect, useRef } from 'react';
 import { compressImageFile } from '../utils/imageHelper.js';
+import { safeJSONParse } from './UI';
 
     const FormSoalModal = ({
       isOpen,
@@ -22,8 +23,7 @@ import { compressImageFile } from '../utils/imageHelper.js';
           ['clean']
         ],
       };
-      if (!isOpen) return null;
-      const savedDraft = !data ? window.safeJSONParse(localStorage.getItem('formSoalDraft'), {}) : {};
+      const savedDraft = !data ? safeJSONParse(localStorage.getItem('formSoalDraft'), {}) : {};
       const [tipe, setTipe] = useState(data ? data.tipe_soal : (savedDraft.tipe || 'PG'));
       const [pertanyaan, setPertanyaan] = useState(data ? data.pertanyaan : (savedDraft.pertanyaan || ''));
       const [idNarasi, setIdNarasi] = useState(data && data.id_narasi ? data.id_narasi : (savedDraft.idNarasi || ''));
@@ -50,26 +50,28 @@ import { compressImageFile } from '../utils/imageHelper.js';
         };
       }, []);
       
-      const [opsiPG, setOpsiPG] = useState(data && (data.tipe_soal==='PG' || data.tipe_soal==='PGK') ? window.safeJSONParse(data.opsi, ["","","","",""]) : (savedDraft.opsiPG || ['','','','','']));
+      const [opsiPG, setOpsiPG] = useState(data && (data.tipe_soal==='PG' || data.tipe_soal==='PGK') ? safeJSONParse(data.opsi, ["","","","",""]) : (savedDraft.opsiPG || ['','','','','']));
       const [kunciPG, setKunciPG] = useState(data && data.tipe_soal==='PG' ? data.kunci_jawaban : (savedDraft.kunciPG || ''));
-      const [kunciPGK, setKunciPGK] = useState(data && data.tipe_soal==='PGK' ? window.safeJSONParse(data.kunci_jawaban, []) : (savedDraft.kunciPGK || []));
+      const [kunciPGK, setKunciPGK] = useState(data && data.tipe_soal==='PGK' ? safeJSONParse(data.kunci_jawaban, []) : (savedDraft.kunciPGK || []));
       const [kunciBS, setKunciBS] = useState(data && data.tipe_soal==='BS' ? data.kunci_jawaban : (savedDraft.kunciBS || 'Benar'));
       
       const defaultPremis = [''];
       const defaultRespon = [''];
-      const [premis, setPremis] = useState(data && data.tipe_soal==='JODOH' && data.opsi ? window.safeJSONParse(data.opsi, {}).premis || defaultPremis : (savedDraft.premis || defaultPremis));
-      const [respon, setRespon] = useState(data && data.tipe_soal==='JODOH' && data.opsi ? window.safeJSONParse(data.opsi, {}).respon || defaultRespon : (savedDraft.respon || defaultRespon));
-      const [kunciJodoh, setKunciJodoh] = useState(data && data.tipe_soal==='JODOH' ? window.safeJSONParse(data.kunci_jawaban, {}) : (savedDraft.kunciJodoh || {}));
+      const [premis, setPremis] = useState(data && data.tipe_soal==='JODOH' && data.opsi ? safeJSONParse(data.opsi, {}).premis || defaultPremis : (savedDraft.premis || defaultPremis));
+      const [respon, setRespon] = useState(data && data.tipe_soal==='JODOH' && data.opsi ? safeJSONParse(data.opsi, {}).respon || defaultRespon : (savedDraft.respon || defaultRespon));
+      const [kunciJodoh, setKunciJodoh] = useState(data && data.tipe_soal==='JODOH' ? safeJSONParse(data.kunci_jawaban, {}) : (savedDraft.kunciJodoh || {}));
       
       const [kunciIsian, setKunciIsian] = useState(data && data.tipe_soal==='ISIAN' ? data.kunci_jawaban : (savedDraft.kunciIsian || ''));
       
       // Auto-save logic
       React.useEffect(() => {
-        if (!data) {
+        if (isOpen && !data) {
           const draft = { tipe, pertanyaan, idNarasi, bobot, opsiPG, kunciPG, kunciPGK, kunciBS, premis, respon, kunciJodoh, kunciIsian };
           localStorage.setItem('formSoalDraft', JSON.stringify(draft));
         }
-      }, [tipe, pertanyaan, idNarasi, bobot, opsiPG, kunciPG, kunciPGK, kunciBS, premis, respon, kunciJodoh, kunciIsian, data]);
+      }, [isOpen, tipe, pertanyaan, idNarasi, bobot, opsiPG, kunciPG, kunciPGK, kunciBS, premis, respon, kunciJodoh, kunciIsian, data]);
+
+      if (!isOpen) return null;
 
       const handleImageUpload = async (e) => {
         const file = e.target.files && e.target.files[0];
@@ -356,7 +358,7 @@ import { compressImageFile } from '../utils/imageHelper.js';
                       {tipe === 'PG' ? (
                         <input type="radio" name="kunciPG" value={idx} checked={String(kunciPG) === String(idx) || (data && opsiPG[idx] === data.kunci_jawaban)} onChange={() => setKunciPG(idx)} />
                       ) : (
-                        <input type="checkbox" checked={kunciPGK.includes(idx) || (data && window.safeJSONParse(data.kunci_jawaban, []).includes(opsiPG[idx]))} onChange={(e) => {
+                        <input type="checkbox" checked={kunciPGK.includes(idx) || (data && safeJSONParse(data.kunci_jawaban, []).includes(opsiPG[idx]))} onChange={(e) => {
                           if (e.target.checked) setKunciPGK([...kunciPGK, idx]);
                           else setKunciPGK(kunciPGK.filter(i => i !== idx));
                         }} />

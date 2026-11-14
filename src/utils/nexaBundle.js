@@ -379,9 +379,7 @@ export function calculateExamScore(questions, answersMap, isBlocked = false) {
       q.tipe_soal === 'NARASI' ||
       q.tipe_soal === 'SKEMA_PENILAIAN' ||
       q.tipe_soal === 'SKEMA_DEFAULT' ||
-      q.tipe_soal === 'MAPEL_ALLOC' ||
-      q.tipe_soal === 'KOP_SETTINGS' ||
-      String(q.id_soal || '').startsWith('KOP_SETTINGS')
+      q.tipe_soal === 'MAPEL_ALLOC'
     ) {
       continue;
     }

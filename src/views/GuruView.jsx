@@ -19,8 +19,6 @@ import {
   CardContent,
   PasswordInput
 } from '../components/UI.jsx';
-import NotificationBell from '../components/NotificationBell.jsx';
-import TutorialModal, { TutorialBadge, resetTutorialProgress } from '../components/TutorialModal.jsx';
 import { compressImageFile } from '../utils/imageHelper.js';
 
 const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIsDarkMode }) => {
@@ -58,51 +56,13 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
   // Primary Collections State
   // =========================================================================
   const [dataJadwal, setDataJadwal] = useState([]);
-  const [selectedJadwal, setSelectedJadwal] = useState(null);
-  const [dataLog, setDataLog] = useState([]);
-  const [dataPengumuman, setDataPengumuman] = useState([]);
   const [dataAnalisis, setDataAnalisis] = useState([]);
   const [isAnalisisModalOpen, setIsAnalisisModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const [gasWebhookUrl, setGasWebhookUrl] = useState(() => {
-    try {
-      return (typeof window !== 'undefined' ? window.localStorage.getItem('nexa_gas_drive_webhook') || '' : '');
-    } catch (_) {
-      return '';
-    }
-  });
-  const [showTutorialModal, setShowTutorialModal] = useState(false);
-  const currentUserId = user?.id_guru || user?.id_user || user?.id || user?.nip || user?.username || '';
-  const tutorialStorageKey = currentUserId ? `nexa_tutorial_seen_${currentUserId}_guru` : null;
-
-  const handleCloseTutorial = () => {
-    setShowTutorialModal(false);
-    try {
-      if (tutorialStorageKey) {
-        localStorage.setItem(tutorialStorageKey, 'true');
-      }
-      localStorage.setItem('nexa_tutorial_shown_guru', 'true');
-    } catch (e) {
-      console.error('Failed to save tutorial state to localStorage:', e);
-    }
-  };
-
-  const handleRestartTutorial = () => {
-    resetTutorialProgress('guru');
-    try {
-      if (tutorialStorageKey) {
-        localStorage.removeItem(tutorialStorageKey);
-      }
-      localStorage.removeItem('nexa_tutorial_shown_guru');
-    } catch (e) {}
-    setShowTutorialModal(true);
-  };
-
   // Avatar & Profile
   const [fotoProfil, setFotoProfil] = useState(user.foto || user.foto_profil || '');
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
-  const [showProfileModal, setShowProfileModal] = useState(false);
   const [profileForm, setProfileForm] = useState({ password: '', foto: user.foto || user.foto_profil || '' });
   const [profileLoading, setProfileLoading] = useState(false);
 
@@ -136,7 +96,6 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
     setProfileLoading(false);
     if (res.status === 'success') {
       showMessage('Berhasil', 'Profil berhasil diperbarui!', 'success');
-      setShowProfileModal(false);
       if (payload.foto) setFotoProfil(payload.foto);
       logActivity('UPDATE PROFIL', 'Memperbarui informasi profil guru');
     } else {
@@ -149,10 +108,6 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
   const [dataKelas, setDataKelas] = useState([]);
   const [selectedMapel, setSelectedMapel] = useState(null);
   const [dataSoal, setDataSoal] = useState([]);
-  const [dataAudit, setDataAudit] = useState([]);
-  const [dataAuditArchive, setDataAuditArchive] = useState([]);
-  const [activeLogSubTab, setActiveLogSubTab] = useState('aktif');
-  const [isArchivingLog, setIsArchivingLog] = useState(false);
 
   // Question Bank Filters & Pagination
   const [searchQuerySoal, setSearchQuerySoal] = useState('');
@@ -161,31 +116,9 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
   const [bankSoalPage, setBankSoalPage] = useState(1);
   const itemsPerPage = 12;
 
-  // Live Monitoring Filters & State
-  const [monitoringFilterStatus, setMonitoringFilterStatus] = useState('ALL');
-  const [monitoringFilterKelas, setMonitoringFilterKelas] = useState('ALL');
-  const [monitoringSearch, setMonitoringSearch] = useState('');
-  const [monitoringPage, setMonitoringPage] = useState(1);
-
-  // Proctor Intervention Dialog State
-  const [confirmDialog, setConfirmDialog] = useState({
-    isOpen: false,
-    type: 'unblock',
-    title: '',
-    message: '',
-    icon: 'info',
-    actionText: 'Konfirmasi',
-    onConfirm: null
-  });
-
   // Modals State
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [resetModal, setResetModal] = useState(null);
   const [skemaModal, setSkemaModal] = useState({ isOpen: false, id_mapel: null });
-  const [selectedMapelAccount, setSelectedMapelAccount] = useState('');
-  const [accountDataSoal, setAccountDataSoal] = useState([]);
-  const [accountSoalLoading, setAccountSoalLoading] = useState(false);
-  const [preFormSoal, setPreFormSoal] = useState({ isOpen: false, id_mapel: '', target_kelas: '', target_paralel: [] });
   const [formSoal, setFormSoal] = useState({ isOpen: false, data: null, id_mapel: '' });
   const [formNarasi, setFormNarasi] = useState({ isOpen: false, data: null });
   const [modalUraian, setModalUraian] = useState({ isOpen: false, logUjian: null, jawabanUraian: [] });
@@ -219,8 +152,12 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
         const resJadwal = await api('get_jadwal_pengawas', { id_guru: guruId });
         if (resJadwal.status === 'success') setDataJadwal(resJadwal.data || []);
       } else if (activeTab === 'bank_soal') {
-        const res = await api('get_mapel_guru', { id_guru: guruId });
+        const [res, resJadwal] = await Promise.all([
+          api('get_mapel_guru', { id_guru: guruId }),
+          api('get_jadwal_pengawas', { id_guru: guruId })
+        ]);
         if (res.status === 'success') setDataMapel(res.data || []);
+        if (resJadwal.status === 'success') setDataJadwal(resJadwal.data || []);
 
         if (selectedMapel) {
           const soalRes = await api('get_soal_by_mapel', { id_mapel: selectedMapel });
@@ -242,30 +179,6 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
       get_default_skema_sekolah(user.npsn).catch(() => {});
     }
   }, [user?.npsn]);
-
-  useEffect(() => {
-    if (activeTab === 'akun') {
-      if (!selectedMapelAccount && dataMapel.length > 0) {
-        setSelectedMapelAccount(dataMapel[0].id_mapel);
-      }
-    }
-  }, [activeTab, dataMapel, selectedMapelAccount]);
-
-  useEffect(() => {
-    if (activeTab === 'akun' && selectedMapelAccount) {
-      let isMounted = true;
-      setAccountSoalLoading(true);
-      api('get_soal_by_mapel', { id_mapel: selectedMapelAccount }).then((soalRes) => {
-        if (isMounted && soalRes.status === 'success') {
-          setAccountDataSoal(soalRes.data || []);
-        }
-        if (isMounted) setAccountSoalLoading(false);
-      }).catch((err) => {
-        if (isMounted) setAccountSoalLoading(false);
-      });
-      return () => { isMounted = false; };
-    }
-  }, [activeTab, selectedMapelAccount]);
 
   useEffect(() => {
     if (window.MathJax) {
@@ -594,7 +507,8 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
             pertanyaan: finalPertanyaan,
             opsi: opsiStr,
             kunci_jawaban: finalKunci ? String(finalKunci) : '',
-            bobot: row.bobot || 10
+            bobot: row.bobot || 10,
+            kd: row.kd || ''
           };
         });
 
@@ -788,6 +702,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
           opsi: opsiStr,
           kunci_jawaban: finalKunci ? String(finalKunci) : '',
           bobot: row.bobot || 10,
+          kd: row.kd || ''
         };
       });
 
@@ -852,7 +767,15 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
     }
   };
 
+  const isSelectedMapelActive = Boolean(
+    selectedMapel && (dataJadwal || []).some(j => String(j.id_mapel) === String(selectedMapel) && j.status_ujian === 'AKTIF')
+  );
+
   const deleteSoal = async (id) => {
+    if (isSelectedMapelActive) {
+      showMessage('Soal Terkunci', 'Tidak dapat menghapus soal karena jadwal ujian mapel ini sedang AKTIF berlangsung.', 'error');
+      return;
+    }
     if (!confirm('Hapus butir soal ini?')) return;
     // ponytail: confirm() ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â GuruView belum punya confirmDialog state, biarkan sementara
     setIsLoading(true);
@@ -915,62 +838,6 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
     }
   };
 
-  const saveSkemaAccount = async (payload, applyToAll = false) => {
-    if (!selectedMapelAccount && !applyToAll) {
-      showMessage('Peringatan', 'Pilih mata pelajaran terlebih dahulu.', 'error');
-      return;
-    }
-    setIsLoading(true);
-
-    if (applyToAll) {
-      const idMapels = (dataMapel || []).map(m => m.id_mapel).filter(Boolean);
-      if (idMapels.length === 0) {
-        setIsLoading(false);
-        showMessage('Peringatan', 'Tidak ada mata pelajaran yang diampu ditemukan.', 'error');
-        return;
-      }
-      const res = await api('save_skema_penilaian', {
-        id_mapels: idMapels,
-        npsn: user.npsn,
-        kunci_jawaban: payload.kunci_jawaban,
-        bobot: payload.bobot,
-        mode: payload.mode,
-        skema: payload.skema
-      });
-      setIsLoading(false);
-      if (res.status === 'success') {
-        showMessage('Berhasil', `Skema penilaian berhasil diterapkan ke semua (${idMapels.length}) mapel yang Anda ampu.`, 'success');
-        logActivity('SKEMA PENILAIAN BULK', `Menerapkan skema penilaian serentak ke ${idMapels.length} mata pelajaran dari menu akun`);
-        if (selectedMapelAccount) {
-          const soalRes = await api('get_soal_by_mapel', { id_mapel: selectedMapelAccount });
-          if (soalRes.status === 'success') setAccountDataSoal(soalRes.data || []);
-        }
-      } else {
-        showMessage('Gagal', 'Gagal menerapkan skema penilaian serentak: ' + res.message, 'error');
-      }
-      return;
-    }
-
-    const res = await api('save_skema_penilaian', {
-      id_mapel: selectedMapelAccount,
-      npsn: user.npsn,
-      kunci_jawaban: payload.kunci_jawaban,
-      bobot: payload.bobot,
-      mode: payload.mode,
-      skema: payload.skema
-    });
-    setIsLoading(false);
-    if (res.status === 'success') {
-      showMessage('Berhasil', 'Skema penilaian berhasil disimpan.', 'success');
-      const mapelNama = dataMapel.find(m => m.id_mapel === selectedMapelAccount)?.nama_mapel || selectedMapelAccount;
-      logActivity('SKEMA PENILAIAN', `Menyimpan skema bobot penilaian mapel ${mapelNama} dari menu akun`);
-      const soalRes = await api('get_soal_by_mapel', { id_mapel: selectedMapelAccount });
-      if (soalRes.status === 'success') setAccountDataSoal(soalRes.data || []);
-    } else {
-      showMessage('Gagal', 'Gagal menyimpan skema penilaian: ' + res.message, 'error');
-    }
-  };
-
   // Evaluation & Grading Command Center
   // =========================================================================
   const openDetailHasil = async (jadwal) => {
@@ -1019,13 +886,14 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
     }
   };
 
-  const saveNilaiUraian = async (totalNilai, isNext = false) => {
+  const saveNilaiUraian = async (totalNilai, isNext = false, detailSkor = []) => {
     if (!modalUraian.logUjian) return;
     const currentIdLog = modalUraian.logUjian.id_log;
     setIsLoading(true);
     const res = await api('update_nilai_uraian', {
       id_log: currentIdLog,
-      nilai_uraian_total: totalNilai
+      nilai_uraian_total: totalNilai,
+      detail_skor: detailSkor
     });
     setIsLoading(false);
     if (res.status === 'success') {
@@ -1039,7 +907,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
             return {
               ...s,
               nilai_uraian: totalNilai,
-              total_nilai: pg + totalNilai
+              total_nilai: Math.min(100, Math.round((pg + totalNilai) * 100) / 100)
             };
           }
           return s;
@@ -1279,77 +1147,6 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
     );
   };
 
-  const renderConfirmDialog = () => {
-    if (!confirmDialog.isOpen) return null;
-    return (
-      <div className="fixed inset-0 z-[110] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-        <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 dark:border-slate-700 animate-scale-up">
-          <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 ${
-            confirmDialog.type === 'unblock' ? 'bg-primary/10 text-primary dark:bg-primary/10 dark:text-primary-400' :
-            confirmDialog.type === 'block' || confirmDialog.type === 'stop' ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400' :
-            'bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400'
-          }`}>
-            <span className="material-symbols-outlined text-2xl">{confirmDialog.icon}</span>
-          </div>
-          <h4 className="font-bold text-base text-slate-800 dark:text-white mb-1">{confirmDialog.title}</h4>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mb-5 leading-relaxed">{confirmDialog.message}</p>
-          <div className="flex gap-2.5 justify-end">
-            <button
-              onClick={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
-              className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-            >
-              Batal
-            </button>
-            <button
-              onClick={confirmDialog.onConfirm}
-              className={`px-4 py-2 rounded-xl text-xs font-bold text-white shadow-sm transition-all active:scale-95 ${
-                confirmDialog.type === 'unblock' ? 'bg-primary hover:bg-primary/90' :
-                confirmDialog.type === 'block' || confirmDialog.type === 'stop' ? 'bg-rose-600 hover:bg-rose-700' :
-                'bg-amber-600 hover:bg-amber-700'
-              }`}
-            >
-              {confirmDialog.actionText}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderResetModal = () => {
-    if (!resetModal) return null;
-    return (
-      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-fade-in">
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl w-full max-w-sm shadow-xl border border-slate-200 dark:border-slate-700 animate-scale-up">
-          <h3 className="font-bold text-lg text-slate-800 dark:text-white mb-2">Pilih Metode Reset</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mb-5 leading-relaxed">
-            Pilih "Reset Login" jika siswa hanya terkeluar dari aplikasi. Pilih "Reset Total" untuk mengulang seluruh sesi dan menghapus jawaban siswa.
-          </p>
-          <div className="flex flex-col gap-2.5">
-            <button
-              onClick={() => handleResetJawaban(resetModal.id_siswa, 'login')}
-              className="w-full py-2.5 bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 border border-primary/30 dark:border-primary/20 rounded-xl font-bold text-xs hover:bg-primary/20 transition-colors min-h-[44px]"
-            >
-              Reset Login Saja
-            </button>
-            <button
-              onClick={() => handleResetJawaban(resetModal.id_siswa, 'total')}
-              className="w-full py-2.5 bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200/60 dark:border-rose-800/60 rounded-xl font-bold text-xs hover:bg-rose-100 transition-colors min-h-[44px]"
-            >
-              Reset Total (Hapus Jawaban)
-            </button>
-            <button
-              onClick={() => setResetModal(null)}
-              className="w-full py-2.5 text-slate-500 font-bold hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl text-xs transition-colors min-h-[44px]"
-            >
-              Batal
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   if (!user) return null;
 
   return (
@@ -1419,14 +1216,6 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                 return (
                   <button
                     key={item.id}
-                    data-tutorial={
-                      item.id === 'monitoring'
-                        ? 'guru-monitoring guru-pengawasan'
-                        : item.id === 'hasil'
-                        ? 'guru-hasil guru-nilai'
-                        : `guru-${item.id}`
-                    }
-                    data-assistant-target={item.id}
                     type="button"
                     onClick={() => navigateTab(item.id)}
                     title={isSidebarCollapsed ? item.label : undefined}
@@ -1598,12 +1387,6 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                     return (
                       <button
                         key={item.id}
-                        data-tutorial={
-                          item.id === 'hasil'
-                            ? 'guru-hasil guru-nilai'
-                            : `guru-${item.id}`
-                        }
-                        data-assistant-target={item.id}
                         type="button"
                         onClick={() => navigateTab(item.id)}
                         className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl font-bold text-sm transition-all min-h-[44px] ${
@@ -1646,8 +1429,6 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
             <button
               key={tab.id}
               type="button"
-              data-tutorial={`guru-${tab.id}`}
-              data-assistant-target={tab.id}
               onClick={() => navigateTab(tab.id)}
               className={`relative flex flex-col items-center justify-center flex-1 py-1 min-h-[44px] min-w-[44px] transition-colors ${
                 isActive
@@ -1805,6 +1586,36 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
 
                 {/* Right Column (lg:col-span-5): Quick Actions & Live Exam HUD */}
                 <div className="lg:col-span-5 space-y-3.5 sm:space-y-4">
+                  {/* Jadwal Ujian Saya (dari Admin) */}
+                  <div className="bg-white dark:bg-slate-800 p-3.5 sm:p-4 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-xs space-y-2.5">
+                    <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-slate-700/60">
+                      <h4 className="font-bold text-xs sm:text-sm text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-primary text-base">event_upcoming</span>
+                        Jadwal Ujian Saya
+                      </h4>
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                        {(dataJadwal || []).filter(j => j.status_ujian !== 'SELESAI').length} Aktif/Mendatang
+                      </span>
+                    </div>
+                    {(dataJadwal || []).filter(j => j.status_ujian !== 'SELESAI').length > 0 ? (
+                      <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                        {(dataJadwal || []).filter(j => j.status_ujian !== 'SELESAI').slice(0, 5).map(j => (
+                          <div key={j.id_jadwal} className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="font-bold text-xs text-slate-800 dark:text-slate-200 truncate">{j.nama_mapel || '-'}</p>
+                              <p className="text-[10px] text-slate-500 truncate">Kelas: {j.target_kelas || '-'} • {j.waktu_mulai ? new Date(j.waktu_mulai).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' }) : '-'}</p>
+                            </div>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${j.status_ujian === 'AKTIF' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'}`}>
+                              {j.status_ujian}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-400 py-2">Belum ada jadwal ujian aktif atau mendatang untuk mapel Anda.</p>
+                    )}
+                  </div>
+
                   {/* Live Exam HUD Card */}
                   <div className="bg-white dark:bg-slate-800 p-3.5 sm:p-4 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-xs space-y-3">
                     <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-slate-700/60">
@@ -2012,22 +1823,32 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                         <span className="hidden sm:inline">Skema</span>
                       </button>
                       <button
-                        onClick={() => setFormNarasi({ isOpen: true, data: null })}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100 transition-colors min-h-[44px]"
-                        title="Tambah Narasi Soal"
+                        onClick={() => !isSelectedMapelActive && setFormNarasi({ isOpen: true, data: null })}
+                        disabled={isSelectedMapelActive}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-[44px]"
+                        title={isSelectedMapelActive ? 'Soal terkunci selama ujian berlangsung' : 'Tambah Narasi Soal'}
                       >
                         <span className="material-symbols-outlined text-[18px]">article</span>
                         <span>Narasi Soal</span>
                       </button>
                       <button
-                        onClick={() => setFormSoal({ isOpen: true, data: null, id_mapel: selectedMapel })}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 min-h-[44px]"
+                        onClick={() => !isSelectedMapelActive && setFormSoal({ isOpen: true, data: null, id_mapel: selectedMapel })}
+                        disabled={isSelectedMapelActive}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-white shadow-sm transition-all active:scale-95 min-h-[44px]"
+                        title={isSelectedMapelActive ? 'Soal terkunci selama ujian berlangsung' : 'Tambah Soal'}
                       >
                         <span className="material-symbols-outlined text-[18px]">add</span>
                         <span>Tambah Soal</span>
                       </button>
                     </div>
                   </div>
+
+                  {isSelectedMapelActive && (
+                    <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-xs font-semibold flex items-center gap-2">
+                      <span className="material-symbols-outlined text-base text-amber-600">lock</span>
+                      <span>Bank soal ini terkunci sementara (tambah/hapus dinonaktifkan) karena ujian sedang berstatus <strong>AKTIF</strong>.</span>
+                    </div>
+                  )}
 
                   {/* Quick Subject Switcher Strip */}
                   <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
@@ -2554,58 +2375,6 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                   </div>
                 </div>
               </div>
-
-              {/* Pengaturan Skema Penilaian di Menu Akun */}
-              <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-5">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 flex items-center justify-center shrink-0">
-                    <span className="material-symbols-outlined text-2xl">tune</span>
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-base text-slate-800 dark:text-white">Pengaturan Skema Penilaian</h4>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Atur model penilaian per mata pelajaran atau pilih format default dari admin sekolah
-                    </p>
-                  </div>
-                </div>
-
-                {dataMapel.length === 0 ? (
-                  <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/60 text-xs text-amber-800 dark:text-amber-200">
-                    Belum ada mata pelajaran yang ditugaskan ke akun Anda oleh admin sekolah.
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                        Pilih Mata Pelajaran
-                      </label>
-                      <select
-                        value={selectedMapelAccount}
-                        onChange={(e) => setSelectedMapelAccount(e.target.value)}
-                        className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-bold outline-none focus:ring-2 focus:ring-primary/40 dark:text-white"
-                      >
-                        {dataMapel.map((m) => (
-                          <option key={m.id_mapel} value={m.id_mapel}>
-                            {m.nama_mapel} ({m.kode_mapel || m.id_mapel})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {accountSoalLoading ? (
-                      <div className="py-8 flex flex-col items-center justify-center text-slate-400 text-xs">
-                        <span className="material-symbols-outlined text-3xl animate-spin mb-2">progress_activity</span>
-                        <span>Memuat skema penilaian mata pelajaran...</span>
-                      </div>
-                    ) : (
-                      <SkemaPenilaianPanel
-                        dataSoal={accountDataSoal}
-                        onSave={saveSkemaAccount}
-                      />
-                    )}
-                  </div>
-                )}
-              </div>
             </div>
           )}
 
@@ -2751,14 +2520,35 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                         </p>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => openPeriksaUraian(unratedStudents[0])}
-                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs bg-amber-600 hover:bg-amber-700 active:scale-95 text-white shadow-xs transition-all shrink-0 min-h-[40px]"
-                    >
-                      <span className="material-symbols-outlined text-[18px]">draw</span>
-                      <span>Mulai Koreksi Cepat ({unratedCount})</span>
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => openPeriksaUraian(unratedStudents[0])}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs bg-amber-600 hover:bg-amber-700 active:scale-95 text-white shadow-xs transition-all min-h-[40px]"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">draw</span>
+                        <span>Mulai Koreksi Cepat ({unratedCount})</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!confirm(`Finalisasi nilai? ${unratedCount} siswa yang belum dikoreksi akan diberi nilai uraian 0.`)) return;
+                          setIsLoading(true);
+                          const res = await api('finalisasi_nilai_jadwal', { id_jadwal: selectedHasilJadwal.id_jadwal });
+                          setIsLoading(false);
+                          if (res.status === 'success') {
+                            setDataHasilSiswa(prev => prev.map(s => (s.nilai_uraian === null || s.nilai_uraian === undefined) ? { ...s, nilai_uraian: 0 } : s));
+                            showMessage('Berhasil', 'Nilai jadwal berhasil difinalisasi untuk Admin & Siswa.', 'success');
+                          } else {
+                            showMessage('Gagal', res.message || 'Gagal memfinalisasi nilai.', 'error');
+                          }
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-all min-h-[40px]"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">verified</span>
+                        <span>Finalisasi Nilai</span>
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-800/40 rounded-2xl p-3.5 flex items-center gap-2.5 text-emerald-800 dark:text-emerald-300 text-xs font-semibold">
@@ -2926,16 +2716,6 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
       {renderAnalisisModal()}
 
       {/* ================================================================= */}
-      {/* MODAL: PROCTOR ACTION CONFIRMATION DIALOG                        */}
-      {/* ================================================================= */}
-      {renderConfirmDialog()}
-
-      {/* ================================================================= */}
-      {/* MODAL: RESET SESI PESERTA                                         */}
-      {/* ================================================================= */}
-      {renderResetModal()}
-
-      {/* ================================================================= */}
       {/* MODAL: PERIKSA JAWABAN URAIAN (Integrated ModalPeriksaUraian)     */}
       {/* ================================================================= */}
       {(() => {
@@ -3031,32 +2811,35 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
       )}
 
       {/* Form Soal Modal */}
-      <FormSoalModal
-        isOpen={formSoal.isOpen}
-        data={formSoal.data}
-        narasiList={[]}
-        schoolName={user?.nama_sekolah || 'SMA'}
-        className={
-          dataMapel.find(m => String(m.id_mapel) === String(formSoal.id_mapel || selectedMapel))?.alokasi_kelas ||
-          dataMapel.find(m => String(m.id_mapel) === String(formSoal.id_mapel || selectedMapel))?.tingkat ||
-          'Semua Kelas'
-        }
-        subjectName={
-          dataMapel.find(m => String(m.id_mapel) === String(formSoal.id_mapel || selectedMapel))?.nama_mapel ||
-          'Mata Pelajaran'
-        }
-        gasWebhookUrl={gasWebhookUrl}
-        onClose={() => setFormSoal({ isOpen: false, data: null, id_mapel: '' })}
-        onSave={handleSaveSoal}
-      />
+      {formSoal.isOpen && (
+        <FormSoalModal
+          isOpen={formSoal.isOpen}
+          data={formSoal.data}
+          narasiList={dataSoal.filter(s => s.tipe_soal === 'NARASI')}
+          schoolName={user?.nama_sekolah || 'SMA'}
+          className={
+            dataMapel.find(m => String(m.id_mapel) === String(formSoal.id_mapel || selectedMapel))?.alokasi_kelas ||
+            dataMapel.find(m => String(m.id_mapel) === String(formSoal.id_mapel || selectedMapel))?.tingkat ||
+            'Semua Kelas'
+          }
+          subjectName={
+            dataMapel.find(m => String(m.id_mapel) === String(formSoal.id_mapel || selectedMapel))?.nama_mapel ||
+            'Mata Pelajaran'
+          }
+          onClose={() => setFormSoal({ isOpen: false, data: null, id_mapel: '' })}
+          onSave={handleSaveSoal}
+        />
+      )}
 
       {/* Form Narasi Modal */}
-      <FormNarasiModal
-        isOpen={formNarasi.isOpen}
-        data={formNarasi.data}
-        onClose={() => setFormNarasi({ isOpen: false, data: null })}
-        onSave={saveSoal}
-      />
+      {formNarasi.isOpen && (
+        <FormNarasiModal
+          isOpen={formNarasi.isOpen}
+          data={formNarasi.data}
+          onClose={() => setFormNarasi({ isOpen: false, data: null })}
+          onSave={saveSoal}
+        />
+      )}
     </div>
   );
 };
