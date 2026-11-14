@@ -17,7 +17,7 @@ const isValidKey = cleanAnonKey && cleanAnonKey !== 'undefined' && cleanAnonKey 
 export const SUPABASE_URL = isValidUrl ? cleanUrl : 'https://cdcbarlyxjywltgrjgnr.supabase.co';
 export const SUPABASE_ANON_KEY = isValidKey ? cleanAnonKey : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkY2Jhcmx5eGp5d2x0Z3JqZ25yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyOTkwNTQsImV4cCI6MjEwMjg3NTA1NH0.Lze94l74sblAVNN4-IUtyQ_idr-aQCECxgPWTVAI5-c';
 export const STATUS = { SUCCESS: "success", ERROR: "error" };
-export const ROLES = { ADMIN: "admin", GURU: "guru", SISWA: "siswa" };
+export const ROLES = { ADMIN: "admin", GURU: "guru", SISWA: "siswa", SUPER_ADMIN: "super_admin" };
 
 export const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 

@@ -4,6 +4,7 @@ import nexaLogo from './assets/screen_3_logo.png';
 const AdminView = React.lazy(() => import('./views/AdminView'));
 const GuruView = React.lazy(() => import('./views/GuruView'));
 const SiswaView = React.lazy(() => import('./views/SiswaView'));
+const SuperAdminView = React.lazy(() => import('./views/SuperAdminView'));
 import Modal from './components/Modal';
 import ErrorBoundary from './components/ErrorBoundary';
 import { syncThemeColor } from './utils/themeColor';
@@ -15,7 +16,7 @@ import { syncThemeColor } from './utils/themeColor';
             const savedSession = sessionStorage.getItem('nexa_user_session');
             if (savedSession) {
               const parsed = JSON.parse(savedSession);
-              const validRoles = ['admin', 'guru', 'siswa'];
+              const validRoles = ['admin', 'guru', 'siswa', 'super_admin'];
               const hasIdentifier = parsed && (parsed.id_user || parsed.username || parsed.id_siswa || parsed.id || parsed.nisn || parsed.nip || parsed.nama);
               if (parsed && typeof parsed === 'object' && validRoles.includes(parsed.role) && hasIdentifier) {
                 return parsed;
@@ -205,7 +206,7 @@ import { syncThemeColor } from './utils/themeColor';
         const activeUnauthRole = isRegistering ? registerRole : loginRole;
         const activeRole = user?.role || activeUnauthRole || 'siswa';
         // Remove existing theme classes
-        document.documentElement.classList.remove('theme-siswa', 'theme-guru', 'theme-admin');
+        document.documentElement.classList.remove('theme-siswa', 'theme-guru', 'theme-admin', 'theme-super_admin');
         // Add current theme class
         document.documentElement.classList.add(`theme-${activeRole}`);
       }, [user?.role, isRegistering, loginRole, registerRole]);
@@ -257,9 +258,11 @@ import { syncThemeColor } from './utils/themeColor';
         e.preventDefault();
         setLoading(true);
         setLoginError('');
-        const cleanNpsn = npsn.includes('-')
-          ? npsn.replace(/^\[?([^-]+).*/, '$1').replace(/[^a-zA-Z0-9]/g, '').trim()
-          : npsn.replace(/[^a-zA-Z0-9]/g, '').trim();
+        const cleanNpsn = loginRole === 'super_admin' ? '' : (
+          npsn.includes('-')
+            ? npsn.replace(/^\[?([^-]+).*/, '$1').replace(/[^a-zA-Z0-9]/g, '').trim()
+            : npsn.replace(/[^a-zA-Z0-9]/g, '').trim()
+        );
         const res = await fetchAPI('login', { username: username.trim(), password, npsn: cleanNpsn, role: loginRole });
         setLoading(false);
 
@@ -386,11 +389,12 @@ import { syncThemeColor } from './utils/themeColor';
                              {!loginRole ? (
                                <div className="flex flex-col gap-3 animate-role-grid">
                                  <p className="text-center text-xs font-medium text-slate-500 dark:text-slate-400">Pilih akses masuk Anda:</p>
-                                 <div className="grid grid-cols-3 gap-2.5">
+                                 <div className="grid grid-cols-2 gap-2.5">
                                    {[
                                      {val: 'siswa', label: 'Siswa', icon: 'school'},
                                      {val: 'guru', label: 'Guru', icon: 'local_library'},
-                                     {val: 'admin', label: 'Admin', icon: 'admin_panel_settings'}
+                                     {val: 'admin', label: 'Admin', icon: 'admin_panel_settings'},
+                                     {val: 'super_admin', label: 'S-Admin', icon: 'shield_person'}
                                    ].map((r) => (
                                      <button type="button" key={r.val} onClick={() => setLoginRole(r.val)} className="flex flex-col items-center justify-center p-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl hover:from-primary hover:to-secondary/10 dark:hover:from-primary hover:to-secondary/20 hover:border-primary/30 active:scale-95 hover:scale-[1.02] cursor-pointer transition-all gap-1.5 group shadow-sm hover:shadow-md">
                                         <span className="material-symbols-outlined text-2xl text-slate-400 dark:text-slate-500 group-hover:text-primary dark:group-hover:text-primary transition-colors">{r.icon}</span>
@@ -403,8 +407,8 @@ import { syncThemeColor } from './utils/themeColor';
                                <div className="flex flex-col gap-3 animate-role-in">
                                  <div className="flex items-center justify-between mb-1 pb-2 border-b border-slate-100 dark:border-slate-700">
                                      <div className="flex items-center gap-1.5 text-primary font-bold text-sm">
-                                         <span className="material-symbols-outlined text-[18px]">{loginRole === 'siswa' ? 'school' : loginRole === 'guru' ? 'local_library' : 'admin_panel_settings'}</span>
-                                         <span className="capitalize">Masuk {loginRole}</span>
+                                         <span className="material-symbols-outlined text-[18px]">{loginRole === 'siswa' ? 'school' : loginRole === 'guru' ? 'local_library' : loginRole === 'admin' ? 'admin_panel_settings' : 'shield_person'}</span>
+                                         <span className="capitalize">Masuk {loginRole.replace('_', ' ')}</span>
                                      </div>
                                      <button type="button" onClick={() => setLoginRole('')} className="text-[10px] font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md transition-colors">
                                          <span className="material-symbols-outlined text-[12px]">arrow_back</span> Ganti
@@ -418,29 +422,31 @@ import { syncThemeColor } from './utils/themeColor';
                                    </div>
                                  )}
 
-                                 <div className="flex flex-col gap-1">
-                                   <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Sekolah (NPSN)</label>
-                                   <div className="relative">
-                                     <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 text-[18px] pointer-events-none">account_balance</span>
-                                     <select
-                                       required
-                                       name="npsn"
-                                       value={npsn ? (npsn.includes('-') ? npsn.replace(/^\[?([^-]+).*/, '$1').replace(/[^a-zA-Z0-9]/g, '').trim() : npsn) : ''}
-                                       onChange={e => setNpsn(e.target.value)}
-                                       className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl py-2 pl-9 pr-9 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none cursor-pointer truncate"
-                                     >
-                                       <option value="">
-                                         {loadingSekolah ? '-- Memuat Daftar Sekolah... --' : daftarSekolah.length === 0 ? '-- Belum Ada Sekolah Terdaftar --' : '-- Pilih Sekolah --'}
-                                       </option>
-                                       {daftarSekolah.map(s => (
-                                         <option key={s.npsn} value={s.npsn}>
-                                           [{s.npsn}-{s.nama_sekolah}]
+                                 {loginRole !== 'super_admin' && (
+                                   <div className="flex flex-col gap-1">
+                                     <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Sekolah (NPSN)</label>
+                                     <div className="relative">
+                                       <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 text-[18px] pointer-events-none">account_balance</span>
+                                       <select
+                                         required
+                                         name="npsn"
+                                         value={npsn ? (npsn.includes('-') ? npsn.replace(/^\[?([^-]+).*/, '$1').replace(/[^a-zA-Z0-9]/g, '').trim() : npsn) : ''}
+                                         onChange={e => setNpsn(e.target.value)}
+                                         className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl py-2 pl-9 pr-9 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none cursor-pointer truncate"
+                                       >
+                                         <option value="">
+                                           {loadingSekolah ? '-- Memuat Daftar Sekolah... --' : daftarSekolah.length === 0 ? '-- Belum Ada Sekolah Terdaftar --' : '-- Pilih Sekolah --'}
                                          </option>
-                                       ))}
-                                     </select>
-                                     <span className="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-[18px]">expand_more</span>
+                                         {daftarSekolah.map(s => (
+                                           <option key={s.npsn} value={s.npsn}>
+                                             [{s.npsn}-{s.nama_sekolah}]
+                                           </option>
+                                         ))}
+                                       </select>
+                                       <span className="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-[18px]">expand_more</span>
+                                     </div>
                                    </div>
-                                 </div>
+                                 )}
 
                                  <div className="flex flex-col gap-1">
                                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Username</label>
@@ -611,6 +617,7 @@ import { syncThemeColor } from './utils/themeColor';
 
         const suspenseFallback = <div className="h-[100dvh] w-full flex items-center justify-center bg-slate-50 dark:bg-slate-900 text-slate-500">Memuat...</div>;
         switch (user.role) {
+          case 'super_admin': return <ErrorBoundary><React.Suspense fallback={suspenseFallback}><SuperAdminView user={user} onLogout={handleLogout} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setDarkModeWithPreference} /></React.Suspense></ErrorBoundary>;
           case 'admin': return <ErrorBoundary><React.Suspense fallback={suspenseFallback}><AdminView user={user} onLogout={handleLogout} onUpdateUser={handleUpdateUser} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setDarkModeWithPreference} /></React.Suspense></ErrorBoundary>;
           case 'guru': return <ErrorBoundary><React.Suspense fallback={suspenseFallback}><GuruView user={user} onLogout={handleLogout} onUpdateUser={handleUpdateUser} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setDarkModeWithPreference} /></React.Suspense></ErrorBoundary>;
           case 'siswa': return <ErrorBoundary><React.Suspense fallback={suspenseFallback}><SiswaView user={user} onLogout={handleLogout} onUpdateUser={handleUpdateUser} showMessage={showMessage} isDarkMode={isDarkMode} setIsDarkMode={setDarkModeWithPreference} /></React.Suspense></ErrorBoundary>;

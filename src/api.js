@@ -570,7 +570,10 @@ export { supabaseClient };
         // Menolak kueri jika npsn tidak disertakan untuk rute non-global
         const globalRoutes = [
           'login', 'register', 'get_sekolah', 'create_sekolah', 'delete_sekolah', 'update_sekolah', 
-          'update_admin_profil', 'purge_weekly_logs',
+          'get_admin_all', 'create_admin_sekolah', 'update_admin_sekolah', 'delete_admin_sekolah', 
+          'get_analytics', 'update_admin_profil', 'get_pengumuman_global', 'create_pengumuman_global', 
+          'delete_pengumuman_global', 'get_log_aktivitas_global', 'create_log_aktivitas_global', 'purge_weekly_logs',
+          'update_sekolah_status', 'update_superadmin_password', 'reset_all_data',
           'get_status_log_ujian', 'simpan_kehadiran_siswa', 'submit_absensi_siswa', 
           'verifikasi_absensi', 'verifikasi_absensi_bulk',
           'get_soal_ujian', 'submit_ujian', 'catat_pelanggaran', 'import_jawaban_offline'
@@ -587,6 +590,18 @@ export { supabaseClient };
         switch (action) {
           // ================= AUTH =================
           case 'login': {
+            if (payload.role === 'super_admin') {
+              ({ data, error } = await supabaseClient
+                .from('super_admin')
+                .select('*')
+                .eq('username', payload.username)
+                .eq('password', payload.password)
+                .single());
+              if (error || !data) return { status: 'error', message: 'Username atau password Super Admin salah.' };
+              data.role = 'super_admin';
+              return { status: 'success', data };
+            }
+
             if (payload.role === 'guru') {
               const loginId = (payload.username || payload.nip)?.trim();
               ({ data, error } = await supabaseClient
@@ -672,11 +687,78 @@ export { supabaseClient };
             return { status: 'success', message: 'Pendaftaran berhasil. Silakan login.' };
           }
 
-          // ================= SEKOLAH =================
+          // ================= SUPER ADMIN =================
+          case 'update_superadmin_password': {
+            ({ error } = await supabaseClient.from('super_admin').update({ password: payload.password }).eq('username', payload.username));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Password Super Admin berhasil diperbarui.' };
+          }
           case 'get_sekolah': {
             ({ data, error } = await supabaseClient.from('sekolah').select('*').order('created_at', { ascending: false }));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', data };
+          }
+          case 'create_sekolah': {
+            ({ error } = await supabaseClient.from('sekolah').insert([{ npsn: payload.npsn, nama_sekolah: payload.nama_sekolah }]));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Sekolah berhasil ditambahkan.' };
+          }
+          case 'delete_sekolah': {
+            const { data: rpcData, error: rpcError } = await supabaseClient.rpc('delete_sekolah_cascade', { p_npsn: payload.npsn });
+            if (!rpcError && rpcData) {
+              if (rpcData.status === 'error') return { status: 'error', message: rpcData.message };
+              return { status: 'success', message: rpcData.message, data: rpcData };
+            }
+            ({ error } = await supabaseClient.from('sekolah').delete().eq('npsn', payload.npsn));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Sekolah berhasil dihapus.' };
+          }
+          case 'update_sekolah': {
+            ({ error } = await supabaseClient.from('sekolah').update({ nama_sekolah: payload.nama_sekolah }).eq('npsn', payload.npsn));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Sekolah berhasil diperbarui.' };
+          }
+          case 'update_sekolah_status': {
+            ({ error } = await supabaseClient.from('sekolah').update({ status: payload.status }).eq('npsn', payload.npsn));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Status sekolah berhasil diperbarui.' };
+          }
+          case 'get_admin_all': {
+            const { data: adminData, error: adminErr } = await supabaseClient.from('admin').select('*').order('created_at', { ascending: false });
+            if (adminErr) return { status: 'error', message: adminErr.message };
+            const { data: sekolahData } = await supabaseClient.from('sekolah').select('npsn, nama_sekolah');
+            const data = adminData.map(a => ({
+              ...a,
+              sekolah: sekolahData?.find(s => s.npsn === a.npsn) || { nama_sekolah: '-' }
+            }));
+            return { status: 'success', data };
+          }
+          case 'create_admin_sekolah': {
+            ({ error } = await supabaseClient.from('admin').insert([{
+              id_admin: crypto.randomUUID(),
+              nama_lengkap: payload.nama_lengkap,
+              username: payload.username,
+              password: payload.password,
+              npsn: payload.npsn
+            }]));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Admin Sekolah berhasil dibuat.' };
+          }
+          case 'delete_admin_sekolah': {
+            ({ error } = await supabaseClient.from('admin').delete().eq('id_admin', payload.id_admin));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Admin Sekolah berhasil dihapus.' };
+          }
+          case 'update_admin_sekolah': {
+            const updateData = {
+              nama_lengkap: payload.nama_lengkap,
+              username: payload.username,
+              npsn: payload.npsn
+            };
+            if (payload.password) updateData.password = payload.password;
+            ({ error } = await supabaseClient.from('admin').update(updateData).eq('id_admin', payload.id_admin));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Admin Sekolah berhasil diperbarui.' };
           }
           case 'update_admin_profil': {
             const updateData = {};
@@ -685,6 +767,66 @@ export { supabaseClient };
             ({ error } = await supabaseClient.from('admin').update(updateData).eq('id_admin', payload.id_admin));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Profil berhasil diperbarui.' };
+          }
+
+          // ================= SUPERADMIN ANALYTICS =================
+          case 'get_analytics': {
+            const { data: sekolahData, error: sekolahErr } = await supabaseClient.from('sekolah').select('npsn, nama_sekolah');
+            if (sekolahErr) return { status: 'error', message: sekolahErr.message };
+            const stats = await Promise.all(sekolahData.map(async (s) => {
+              const [siswaRes, guruRes, soalRes] = await Promise.all([
+                supabaseClient.from('siswa').select('id_siswa', { count: 'exact' }).eq('npsn', s.npsn),
+                supabaseClient.from('guru').select('id_guru', { count: 'exact' }).eq('npsn', s.npsn),
+                supabaseClient.from('soal_ujian').select('id_soal', { count: 'exact' }).eq('npsn', s.npsn)
+              ]);
+              return {
+                npsn: s.npsn,
+                nama_sekolah: s.nama_sekolah,
+                total_siswa: siswaRes.count || 0,
+                total_guru: guruRes.count || 0,
+                total_soal: soalRes.count || 0
+              };
+            }));
+            const { count: concurrentUsers } = await supabaseClient
+              .from('log_ujian')
+              .select('id_log', { count: 'exact', head: true })
+              .eq('status_ujian', 'SEDANG KERJA');
+            return { status: 'success', data: { stats, concurrentUsers: concurrentUsers || 0 } };
+          }
+
+          // ================= PENGUMUMAN & LOG GLOBAL =================
+          case 'get_pengumuman_global': {
+            ({ data, error } = await supabaseClient.from('pengumuman_global').select('*').order('created_at', { ascending: false }));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', data };
+          }
+          case 'create_pengumuman_global': {
+            ({ error } = await supabaseClient.from('pengumuman_global').insert([{ judul: payload.judul, isi: payload.isi, tipe: payload.tipe }]));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Pengumuman berhasil ditambahkan.' };
+          }
+          case 'delete_pengumuman_global': {
+            ({ error } = await supabaseClient.from('pengumuman_global').delete().eq('id_pengumuman', payload.id_pengumuman));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Pengumuman berhasil dihapus.' };
+          }
+          case 'get_log_aktivitas_global': {
+            await autoPurgeWeeklyLogs(false);
+            ({ data, error } = await supabaseClient.from('audit_log').select('*').order('created_at', { ascending: false }).limit(100));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', data };
+          }
+          case 'create_log_aktivitas_global': {
+            ({ error } = await supabaseClient.from('log_aktivitas_global').insert([{ username: payload.username, role: payload.role, action: payload.action, detail: payload.detail }]));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: 'Log dicatat.' };
+          }
+          case 'reset_all_data': {
+            const tables = ['log_aktivitas', 'siswa_jawaban', 'siswa_ujian', 'jadwal_ujian', 'soal_ujian', 'mata_pelajaran', 'guru_mapel', 'siswa', 'guru', 'admin', 'pengumuman', 'sekolah'];
+            for (const table of tables) {
+              await supabaseClient.from(table).delete().neq('created_at', '1970-01-01T00:00:00Z');
+            }
+            return { status: 'success', message: 'Semua data sistem berhasil dihapus secara permanen.' };
           }
 
           // ================= ADMIN DASHBOARD =================
