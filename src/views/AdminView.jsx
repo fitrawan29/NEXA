@@ -17,6 +17,9 @@ import {
 } from '../components/UI.jsx';
 import SkemaPenilaianPanel from '../components/SkemaPenilaianPanel.jsx';
 import KartuUjianPrint from '../components/KartuUjianPrint.jsx';
+import FormSoalModal from '../components/FormSoalModal.jsx';
+import FormNarasiModal from '../components/FormNarasiModal.jsx';
+import mammoth from 'mammoth';
 import { compressImageFile } from '../utils/imageHelper.js';
 
 const isUniversalAlloc = (alloc) => {
@@ -145,6 +148,20 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   const [nexaImportModal, setNexaImportModal] = useState({ isOpen: false, file: null, bundle: null, status: null, error: null });
   const [isBackingUp, setIsBackingUp] = useState(false);
 
+  // R2: Question Bank Management State for Admin
+  const [selectedMapel, setSelectedMapel] = useState(null);
+  const [dataSoal, setDataSoal] = useState([]);
+  const [isSoalLoading, setIsSoalLoading] = useState(false);
+  const [formSoal, setFormSoal] = useState({ isOpen: false, data: null, id_mapel: '' });
+  const [formNarasi, setFormNarasi] = useState({ isOpen: false, data: null });
+  const [bankSoalPage, setBankSoalPage] = useState(1);
+  const [filterTipeSoal, setFilterTipeSoal] = useState('ALL');
+  const [searchQuerySoal, setSearchQuerySoal] = useState('');
+  const [skemaModal, setSkemaModal] = useState({ isOpen: false, id_mapel: null });
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const fileInputRef = useRef(null);
+  const wordInputRef = useRef(null);
+
   // Confirmation Dialog State (for proctor interventions)
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
@@ -191,6 +208,8 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
         setSkemaSuccessMsg('Skema penilaian default sekolah berhasil disimpan dan diperbarui.');
         setTimeout(() => setSkemaSuccessMsg(''), 4000);
         await api('create_audit_log', { username: user.username, role: 'admin', action: 'SKEMA_DEFAULT', target: 'Skema penilaian default sekolah' });
+      } else {
+        showMessage('Gagal', res?.message || 'Gagal menyimpan skema default sekolah.', 'error');
       }
     } catch (err) {
       showMessage('Gagal', 'Gagal menyimpan skema default sekolah: ' + err.message, 'error');
@@ -200,6 +219,15 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   useEffect(() => {
     if (user?.npsn) {
       loadDefaultSkema();
+      api('get_sekolah', { npsn: user.npsn }).then(res => {
+        const sch = Array.isArray(res?.data) ? res.data.find(s => s.npsn === user.npsn) : res?.data;
+        if (res?.status === 'success' && sch?.nama_sekolah) {
+          setKopSettings(prev => ({
+            ...prev,
+            nama_sekolah: prev.nama_sekolah || sch.nama_sekolah
+          }));
+        }
+      }).catch(() => {});
     }
   }, [user?.npsn]);
 
@@ -260,6 +288,10 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
         ]);
         if (resMapel.status === 'success') setDataMapel(resMapel.data || []);
         if (resK.status === 'success') setDataKelas(resK.data || []);
+        if (selectedMapel) {
+          const resSoal = await api('get_soal_by_mapel', { id_mapel: selectedMapel });
+          if (resSoal.status === 'success') setDataSoal(resSoal.data || []);
+        }
       } else if (tab === 'logs') {
         const res = await api('get_audit_log', {});
         if (res.status === 'success') setDataAudit(res.data || []);
@@ -293,14 +325,533 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     }
   };
 
+  const refreshMonitoringLogs = async (jadwalId = selectedJadwal) => {
+    if (!jadwalId) return;
+    try {
+      const logRes = await api('monitoring_ujian', { id_jadwal: jadwalId });
+      if (logRes.status === 'success') setDataLog(logRes.data || []);
+    } catch (err) {
+      console.error('Monitoring refresh error:', err);
+    }
+  };
+
   useEffect(() => {
     fetchData(activeTab);
     let interval;
     if (activeTab === 'monitoring' && selectedJadwal) {
-      interval = setInterval(() => fetchData('monitoring'), 15000);
+      interval = setInterval(() => refreshMonitoringLogs(selectedJadwal), 15000);
     }
     return () => clearInterval(interval);
   }, [activeTab, selectedJadwal]);
+
+  // R2: Fetch questions when selectedMapel is active
+  useEffect(() => {
+    if (selectedMapel && activeTab === 'mapel') {
+      setIsSoalLoading(true);
+      api('get_soal_by_mapel', { id_mapel: selectedMapel })
+        .then(res => {
+          if (res.status === 'success') setDataSoal(res.data || []);
+        })
+        .finally(() => setIsSoalLoading(false));
+    }
+  }, [selectedMapel, activeTab]);
+
+  const isSelectedMapelActive = Boolean(
+    selectedMapel && (dataJadwal || []).some(j => String(j.id_mapel) === String(selectedMapel) && j.status_ujian === 'AKTIF')
+  );
+
+  const stripHtml = (html) => {
+    if (!html) return '-';
+    return html.replace(/<[^>]*>?/gm, '').trim();
+  };
+
+  const normalizeTipeSoal = (raw) => {
+    const s = String(raw || '').trim().toUpperCase();
+    if (s.startsWith('PGK') || s.includes('KOMPLEKS')) return 'PGK';
+    if (s.startsWith('PG') || s.includes('GANDA')) return 'PG';
+    if (s === 'BS' || s.includes('BENAR') || s.includes('SALAH')) return 'BS';
+    if (s.includes('JODOH') || s.includes('PASANG')) return 'JODOH';
+    if (s.includes('ISIAN') || s.includes('SINGKAT')) return 'ISIAN';
+    if (s.includes('URAIAN') || s.includes('ESSAY')) return 'URAIAN';
+    if (s.includes('NARASI') || s.includes('WACANA')) return 'NARASI';
+    return 'PG';
+  };
+
+  const getTipeBadge = (tipe) => {
+    const t = (tipe || 'PG').toUpperCase();
+    switch (t) {
+      case 'PG':
+        return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border border-blue-200/70 dark:border-blue-800/60">PG</span>;
+      case 'PGK':
+        return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 border border-primary/30/70 dark:border-primary/30">PGK</span>;
+      case 'BS':
+      case 'BENAR_SALAH':
+        return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 border border-teal-200/70 dark:border-teal-800/60">BENAR / SALAH</span>;
+      case 'JODOH':
+      case 'MENJODOHKAN':
+        return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 border border-amber-200/70 dark:border-amber-800/60">JODOH</span>;
+      case 'ISIAN':
+      case 'ISIAN_SINGKAT':
+        return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-cyan-50 dark:bg-cyan-950/50 text-cyan-600 dark:text-cyan-400 border border-cyan-200/70 dark:border-cyan-800/60">ISIAN SINGKAT</span>;
+      case 'URAIAN':
+        return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 border border-purple-200/70 dark:border-purple-800/60">URAIAN</span>;
+      case 'NARASI':
+        return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 border border-amber-200/70 dark:border-amber-800/60">NARASI</span>;
+      default:
+        return <span className="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">{t}</span>;
+    }
+  };
+
+  const filteredSoal = useMemo(() => {
+    return dataSoal.filter(s => {
+      if (s.tipe_soal === 'SKEMA_PENILAIAN' || s.tipe_soal === 'SKEMA_DEFAULT' || s.tipe_soal === 'MAPEL_ALLOC') return false;
+      const q = (searchQuerySoal || '').toLowerCase();
+      const matchQuery = !q || (s.pertanyaan || '').toLowerCase().includes(q) || (s.tipe_soal || '').toLowerCase().includes(q);
+      const matchTipe = filterTipeSoal === 'ALL' || (s.tipe_soal || s.tipe) === filterTipeSoal;
+      return matchQuery && matchTipe;
+    });
+  }, [dataSoal, searchQuerySoal, filterTipeSoal]);
+
+  const itemsPerPageSoal = 10;
+  const totalSoalPages = Math.ceil(filteredSoal.length / itemsPerPageSoal) || 1;
+  const paginatedSoal = useMemo(() => {
+    const start = (bankSoalPage - 1) * itemsPerPageSoal;
+    return filteredSoal.slice(start, start + itemsPerPageSoal);
+  }, [filteredSoal, bankSoalPage]);
+
+  const handleSaveSoal = async (soalData) => {
+    setIsSubmitting(true);
+    const endpoint = formSoal.data ? 'update_soal_mapel' : 'create_soal_mapel';
+    const payload = {
+      ...soalData,
+      npsn: user.npsn,
+      id_mapel: formSoal.id_mapel || selectedMapel,
+      id_soal: formSoal.data ? formSoal.data.id_soal : ('SOAL-' + Math.random().toString(36).substr(2, 9).toUpperCase())
+    };
+    const res = await api(endpoint, payload);
+    setIsSubmitting(false);
+    if (res.status === 'success') {
+      setFormSoal({ isOpen: false, data: null, id_mapel: '' });
+      const refresh = await api('get_soal_by_mapel', { id_mapel: selectedMapel });
+      if (refresh.status === 'success') setDataSoal(refresh.data || []);
+      fetchData('mapel');
+      return true;
+    } else {
+      showMessage('Gagal', 'Gagal menyimpan soal: ' + res.message, 'error');
+      return false;
+    }
+  };
+
+  const saveSoal = async (payload) => {
+    const endpoint = payload.id_soal ? 'update_soal_mapel' : 'create_soal_mapel';
+    if (!payload.id_soal) {
+      payload.id_soal = 'S-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+    }
+    payload.id_mapel = selectedMapel;
+    const res = await api(endpoint, payload);
+    if (res.status === 'success') {
+      setFormNarasi({ isOpen: false, data: null });
+      const refresh = await api('get_soal_by_mapel', { id_mapel: selectedMapel });
+      if (refresh.status === 'success') setDataSoal(refresh.data || []);
+      fetchData('mapel');
+    } else {
+      showMessage('Info', res.message, 'info');
+    }
+  };
+
+  const deleteSoal = async (id) => {
+    if (isSelectedMapelActive) {
+      showMessage('Soal Terkunci', 'Tidak dapat menghapus soal karena jadwal ujian mapel ini sedang AKTIF.', 'error');
+      return;
+    }
+    if (!confirm('Hapus butir soal ini?')) return;
+    const res = await api('delete_soal_mapel', { id_soal: id });
+    if (res.status === 'success') {
+      const refresh = await api('get_soal_by_mapel', { id_mapel: selectedMapel });
+      if (refresh.status === 'success') setDataSoal(refresh.data || []);
+      fetchData('mapel');
+    } else {
+      showMessage('Info', res.message, 'info');
+    }
+  };
+
+  const downloadTemplateSoal = () => {
+    const templateData = [
+      { tipe_soal: 'PG',    pertanyaan: 'Hasil dari 5 + 7 adalah...', opsi_A: '10', opsi_B: '11', opsi_C: '12', opsi_D: '13', opsi_E: '14', kunci_jawaban: 'C', bobot: 10, kd: '3.1', narasi_soal: '' },
+      { tipe_soal: 'PGK',   pertanyaan: 'Manakah yang merupakan bilangan prima genap?', opsi_A: '2', opsi_B: '4', opsi_C: '6', opsi_D: '8', opsi_E: '10', kunci_jawaban: 'A,B', bobot: 10, kd: '3.1', narasi_soal: '' },
+      { tipe_soal: 'BS',    pertanyaan: 'Bumi mengelilingi Matahari.', opsi_A: '', opsi_B: '', opsi_C: '', opsi_D: '', opsi_E: '', kunci_jawaban: 'Benar', bobot: 5, kd: '3.1', narasi_soal: '' },
+      { tipe_soal: 'JODOH', pertanyaan: 'Pasangkan ibukota negara berikut:', opsi_A: 'Indonesia = Jakarta', opsi_B: 'Jepang = Tokyo', opsi_C: 'Inggris = London', opsi_D: '', opsi_E: '', kunci_jawaban: 'Indonesia=Jakarta, Jepang=Tokyo, Inggris=London', bobot: 15, kd: '3.2', narasi_soal: '' },
+      { tipe_soal: 'ISIAN', pertanyaan: 'Ibukota Indonesia adalah...', opsi_A: '', opsi_B: '', opsi_C: '', opsi_D: '', opsi_E: '', kunci_jawaban: 'Jakarta', bobot: 10, kd: '3.2', narasi_soal: '' },
+      { tipe_soal: 'URAIAN', pertanyaan: 'Jelaskan hukum kekekalan energi secara singkat.', opsi_A: '', opsi_B: '', opsi_C: '', opsi_D: '', opsi_E: '', kunci_jawaban: 'Energi tidak dapat diciptakan atau dimusnahkan, hanya berubah bentuk.', bobot: 20, kd: '3.3', narasi_soal: '' },
+    ];
+    const petunjukData = [
+      { Kolom: 'tipe_soal',     Keterangan: 'Wajib. Isi dengan: PG, PGK, BS, JODOH, ISIAN, atau URAIAN' },
+      { Kolom: 'pertanyaan',    Keterangan: 'Wajib. Teks pertanyaan soal.' },
+      { Kolom: 'opsi_A - E',   Keterangan: 'Untuk PG/PGK: teks pilihan. Untuk JODOH: format "Premis = Respon".' },
+      { Kolom: 'kunci_jawaban', Keterangan: 'PG: huruf A/B/C/D/E. PGK: pisah koma (A,B). BS: Benar/Salah. JODOH: "P=R, P2=R2". ISIAN/URAIAN: teks kunci.' },
+      { Kolom: 'bobot',         Keterangan: 'Angka bobot soal (default 10 jika kosong).' },
+      { Kolom: 'kd',            Keterangan: 'Kode Dasar / KD, contoh: 3.1 (opsional).' },
+      { Kolom: 'narasi_soal',   Keterangan: 'Teks narasi/wacana pendahulu soal (opsional).' },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(templateData), 'Template Soal');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(petunjukData), 'Petunjuk');
+    XLSX.writeFile(wb, 'Template_Soal_NEXA_CBT.xlsx');
+  };
+
+  const downloadTemplateWord = async () => {
+    try {
+      const zip = new JSZip();
+      zip.file('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
+      zip.file('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
+
+      const sampleLines = [
+        'PETUNJUK PENGISIAN SOAL NEXA CBT (MICROSOFT WORD)',
+        '--------------------------------------------------',
+        'Format Fleksibel: Admin/Guru dapat menggunakan tag SOAL: atau penomoran biasa (1., 2., dst.)',
+        '',
+        'CONTOH 1 - PILIHAN GANDA (PG):',
+        'SOAL: Hasil dari 5 + 7 adalah...',
+        'A. 10',
+        'B. 11',
+        'C. 12',
+        'D. 13',
+        'E. 14',
+        'KUNCI: C',
+        'BOBOT: 10',
+        'KD: 3.1',
+        '',
+        'CONTOH 2 - PILIHAN GANDA KOMPLEKS (PGK - Lebih dari 1 kunci):',
+        'TIPE: PGK',
+        'SOAL: Manakah yang merupakan bilangan prima genap?',
+        'A. 2',
+        'B. 4',
+        'C. 6',
+        'D. 8',
+        'KUNCI: A,B',
+        'BOBOT: 10',
+        '',
+        'CONTOH 3 - BENAR / SALAH (BS):',
+        'TIPE: BS',
+        'SOAL: Bumi mengelilingi Matahari.',
+        'KUNCI: Benar',
+        'BOBOT: 5',
+        '',
+        'CONTOH 4 - MENJODOHKAN (JODOH):',
+        'TIPE: JODOH',
+        'SOAL: Pasangkan ibukota negara berikut:',
+        'A. Indonesia = Jakarta',
+        'B. Jepang = Tokyo',
+        'C. Inggris = London',
+        'KUNCI: Indonesia=Jakarta, Jepang=Tokyo, Inggris=London',
+        'BOBOT: 15',
+        '',
+        'CONTOH 5 - ISIAN SINGKAT:',
+        'TIPE: ISIAN',
+        'SOAL: Ibukota Indonesia adalah...',
+        'KUNCI: Jakarta',
+        'BOBOT: 10',
+        '',
+        'CONTOH 6 - URAIAN / ESSAY:',
+        'TIPE: URAIAN',
+        'SOAL: Jelaskan hukum kekekalan energi secara singkat.',
+        'KUNCI: Energi tidak dapat diciptakan atau dimusnahkan, hanya berubah bentuk.',
+        'BOBOT: 20'
+      ];
+
+      const pXml = sampleLines.map(l =>
+        `<w:p><w:r><w:t xml:space="preserve">${l.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</w:t></w:r></w:p>`
+      ).join('');
+
+      zip.file('word/document.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${pXml}</w:body></w:document>`);
+
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Template_Soal_NEXA_CBT.docx';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      showMessage('Gagal', 'Gagal mengunduh template Word: ' + err.message, 'error');
+    }
+  };
+
+  const parseWordText = (text) => {
+    const soalList = [];
+    const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').map(l => l.trim());
+
+    let current = null;
+    let currentNarasi = '';
+
+    const finalize = () => {
+      if (current && current.pertanyaan) {
+        if (!current.tipe_soal) {
+          if (current.opsi_A || current.opsi_B) {
+            current.tipe_soal = 'PG';
+          } else {
+            current.tipe_soal = 'URAIAN';
+          }
+        }
+        soalList.push({ ...current, narasi_soal: currentNarasi || current.narasi_soal || '' });
+        currentNarasi = '';
+      }
+    };
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line) continue;
+
+      if (/^(NARASI|WACANA|STIMULUS)\s*[:=]/i.test(line)) {
+        finalize();
+        current = null;
+        currentNarasi = line.replace(/^(NARASI|WACANA|STIMULUS)\s*[:=]\s*/i, '').trim();
+        continue;
+      }
+
+      if (/^(TIPE|JENIS)\s*[:=]/i.test(line)) {
+        const tipeVal = line.replace(/^(TIPE|JENIS)\s*[:=]\s*/i, '').trim();
+        if (current && !current.pertanyaan) {
+          current.tipe_soal = normalizeTipeSoal(tipeVal);
+        } else {
+          finalize();
+          current = { tipe_soal: normalizeTipeSoal(tipeVal) };
+        }
+        continue;
+      }
+
+      const matchSoal = line.match(/^(\d+)[\.\)]\s*(.*)$/) || line.match(/^(SOAL|PERTANYAAN)\s*[:=]\s*(.*)$/i);
+      if (matchSoal && !/^[A-E][\.\)]/i.test(line)) {
+        finalize();
+        const pertanyaanText = matchSoal[2] || '';
+        current = {
+          pertanyaan: pertanyaanText,
+          tipe_soal: current?.tipe_soal || undefined
+        };
+        continue;
+      }
+
+      const matchOpsi = line.match(/^([A-E])[\.\)]\s*(.*)$/i) || line.match(/^OPSI_([A-E])\s*[:=]\s*(.*)$/i);
+      if (matchOpsi && current) {
+        const huruf = matchOpsi[1].toUpperCase();
+        current[`opsi_${huruf}`] = matchOpsi[2] || '';
+        continue;
+      }
+
+      if (/^(KUNCI|JAWABAN|KEY)\s*[:=]/i.test(line) && current) {
+        current.kunci_jawaban = line.replace(/^(KUNCI|JAWABAN|KEY)\s*[:=]\s*/i, '').trim();
+        continue;
+      }
+
+      if (/^(BOBOT|SCORE|POIN)\s*[:=]/i.test(line) && current) {
+        current.bobot = parseInt(line.replace(/^(BOBOT|SCORE|POIN)\s*[:=]\s*/i, '').trim(), 10) || 10;
+        continue;
+      }
+
+      if (/^(KD|KOMPETENSI)\s*[:=]/i.test(line) && current) {
+        current.kd = line.replace(/^(KD|KOMPETENSI)\s*[:=]\s*/i, '').trim();
+        continue;
+      }
+
+      if (current && current.pertanyaan && !current.opsi_A && !current.kunci_jawaban) {
+        current.pertanyaan += ' ' + line;
+      }
+    }
+    finalize();
+    return soalList;
+  };
+
+  const handleImportExcel = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = '';
+    if (isSelectedMapelActive) {
+      showMessage('Soal Terkunci', 'Tidak dapat mengimpor soal karena jadwal ujian mapel ini sedang AKTIF berlangsung.', 'error');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const sheetName = wb.SheetNames[0];
+        const rawData = XLSX.utils.sheet_to_json(wb.Sheets[sheetName]);
+        if (!rawData.length) {
+          showMessage('Peringatan', 'File Excel kosong atau format tidak sesuai template.', 'error');
+          return;
+        }
+
+        const payloadData = rawData.map((row, idx) => {
+          const tipe = normalizeTipeSoal(row.tipe_soal || 'PG');
+          let finalKunci = row.kunci_jawaban ? String(row.kunci_jawaban).trim() : '';
+          let opsiStr = null;
+          let finalPertanyaan = row.pertanyaan || '';
+          if (row.narasi_soal) {
+            finalPertanyaan = `<strong>Narasi Soal:</strong><br/>${row.narasi_soal}<br/><br/>${finalPertanyaan}`;
+          }
+
+          if (tipe === 'PG') {
+            const map = { A: row.opsi_A, B: row.opsi_B, C: row.opsi_C, D: row.opsi_D, E: row.opsi_E };
+            finalKunci = map[finalKunci.toUpperCase()] || finalKunci;
+          } else if (tipe === 'PGK') {
+            try {
+              const mapped = finalKunci.split(',').map(k => ({ A: row.opsi_A, B: row.opsi_B, C: row.opsi_C, D: row.opsi_D, E: row.opsi_E }[k.trim().toUpperCase()] || k.trim()));
+              finalKunci = JSON.stringify(mapped);
+            } catch (_) {}
+          } else if (tipe === 'JODOH') {
+            const premis = [], respon = [];
+            ['opsi_A','opsi_B','opsi_C','opsi_D','opsi_E'].forEach(k => {
+              if (!row[k]) return;
+              const [p, r] = row[k].split('=').map(s => s.trim());
+              if (p && !premis.includes(p)) premis.push(p);
+              if (r && !respon.includes(r)) respon.push(r);
+            });
+            opsiStr = JSON.stringify({ premis, respon });
+            if (finalKunci) {
+              const kunciObj = {};
+              finalKunci.split(',').forEach(pair => {
+                const [p, r] = pair.split('=').map(s => s.trim());
+                if (p) kunciObj[p] = r;
+              });
+              finalKunci = JSON.stringify(kunciObj);
+            }
+          }
+
+          if ((tipe === 'PG' || tipe === 'PGK') && !opsiStr) {
+            opsiStr = JSON.stringify([row.opsi_A || '', row.opsi_B || '', row.opsi_C || '', row.opsi_D || '', row.opsi_E || '']);
+          }
+
+          return {
+            id_soal: `SOAL-${selectedMapel}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2,6).toUpperCase()}-${idx}`,
+            id_mapel: selectedMapel,
+            npsn: user.npsn,
+            tipe_soal: tipe,
+            pertanyaan: finalPertanyaan,
+            opsi: opsiStr,
+            kunci_jawaban: finalKunci ? String(finalKunci) : '',
+            bobot: Number(row.bobot) || 10
+          };
+        });
+
+        setIsLoading(true);
+        const res = await api('import_soal_bulk', { data: payloadData, npsn: user.npsn });
+        setIsLoading(false);
+        if (res.status === 'success') {
+          showMessage('Berhasil', `${payloadData.length} soal berhasil diimpor!`, 'success');
+          const refresh = await api('get_soal_by_mapel', { id_mapel: selectedMapel });
+          if (refresh.status === 'success') setDataSoal(refresh.data || []);
+          fetchData('mapel');
+        } else {
+          showMessage('Info', res.message, 'info');
+        }
+      } catch (err) {
+        setIsLoading(false);
+        showMessage('Gagal', 'Gagal memproses file: ' + err.message, 'error');
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const handleImportWord = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = '';
+    if (isSelectedMapelActive) {
+      showMessage('Soal Terkunci', 'Tidak dapat mengimpor soal karena jadwal ujian mapel ini sedang AKTIF berlangsung.', 'error');
+      return;
+    }
+    const lowerName = file.name.toLowerCase();
+    if (lowerName.endsWith('.doc') && !lowerName.endsWith('.docx')) {
+      showMessage('Format Tidak Didukung', 'Format binary .doc lama tidak didukung. Silakan simpan ulang dokumen sebagai .docx atau .txt.', 'error');
+      return;
+    }
+    try {
+      setIsLoading(true);
+      let text = '';
+      if (lowerName.endsWith('.docx')) {
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        text = result.value;
+      } else {
+        text = await file.text();
+      }
+
+      const rawSoal = parseWordText(text);
+      if (!rawSoal.length) {
+        showMessage('Peringatan', 'Tidak ada soal yang terbaca. Pastikan format sesuai template.', 'error');
+        setIsLoading(false);
+        return;
+      }
+
+      const payloadData = rawSoal.map((row, idx) => {
+        const tipe = normalizeTipeSoal(row.tipe_soal || 'PG');
+        let finalKunci = row.kunci_jawaban ? String(row.kunci_jawaban).trim() : '';
+        let opsiStr = null;
+        let finalPertanyaan = row.pertanyaan || '';
+        if (row.narasi_soal) {
+          finalPertanyaan = `<strong>Narasi Soal:</strong><br/>${row.narasi_soal}<br/><br/>${finalPertanyaan}`;
+        }
+
+        if (tipe === 'PG') {
+          const map = { A: row.opsi_A, B: row.opsi_B, C: row.opsi_C, D: row.opsi_D, E: row.opsi_E };
+          finalKunci = map[finalKunci.toUpperCase()] || finalKunci;
+        } else if (tipe === 'PGK') {
+          try {
+            const mapped = finalKunci.split(',').map(k => ({ A: row.opsi_A, B: row.opsi_B, C: row.opsi_C, D: row.opsi_D, E: row.opsi_E }[k.trim().toUpperCase()] || k.trim()));
+            finalKunci = JSON.stringify(mapped);
+          } catch (_) {}
+        } else if (tipe === 'JODOH') {
+          const premis = [], respon = [];
+          ['opsi_A','opsi_B','opsi_C','opsi_D','opsi_E'].forEach(k => {
+            if (!row[k]) return;
+            const [p, r] = row[k].split('=').map(s => s.trim());
+            if (p && !premis.includes(p)) premis.push(p);
+            if (r && !respon.includes(r)) respon.push(r);
+          });
+          opsiStr = JSON.stringify({ premis, respon });
+          if (finalKunci) {
+            const kunciObj = {};
+            finalKunci.split(',').forEach(pair => {
+              const [p, r] = pair.split('=').map(s => s.trim());
+              if (p) kunciObj[p] = r;
+            });
+            finalKunci = JSON.stringify(kunciObj);
+          }
+        }
+
+        if ((tipe === 'PG' || tipe === 'PGK') && !opsiStr) {
+          opsiStr = JSON.stringify([row.opsi_A || '', row.opsi_B || '', row.opsi_C || '', row.opsi_D || '', row.opsi_E || '']);
+        }
+
+        return {
+          id_soal: `SOAL-${selectedMapel}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2,6).toUpperCase()}-${idx}`,
+          id_mapel: selectedMapel,
+          npsn: user.npsn,
+          tipe_soal: tipe,
+          pertanyaan: finalPertanyaan,
+          opsi: opsiStr,
+          kunci_jawaban: finalKunci ? String(finalKunci) : '',
+          bobot: Number(row.bobot) || 10
+        };
+      });
+
+      const res = await api('import_soal_bulk', { data: payloadData, npsn: user.npsn });
+      setIsLoading(false);
+      if (res.status === 'success') {
+        showMessage('Berhasil', `${payloadData.length} soal dari Word/TXT berhasil diimpor!`, 'success');
+        const refresh = await api('get_soal_by_mapel', { id_mapel: selectedMapel });
+        if (refresh.status === 'success') setDataSoal(refresh.data || []);
+        fetchData('mapel');
+      } else {
+        showMessage('Info', res.message, 'info');
+      }
+    } catch (err) {
+      setIsLoading(false);
+      showMessage('Gagal', 'Gagal memproses file Word: ' + err.message, 'error');
+    }
+  };
 
   const handleDeleteClick = (id, type, item) => {
     setDeleteModal({ isOpen: true, type, id, item });
@@ -483,14 +1034,12 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       const res = await api('update_jadwal', {
         id_jadwal,
         token_aktif: newToken,
-        token: newToken,
         last_update_token: nowIso
       });
       if (res.status === 'success') {
         setDataJadwal(prev => prev.map(j => j.id_jadwal === id_jadwal ? {
           ...j,
           token_aktif: newToken,
-          token: newToken,
           last_update_token: nowIso
         } : j));
         showMessage('Sukses', `Token ujian baru berhasil dirilis: ${newToken}`, 'success');
@@ -551,7 +1100,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       });
 
       if (res && res.status === 'success') {
-        showMessage('Jadwal Berhasil Diduplikasi', `Jadwal untuk kelas ${cloneModal.targetKelas} berhasil dibuat dengan token ${res.data?.token_ujian || cloneModal.token}.`, 'success');
+        showMessage('Jadwal Berhasil Diduplikasi', `Jadwal untuk kelas ${cloneModal.targetKelas} berhasil dibuat dengan token ${res.data?.token_aktif || cloneModal.token}.`, 'success');
         setCloneModal({ isOpen: false, source: null, targetKelas: '', token: '' });
         await fetchData('jadwal');
       } else {
@@ -580,7 +1129,9 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     if (!file) return;
     try {
       const text = await file.text();
-      const decoded = decodeNexaBundle(text, 'NEXA_SECRET_SALT', user?.npsn || '');
+      const logMatch = String(file.name || '').match(/(LOG-[A-Za-z0-9]+)/i);
+      const idLogHint = logMatch ? logMatch[1] : '';
+      const decoded = decodeNexaBundle(text, 'NEXA_SECRET_SALT', user?.npsn || '', idLogHint);
       const integrity = verifyNexaBundleChecksum(decoded);
 
       if (!integrity.valid) {
@@ -726,7 +1277,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       onConfirm: async () => {
         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
         setIsLoading(true);
-        await api('catat_pelanggaran', { id_log: idLog });
+        await api('catat_pelanggaran', { id_log: idLog, force_block: true });
         await api('create_audit_log', { username: user.username, role: 'admin', action: 'BLOCK', target: `Siswa Log (${idLog})` });
         setIsLoading(false);
         fetchData('monitoring');
@@ -791,7 +1342,15 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     });
   };
 
-  const handleOpenPrintKartu = (preselectedKelas = null) => {
+  const handleOpenPrintKartu = async (preselectedKelas = null) => {
+    if (!dataKelas || dataKelas.length === 0) {
+      try {
+        const resK = await api('get_kelas', {});
+        if (resK.status === 'success') setDataKelas(resK.data || []);
+      } catch (err) {
+        console.error('Fetch get_kelas error:', err);
+      }
+    }
     setPrintKartuModal(prev => ({
       ...prev,
       isOpen: true,
@@ -826,17 +1385,17 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     setPrintKartuPayload({
       students: filtered,
       sekolah: {
-        nama_sekolah: user.nama_sekolah || user.sekolah || 'SEKOLAH INDONESIA',
-        npsn: user.npsn || '',
-        alamat: user.alamat_sekolah || user.alamat || '-',
-        kepala_sekolah: printKartuModal.namaKepalaSekolah || user.kepala_sekolah || '',
-        nip_kepala_sekolah: printKartuModal.nipKepalaSekolah || user.nip_kepala_sekolah || ''
+        nama_sekolah: kopSettings.nama_sekolah || user?.nama_sekolah || user?.sekolah || 'SEKOLAH INDONESIA',
+        npsn: user?.npsn || '',
+        alamat: kopSettings.alamat_sekolah || user?.alamat_sekolah || user?.alamat || '-',
+        kepala_sekolah: printKartuModal.namaKepalaSekolah || kopSettings.nama_kepsek || user?.kepala_sekolah || '',
+        nip_kepala_sekolah: printKartuModal.nipKepalaSekolah || kopSettings.nip_kepsek || user?.nip_kepala_sekolah || ''
       },
       paperSize: printKartuModal.paperSize,
       showPassword: printKartuModal.showPassword,
-      tahunAjaran: printKartuModal.tahunAjaran,
-      namaKepalaSekolah: printKartuModal.namaKepalaSekolah || user.kepala_sekolah || '',
-      nipKepalaSekolah: printKartuModal.nipKepalaSekolah || user.nip_kepala_sekolah || '',
+      tahunAjaran: printKartuModal.tahunAjaran || kopSettings.tahun_ajaran,
+      namaKepalaSekolah: printKartuModal.namaKepalaSekolah || kopSettings.nama_kepsek || user?.kepala_sekolah || '',
+      nipKepalaSekolah: printKartuModal.nipKepalaSekolah || kopSettings.nip_kepsek || user?.nip_kepala_sekolah || '',
       targetKelas: printKartuModal.filterKelas !== 'ALL' ? printKartuModal.filterKelas : '',
       targetRuang: printKartuModal.filterRuang !== 'ALL' ? printKartuModal.filterRuang : '',
       targetSesi: printKartuModal.filterSesi
@@ -867,6 +1426,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       const [t, p] = payload.kelas_gabungan.split('|');
       payload.angkatan = t;
       payload.kelas_paralel = p;
+      payload.kelas = `${t} ${p}`.trim();
       delete payload.kelas_gabungan;
     }
 
@@ -876,10 +1436,23 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
         payload.acak_soal = true;
         payload.acak_opsi = true;
       }
+      if (payload.durasi_menit !== undefined) {
+        payload.durasi_menit = parseInt(payload.durasi_menit, 10) || 90;
+      }
+      if (payload.durasi_token_menit !== undefined) {
+        payload.durasi_token_menit = parseInt(payload.durasi_token_menit, 10) || 5;
+      }
 
       if (payload.tanggal && payload.waktu_mulai_time && payload.waktu_selesai_time) {
-        payload.waktu_mulai = `${payload.tanggal}T${payload.waktu_mulai_time}`;
-        payload.waktu_selesai = `${payload.tanggal}T${payload.waktu_selesai_time}`;
+        const mulaiDt = new Date(`${payload.tanggal}T${payload.waktu_mulai_time}`);
+        const selesaiDt = new Date(`${payload.tanggal}T${payload.waktu_selesai_time}`);
+        if (isNaN(mulaiDt.getTime()) || isNaN(selesaiDt.getTime()) || selesaiDt <= mulaiDt) {
+          setIsSubmitting(false);
+          showMessage('Validasi Waktu', 'Jam selesai harus lebih besar dari jam mulai.', 'error');
+          return;
+        }
+        payload.waktu_mulai = mulaiDt.toISOString();
+        payload.waktu_selesai = selesaiDt.toISOString();
         delete payload.tanggal;
         delete payload.waktu_mulai_time;
         delete payload.waktu_selesai_time;
@@ -903,7 +1476,12 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   };
 
   const openCreateModal = async (type) => {
-    if (type === 'guru' || type === 'jadwal' || type === 'mapel') {
+    if (type === 'siswa') {
+      if (!dataKelas || dataKelas.length === 0) {
+        const resK = await api('get_kelas', {});
+        if (resK.status === 'success') setDataKelas(resK.data || []);
+      }
+    } else if (type === 'guru' || type === 'jadwal' || type === 'mapel') {
       const res = await api('get_all_mapel', {});
       if (res.status === 'success') setDataMapel(res.data || []);
       if (type === 'jadwal') {
@@ -919,7 +1497,12 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   };
 
   const openEditModal = async (type, item) => {
-    if (type === 'guru' || type === 'jadwal' || type === 'mapel') {
+    if (type === 'siswa') {
+      if (!dataKelas || dataKelas.length === 0) {
+        const resK = await api('get_kelas', {});
+        if (resK.status === 'success') setDataKelas(resK.data || []);
+      }
+    } else if (type === 'guru' || type === 'jadwal' || type === 'mapel') {
       const res = await api('get_all_mapel', {});
       if (res.status === 'success') setDataMapel(res.data || []);
       if (type === 'jadwal') {
@@ -938,7 +1521,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     let headers = [];
     let filename = '';
     if (importModal.type === 'siswa') {
-      headers = ['nama_lengkap', 'nisn', 'username', 'password', 'kelas', 'angkatan', 'kelas_paralel'];
+      headers = ['nama_lengkap', 'nisn', 'username', 'password', 'kelas', 'angkatan', 'kelas_paralel', 'agama'];
       filename = 'Template_Siswa.xlsx';
     } else if (importModal.type === 'guru') {
       headers = ['nama_lengkap', 'nip', 'username', 'password', 'mata_pelajaran', 'role'];
@@ -988,7 +1571,30 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
 
         if (importModal.type === 'siswa') {
           endpoint = 'create_siswa_bulk';
-          processedData = rawData.map(row => {
+          let kelasList = dataKelas;
+          if (!kelasList || kelasList.length === 0) {
+            const kRes = await api('get_kelas', {});
+            if (kRes.status === 'success') {
+              kelasList = kRes.data || [];
+              setDataKelas(kelasList);
+            }
+          }
+
+          if (!kelasList || kelasList.length === 0) {
+            showMessage('Validasi Gagal', 'Belum ada data master kelas. Harap daftarkan kelas terlebih dahulu di Tab Kelas sebelum mengimpor siswa.', 'error');
+            setIsSubmitting(false);
+            return;
+          }
+
+          const normalizeClass = (s) => String(s || '').trim().replace(/\s+/g, ' ').toLowerCase();
+          const masterClassMap = new Map();
+          kelasList.forEach(k => {
+            const full = normalizeClass(`${k.tingkat || ''} ${k.kelas_paralel || ''}`);
+            if (full) masterClassMap.set(full, k);
+          });
+
+          const invalidClassRows = [];
+          processedData = rawData.map((row, idx) => {
             const r = { ...row };
             delete r.jenis_kelamin;
             const nisnStr = String(r.nisn || '').trim();
@@ -998,8 +1604,26 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
             if (!r.password || String(r.password).trim() === '') {
               r.password = 'Nexa123!';
             }
+
+            const rawClass = normalizeClass(r.kelas || `${r.angkatan || ''} ${r.kelas_paralel || ''}`);
+            const matchedK = masterClassMap.get(rawClass);
+            if (!matchedK) {
+              invalidClassRows.push({ row: idx + 2, nama: r.nama_lengkap || `Baris ${idx + 2}`, kelas: r.kelas || `${r.angkatan || ''} ${r.kelas_paralel || ''}`.trim() || '(Kosong)' });
+            } else {
+              r.angkatan = matchedK.tingkat;
+              r.kelas_paralel = matchedK.kelas_paralel;
+              r.kelas = `${matchedK.tingkat} ${matchedK.kelas_paralel}`.trim();
+            }
             return r;
           });
+
+          if (invalidClassRows.length > 0) {
+            const sample = invalidClassRows.slice(0, 3).map(ir => `Baris ${ir.row} (${ir.nama}): "${ir.kelas}"`).join(', ');
+            const more = invalidClassRows.length > 3 ? ` dan ${invalidClassRows.length - 3} baris lainnya` : '';
+            showMessage('Validasi Gagal', `Terdapat ${invalidClassRows.length} siswa dengan kelas yang tidak sesuai Master Data Kelas: ${sample}${more}. Harap pastikan kelas sudah terdaftar di Tab Kelas.`, 'error');
+            setIsSubmitting(false);
+            return;
+          }
         } else if (importModal.type === 'guru') {
           endpoint = 'create_guru_bulk';
           let mapelList = dataMapel;
@@ -1054,12 +1678,12 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
               rawMapel = matchedKey ? row[matchedKey] : '';
             }
             const mapelQuery = String(rawMapel || '').trim().toLowerCase();
-            const matchedMapel = mapelList.find(m =>
-              (m.nama_mapel || '').toLowerCase() === mapelQuery ||
-              (m.kode_mapel || '').toLowerCase() === mapelQuery ||
-              m.id_mapel === rawMapel
-            );
-            const id_mapel = matchedMapel ? matchedMapel.id_mapel : (mapelList[0]?.id_mapel || null);
+            const matchedMapel = mapelQuery ? mapelList.find(m =>
+              (m.nama_mapel && m.nama_mapel.toLowerCase() === mapelQuery) ||
+              (m.kode_mapel && String(m.kode_mapel).toLowerCase() === mapelQuery) ||
+              (m.id_mapel && m.id_mapel === rawMapel)
+            ) : null;
+            const id_mapel = matchedMapel ? matchedMapel.id_mapel : null;
 
             const guruQuery = String(row.nama_guru_atau_nip || row.guru || '').trim().toLowerCase();
             const matchedGuru = guruList.find(g =>
@@ -1076,8 +1700,10 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
             if (jamM.length === 5) jamM += ':00';
             if (jamS.length === 5) jamS += ':00';
 
-            const waktu_mulai = `${tgl}T${jamM}`;
-            const waktu_selesai = `${tgl}T${jamS}`;
+            const mDt = new Date(`${tgl}T${jamM}`);
+            const sDt = new Date(`${tgl}T${jamS}`);
+            const waktu_mulai = !isNaN(mDt.getTime()) ? mDt.toISOString() : `${tgl}T${jamM}`;
+            const waktu_selesai = !isNaN(sDt.getTime()) ? sDt.toISOString() : `${tgl}T${jamS}`;
             const durasi_menit = parseInt(row.durasi_menit, 10) || 90;
 
             let rawTarget = row.target_kelas ?? row.Target_Kelas ?? row.TARGET_KELAS;
@@ -1117,6 +1743,23 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
               acak_opsi: true
             };
           });
+
+          const unassignedMapelRows = [];
+          processedData.forEach((item, idx) => {
+            if (!item.id_mapel) {
+              const row = rawData[idx] || {};
+              const rawMapel = row.nama_mapel ?? row.Nama_Mapel ?? row.NAMA_MAPEL ?? row.mapel ?? row.mata_pelajaran ?? '(Kosong)';
+              unassignedMapelRows.push({ row: idx + 2, mapel: String(rawMapel || '').trim() || '(Kosong)' });
+            }
+          });
+
+          if (unassignedMapelRows.length > 0) {
+            const sample = unassignedMapelRows.slice(0, 3).map(r => `Baris ${r.row} ("${r.mapel}")`).join(', ');
+            const more = unassignedMapelRows.length > 3 ? ` dan ${unassignedMapelRows.length - 3} baris lainnya` : '';
+            showMessage('Validasi Gagal', `Terdapat ${unassignedMapelRows.length} jadwal dengan mata pelajaran yang tidak ditemukan di Master Data: ${sample}${more}. Harap pastikan nama mata pelajaran sudah terdaftar di Tab Mata Pelajaran.`, 'error');
+            setIsSubmitting(false);
+            return;
+          }
         } else if (importModal.type === 'mapel') {
           endpoint = 'create_mapel_bulk';
           const seenInFile = new Set();
@@ -1309,8 +1952,8 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   const sortedFilteredGuru = useMemo(() => {
     let list = dataGuru.filter(g => {
       const q = searchQuery.toLowerCase();
-      const matchesQuery = !q || (g.nama_lengkap || '').toLowerCase().includes(q) || (g.nip || '').includes(q);
-      const matchesMapel = !filterMapel || (g.mapels_list || '').includes(filterMapel);
+      const matchesQuery = !q || (g.nama_lengkap || '').toLowerCase().includes(q) || String(g.nip || '').includes(q);
+      const matchesMapel = !filterMapel || (g.mapels_list || '').split(',').map(s => s.trim()).includes(filterMapel);
       return matchesQuery && matchesMapel;
     });
 
@@ -1383,15 +2026,15 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     };
   }, [dataLog, monitoringFilterStatus, monitoringFilterKelas, monitoringSearch]);
 
-  // Available classes for monitoring
+  // Available classes for monitoring sourced from canonical master dataKelas
   const availableMonitoringClasses = useMemo(() => {
     const classes = new Set();
-    dataLog.forEach(l => {
-      const k = `${l.angkatan || ''} ${l.kelas_paralel || ''}`.trim();
-      if (k) classes.add(k);
+    (dataKelas || []).forEach(k => {
+      const name = `${k.tingkat || ''} ${k.kelas_paralel || ''}`.trim();
+      if (name) classes.add(name);
     });
-    return Array.from(classes);
-  }, [dataLog]);
+    return Array.from(classes).sort();
+  }, [dataKelas]);
 
   const [autoUsername, setAutoUsername] = useState('');
   const [jadwalTargetKelas, setJadwalTargetKelas] = useState('');
@@ -1809,15 +2452,16 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     ))}
                   </select>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Ruang Ujian (Opsional)</label>
-                    <input name="ruang" defaultValue={data?.ruang || ''} placeholder="Contoh: R.01" className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Sesi (Opsional)</label>
-                    <input name="sesi" defaultValue={data?.sesi || ''} placeholder="Contoh: Sesi 1" className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
-                  </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Agama</label>
+                  <select name="agama" defaultValue={data?.agama || 'Islam'} className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white">
+                    <option value="Islam">Islam</option>
+                    <option value="Kristen">Kristen</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Ruang Ujian (Opsional)</label>
+                  <input name="ruang" defaultValue={data?.ruang || ''} placeholder="Contoh: R.01" className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
                 </div>
               </>
             )}
@@ -1872,6 +2516,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 <div>
                   <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Mata Pelajaran</label>
                   <select
+                    id="input_jadwal_id_mapel"
                     name="id_mapel"
                     defaultValue={data?.id_mapel || ''}
                     required
@@ -1884,16 +2529,23 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                       const targetSelect = document.getElementById('input_jadwal_target_kelas');
                       if (targetSelect) targetSelect.value = newTarget;
 
-                      // R5: Auto-select Subject Teacher (Guru Pengampu) based on chosen subject
+                      // Auto-select Subject Teacher (Guru Pengampu) based on chosen subject and target class
                       if (selectedMapelId && Array.isArray(dataGuru)) {
-                        const matchingGuru = dataGuru.find(g =>
+                        const matchingGurus = dataGuru.filter(g =>
                           (g.id_mapels && g.id_mapels.some(id => String(id) === String(selectedMapelId))) ||
-                          (g.guru_mapel && g.guru_mapel.some(gm => String(gm.id_mapel) === String(selectedMapelId)))
+                          (g.guru_mapel && g.guru_mapel.some(gm => String(gm.id_mapel) === String(selectedMapelId))) ||
+                          (g.nama_mapel && selectedM && g.nama_mapel === selectedM.nama_mapel)
                         );
+                        let matchingGuru = null;
+                        if (newTarget && matchingGurus.length > 1) {
+                          matchingGuru = matchingGurus.find(g => g.alokasi_kelas && splitCompoundTargets(g.alokasi_kelas).some(tc => newTarget.includes(tc)));
+                        }
+                        if (!matchingGuru && matchingGurus.length > 0) {
+                          matchingGuru = matchingGurus[0];
+                        }
                         if (matchingGuru) {
                           setJadwalGuruId(matchingGuru.id_guru);
                         } else {
-                          // Fallback when no teacher is assigned to this mapel
                           setJadwalGuruId('');
                         }
                       } else {
@@ -1923,7 +2575,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     <option value="">Pilih Guru</option>
                     {dataGuru.map(g => (
                       <option key={g.id_guru} value={g.id_guru}>
-                        {g.nama_lengkap} {g.mapels_list && g.mapels_list !== '-' ? `(${g.mapels_list})` : ''}
+                        {g.nama_lengkap} {g.mapels_list && g.mapels_list !== '-' ? `(${g.mapels_list})` : (g.nama_mapel ? `(${g.nama_mapel})` : '')} {g.alokasi_kelas ? `[${g.alokasi_kelas}]` : ''}
                       </option>
                     ))}
                   </select>
@@ -1937,7 +2589,22 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     id="input_jadwal_target_kelas"
                     name="target_kelas"
                     value={jadwalTargetKelas}
-                    onChange={(e) => setJadwalTargetKelas(e.target.value)}
+                    onChange={(e) => {
+                      const newTargetVal = e.target.value;
+                      setJadwalTargetKelas(newTargetVal);
+                      const mapelSelect = document.getElementById('input_jadwal_id_mapel');
+                      const currentMapelId = mapelSelect?.value;
+                      if (currentMapelId && Array.isArray(dataGuru)) {
+                        const matchingGurus = dataGuru.filter(g =>
+                          (g.id_mapels && g.id_mapels.some(id => String(id) === String(currentMapelId))) ||
+                          (g.guru_mapel && g.guru_mapel.some(gm => String(gm.id_mapel) === String(currentMapelId)))
+                        );
+                        if (matchingGurus.length > 1 && newTargetVal) {
+                          const matched = matchingGurus.find(g => g.alokasi_kelas && splitCompoundTargets(g.alokasi_kelas).some(tc => newTargetVal.includes(tc)));
+                          if (matched) setJadwalGuruId(matched.id_guru);
+                        }
+                      }
+                    }}
                     placeholder="Semua Tingkat (Umum)"
                     className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white"
                   />
@@ -1947,14 +2614,30 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                       onChange={(e) => {
                         const val = e.target.value;
                         if (!val) return;
+                        let targetResult = '';
                         if (val === '__ALL__' || val === 'Semua Tingkat (Umum)') {
-                          setJadwalTargetKelas('');
+                          targetResult = '';
                         } else if (!jadwalTargetKelas) {
-                          setJadwalTargetKelas(val);
+                          targetResult = val;
                         } else {
                           const existing = splitCompoundTargets(jadwalTargetKelas);
                           if (!existing.includes(val)) {
-                            setJadwalTargetKelas([...existing, val].join(', '));
+                            targetResult = [...existing, val].join(', ');
+                          } else {
+                            targetResult = jadwalTargetKelas;
+                          }
+                        }
+                        setJadwalTargetKelas(targetResult);
+                        const mapelSelect = document.getElementById('input_jadwal_id_mapel');
+                        const currentMapelId = mapelSelect?.value;
+                        if (currentMapelId && Array.isArray(dataGuru) && targetResult) {
+                          const matchingGurus = dataGuru.filter(g =>
+                            (g.id_mapels && g.id_mapels.some(id => String(id) === String(currentMapelId))) ||
+                            (g.guru_mapel && g.guru_mapel.some(gm => String(gm.id_mapel) === String(currentMapelId)))
+                          );
+                          if (matchingGurus.length > 1) {
+                            const matched = matchingGurus.find(g => g.alokasi_kelas && splitCompoundTargets(g.alokasi_kelas).some(tc => targetResult.includes(tc)));
+                            if (matched) setJadwalGuruId(matched.id_guru);
                           }
                         }
                       }}
@@ -2029,6 +2712,14 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     <input type="time" name="waktu_selesai_time" defaultValue={data?.waktu_selesai ? (() => { const d = new Date(data.waktu_selesai); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; })() : ''} required className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
                   </div>
                 </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Durasi Ujian (Menit)</label>
+                  <input type="number" name="durasi_menit" min="5" max="600" defaultValue={data?.durasi_menit || 90} required className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Interval Pergantian Token (Menit)</label>
+                  <input type="number" name="durasi_token_menit" min="1" max="120" defaultValue={data?.durasi_token_menit || 5} required className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
+                </div>
               </>
             )}
 
@@ -2093,7 +2784,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 <img id="preview_admin_foto_modal" src={user.foto_profil} alt="Profile" className="w-20 h-20 rounded-full object-cover border-4 border-primary/20" />
               ) : (
                 <div id="preview_admin_avatar_placeholder" className="w-20 h-20 rounded-full bg-primary/15 dark:bg-primary/10 text-primary-700 dark:text-primary-300 flex items-center justify-center font-bold text-3xl">
-                  {user.nama_lengkap.charAt(0)}
+                  {(user?.nama_lengkap || 'A').charAt(0)}
                 </div>
               )}
             </div>
@@ -2298,9 +2989,9 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   const renderPrintKartuModal = () => {
     if (!printKartuModal.isOpen) return null;
 
-    // Distinct list of classes
+    // Distinct list of classes from canonical master dataKelas
     const availableClasses = Array.from(
-      new Set(dataSiswa.map(s => s.kelas).filter(Boolean))
+      new Set((dataKelas || []).map(k => `${k.tingkat || ''} ${k.kelas_paralel || ''}`.trim()).filter(Boolean))
     ).sort();
 
     // Distinct list of rooms from student data
@@ -2767,6 +3458,16 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   if (!user) return null;
 
   return (
+    <>
+    {isPrintKartuActive && printKartuPayload && (
+      <KartuUjianPrint
+        data={printKartuPayload}
+        onClose={() => {
+          setIsPrintKartuActive(false);
+          setPrintKartuPayload(null);
+        }}
+      />
+    )}
     <div className="h-[100dvh] bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 flex flex-col lg:flex-row w-full overflow-hidden selection:bg-primary/20 selection:text-primary-700">
 
       {/* ================================================================= */}
@@ -3306,7 +4007,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/50/40 dark:text-white"
                   >
                     <option value="">Semua Kelas ({dataSiswa.length})</option>
-                    {[...new Set(dataSiswa.map(s => s.kelas).filter(Boolean))].map(k => (
+                    {[...new Set((dataKelas || []).map(k => `${k.tingkat || ''} ${k.kelas_paralel || ''}`.trim()).filter(Boolean))].sort().map(k => (
                       <option key={k} value={k}>{k}</option>
                     ))}
                   </select>
@@ -3393,15 +4094,26 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                             </span>
                           </div>
                         </th>
+                        <th
+                          className="py-3 px-4 cursor-pointer select-none hover:text-primary transition-colors"
+                          onClick={() => setSortConfigSiswa(prev => ({ key: 'agama', direction: prev.key === 'agama' && prev.direction === 'asc' ? 'desc' : 'asc' }))}
+                        >
+                          <div className="flex items-center gap-1">
+                            <span>Agama</span>
+                            <span className="material-symbols-outlined text-[14px]">
+                              {sortConfigSiswa.key === 'agama' ? (sortConfigSiswa.direction === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more'}
+                            </span>
+                          </div>
+                        </th>
                         <th className="py-3 px-4 text-right">Aksi</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60 text-xs sm:text-sm">
                       {isLoading ? (
-                        <TableSkeleton rows={6} cols={6} asTableRows={true} hasAvatar={true} />
+                        <TableSkeleton rows={6} cols={7} asTableRows={true} hasAvatar={true} />
                       ) : sortedFilteredSiswa.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="p-6">
+                          <td colSpan={7} className="p-6">
                             <EmptyState
                               compact={true}
                               icon="search_off"
@@ -3442,6 +4154,15 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                             <td className="py-3 px-4">
                               <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-slate-100 dark:bg-slate-700/80 text-slate-700 dark:text-slate-300">
                                 {s.kelas || '-'}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold ${
+                                s.agama === 'Kristen'
+                                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                                  : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                              }`}>
+                                {s.agama || '-'}
                               </span>
                             </td>
                             <td className="py-3 px-4 text-right">
@@ -3738,7 +4459,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                             <td className="py-3 px-4 font-mono text-slate-600 dark:text-slate-300">{g.nip || '-'}</td>
                             <td className="py-3 px-4">
                               <span className="text-xs text-slate-600 dark:text-slate-300 line-clamp-1">
-                                {g.mapels_list || '-'}
+                                {g.mapels_list || '-'} {g.alokasi_kelas ? `[${g.alokasi_kelas}]` : ''}
                               </span>
                             </td>
                             <td className="py-3 px-4 text-right">
@@ -3804,7 +4525,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                         <div className="min-w-0 flex-1">
                           <h4 className="font-bold text-xs text-slate-800 dark:text-slate-100 truncate">{g.nama_lengkap}</h4>
                           <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                            <span className="font-mono">NIP: {g.nip || '-'}</span> • {g.mapels_list || '-'}
+                            <span className="font-mono">NIP: {g.nip || '-'}</span> • {g.mapels_list || '-'} {g.alokasi_kelas ? `[${g.alokasi_kelas}]` : ''}
                           </p>
                         </div>
                       </div>
@@ -4520,9 +5241,9 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                             </tr>
                           ) : (
                             filteredMonitoringLogs.map((p, idx) => {
-                              const totalDijawab = p.total_dijawab !== undefined ? p.total_dijawab : (p.jawaban_count || (p.nilai_auto !== null ? 40 : 0));
-                              const totalSoal = p.total_soal || 40;
-                              const progressPercent = Math.min(100, Math.round((totalDijawab / totalSoal) * 100));
+                              const totalSoal = p.total_soal || 0;
+                              const totalDijawab = p.total_dijawab !== undefined ? p.total_dijawab : (p.jawaban_count || 0);
+                              const progressPercent = totalSoal > 0 ? Math.min(100, Math.round((totalDijawab / totalSoal) * 100)) : (p.status_ujian === 'SELESAI' ? 100 : 0);
 
                               return (
                                 <tr
@@ -4630,9 +5351,9 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                       />
                     ) : (
                       filteredMonitoringLogs.map((p, idx) => {
-                        const totalDijawab = p.total_dijawab !== undefined ? p.total_dijawab : (p.jawaban_count || (p.nilai_auto !== null ? 40 : 0));
-                        const totalSoal = p.total_soal || 40;
-                        const progressPercent = Math.min(100, Math.round((totalDijawab / totalSoal) * 100));
+                        const totalSoal = p.total_soal || 0;
+                        const totalDijawab = p.total_dijawab !== undefined ? p.total_dijawab : (p.jawaban_count || 0);
+                        const progressPercent = totalSoal > 0 ? Math.min(100, Math.round((totalDijawab / totalSoal) * 100)) : (p.status_ujian === 'SELESAI' ? 100 : 0);
 
                         return (
                           <div
@@ -4710,98 +5431,378 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
           {/* ================= TAB 8: MATA PELAJARAN ================= */}
           {activeTab === 'mapel' && (
             <div className="space-y-4 animate-fade-in-up">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg sm:text-xl">Mata Pelajaran</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Kelola daftar kurikulum mata pelajaran</p>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap self-end sm:self-auto">
-                  <button
-                    onClick={() => setImportModal({ isOpen: true, type: 'mapel' })}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 transition-colors min-h-[44px]"
-                    title="Import Excel"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">upload_file</span>
-                    <span className="hidden sm:inline">Import</span>
-                  </button>
-                  <button
-                    onClick={() => openCreateModal('mapel')}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 min-h-[44px]"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">add_circle</span>
-                    <span>Tambah Mapel</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
-                {dataMapel.map((m) => (
-                  <div
-                    key={m.id_mapel}
-                    className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex items-center justify-between gap-3"
-                  >
-                    <div
-                      className="flex items-center gap-3 min-w-0 flex-1"
-                    >
-                      <div className="w-10 h-10 rounded-xl bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 flex items-center justify-center shrink-0">
-                        <span className="material-symbols-outlined text-xl">menu_book</span>
+              {selectedMapel ? (
+                /* Active Subject Question Bank */
+                <div className="space-y-4">
+                  {/* Top Bar with Back, Title, & Action Buttons */}
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setSelectedMapel(null)}
+                        className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-slate-200 transition-colors min-h-[44px] min-w-[44px]"
+                        title="Kembali ke Daftar Mapel"
+                      >
+                        <span className="material-symbols-outlined text-xl">arrow_back</span>
+                      </button>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-black text-base sm:text-lg text-slate-800 dark:text-white leading-tight">
+                            {dataMapel.find(m => m.id_mapel === selectedMapel)?.nama_mapel || 'Bank Soal'}
+                          </h3>
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 border border-primary/30">
+                            {filteredSoal.length} Soal
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          ID: {selectedMapel}
+                        </p>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <h4 className="font-bold text-xs sm:text-sm text-slate-800 dark:text-white truncate">{m.nama_mapel}</h4>
-                          {(!m.alokasi_kelas || isUniversalAlloc(m.alokasi_kelas) || splitCompoundTargets(m.alokasi_kelas).length <= 1) ? (
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              m.alokasi_kelas && !isUniversalAlloc(m.alokasi_kelas)
-                                ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800'
-                                : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                            }`}>
-                              {m.alokasi_kelas || 'Semua Kelas'}
-                            </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                      <input type="file" ref={fileInputRef} onChange={handleImportExcel} accept=".xlsx,.xls" className="hidden" />
+                      <input type="file" ref={wordInputRef} onChange={handleImportWord} accept=".docx,.txt" className="hidden" />
+                      {/* Template dropdown */}
+                      <div className="relative group">
+                        <button
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 transition-colors min-h-[44px]"
+                          title="Unduh Template"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">download</span>
+                          <span className="hidden sm:inline">Template</span>
+                          <span className="material-symbols-outlined text-[14px]">expand_more</span>
+                        </button>
+                        <div className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 z-50 hidden group-hover:block">
+                          <button onClick={downloadTemplateSoal} className="w-full text-left px-4 py-2.5 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2 rounded-t-xl">
+                            <span className="material-symbols-outlined text-[16px] text-green-600">table_chart</span> Template Excel (.xlsx)
+                          </button>
+                          <button onClick={downloadTemplateWord} className="w-full text-left px-4 py-2.5 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2 rounded-b-xl">
+                            <span className="material-symbols-outlined text-[16px] text-blue-600">description</span> Template Word (.docx)
+                          </button>
+                        </div>
+                      </div>
+                      {/* Import Excel */}
+                      <button
+                        onClick={() => !isSelectedMapelActive && fileInputRef.current?.click()}
+                        disabled={isSelectedMapelActive}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-green-50 dark:bg-green-950/40 hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed text-green-700 dark:text-green-300 transition-colors min-h-[44px]"
+                        title={isSelectedMapelActive ? 'Soal terkunci selama ujian berlangsung' : 'Import dari Excel (.xlsx)'}
+                      >
+                        <span className="material-symbols-outlined text-[18px]">table_chart</span>
+                        <span className="hidden sm:inline">Import Excel</span>
+                      </button>
+                      {/* Import Word */}
+                      <button
+                        onClick={() => !isSelectedMapelActive && wordInputRef.current?.click()}
+                        disabled={isSelectedMapelActive}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed text-blue-700 dark:text-blue-300 transition-colors min-h-[44px]"
+                        title={isSelectedMapelActive ? 'Soal terkunci selama ujian berlangsung' : 'Import dari Word/TXT (.docx, .txt)'}
+                      >
+                        <span className="material-symbols-outlined text-[18px]">description</span>
+                        <span className="hidden sm:inline">Import Word</span>
+                      </button>
+                      <button
+                        onClick={() => !isSelectedMapelActive && setFormNarasi({ isOpen: true, data: null })}
+                        disabled={isSelectedMapelActive}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-[44px]"
+                        title={isSelectedMapelActive ? 'Soal terkunci selama ujian berlangsung' : 'Tambah Narasi Soal'}
+                      >
+                        <span className="material-symbols-outlined text-[18px]">article</span>
+                        <span>Narasi Soal</span>
+                      </button>
+                      <button
+                        onClick={() => !isSelectedMapelActive && setFormSoal({ isOpen: true, data: null, id_mapel: selectedMapel })}
+                        disabled={isSelectedMapelActive}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-white shadow-sm transition-all active:scale-95 min-h-[44px]"
+                        title={isSelectedMapelActive ? 'Soal terkunci selama ujian berlangsung' : 'Tambah Soal'}
+                      >
+                        <span className="material-symbols-outlined text-[18px]">add</span>
+                        <span>Tambah Soal</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {isSelectedMapelActive && (
+                    <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-xs font-semibold flex items-center gap-2">
+                      <span className="material-symbols-outlined text-base text-amber-600">lock</span>
+                      <span>Bank soal ini terkunci sementara (tambah/hapus dinonaktifkan) karena ujian sedang berstatus <strong>AKTIF</strong>.</span>
+                    </div>
+                  )}
+
+                  {/* Quick Subject Switcher Strip */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                    <span className="text-xs font-bold text-slate-400 mr-1 shrink-0 flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[14px]">swap_horiz</span> Ganti Mapel:
+                    </span>
+                    {dataMapel.map(m => (
+                      <button
+                        key={m.id_mapel}
+                        onClick={() => { setSelectedMapel(m.id_mapel); setBankSoalPage(1); }}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap min-h-[38px] ${
+                          selectedMapel === m.id_mapel
+                            ? 'bg-primary text-white shadow-xs'
+                            : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        {m.nama_mapel}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Filter & Search Bar */}
+                  <div className="bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                    {/* Tipe Soal Pills */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+                      {['ALL', 'PG', 'PGK', 'BS', 'JODOH', 'ISIAN', 'URAIAN', 'NARASI'].map(tipe => (
+                        <button
+                          key={tipe}
+                          onClick={() => { setFilterTipeSoal(tipe); setBankSoalPage(1); }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap min-h-[38px] ${
+                            filterTipeSoal === tipe
+                              ? 'bg-primary text-white shadow-xs'
+                              : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                          }`}
+                        >
+                          {tipe === 'ALL' ? 'Semua Tipe' : tipe === 'NARASI' ? 'Narasi Soal' : tipe === 'BS' ? 'Benar / Salah' : tipe === 'ISIAN' ? 'Isian Singkat' : tipe}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Search Input */}
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex-1 sm:w-56">
+                        <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+                        <input
+                          type="text"
+                          value={searchQuerySoal}
+                          onChange={(e) => { setSearchQuerySoal(e.target.value); setBankSoalPage(1); }}
+                          placeholder="Cari pertanyaan..."
+                          className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 pl-8 pr-7 py-1.5 rounded-xl text-xs outline-none text-slate-700 dark:text-slate-200"
+                        />
+                        {searchQuerySoal && (
+                          <button
+                            onClick={() => setSearchQuerySoal('')}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                          >
+                            <span className="material-symbols-outlined text-xs">close</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* High-Density Question Table */}
+                  <div className="w-full overflow-hidden bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-xs sm:text-sm">
+                        <thead>
+                          <tr className="border-b border-slate-200/80 dark:border-slate-700/80 bg-slate-50/90 dark:bg-slate-800/90 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                            <th className="py-3 px-4 w-12 text-center">#</th>
+                            <th className="py-3 px-4 w-24">Tipe</th>
+                            <th className="py-3 px-4">Pertanyaan</th>
+                            <th className="py-3 px-4 w-28 text-center">Bobot</th>
+                            <th className="py-3 px-4 text-right w-24">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                          {isSoalLoading ? (
+                            <TableSkeleton rows={6} cols={5} asTableRows={true} hasAvatar={false} />
+                          ) : paginatedSoal.length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="p-8">
+                                <EmptyState
+                                  compact={true}
+                                  icon="quiz"
+                                  title="Tidak Ada Butir Soal"
+                                  description={searchQuerySoal || filterTipeSoal !== 'ALL' ? 'Tidak ada soal yang cocok dengan filter yang dipilih.' : 'Belum ada soal pada mata pelajaran ini.'}
+                                  action={{
+                                    label: 'Tambah Soal Baru',
+                                    onClick: () => !isSelectedMapelActive && setFormSoal({ isOpen: true, data: null, id_mapel: selectedMapel })
+                                  }}
+                                />
+                              </td>
+                            </tr>
                           ) : (
-                            splitCompoundTargets(m.alokasi_kelas || (m.alokasi_kelas.split(/[,;|]+/))).map((cls, idx) => (
-                              <span
-                                key={idx}
-                                className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800"
-                              >
-                                {cls}
-                              </span>
+                            paginatedSoal.map((soal, idx) => (
+                              <tr key={soal.id_soal || idx} className="hover:bg-slate-50/80 dark:hover:bg-slate-700/40 transition-colors group">
+                                <td className="py-3 px-4 text-center font-mono text-slate-400 text-xs">
+                                  {(bankSoalPage - 1) * itemsPerPageSoal + idx + 1}
+                                </td>
+                                <td className="py-3 px-4">
+                                  {getTipeBadge(soal.tipe_soal || soal.tipe)}
+                                </td>
+                                <td className="py-3 px-4">
+                                  <div className="line-clamp-2 font-medium text-slate-800 dark:text-slate-200">
+                                    {stripHtml(soal.pertanyaan)}
+                                  </div>
+                                </td>
+                                <td className="py-3 px-4 text-center">
+                                  <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs">
+                                    {soal.bobot || 10} Poin
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4 text-right">
+                                  <div className="flex items-center justify-end gap-1">
+                                    <button
+                                      onClick={() => {
+                                        if (isSelectedMapelActive) return;
+                                        if (soal.tipe_soal === 'NARASI') {
+                                          setFormNarasi({ isOpen: true, data: soal });
+                                        } else {
+                                          setFormSoal({ isOpen: true, data: soal, id_mapel: soal.id_mapel || selectedMapel });
+                                        }
+                                      }}
+                                      disabled={isSelectedMapelActive}
+                                      className="p-1.5 text-primary hover:bg-primary/10 dark:hover:bg-primary/10 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-colors"
+                                      title={isSelectedMapelActive ? 'Soal terkunci selama ujian berlangsung' : (soal.tipe_soal === 'NARASI' ? 'Edit Narasi Soal' : 'Edit Soal')}
+                                    >
+                                      <span className="material-symbols-outlined text-[18px]">edit</span>
+                                    </button>
+                                    <button
+                                      onClick={() => deleteSoal(soal.id_soal)}
+                                      disabled={isSelectedMapelActive}
+                                      className="p-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-colors"
+                                      title={isSelectedMapelActive ? 'Soal terkunci selama ujian berlangsung' : 'Hapus Soal'}
+                                    >
+                                      <span className="material-symbols-outlined text-[18px]">delete</span>
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
                             ))
                           )}
-                        </div>
-                        <p className="text-[11px] text-slate-400 mt-0.5">{m.jumlah_soal || 0} Soal Tersedia</p>
-                      </div>
+                        </tbody>
+                      </table>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        onClick={() => openEditModal('mapel', m)}
-                        className="w-8 h-8 rounded-lg flex items-center justify-center text-primary hover:bg-primary/10 dark:hover:bg-primary/10"
-                        title="Edit"
-                      >
-                        <span className="material-symbols-outlined text-[18px]">edit</span>
-                      </button>
-                      <button
-                        onClick={() => handleDeleteClick(m.id_mapel, 'mapel', m)}
-                        className="w-8 h-8 rounded-lg flex items-center justify-center text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
-                        title="Hapus"
-                      >
-                        <span className="material-symbols-outlined text-[18px]">delete</span>
-                      </button>
-                    </div>
-                  </div>
-                ))}
 
-                {dataMapel.length === 0 && (
-                  <div className="col-span-full">
-                    <EmptyState
-                      compact={true}
-                      icon="menu_book"
-                      title="Belum Ada Mata Pelajaran"
-                      description="Tambahkan mata pelajaran untuk memulai penyusunan soal."
-                      action={{ label: 'Tambah Mapel', onClick: () => openCreateModal('mapel'), icon: 'add' }}
-                    />
+                    {/* Pagination */}
+                    {totalSoalPages > 1 && (
+                      <div className="p-3 border-t border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between text-xs text-slate-500">
+                        <span>Halaman {bankSoalPage} dari {totalSoalPages}</span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => setBankSoalPage(p => Math.max(1, p - 1))}
+                            disabled={bankSoalPage === 1}
+                            className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-slate-700"
+                          >
+                            Sebelumnya
+                          </button>
+                          <button
+                            onClick={() => setBankSoalPage(p => Math.min(totalSoalPages, p + 1))}
+                            disabled={bankSoalPage === totalSoalPages}
+                            className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-slate-700"
+                          >
+                            Selanjutnya
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                </div>
+              ) : (
+                <>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg sm:text-xl">Mata Pelajaran</h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Kelola daftar kurikulum mata pelajaran dan bank soal</p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap self-end sm:self-auto">
+                      <button
+                        onClick={() => setImportModal({ isOpen: true, type: 'mapel' })}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 transition-colors min-h-[44px]"
+                        title="Import Excel"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">upload_file</span>
+                        <span className="hidden sm:inline">Import</span>
+                      </button>
+                      <button
+                        onClick={() => openCreateModal('mapel')}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 min-h-[44px]"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">add_circle</span>
+                        <span>Tambah Mapel</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+                    {dataMapel.map((m) => (
+                      <div
+                        key={m.id_mapel}
+                        className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex items-center justify-between gap-3"
+                      >
+                        <div
+                          className="flex items-center gap-3 min-w-0 flex-1"
+                        >
+                          <div className="w-10 h-10 rounded-xl bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 flex items-center justify-center shrink-0">
+                            <span className="material-symbols-outlined text-xl">menu_book</span>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <h4 className="font-bold text-xs sm:text-sm text-slate-800 dark:text-white truncate">{m.nama_mapel}</h4>
+                              {(!m.alokasi_kelas || isUniversalAlloc(m.alokasi_kelas) || splitCompoundTargets(m.alokasi_kelas).length <= 1) ? (
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                  m.alokasi_kelas && !isUniversalAlloc(m.alokasi_kelas)
+                                    ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800'
+                                    : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                                }`}>
+                                  {m.alokasi_kelas || 'Semua Kelas'}
+                                </span>
+                              ) : (
+                                splitCompoundTargets(m.alokasi_kelas || (m.alokasi_kelas.split(/[,;|]+/))).map((cls, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800"
+                                  >
+                                    {cls}
+                                  </span>
+                                ))
+                              )}
+                            </div>
+                            <p className="text-[11px] text-slate-400 mt-0.5">{m.jumlah_soal || 0} Soal Tersedia</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => { setSelectedMapel(m.id_mapel); setBankSoalPage(1); }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                            title="Kelola Soal"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">quiz</span>
+                            <span className="hidden sm:inline">Kelola Soal</span>
+                          </button>
+                          <button
+                            onClick={() => openEditModal('mapel', m)}
+                            className="w-8 h-8 rounded-lg flex items-center justify-center text-primary hover:bg-primary/10 dark:hover:bg-primary/10"
+                            title="Edit"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">edit</span>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteClick(m.id_mapel, 'mapel', m)}
+                            className="w-8 h-8 rounded-lg flex items-center justify-center text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                            title="Hapus"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">delete</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+
+                    {dataMapel.length === 0 && (
+                      <div className="col-span-full">
+                        <EmptyState
+                          compact={true}
+                          icon="menu_book"
+                          title="Belum Ada Mata Pelajaran"
+                          description="Tambahkan mata pelajaran untuk memulai penyusunan soal."
+                          action={{ label: 'Tambah Mapel', onClick: () => openCreateModal('mapel'), icon: 'add' }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -5237,8 +6238,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                       const res = await api('create_pengumuman', {
                         npsn: user.npsn,
                         judul: pengumumanForm.judul.trim(),
-                        isi: pengumumanForm.isi.trim(),
-                        penulis: user.nama_lengkap || 'Admin Sekolah'
+                        isi: pengumumanForm.isi.trim()
                       });
                       setIsLoading(false);
                       if (res.status === 'success') {
@@ -5266,8 +6266,9 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     <div>
                       <h4 className="font-bold text-sm text-slate-800 dark:text-white">{p.judul}</h4>
                       <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 whitespace-pre-line">{p.isi}</p>
-                      <p className="text-[10px] text-slate-400 mt-2">{p.penulis || 'Admin'} • {p.created_at ? new Date(p.created_at).toLocaleString('id-ID') : ''}</p>
+                      <p className="text-[10px] text-slate-400 mt-2">{p.isGlobal ? 'Super Admin' : 'Admin Sekolah'} • {p.created_at ? new Date(p.created_at).toLocaleString('id-ID') : ''}</p>
                     </div>
+                    {!p.isGlobal && (
                     <button
                       type="button"
                       onClick={async () => {
@@ -5281,6 +6282,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     >
                       <span className="material-symbols-outlined text-lg">delete</span>
                     </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -5300,16 +6302,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       {renderConfirmDialog()}
       {renderPrintKartuModal()}
 
-      {/* Kartu Ujian Print Component (Mounted when isPrintKartuActive is true) */}
-      {isPrintKartuActive && printKartuPayload && (
-        <KartuUjianPrint
-          data={printKartuPayload}
-          onClose={() => {
-            setIsPrintKartuActive(false);
-            setPrintKartuPayload(null);
-          }}
-        />
-      )}
+      {/* Kartu Ujian Print Component rendered outside overflow-hidden container */}
 
       {/* Avatar Upload Modal */}
       {isAvatarModalOpen && (
@@ -5359,7 +6352,39 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
           </div>
         </div>
       )}
+
+      {/* Form Soal Modal */}
+      {formSoal.isOpen && (
+        <FormSoalModal
+          isOpen={formSoal.isOpen}
+          data={formSoal.data}
+          narasiList={dataSoal.filter(s => s.tipe_soal === 'NARASI')}
+          schoolName={user?.nama_sekolah || 'SMA'}
+          className={
+            dataMapel.find(m => String(m.id_mapel) === String(formSoal.id_mapel || selectedMapel))?.alokasi_kelas ||
+            dataMapel.find(m => String(m.id_mapel) === String(formSoal.id_mapel || selectedMapel))?.tingkat ||
+            'Semua Kelas'
+          }
+          subjectName={
+            dataMapel.find(m => String(m.id_mapel) === String(formSoal.id_mapel || selectedMapel))?.nama_mapel ||
+            'Mata Pelajaran'
+          }
+          onClose={() => setFormSoal({ isOpen: false, data: null, id_mapel: '' })}
+          onSave={handleSaveSoal}
+        />
+      )}
+
+      {/* Form Narasi Modal */}
+      {formNarasi.isOpen && (
+        <FormNarasiModal
+          isOpen={formNarasi.isOpen}
+          data={formNarasi.data}
+          onClose={() => setFormNarasi({ isOpen: false, data: null })}
+          onSave={saveSoal}
+        />
+      )}
     </div>
+    </>
   );
 };
 

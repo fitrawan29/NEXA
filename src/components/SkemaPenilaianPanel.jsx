@@ -8,7 +8,8 @@ const SkemaPenilaianPanel = ({
   onSave,
   isSchoolDefault = false,
   schoolDefaultScheme = null,
-  initialSkema = null
+  initialSkema = null,
+  npsn = ''
 }) => {
   const defaultSkema = { PG: 0, PGK: 0, BS: 0, JODOH: 0, ISIAN: 0, URAIAN: 0 };
   const [mode, setMode] = useState('default');
@@ -63,15 +64,23 @@ const SkemaPenilaianPanel = ({
     // If teacher mode and no explicit schoolDefaultScheme prop passed, try to look up from localStorage
     if (!schoolDefaultScheme && typeof localStorage !== 'undefined') {
       try {
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && key.startsWith('nexa_default_skema_')) {
-            const raw = localStorage.getItem(key);
-            if (raw) {
-              const p = JSON.parse(raw);
-              if (p && typeof p === 'object') {
-                setAdminDefaultInfo(p);
-                break;
+        if (npsn) {
+          const raw = localStorage.getItem(`nexa_default_skema_${npsn}`);
+          if (raw) {
+            const p = JSON.parse(raw);
+            if (p && typeof p === 'object') setAdminDefaultInfo(p);
+          }
+        } else {
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('nexa_default_skema_')) {
+              const raw = localStorage.getItem(key);
+              if (raw) {
+                const p = JSON.parse(raw);
+                if (p && typeof p === 'object') {
+                  setAdminDefaultInfo(p);
+                  break;
+                }
               }
             }
           }
@@ -80,7 +89,7 @@ const SkemaPenilaianPanel = ({
         // ignore
       }
     }
-  }, [dataSoal, isSchoolDefault, initialSkema, schoolDefaultScheme]);
+  }, [dataSoal, isSchoolDefault, initialSkema, schoolDefaultScheme, npsn]);
 
   const parseWeight = (val) => {
     if (typeof val === 'string') {

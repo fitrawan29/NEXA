@@ -30,10 +30,17 @@ const ModalPeriksaUraian = ({ isOpen, logUjian, jawabanUraian = [], onClose, onS
   };
 
   const handleSave = (isNext = false) => {
+    const maxMap = {};
+    (jawabanUraian || []).forEach(j => {
+      const k = j.id_jawaban || j.id_soal;
+      if (k) maxMap[k] = Number(j.bobot) || 100;
+    });
     let totalUraian = 0;
     const detailSkor = [];
     for (let key in scores) {
-      const val = Number(scores[key] || 0);
+      const maxBobot = maxMap[key] || 100;
+      const rawVal = Number(scores[key] || 0);
+      const val = isNaN(rawVal) ? 0 : Math.max(0, Math.min(maxBobot, rawVal));
       totalUraian += val;
       detailSkor.push({ id_jawaban: key, skor_diperoleh: val });
     }

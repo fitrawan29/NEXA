@@ -95,6 +95,11 @@ import { syncThemeColor } from './utils/themeColor';
 
       const usernameInputRef = useRef(null);
 
+      const cleanNpsn = (val) => {
+        const s = String(val || '');
+        return (s.includes('-') ? s.replace(/^\[?([^-]+).*/, '$1') : s).replace(/[^a-zA-Z0-9]/g, '').trim();
+      };
+
       useEffect(() => {
         const fetchSekolah = async () => {
           setLoadingSekolah(true);
@@ -102,9 +107,12 @@ import { syncThemeColor } from './utils/themeColor';
             const res = await fetchAPI('get_sekolah');
             if (res && res.status === 'success' && Array.isArray(res.data)) {
               setDaftarSekolah(res.data);
+            } else if (res && res.status === 'error') {
+              setLoginError(res.message || 'Gagal memuat daftar sekolah.');
             }
           } catch (err) {
             console.error('Gagal memuat daftar sekolah:', err);
+            setLoginError('Gagal terhubung ke server sekolah.');
           } finally {
             setLoadingSekolah(false);
           }
@@ -258,12 +266,8 @@ import { syncThemeColor } from './utils/themeColor';
         e.preventDefault();
         setLoading(true);
         setLoginError('');
-        const cleanNpsn = loginRole === 'super_admin' ? '' : (
-          npsn.includes('-')
-            ? npsn.replace(/^\[?([^-]+).*/, '$1').replace(/[^a-zA-Z0-9]/g, '').trim()
-            : npsn.replace(/[^a-zA-Z0-9]/g, '').trim()
-        );
-        const res = await fetchAPI('login', { username: username.trim(), password, npsn: cleanNpsn, role: loginRole });
+        const targetNpsn = loginRole === 'super_admin' ? '' : cleanNpsn(npsn);
+        const res = await fetchAPI('login', { username: username.trim(), password, npsn: targetNpsn, role: loginRole });
         setLoading(false);
 
         if (res.status === 'success') {
@@ -280,7 +284,11 @@ import { syncThemeColor } from './utils/themeColor';
       const handleLogout = async () => {
         if (user?.role === 'siswa') {
           try {
-            await fetchAPI('reset_login_siswa', { id_siswa: user.id_siswa || user.id_user, npsn: user.npsn });
+            await fetchAPI('reset_login_siswa', {
+              id_siswa: user.id_siswa || user.id_user,
+              npsn: user.npsn,
+              session_token: user.session_token
+            });
           } catch (e) {
             console.error('Failed to reset session:', e);
           }
@@ -297,6 +305,8 @@ import { syncThemeColor } from './utils/themeColor';
           } catch (e) {}
         }
         setUser(null);
+        setLoginRole('');
+        setLoginError('');
         setUsername('');
         setPassword('');
       };
@@ -315,9 +325,7 @@ import { syncThemeColor } from './utils/themeColor';
           const onRegisterSubmit = async (e) => {
             e.preventDefault();
             setLoading(true);
-            const cleanRegNpsn = npsn.includes('-')
-              ? npsn.replace(/^\[?([^-]+).*/, '$1').replace(/[^a-zA-Z0-9]/g, '').trim()
-              : npsn.replace(/[^a-zA-Z0-9]/g, '').trim();
+            const cleanRegNpsn = cleanNpsn(npsn);
             const payload = {
               role: registerRole,
               nama: regName,
@@ -410,7 +418,7 @@ import { syncThemeColor } from './utils/themeColor';
                                          <span className="material-symbols-outlined text-[18px]">{loginRole === 'siswa' ? 'school' : loginRole === 'guru' ? 'local_library' : loginRole === 'admin' ? 'admin_panel_settings' : 'shield_person'}</span>
                                          <span className="capitalize">Masuk {loginRole.replace('_', ' ')}</span>
                                      </div>
-                                     <button type="button" onClick={() => setLoginRole('')} className="text-[10px] font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md transition-colors">
+                                     <button type="button" onClick={() => { setLoginRole(''); setLoginError(''); }} className="text-[10px] font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md transition-colors">
                                          <span className="material-symbols-outlined text-[12px]">arrow_back</span> Ganti
                                      </button>
                                  </div>
@@ -430,7 +438,7 @@ import { syncThemeColor } from './utils/themeColor';
                                        <select
                                          required
                                          name="npsn"
-                                         value={npsn ? (npsn.includes('-') ? npsn.replace(/^\[?([^-]+).*/, '$1').replace(/[^a-zA-Z0-9]/g, '').trim() : npsn) : ''}
+                                         value={cleanNpsn(npsn)}
                                          onChange={e => setNpsn(e.target.value)}
                                          className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl py-2 pl-9 pr-9 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none cursor-pointer truncate"
                                        >
@@ -553,7 +561,7 @@ import { syncThemeColor } from './utils/themeColor';
                                       <select
                                         required
                                         name="reg_npsn"
-                                        value={npsn ? (npsn.includes('-') ? npsn.replace(/^\[?([^-]+).*/, '$1').replace(/[^a-zA-Z0-9]/g, '').trim() : npsn) : ''}
+                                        value={cleanNpsn(npsn)}
                                         onChange={e => setNpsn(e.target.value)}
                                         className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl py-2.5 pl-9 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none cursor-pointer truncate"
                                       >

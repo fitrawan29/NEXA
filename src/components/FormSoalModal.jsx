@@ -19,10 +19,11 @@ import { safeJSONParse } from './UI';
           [{ 'header': [1, 2, false] }],
           ['bold', 'italic', 'underline', 'strike', 'blockquote'],
           [{'list': 'ordered'}, {'list': 'bullet'}, {'indent': '-1'}, {'indent': '+1'}],
-          ['link', 'image', 'formula'],
+          ['link', 'formula'],
           ['clean']
         ],
       };
+      const stripHtml = (html) => String(html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
       const savedDraft = !data ? safeJSONParse(localStorage.getItem('formSoalDraft'), {}) : {};
       const [tipe, setTipe] = useState(data ? data.tipe_soal : (savedDraft.tipe || 'PG'));
       const [pertanyaan, setPertanyaan] = useState(data ? data.pertanyaan : (savedDraft.pertanyaan || ''));
@@ -50,9 +51,24 @@ import { safeJSONParse } from './UI';
         };
       }, []);
       
-      const [opsiPG, setOpsiPG] = useState(data && (data.tipe_soal==='PG' || data.tipe_soal==='PGK') ? safeJSONParse(data.opsi, ["","","","",""]) : (savedDraft.opsiPG || ['','','','','']));
-      const [kunciPG, setKunciPG] = useState(data && data.tipe_soal==='PG' ? data.kunci_jawaban : (savedDraft.kunciPG || ''));
-      const [kunciPGK, setKunciPGK] = useState(data && data.tipe_soal==='PGK' ? safeJSONParse(data.kunci_jawaban, []) : (savedDraft.kunciPGK || []));
+      const initialOpsiPG = data && (data.tipe_soal==='PG' || data.tipe_soal==='PGK') ? safeJSONParse(data.opsi, ["","","","",""]) : (savedDraft.opsiPG || ['','','','','']);
+      const [opsiPG, setOpsiPG] = useState(initialOpsiPG);
+      const [kunciPG, setKunciPG] = useState(() => {
+        if (data && data.tipe_soal === 'PG') {
+          const idx = initialOpsiPG.indexOf(data.kunci_jawaban);
+          return idx >= 0 ? String(idx) : '';
+        }
+        return savedDraft.kunciPG !== undefined ? String(savedDraft.kunciPG) : '';
+      });
+      const [kunciPGK, setKunciPGK] = useState(() => {
+        if (data && data.tipe_soal === 'PGK') {
+          const arr = safeJSONParse(data.kunci_jawaban, []);
+          return Array.isArray(arr)
+            ? arr.map(val => initialOpsiPG.indexOf(val)).filter(i => i >= 0)
+            : [];
+        }
+        return Array.isArray(savedDraft.kunciPGK) ? savedDraft.kunciPGK : [];
+      });
       const [kunciBS, setKunciBS] = useState(data && data.tipe_soal==='BS' ? data.kunci_jawaban : (savedDraft.kunciBS || 'Benar'));
       
       const defaultPremis = [''];
@@ -210,7 +226,7 @@ import { safeJSONParse } from './UI';
         }
       };
 
-      const handleSave = () => {
+      const handleSave = async () => {
         let payload = {
           id_soal: data ? data.id_soal : null,
           tipe_soal: tipe,
@@ -221,13 +237,13 @@ import { safeJSONParse } from './UI';
         };
 
         if (tipe === 'PG') {
+          if (kunciPG === '' || isNaN(parseInt(kunciPG, 10))) return alert('Pilih kunci jawaban PG.');
           payload.opsi = JSON.stringify(opsiPG);
-          payload.kunci_jawaban = opsiPG[parseInt(kunciPG)];
-          if (kunciPG === '') return alert('Pilih kunci jawaban PG.');
+          payload.kunci_jawaban = opsiPG[parseInt(kunciPG, 10)];
         } else if (tipe === 'PGK') {
+          if (kunciPGK.length < 2) return alert('Pilih minimal 2 kunci jawaban untuk PGK.');
           payload.opsi = JSON.stringify(opsiPG);
           payload.kunci_jawaban = JSON.stringify(kunciPGK.map(idx => opsiPG[idx]));
-          if (kunciPGK.length < 2) return alert('Pilih minimal 2 kunci jawaban untuk PGK.');
         } else if (tipe === 'BS') {
           payload.opsi = JSON.stringify(['Benar', 'Salah']);
           payload.kunci_jawaban = kunciBS;
@@ -242,8 +258,8 @@ import { safeJSONParse } from './UI';
           payload.kunci_jawaban = null;
         }
 
-        onSave(payload);
-        if (!data) localStorage.removeItem('formSoalDraft');
+        const res = await onSave(payload);
+        if (!data && res !== false) localStorage.removeItem('formSoalDraft');
       };
 
       return (
@@ -270,7 +286,7 @@ import { safeJSONParse } from './UI';
                 <select value={idNarasi} onChange={(e) => setIdNarasi(e.target.value)} className="w-full p-2 border rounded bg-white dark:bg-slate-900">
                   <option value="">-- Tanpa Narasi Bersama --</option>
                   {narasiList.map(n => (
-                    <option key={n.id_soal} value={n.id_soal}>ID: {n.id_soal} - {n.pertanyaan.substring(0, 50)}...</option>
+                    <option key={n.id_soal} value={n.id_soal}>ID: {n.id_soal} - {stripHtml(n.pertanyaan).substring(0, 50)}...</option>
                   ))}
                 </select>
                 <p className="text-xs text-slate-500 mt-1">Gunakan ini jika soal ini merujuk pada bacaan/stimulus yang sama dengan soal lain.</p>
@@ -356,10 +372,10 @@ import { safeJSONParse } from './UI';
                   {opsiPG.map((o, idx) => (
                     <div key={idx} className="flex gap-2 items-center">
                       {tipe === 'PG' ? (
-                        <input type="radio" name="kunciPG" value={idx} checked={String(kunciPG) === String(idx) || (data && opsiPG[idx] === data.kunci_jawaban)} onChange={() => setKunciPG(idx)} />
+                        <input type="radio" name="kunciPG" value={idx} checked={String(kunciPG) === String(idx)} onChange={() => setKunciPG(String(idx))} />
                       ) : (
-                        <input type="checkbox" checked={kunciPGK.includes(idx) || (data && safeJSONParse(data.kunci_jawaban, []).includes(opsiPG[idx]))} onChange={(e) => {
-                          if (e.target.checked) setKunciPGK([...kunciPGK, idx]);
+                        <input type="checkbox" checked={kunciPGK.includes(idx)} onChange={(e) => {
+                          if (e.target.checked) setKunciPGK(prev => prev.includes(idx) ? prev : [...prev, idx]);
                           else setKunciPGK(kunciPGK.filter(i => i !== idx));
                         }} />
                       )}
@@ -387,7 +403,22 @@ import { safeJSONParse } from './UI';
                     <div className="flex-1">
                       <label className="block text-sm font-bold mb-1">Premis (Bagian A)</label>
                       {premis.map((p, idx) => (
-                        <input key={idx} type="text" value={p} onChange={(e) => { const newP = [...premis]; newP[idx] = e.target.value; setPremis(newP); }} className="w-full p-2 border rounded mb-2 bg-white dark:bg-slate-900" />
+                        <input key={idx} type="text" value={p} onChange={(e) => {
+                          const newVal = e.target.value;
+                          const oldVal = premis[idx];
+                          const newP = [...premis];
+                          newP[idx] = newVal;
+                          setPremis(newP);
+                          if (oldVal !== newVal && kunciJodoh[oldVal] !== undefined) {
+                            setKunciJodoh(prev => {
+                              const next = { ...prev };
+                              const mapped = next[oldVal];
+                              delete next[oldVal];
+                              if (newVal) next[newVal] = mapped;
+                              return next;
+                            });
+                          }
+                        }} className="w-full p-2 border rounded mb-2 bg-white dark:bg-slate-900" />
                       ))}
                       <button onClick={() => setPremis([...premis, ''])} className="text-sm text-primary">+ Tambah Premis</button>
                     </div>

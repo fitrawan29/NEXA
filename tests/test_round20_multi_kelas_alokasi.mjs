@@ -145,11 +145,13 @@ runTest('2.1 - get_jadwal schedule filtering simulation: Out-of-target students 
   assert.deepStrictEqual(matchingForX1.map(j => j.id_jadwal), ['J3']);
 });
 
+const adminViewPath = fs.existsSync('src/views/AdminView.jsx') ? 'src/views/AdminView.jsx' : 'kode NEXA/src/views/AdminView.jsx';
+
 // -----------------------------------------------------------------------------
 // 3. ADMINVIEW MASTER MAPEL CHECKBOX GROUP & BADGES VERIFICATION
 // -----------------------------------------------------------------------------
 runTest('3.1 - AdminView.jsx: Mapel form provides structured Checkbox Group per tingkat with Pilih Semua and Semua Kelas', () => {
-  const content = fs.readFileSync('src/views/AdminView.jsx', 'utf8');
+  const content = fs.readFileSync(adminViewPath, 'utf8');
   assert.strictEqual(content.includes('mapelAlokasiKelas'), true, 'Must manage mapelAlokasiKelas state');
   assert.strictEqual(content.includes('isMapelSemuaKelas'), true, 'Must manage isMapelSemuaKelas state');
   assert.strictEqual(content.includes('Semua Kelas (Umum)'), true, 'Must provide Semua Kelas (Umum) option');
@@ -160,7 +162,7 @@ runTest('3.1 - AdminView.jsx: Mapel form provides structured Checkbox Group per 
 });
 
 runTest('3.2 - AdminView.jsx: Master Mapel cards render separate visual badges for each allocated parallel class', () => {
-  const content = fs.readFileSync('src/views/AdminView.jsx', 'utf8');
+  const content = fs.readFileSync(adminViewPath, 'utf8');
   assert.strictEqual(content.includes('m.alokasi_kelas.split(/[,;|]+/)'), true, 'Must split compound allocations');
   assert.strictEqual(content.includes('{m.alokasi_kelas || \'Semua Kelas\'}'), true, 'Must retain fallback for single/general class');
 });
@@ -169,7 +171,7 @@ runTest('3.2 - AdminView.jsx: Master Mapel cards render separate visual badges f
 // 4. ADMINVIEW JADWAL MULTI-TARGET INTEGRATION VERIFICATION
 // -----------------------------------------------------------------------------
 runTest('4.1 - AdminView.jsx: Jadwal form supports multi-class input and auto-synchronization from Mapel', () => {
-  const content = fs.readFileSync('src/views/AdminView.jsx', 'utf8');
+  const content = fs.readFileSync(adminViewPath, 'utf8');
   assert.strictEqual(content.includes('id="input_jadwal_target_kelas"'), true, 'Must have input_jadwal_target_kelas element');
   assert.strictEqual(content.includes('setJadwalTargetKelas(newTarget);'), true, 'Must auto-adjust target on mapel change');
   assert.strictEqual(content.includes('name="target_kelas"'), true, 'Must have target_kelas field');

@@ -7,17 +7,22 @@ const FormNarasiModal = ({ isOpen, data, onClose, onSave }) => {
       [{ 'header': [1, 2, false] }],
       ['bold', 'italic', 'underline', 'strike', 'blockquote'],
       [{'list': 'ordered'}, {'list': 'bullet'}, {'indent': '-1'}, {'indent': '+1'}],
-      ['link', 'image', 'formula'],
+      ['link', 'formula'],
       ['clean']
     ],
   };
 
   const [pertanyaan, setPertanyaan] = useState(data ? data.pertanyaan : '');
+  useEffect(() => {
+    setPertanyaan(data ? data.pertanyaan : '');
+  }, [data, isOpen]);
   if (!isOpen) return null;
   
   const handleSave = () => {
-    if (!pertanyaan.trim()) return alert('Isi narasi soal tidak boleh kosong.');
+    const plain = String(pertanyaan || '').replace(/<[^>]*>/g, '').trim();
+    if (!plain) return alert('Isi narasi soal tidak boleh kosong.');
     onSave({
+      id_soal: data ? data.id_soal : null,
       tipe_soal: 'NARASI',
       pertanyaan: pertanyaan,
       bobot: 0,

@@ -9,33 +9,37 @@ import { PasswordInput } from '../components/UI.jsx';
       const [dataPengumuman, setDataPengumuman] = useState([]);
       const [dataLog, setDataLog] = useState([]);
       const [isLoading, setIsLoading] = useState(false);
+      const [isSubmitting, setIsSubmitting] = useState(false);
       const [visibleCount, setVisibleCount] = useState(10);
       const [fotoProfil, setFotoProfil] = useState(localStorage.getItem(`foto_${user.username}`) || '');
+      const [newPassword, setNewPassword] = useState('');
       
       const [formModal, setFormModal] = useState({ isOpen: false, type: '', isEdit: false, editItem: null });
 
       const fetchData = async (tab) => {
-        if (tab === 'profil') return;
+        if (tab === 'akun') return;
         setIsLoading(true);
         if (tab === 'sekolah') {
           const res = await fetchAPI('get_sekolah');
-          if (res.status === 'success') setDataSekolah(res.data);
+          if (res.status === 'success') setDataSekolah(res.data || []);
+          else showMessage('Gagal', res.message || 'Gagal memuat data sekolah.', 'error');
         } else if (tab === 'admin') {
-          const res = await fetchAPI('get_admin_all');
-          if (res.status === 'success') setDataAdmin(res.data);
-          
-          // Also fetch sekolah to populate dropdown for adding admin
-          const resSekolah = await fetchAPI('get_sekolah');
-          if (resSekolah.status === 'success') setDataSekolah(resSekolah.data);
+          const [res, resSekolah] = await Promise.all([fetchAPI('get_admin_all'), fetchAPI('get_sekolah')]);
+          if (res.status === 'success') setDataAdmin(res.data || []);
+          else showMessage('Gagal', res.message || 'Gagal memuat data admin.', 'error');
+          if (resSekolah.status === 'success') setDataSekolah(resSekolah.data || []);
         } else if (tab === 'analytics') {
           const res = await fetchAPI('get_analytics');
-          if (res.status === 'success') setDataAnalytics(res.data);
+          if (res.status === 'success') setDataAnalytics(res.data || {});
+          else showMessage('Gagal', res.message || 'Gagal memuat statistik.', 'error');
         } else if (tab === 'pengumuman') {
           const res = await fetchAPI('get_pengumuman_global');
-          if (res.status === 'success') setDataPengumuman(res.data);
+          if (res.status === 'success') setDataPengumuman(res.data || []);
+          else showMessage('Gagal', res.message || 'Gagal memuat pengumuman.', 'error');
         } else if (tab === 'log') {
           const res = await fetchAPI('get_log_aktivitas_global');
-          if (res.status === 'success') setDataLog(res.data);
+          if (res.status === 'success') setDataLog(res.data || []);
+          else showMessage('Gagal', res.message || 'Gagal memuat system logs.', 'error');
         }
         setIsLoading(false);
       };
@@ -49,6 +53,7 @@ import { PasswordInput } from '../components/UI.jsx';
 
       const handleSaveForm = async (e) => {
         e.preventDefault();
+        if (isSubmitting) return;
         const formData = new FormData(e.target);
         const payload = Object.fromEntries(formData.entries());
 
@@ -57,13 +62,22 @@ import { PasswordInput } from '../components/UI.jsx';
         else if (formModal.type === 'admin') endpoint = formModal.isEdit ? 'update_admin_sekolah' : 'create_admin_sekolah';
         else if (formModal.type === 'pengumuman') endpoint = 'create_pengumuman_global';
 
+        setIsSubmitting(true);
         const res = await fetchAPI(endpoint, payload);
+        setIsSubmitting(false);
         if (res.status === 'success') {
           setFormModal({ isOpen: false, type: '', isEdit: false, editItem: null });
           fetchData(activeTab);
         } else {
           showMessage('Gagal', res.message || 'Terjadi kesalahan.', 'error');
         }
+      };
+
+      const handleToggleSekolahStatus = async (s) => {
+        const nextStatus = String(s.status || 'ACTIVE').toUpperCase() === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED';
+        const res = await fetchAPI('update_sekolah_status', { npsn: s.npsn, status: nextStatus });
+        if (res.status === 'success') fetchData('sekolah');
+        else showMessage('Gagal', res.message || 'Gagal mengubah status sekolah.', 'error');
       };
 
       const handleEdit = (type, item) => {
@@ -77,6 +91,18 @@ import { PasswordInput } from '../components/UI.jsx';
       const confirmDeleteAction = async () => {
         const { type, item } = deleteConfirm;
         setDeleteConfirm({ isOpen: false, type: '', item: null });
+        if (type === 'reset_all') {
+          setIsLoading(true);
+          const res = await fetchAPI('reset_all_data');
+          setIsLoading(false);
+          if (res.status === 'success') {
+            showMessage('Sukses', res.message || 'Semua data berhasil direset.', 'success');
+            fetchData(activeTab);
+          } else {
+            showMessage('Gagal', res.message || 'Gagal mereset data.', 'error');
+          }
+          return;
+        }
         let endpoint = '';
         let payload = {};
         
@@ -99,7 +125,7 @@ import { PasswordInput } from '../components/UI.jsx';
               <h2 className="text-xl font-bold mb-4 text-slate-800 dark:text-slate-100 capitalize">
                 {formModal.isEdit ? 'Edit' : 'Tambah'} {type}
               </h2>
-              <form onSubmit={handleSaveForm} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              <form onSubmit={handleSaveForm} className="flex flex-col gap-4">
                 {type === 'sekolah' && (
                   <>
                     <div><label className="block text-sm font-medium mb-1 dark:text-slate-300">NPSN</label><input name="npsn" defaultValue={formModal.editItem?.npsn} readOnly={formModal.isEdit} required className="w-full rounded-md border p-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white" /></div>
@@ -137,7 +163,7 @@ import { PasswordInput } from '../components/UI.jsx';
                 )}
                 <div className="flex justify-end space-x-2 pt-4">
                   <button type="button" onClick={() => setFormModal({ isOpen: false, type: '', isEdit: false, editItem: null })} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">Batal</button>
-                  <button type="submit" className="px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-primary to-secondary text-white hover:from-primary/90 hover:to-secondary/90 transition-all shadow-sm">Simpan</button>
+                  <button type="submit" disabled={isSubmitting} className="px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-primary to-secondary text-white hover:from-primary/90 hover:to-secondary/90 transition-all shadow-sm disabled:opacity-50">{isSubmitting ? 'Menyimpan...' : 'Simpan'}</button>
                 </div>
               </form>
             </div>
@@ -150,11 +176,19 @@ import { PasswordInput } from '../components/UI.jsx';
         return (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
             <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-sm shadow-2xl p-6 relative border border-slate-200 dark:border-slate-700">
-              <h3 className="text-lg font-bold mb-2 text-slate-800 dark:text-slate-100">Konfirmasi Hapus</h3>
-              <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">Apakah Anda yakin ingin menghapus {deleteConfirm.type} ini?</p>
+              <h3 className="text-lg font-bold mb-2 text-slate-800 dark:text-slate-100">
+                {deleteConfirm.type === 'reset_all' ? '⚠️ Konfirmasi Reset Data' : 'Konfirmasi Hapus'}
+              </h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
+                {deleteConfirm.type === 'reset_all'
+                  ? 'Tindakan ini akan MENGHAPUS PERMANEN seluruh data sistem (Sekolah, Admin, Guru, Siswa, Ujian). Lanjutkan?'
+                  : `Apakah Anda yakin ingin menghapus ${deleteConfirm.type} ini?`}
+              </p>
               <div className="flex justify-end space-x-2">
                 <button type="button" onClick={() => setDeleteConfirm({ isOpen: false, type: '', item: null })} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">Batal</button>
-                <button type="button" onClick={confirmDeleteAction} className="px-4 py-2 rounded-lg text-sm font-semibold bg-red-600 hover:bg-red-700 text-white transition-colors shadow-sm">Hapus</button>
+                <button type="button" onClick={confirmDeleteAction} className="px-4 py-2 rounded-lg text-sm font-semibold bg-red-600 hover:bg-red-700 text-white transition-colors shadow-sm">
+                  {deleteConfirm.type === 'reset_all' ? 'Reset Permanen' : 'Hapus'}
+                </button>
               </div>
             </div>
           </div>
@@ -255,25 +289,36 @@ import { PasswordInput } from '../components/UI.jsx';
                     <span className="text-sm font-medium text-primary bg-primary/10 px-2 py-1 rounded-lg">{dataSekolah.length} Sekolah</span>
                   </div>
                   <div className="space-y-3 pb-32">
-                    {dataSekolah.slice(0, visibleCount).map((s) => (
-                      <div key={s.npsn} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
-                          <span className="material-symbols-outlined text-slate-500 dark:text-slate-300">account_balance</span>
+                    {dataSekolah.slice(0, visibleCount).map((s) => {
+                      const isSuspended = String(s.status || 'ACTIVE').toUpperCase() === 'SUSPENDED';
+                      return (
+                        <div key={s.npsn} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
+                            <span className="material-symbols-outlined text-slate-500 dark:text-slate-300">account_balance</span>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-bold text-sm truncate">{s.nama_sekolah}</h4>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isSuspended ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'}`}>
+                                {isSuspended ? 'SUSPENDED' : 'ACTIVE'}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-500 truncate">NPSN: {s.npsn}</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <button onClick={() => handleToggleSekolahStatus(s)} title={isSuspended ? 'Aktifkan Sekolah' : 'Tangguhkan Sekolah'} className={`p-1 rounded-lg bg-slate-50 dark:bg-slate-700/50 ${isSuspended ? 'text-emerald-600 hover:text-emerald-700' : 'text-amber-500 hover:text-amber-600'}`}>
+                              <span className="material-symbols-outlined text-[18px]">{isSuspended ? 'check_circle' : 'pause_circle'}</span>
+                            </button>
+                            <button onClick={() => handleEdit('sekolah', s)} className="p-1 text-slate-400 hover:text-primary bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                              <span className="material-symbols-outlined text-[18px]">edit</span>
+                            </button>
+                            <button onClick={() => handleDelete('sekolah', s)} className="p-1 text-slate-400 hover:text-red-500 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                              <span className="material-symbols-outlined text-[18px]">delete</span>
+                            </button>
+                          </div>
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <h4 className="font-bold text-sm truncate">{s.nama_sekolah}</h4>
-                          <p className="text-xs text-slate-500 truncate">NPSN: {s.npsn}</p>
-                        </div>
-                        <div className="flex gap-2">
-                          <button onClick={() => handleEdit('sekolah', s)} className="p-1 text-slate-400 hover:text-primary bg-slate-50 dark:bg-slate-700/50 rounded-lg">
-                            <span className="material-symbols-outlined text-[18px]">edit</span>
-                          </button>
-                          <button onClick={() => handleDelete('sekolah', s)} className="p-1 text-slate-400 hover:text-red-500 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
-                            <span className="material-symbols-outlined text-[18px]">delete</span>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                     {dataSekolah.length > visibleCount && (
                       <button 
                         onClick={() => setVisibleCount(v => v + 10)} 
@@ -305,7 +350,7 @@ import { PasswordInput } from '../components/UI.jsx';
                         </div>
                         <div className="min-w-0 flex-1">
                           <h4 className="font-bold text-sm truncate">{a.nama_lengkap}</h4>
-                          <p className="text-xs text-slate-500 truncate">ID: {a.id_admin} | NPSN: {a.npsn}</p>
+                          <p className="text-xs text-slate-500 truncate">{a.username} | {a.sekolah?.nama_sekolah || '-'} ({a.npsn})</p>
                         </div>
                         <div className="flex gap-2">
                           <button onClick={() => handleEdit('admin', a)} className="p-1 text-slate-400 hover:text-primary bg-slate-50 dark:bg-slate-700/50 rounded-lg">
@@ -370,15 +415,18 @@ import { PasswordInput } from '../components/UI.jsx';
 
               {activeTab === 'log' && (
                 <div data-assistant-target="log" className="px-6 mt-6 animate-fade-in-up">
-                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg mb-4">System Logs</h3>
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">System Logs</h3>
+                    <button type="button" onClick={() => setActiveTab('akun')} className="text-xs font-bold text-primary hover:underline">Kembali</button>
+                  </div>
                   <div className="space-y-3 pb-32">
-                    {dataLog.slice(0, visibleCount).map((l) => (
-                      <div key={l.id_log} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700">
+                    {dataLog.slice(0, visibleCount).map((l, idx) => (
+                      <div key={l.id_audit || l.id_log || idx} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-700">
                          <div className="flex justify-between">
-                            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">{l.tipe_user}</span>
-                            <span className="text-[10px] text-slate-400">{new Date(l.created_at).toLocaleString('id-ID')}</span>
+                            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">{l.role || l.tipe_user || '-'} • {l.username || '-'}</span>
+                            <span className="text-[10px] text-slate-400">{l.created_at ? new Date(l.created_at).toLocaleString('id-ID') : '-'}</span>
                          </div>
-                         <p className="text-xs mt-1 text-slate-700 dark:text-slate-300">{l.aktivitas}</p>
+                         <p className="text-xs mt-1 text-slate-700 dark:text-slate-300">{l.aktivitas || `${l.action || '-'}${l.target ? ` (${l.target})` : ''}`}</p>
                       </div>
                     ))}
                     {dataLog.length === 0 && <div className="text-center text-sm text-slate-500">Tidak ada log.</div>}
@@ -454,29 +502,26 @@ import { PasswordInput } from '../components/UI.jsx';
                           <span className="material-symbols-outlined text-slate-400">lock</span> Ganti Password
                         </h4>
                         <div className="flex flex-col gap-2">
-                          <PasswordInput placeholder="Password Baru" className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-primary" id="new_superadmin_password" />
+                          <PasswordInput placeholder="Password Baru" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-primary" />
                           <button onClick={async () => {
-                            const pwd = document.getElementById('new_superadmin_password').value;
-                            if(!pwd) return showMessage('Info', 'Password tidak boleh kosong', 'info');
-                            const res = await fetchAPI('update_superadmin_password', { username: user.username, password: pwd });
+                            if(!newPassword.trim()) return showMessage('Info', 'Password tidak boleh kosong', 'info');
+                            const res = await fetchAPI('update_superadmin_password', { username: user.username, password: newPassword });
                             showMessage(res.status === 'success' ? 'Sukses' : 'Gagal', res.message, res.status);
-                            if(res.status === 'success') document.getElementById('new_superadmin_password').value = '';
+                            if(res.status === 'success') setNewPassword('');
                           }} className="w-full py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-white font-bold rounded-xl text-sm transition-colors mt-1">Simpan Password</button>
                         </div>
                       </div>
+
+                      <button type="button" onClick={() => setActiveTab('log')} className="w-full py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-sm transition-colors shadow-sm flex items-center justify-center gap-2">
+                        <span className="material-symbols-outlined">history</span> Lihat System Logs
+                      </button>
 
                       <div className="bg-red-50 dark:bg-red-900/10 p-4 rounded-2xl shadow-sm border border-red-100 dark:border-red-900/30">
                         <h4 className="font-bold text-sm mb-1 text-red-600 dark:text-red-400 flex items-center gap-2">
                           <span className="material-symbols-outlined">warning</span> Zona Bahaya
                         </h4>
                         <p className="text-[10px] text-red-500/80 mb-3">Tindakan ini akan menghapus permanen seluruh data (Sekolah, Admin, Guru, Siswa, Ujian).</p>
-                        <button onClick={() => {
-                          showMessage(
-                            '⚠️ Konfirmasi Reset Data',
-                            'Tindakan ini akan MENGHAPUS PERMANEN seluruh data sistem (Sekolah, Admin, Guru, Siswa, Ujian). Ketuk "Reset Semua Data" sekali lagi di bawah untuk mengkonfirmasi.',
-                            'error'
-                          );
-                        }} className="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-sm transition-colors shadow-sm">
+                        <button onClick={() => handleDelete('reset_all', null)} className="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-sm transition-colors shadow-sm">
                           Reset Semua Data
                         </button>
                       </div>

@@ -27,13 +27,36 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
+DECLARE
+    v_status VARCHAR;
+    v_is_blocked BOOLEAN;
+    v_nilai_auto NUMERIC;
+    v_effective_nilai NUMERIC;
 BEGIN
-    -- Step 1: Validasi keberadaan log ujian terlebih dahulu
-    IF NOT EXISTS (SELECT 1 FROM public.log_ujian WHERE id_log = p_id_log) THEN
+    -- Step 1: Validasi keberadaan log ujian dengan row lock agar aman dari double-submit konkuren
+    SELECT status_ujian, is_blocked, nilai_auto
+      INTO v_status, v_is_blocked, v_nilai_auto
+    FROM public.log_ujian
+    WHERE id_log = p_id_log
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
         RAISE EXCEPTION 'Log ujian dengan ID % tidak ditemukan.', p_id_log;
     END IF;
 
-    -- Step 2: Hapus jawaban sebelumnya untuk id_log ini (idempotent / clean retry)
+    -- Step 1b: Guard idempoten jika ujian sudah berstatus SELESAI agar jawaban lama tidak terhapus/tertimpa
+    IF v_status = 'SELESAI' THEN
+        RETURN jsonb_build_object(
+            'success', true,
+            'already_submitted', true,
+            'nilai_auto', CASE WHEN COALESCE(v_is_blocked, false) THEN 0 ELSE COALESCE(v_nilai_auto, 0) END,
+            'message', 'Ujian sudah disubmit sebelumnya'
+        );
+    END IF;
+
+    v_effective_nilai := CASE WHEN COALESCE(v_is_blocked, false) THEN 0 ELSE COALESCE(p_nilai_auto, 0) END;
+
+    -- Step 2: Hapus jawaban sebelumnya untuk id_log ini (clean retry saat SEDANG KERJA)
     DELETE FROM public.jawaban_siswa WHERE id_log = p_id_log;
 
     -- Step 3: Batch set-based insert jawaban baru secara atomik
@@ -61,7 +84,7 @@ BEGIN
     -- Step 4: Update status log ujian menjadi SELESAI beserta nilai otomatis
     UPDATE public.log_ujian
     SET status_ujian = p_status_ujian,
-        nilai_auto = COALESCE(p_nilai_auto, 0),
+        nilai_auto = v_effective_nilai,
         waktu_selesai = COALESCE(waktu_selesai, timezone('utc'::text, now()))
     WHERE id_log = p_id_log;
 

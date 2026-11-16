@@ -244,15 +244,26 @@ export function verifyNexaBundleChecksum(bundleObj) {
     return { valid: false, error: 'Bundle missing checksum' };
   }
 
-  const { checksum, ...rest } = bundleObj;
-  const canonicalPayload = JSON.stringify(rest);
+  const canonicalPayload = JSON.stringify({
+    magic: String(bundleObj.magic || ''),
+    version: String(bundleObj.version || ''),
+    id_log: String(bundleObj.id_log || ''),
+    id_jadwal: String(bundleObj.id_jadwal || ''),
+    id_siswa: String(bundleObj.id_siswa || ''),
+    nisn: String(bundleObj.nisn || ''),
+    nama_siswa: String(bundleObj.nama_siswa || ''),
+    npsn: String(bundleObj.npsn || ''),
+    pelanggaran: Number(bundleObj.pelanggaran) || 0,
+    timestamp: String(bundleObj.timestamp || ''),
+    jawaban: bundleObj.jawaban ?? {}
+  });
   const expectedChecksum = sha256Hex(canonicalPayload);
 
-  const matches = String(checksum).toLowerCase() === String(expectedChecksum).toLowerCase();
+  const matches = String(bundleObj.checksum).toLowerCase() === String(expectedChecksum).toLowerCase();
   return {
     valid: matches,
     expectedChecksum,
-    actualChecksum: checksum,
+    actualChecksum: bundleObj.checksum,
     error: matches ? null : 'Checksum mismatch: bundle has been tampered with or corrupted'
   };
 }
@@ -275,7 +286,20 @@ export function downloadNexaBundle(bundleObj, filename = null) {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/**
+ * Deterministic 32-bit FNV-1a string hash for per-student question/option seeding
+ */
+export function hashSeed(str) {
+  const input = String(str ?? '');
+  let h = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
 }
 
 /**
@@ -288,6 +312,8 @@ export function normalizeTipeSoal(rawTipe) {
   if (t === 'BENAR_SALAH' || t === 'BENAR SALAH') return 'BS';
   return t;
 }
+
+const normalizeIsianText = (val) => String(val || '').trim().replace(/\s+/g, ' ').toLowerCase();
 
 export function evaluateAKMQuestion(soal, studentAnswer) {
   const tipe = normalizeTipeSoal(soal.tipe_soal);
@@ -305,12 +331,20 @@ export function evaluateAKMQuestion(soal, studentAnswer) {
     isCorrect = ans !== '' && ans === key;
   } else if (tipe === 'PGK') {
     let kunciArr = [];
-    try {
-      kunciArr = Array.isArray(soal.kunci_jawaban)
-        ? soal.kunci_jawaban
-        : JSON.parse(soal.kunci_jawaban || '[]');
-    } catch {
-      kunciArr = String(soal.kunci_jawaban || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (Array.isArray(soal.kunci_jawaban)) {
+      kunciArr = soal.kunci_jawaban;
+    } else {
+      const rawKunci = String(soal.kunci_jawaban || '').trim();
+      if (rawKunci.startsWith('[')) {
+        try {
+          const parsed = JSON.parse(rawKunci);
+          kunciArr = Array.isArray(parsed) ? parsed : [];
+        } catch {
+          kunciArr = rawKunci.split(',').map(s => s.trim()).filter(Boolean);
+        }
+      } else {
+        kunciArr = rawKunci.split(',').map(s => s.trim()).filter(Boolean);
+      }
     }
     const cleanKunci = kunciArr.map(k => String(k).trim().toLowerCase()).sort();
     const ansArr = Array.isArray(studentAnswer)
@@ -345,9 +379,10 @@ export function evaluateAKMQuestion(soal, studentAnswer) {
       isCorrect = allMatch;
     }
   } else if (tipe === 'ISIAN') {
-    const key = String(soal.kunci_jawaban || '').trim().toLowerCase();
-    const ans = String(studentAnswer || '').trim().toLowerCase();
-    isCorrect = ans !== '' && ans === key;
+    const rawKey = String(soal.kunci_jawaban || '');
+    const validKeys = rawKey.split(/\s*[|/]\s*/).map(normalizeIsianText).filter(Boolean);
+    const ans = normalizeIsianText(studentAnswer);
+    isCorrect = ans !== '' && validKeys.includes(ans);
   }
 
   if (isCorrect) {
@@ -357,37 +392,43 @@ export function evaluateAKMQuestion(soal, studentAnswer) {
   return { isCorrect, skorDiperoleh, maxSkor: bobot, isEssay: false };
 }
 
+const METADATA_TIPE_SOAL = new Set(['NARASI', 'SKEMA_PENILAIAN', 'SKEMA_DEFAULT', 'MAPEL_ALLOC']);
+
 /**
- * Calculates exam objective score across question array
+ * Computes objective and total weighted scores supporting SKEMA_PENILAIAN weights
+ * normalized across the question types present in the exam.
  */
-export function calculateExamScore(questions, answersMap, isBlocked = false) {
+export function computeWeightedExamScores(questions, answersMap, isBlocked = false, skemaConfig = null, existingUraianScore = 0) {
+  const validQuestions = (questions || []).filter(q => q && !METADATA_TIPE_SOAL.has(q.tipe_soal));
   if (isBlocked) {
     return {
       nilaiAuto: 0,
+      nilaiAutoMax: 0,
+      nilaiUraianScaled: 0,
+      totalNilai: 0,
       totalDiperoleh: 0,
       totalMaxAuto: 0,
-      details: (questions || []).map(q => ({ id_soal: q.id_soal, isCorrect: false, skorDiperoleh: 0 }))
+      details: validQuestions.map(q => ({ id_soal: q.id_soal, isCorrect: false, skorDiperoleh: 0, isEssay: normalizeTipeSoal(q.tipe_soal) === 'URAIAN' }))
     };
   }
 
   let totalSkorMaxAuto = 0;
   let totalSkorDiperolehAuto = 0;
+  const byType = {};
   const details = [];
 
-  for (const q of (questions || [])) {
-    if (
-      q.tipe_soal === 'NARASI' ||
-      q.tipe_soal === 'SKEMA_PENILAIAN' ||
-      q.tipe_soal === 'SKEMA_DEFAULT' ||
-      q.tipe_soal === 'MAPEL_ALLOC'
-    ) {
-      continue;
-    }
+  for (const q of validQuestions) {
+    const tipe = normalizeTipeSoal(q.tipe_soal);
+    if (!byType[tipe]) byType[tipe] = { earned: 0, max: 0 };
     const studentAns = (answersMap || {})[q.id_soal];
     const res = evaluateAKMQuestion(q, studentAns);
     if (!res.isEssay) {
       totalSkorMaxAuto += res.maxSkor;
       totalSkorDiperolehAuto += res.skorDiperoleh;
+      byType[tipe].earned += res.skorDiperoleh;
+      byType[tipe].max += res.maxSkor;
+    } else {
+      byType[tipe].max += Number(q.bobot) || 10;
     }
     details.push({
       id_soal: q.id_soal,
@@ -397,16 +438,64 @@ export function calculateExamScore(questions, answersMap, isBlocked = false) {
     });
   }
 
+  const skemaWeights = skemaConfig?.skema && typeof skemaConfig.skema === 'object' ? skemaConfig.skema : null;
+  const presentTypes = Object.keys(byType);
+  const activeWeightSum = skemaWeights
+    ? presentTypes.reduce((sum, t) => sum + Math.max(0, Number(skemaWeights[t]) || 0), 0)
+    : 0;
+
   let nilaiAuto = 0;
-  if (totalSkorMaxAuto > 0) {
+  let nilaiAutoMax = 100;
+  let nilaiUraianScaled = Number(existingUraianScore) || 0;
+
+  if (skemaWeights && activeWeightSum > 0) {
+    let weightedAuto = 0;
+    let weightedAutoMax = 0;
+    for (const t of presentTypes) {
+      if (t === 'URAIAN') continue;
+      const share = (Math.max(0, Number(skemaWeights[t]) || 0) / activeWeightSum) * 100;
+      weightedAutoMax += share;
+      if (byType[t].max > 0) {
+        weightedAuto += (byType[t].earned / byType[t].max) * share;
+      }
+    }
+    nilaiAuto = Math.round(weightedAuto * 100) / 100;
+    nilaiAutoMax = Math.round(weightedAutoMax * 100) / 100;
+
+    if (byType.URAIAN && byType.URAIAN.max > 0) {
+      const uraianShare = (Math.max(0, Number(skemaWeights.URAIAN) || 0) / activeWeightSum) * 100;
+      const rawUraian = Math.max(0, Number(existingUraianScore) || 0);
+      nilaiUraianScaled = Math.min(uraianShare, Math.round(((rawUraian / byType.URAIAN.max) * uraianShare) * 100) / 100);
+    } else {
+      nilaiUraianScaled = 0;
+    }
+  } else if (totalSkorMaxAuto > 0) {
     nilaiAuto = Math.round((totalSkorDiperolehAuto / totalSkorMaxAuto) * 10000) / 100;
   }
 
+  const totalNilai = Math.min(100, Math.round((nilaiAuto + nilaiUraianScaled) * 100) / 100);
+
   return {
     nilaiAuto,
+    nilaiAutoMax,
+    nilaiUraianScaled,
+    totalNilai,
     totalDiperoleh: totalSkorDiperolehAuto,
     totalMaxAuto: totalSkorMaxAuto,
     details
+  };
+}
+
+/**
+ * Calculates exam objective score across question array
+ */
+export function calculateExamScore(questions, answersMap, isBlocked = false, skemaConfig = null) {
+  const res = computeWeightedExamScores(questions, answersMap, isBlocked, skemaConfig, 0);
+  return {
+    nilaiAuto: res.nilaiAuto,
+    totalDiperoleh: res.totalDiperoleh,
+    totalMaxAuto: res.totalMaxAuto,
+    details: res.details
   };
 }
 
@@ -423,7 +512,7 @@ export function generateRandomToken(length = 6) {
 }
 
 /**
- * Clones schedule parameters with a new random token
+ * Clones schedule parameters strictly onto valid public.jadwal columns with a new random token
  */
 export function cloneExamSchedule(sourceSchedule, targetKelas, customToken = null) {
   if (!targetKelas || String(targetKelas).trim() === '') {
@@ -436,20 +525,14 @@ export function cloneExamSchedule(sourceSchedule, targetKelas, customToken = nul
     id_jadwal: `SCH-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
     npsn: sourceSchedule.npsn,
     id_mapel: sourceSchedule.id_mapel,
-    nama_mapel: sourceSchedule.nama_mapel,
-    target_kelas: targetKelas.trim(),
-    durasi: sourceSchedule.durasi,
-    guru: sourceSchedule.guru,
     id_guru: sourceSchedule.id_guru,
+    target_kelas: targetKelas.trim(),
+    durasi_menit: Number(sourceSchedule.durasi_menit ?? sourceSchedule.durasi ?? 90) || 90,
     acak_soal: sourceSchedule.acak_soal ?? true,
     acak_opsi: sourceSchedule.acak_opsi ?? true,
     browser_lockdown: sourceSchedule.browser_lockdown ?? true,
-    token_ujian: newToken,
     token_aktif: newToken,
-    status_ujian: 'BELUM MULAI',
     waktu_mulai: sourceSchedule.waktu_mulai || new Date().toISOString(),
-    waktu_selesai: sourceSchedule.waktu_selesai || null,
-    is_cloned: true,
-    source_jadwal_id: sourceSchedule.id_jadwal
+    waktu_selesai: sourceSchedule.waktu_selesai || null
   };
 }

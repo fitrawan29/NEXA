@@ -13,6 +13,7 @@ export const THEME_COLORS = {
   white: '#ffffff',      // Pure White (GuruView, AdminView, ExamRoom light headers)
   guru: '#f59e0b',       // Brand Amber (Guru login header)
   admin: '#3b82f6',      // Brand Blue (Admin login header)
+  super_admin: '#8b5cf6',// Brand Purple (Super Admin header)
 };
 
 /**
@@ -44,6 +45,7 @@ export function getStatusBarColor(state = {}) {
   if (!isLoggedIn) {
     if (role === 'guru') return THEME_COLORS.guru;
     if (role === 'admin') return THEME_COLORS.admin;
+    if (role === 'super_admin') return THEME_COLORS.super_admin;
     return THEME_COLORS.emerald;
   }
 

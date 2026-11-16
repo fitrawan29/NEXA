@@ -20,11 +20,12 @@ import {
   PasswordInput
 } from '../components/UI.jsx';
 import { compressImageFile } from '../utils/imageHelper.js';
+import { normalizeTipeSoal } from '../utils/nexaBundle.js';
 
 const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIsDarkMode }) => {
   const api = (action, p = {}) => {
-    if (Array.isArray(p)) return fetchAPI(action, p.map(item => ({ ...item, npsn: user.npsn })));
-    return fetchAPI(action, { ...p, npsn: user.npsn });
+    if (Array.isArray(p)) return fetchAPI(action, p.map(item => ({ ...item, npsn: user?.npsn })));
+    return fetchAPI(action, { ...p, npsn: user?.npsn });
   };
 
   const logActivity = async (action, target) => {
@@ -61,9 +62,9 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
   const [isLoading, setIsLoading] = useState(false);
 
   // Avatar & Profile
-  const [fotoProfil, setFotoProfil] = useState(user.foto || user.foto_profil || '');
+  const [fotoProfil, setFotoProfil] = useState(user?.foto || user?.foto_profil || '');
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
-  const [profileForm, setProfileForm] = useState({ password: '', foto: user.foto || user.foto_profil || '' });
+  const [profileForm, setProfileForm] = useState({ password: '', foto: user?.foto || user?.foto_profil || '' });
   const [profileLoading, setProfileLoading] = useState(false);
 
   const handleAvatarSelect = async (avatarUrl) => {
@@ -72,8 +73,8 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
     setIsLoading(false);
     if (res.status === 'success') {
       setFotoProfil(avatarUrl);
+      setProfileForm(prev => ({ ...prev, foto: avatarUrl }));
       if (onUpdateUser) onUpdateUser({ foto: avatarUrl, foto_profil: avatarUrl });
-      else { user.foto = avatarUrl; user.foto_profil = avatarUrl; }
       setIsAvatarModalOpen(false);
       showMessage('Berhasil', 'Foto profil guru berhasil diperbarui.', 'success');
       logActivity('UPDATE AVATAR', 'Memperbarui foto profil akun guru');
@@ -97,6 +98,8 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
     if (res.status === 'success') {
       showMessage('Berhasil', 'Profil berhasil diperbarui!', 'success');
       if (payload.foto) setFotoProfil(payload.foto);
+      if (payload.password) setProfileForm(prev => ({ ...prev, password: '' }));
+      if (onUpdateUser && payload.foto) onUpdateUser({ foto: payload.foto, foto_profil: payload.foto });
       logActivity('UPDATE PROFIL', 'Memperbarui informasi profil guru');
     } else {
       showMessage('Info', res.message, 'info');
@@ -112,13 +115,13 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
   // Question Bank Filters & Pagination
   const [searchQuerySoal, setSearchQuerySoal] = useState('');
   const [filterTipeSoal, setFilterTipeSoal] = useState('ALL');
-  const [filterKDSoal, setFilterKDSoal] = useState('ALL');
   const [bankSoalPage, setBankSoalPage] = useState(1);
   const itemsPerPage = 12;
 
   // Modals State
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [skemaModal, setSkemaModal] = useState({ isOpen: false, id_mapel: null });
+  const [schoolDefaultScheme, setSchoolDefaultScheme] = useState(null);
   const [formSoal, setFormSoal] = useState({ isOpen: false, data: null, id_mapel: '' });
   const [formNarasi, setFormNarasi] = useState({ isOpen: false, data: null });
   const [modalUraian, setModalUraian] = useState({ isOpen: false, logUjian: null, jawabanUraian: [] });
@@ -135,84 +138,87 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
 
   const fileInputRef = useRef(null);
   const wordInputRef = useRef(null);
-  const guruId = user.id_guru || user.id_user;
+  const guruId = user?.id_guru || user?.id_user;
+  const fetchReqIdRef = useRef(0);
 
   // =========================================================================
   // Data Fetching
   // =========================================================================
   const fetchData = async () => {
+    if (!user?.npsn || !guruId) return;
+    const reqId = ++fetchReqIdRef.current;
     setIsLoading(true);
     try {
       const resKelas = await api('get_kelas', {});
+      if (reqId !== fetchReqIdRef.current) return;
       if (resKelas.status === 'success') setDataKelas(resKelas.data || []);
 
       if (activeTab === 'dashboard' || activeTab === 'akun' || activeTab === 'hasil') {
         const resMapel = await api('get_mapel_guru', { id_guru: guruId });
+        if (reqId !== fetchReqIdRef.current) return;
         if (resMapel.status === 'success') setDataMapel(resMapel.data || []);
         const resJadwal = await api('get_jadwal_pengawas', { id_guru: guruId });
+        if (reqId !== fetchReqIdRef.current) return;
         if (resJadwal.status === 'success') setDataJadwal(resJadwal.data || []);
       } else if (activeTab === 'bank_soal') {
         const [res, resJadwal] = await Promise.all([
           api('get_mapel_guru', { id_guru: guruId }),
           api('get_jadwal_pengawas', { id_guru: guruId })
         ]);
+        if (reqId !== fetchReqIdRef.current) return;
         if (res.status === 'success') setDataMapel(res.data || []);
         if (resJadwal.status === 'success') setDataJadwal(resJadwal.data || []);
 
         if (selectedMapel) {
           const soalRes = await api('get_soal_by_mapel', { id_mapel: selectedMapel });
+          if (reqId !== fetchReqIdRef.current) return;
           if (soalRes.status === 'success') setDataSoal(soalRes.data || []);
         }
       }
     } catch (e) {
       console.error('fetchData error:', e);
     }
-    setIsLoading(false);
+    if (reqId === fetchReqIdRef.current) setIsLoading(false);
   };
 
   useEffect(() => {
     fetchData();
+    const interval = setInterval(() => {
+      api('get_jadwal_pengawas', { id_guru: guruId }).then(resJadwal => {
+        if (resJadwal.status === 'success') setDataJadwal(resJadwal.data || []);
+      }).catch(() => {});
+    }, 60000);
+    return () => clearInterval(interval);
   }, [activeTab, selectedMapel]);
 
   useEffect(() => {
     if (user?.npsn) {
-      get_default_skema_sekolah(user.npsn).catch(() => {});
+      get_default_skema_sekolah(user.npsn).then(res => {
+        if (res) setSchoolDefaultScheme(res);
+      }).catch(() => {});
     }
   }, [user?.npsn]);
 
   useEffect(() => {
-    if (window.MathJax) {
-      setTimeout(() => {
-        window.MathJax.typesetPromise().catch(err => console.error('MathJax error:', err));
+    if (window.MathJax?.typesetPromise) {
+      const timer = setTimeout(() => {
+        window.MathJax?.typesetPromise?.().catch(err => console.error('MathJax error:', err));
       }, 100);
+      return () => clearTimeout(timer);
     }
-  }, [dataSoal, activeTab, bankSoalPage, selectedMapel, modalUraian.isOpen, formSoal.isOpen, isAnalisisModalOpen]);
+  }, [dataSoal, activeTab, bankSoalPage, selectedMapel, modalUraian.isOpen, formSoal.isOpen, isAnalisisModalOpen, isPreviewOpen]);
 
   // =========================================================================
   // Question Bank Helpers & Memoized Filtering
   // =========================================================================
-  const availableKDList = useMemo(() => {
-    const kds = dataSoal
-      .filter(s => s.tipe_soal !== 'SKEMA_PENILAIAN')
-      .map(s => (s.kd || s.kompetensi_dasar || '').toString().trim())
-      .filter(Boolean);
-    return Array.from(new Set(kds)).sort();
-  }, [dataSoal]);
-
   const filteredSoal = useMemo(() => {
     return dataSoal.filter(s => {
-      if (s.tipe_soal === 'SKEMA_PENILAIAN') return false;
+      if (s.tipe_soal === 'SKEMA_PENILAIAN' || s.tipe_soal === 'SKEMA_DEFAULT' || s.tipe_soal === 'MAPEL_ALLOC') return false;
 
       // Filter Tipe Soal (PG, PGK, JODOH, URAIAN, SEMUA)
       if (filterTipeSoal && filterTipeSoal !== 'ALL' && filterTipeSoal !== 'SEMUA') {
         const t = (s.tipe_soal || s.tipe || '').toUpperCase();
         if (t !== filterTipeSoal.toUpperCase()) return false;
-      }
-
-      // Filter KD
-      if (filterKDSoal && filterKDSoal !== 'ALL' && filterKDSoal !== 'SEMUA') {
-        const kdVal = (s.kd || s.kompetensi_dasar || '').toString().trim();
-        if (kdVal !== filterKDSoal.trim()) return false;
       }
 
       // Text search in questions
@@ -225,7 +231,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
 
       return true;
     });
-  }, [dataSoal, filterTipeSoal, filterKDSoal, searchQuerySoal]);
+  }, [dataSoal, filterTipeSoal, searchQuerySoal]);
 
   // Paginated Question Bank
   const totalSoalPages = Math.ceil(filteredSoal.length / itemsPerPage) || 1;
@@ -290,7 +296,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
     const petunjukData = [
       { Kolom: 'tipe_soal',     Keterangan: 'Wajib. Isi dengan: PG, PGK, BS, JODOH, ISIAN, atau URAIAN' },
       { Kolom: 'pertanyaan',    Keterangan: 'Wajib. Teks pertanyaan soal.' },
-      { Kolom: 'opsi_A ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“ E',   Keterangan: 'Untuk PG/PGK: teks pilihan. Untuk JODOH: format "Premis = Respon".' },
+      { Kolom: 'opsi_A - E',   Keterangan: 'Untuk PG/PGK: teks pilihan. Untuk JODOH: format "Premis = Respon".' },
       { Kolom: 'kunci_jawaban', Keterangan: 'PG: huruf A/B/C/D/E. PGK: pisah koma (A,B). BS: Benar/Salah. JODOH: "P=R, P2=R2". ISIAN/URAIAN: teks kunci.' },
       { Kolom: 'bobot',         Keterangan: 'Angka bobot soal (default 10 jika kosong).' },
       { Kolom: 'kd',            Keterangan: 'Kode Dasar / KD, contoh: 3.1 (opsional).' },
@@ -417,8 +423,17 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
   const handleImportExcel = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    e.target.value = '';
+    if (isSelectedMapelActive) {
+      showMessage('Soal Terkunci', 'Tidak dapat mengimpor soal karena jadwal ujian mapel ini sedang AKTIF berlangsung.', 'error');
+      return;
+    }
 
     const reader = new FileReader();
+    reader.onerror = () => {
+      setIsLoading(false);
+      showMessage('Gagal', 'Gagal membaca file Excel.', 'error');
+    };
     reader.onload = async (evt) => {
       try {
         const bstr = evt.target.result;
@@ -427,13 +442,14 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
         const ws = wb.Sheets[wsName];
         const rawData = XLSX.utils.sheet_to_json(ws);
 
-        if (!rawData || rawData.length === 0) {
+        const validRows = (rawData || []).map(normalizeExcelRow).filter(r => r && (String(r.pertanyaan || '').trim() !== '' || String(r.tipe_soal || '').trim() !== ''));
+        if (validRows.length === 0) {
           showMessage('Peringatan', 'File Excel kosong atau format tidak sesuai.', 'error');
           return;
         }
 
-        const payloadData = rawData.map((rawRow, idx) => {
-          const row = normalizeExcelRow(rawRow);
+        const payloadData = validRows.map((row, idx) => {
+          const tipe = normalizeTipeSoal(row.tipe_soal || 'PG');
           let finalKunci = row.kunci_jawaban ? String(row.kunci_jawaban).trim() : '';
           let opsiStr = null;
           let finalPertanyaan = row.pertanyaan || '';
@@ -442,10 +458,10 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
             finalPertanyaan = `<strong>Narasi Soal:</strong><br/>${row.narasi_soal}<br/><br/>${finalPertanyaan}`;
           }
 
-          if (row.tipe_soal === 'PG') {
+          if (tipe === 'PG') {
             const map = { A: row.opsi_A, B: row.opsi_B, C: row.opsi_C, D: row.opsi_D, E: row.opsi_E };
             finalKunci = map[finalKunci.toUpperCase()] || finalKunci;
-          } else if (row.tipe_soal === 'PGK') {
+          } else if (tipe === 'PGK') {
             try {
               const keys = finalKunci.split(',').map(k => k.trim());
               const mappedKeys = keys.map(k => {
@@ -461,7 +477,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
             } catch (_) {}
           }
 
-          if (row.tipe_soal === 'PG' || row.tipe_soal === 'PGK') {
+          if (tipe === 'PG' || tipe === 'PGK') {
             opsiStr = JSON.stringify([
               row.opsi_A || '',
               row.opsi_B || '',
@@ -469,7 +485,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
               row.opsi_D || '',
               row.opsi_E || ''
             ]);
-          } else if (row.tipe_soal === 'JODOH') {
+          } else if (tipe === 'JODOH') {
             let premis = [];
             let respon = [];
             let kunci = {};
@@ -481,18 +497,22 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                 const r = parts[1].trim();
                 if (p && !premis.includes(p)) premis.push(p);
                 if (r && !respon.includes(r)) respon.push(r);
+                if (p && r && !kunci[p]) kunci[p] = r;
               }
             };
             parseJodoh(row.opsi_A); parseJodoh(row.opsi_B); parseJodoh(row.opsi_C); parseJodoh(row.opsi_D); parseJodoh(row.opsi_E);
             opsiStr = JSON.stringify({ premis, respon });
 
             if (finalKunci) {
+              const explicitKunci = {};
               String(finalKunci).split(',').forEach(pair => {
                 const parts = pair.split('=');
                 if (parts.length === 2) {
-                  kunci[parts[0].trim()] = parts[1].trim();
+                  explicitKunci[parts[0].trim()] = parts[1].trim();
                 }
               });
+              finalKunci = JSON.stringify(Object.keys(explicitKunci).length > 0 ? explicitKunci : kunci);
+            } else {
               finalKunci = JSON.stringify(kunci);
             }
           }
@@ -503,12 +523,11 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
             id_soal: uniqueId,
             id_mapel: selectedMapel,
             npsn: user.npsn,
-            tipe_soal: row.tipe_soal || 'PG',
+            tipe_soal: tipe,
             pertanyaan: finalPertanyaan,
             opsi: opsiStr,
             kunci_jawaban: finalKunci ? String(finalKunci) : '',
-            bobot: row.bobot || 10,
-            kd: row.kd || ''
+            bobot: Number(row.bobot) || 10
           };
         });
 
@@ -527,7 +546,6 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
         setIsLoading(false);
         showMessage('Gagal', 'Gagal memproses file: ' + err.message, 'error');
       }
-      e.target.value = '';
     };
     reader.readAsBinaryString(file);
   };
@@ -550,6 +568,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
           }
         }
         soalList.push({ ...current, narasi_soal: currentNarasi || current.narasi_soal || '' });
+        currentNarasi = '';
       }
     };
 
@@ -568,8 +587,8 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
       // 2. Tag TIPE SOAL
       if (/^(TIPE|JENIS)(\s*SOAL)?\s*[:=]/i.test(line)) {
         finalize();
-        const t = line.replace(/^(TIPE|JENIS)(\s*SOAL)?\s*[:=]\s*/i, '').trim().toUpperCase();
-        current = { tipe_soal: t, opsi_A: '', opsi_B: '', opsi_C: '', opsi_D: '', opsi_E: '', kunci_jawaban: '', bobot: 10, kd: '' };
+        const t = normalizeTipeSoal(line.replace(/^(TIPE|JENIS)(\s*SOAL)?\s*[:=]\s*/i, '').trim().toUpperCase());
+        current = { tipe_soal: t, opsi_A: '', opsi_B: '', opsi_C: '', opsi_D: '', opsi_E: '', kunci_jawaban: '', bobot: 10 };
         continue;
       }
 
@@ -583,7 +602,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
           current = null;
         }
         if (!current) {
-          current = { tipe_soal: '', opsi_A: '', opsi_B: '', opsi_C: '', opsi_D: '', opsi_E: '', kunci_jawaban: '', bobot: 10, kd: '' };
+          current = { tipe_soal: '', opsi_A: '', opsi_B: '', opsi_C: '', opsi_D: '', opsi_E: '', kunci_jawaban: '', bobot: 10 };
         }
         current.pertanyaan = (soalTagMatch ? soalTagMatch[1] : soalNumMatch[2]).trim();
         continue;
@@ -591,7 +610,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
 
       // 4. Opsi A, B, C, D, E
       const opsiMatch = line.match(/^(\[)?([A-Ea-e])(\])?[\.\)\:\-]?\s+(.+)/);
-      if (opsiMatch && current && current.pertanyaan) {
+      if (opsiMatch && current && current.pertanyaan && !current.kunci_jawaban) {
         const letter = opsiMatch[2].toUpperCase();
         const key = `opsi_${letter}`;
         current[key] = opsiMatch[4].trim();
@@ -609,22 +628,14 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
       // 6. Bobot / Skor
       if (/^(BOBOT|SKOR|NILAI|POIN)\s*[:=]/i.test(line)) {
         if (current) {
-          const val = parseInt(line.replace(/^(BOBOT|SKOR|NILAI|POIN)\s*[:=]\s*/i, '').trim());
+          const val = parseInt(line.replace(/^(BOBOT|SKOR|NILAI|POIN)\s*[:=]\s*/i, '').trim(), 10);
           if (!isNaN(val)) current.bobot = val;
         }
         continue;
       }
 
-      // 7. KD
-      if (/^(KD|KOMPETENSI\s*DASAR)\s*[:=]/i.test(line)) {
-        if (current) {
-          current.kd = line.replace(/^(KD|KOMPETENSI\s*DASAR)\s*[:=]\s*/i, '').trim();
-        }
-        continue;
-      }
-
-      // 8. Baris kelanjutan pertanyaan
-      if (current && current.pertanyaan && !current.opsi_A) {
+      // 7. Baris kelanjutan pertanyaan (abaikan jika kunci jawaban sudah ditentukan untuk non-PG)
+      if (current && current.pertanyaan && !current.opsi_A && !current.kunci_jawaban) {
         current.pertanyaan += ' ' + line;
       }
     }
@@ -636,10 +647,19 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
     const file = e.target.files[0];
     if (!file) return;
     e.target.value = '';
+    if (isSelectedMapelActive) {
+      showMessage('Soal Terkunci', 'Tidak dapat mengimpor soal karena jadwal ujian mapel ini sedang AKTIF berlangsung.', 'error');
+      return;
+    }
+    const lowerName = file.name.toLowerCase();
+    if (lowerName.endsWith('.doc') && !lowerName.endsWith('.docx')) {
+      showMessage('Format Tidak Didukung', 'Format binary .doc lama tidak didukung. Silakan simpan ulang dokumen sebagai .docx atau .txt.', 'error');
+      return;
+    }
     try {
       setIsLoading(true);
       let text = '';
-      if (file.name.toLowerCase().endsWith('.docx')) {
+      if (lowerName.endsWith('.docx')) {
         const arrayBuffer = await file.arrayBuffer();
         const result = await mammoth.extractRawText({ arrayBuffer });
         text = result.value;
@@ -655,6 +675,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
       }
 
       const payloadData = rawSoal.map((row, idx) => {
+        const tipe = normalizeTipeSoal(row.tipe_soal || 'PG');
         let finalKunci = row.kunci_jawaban ? String(row.kunci_jawaban).trim() : '';
         let opsiStr = null;
         let finalPertanyaan = row.pertanyaan || '';
@@ -662,15 +683,15 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
           finalPertanyaan = `<strong>Narasi Soal:</strong><br/>${row.narasi_soal}<br/><br/>${finalPertanyaan}`;
         }
 
-        if (row.tipe_soal === 'PG') {
+        if (tipe === 'PG') {
           const map = { A: row.opsi_A, B: row.opsi_B, C: row.opsi_C, D: row.opsi_D, E: row.opsi_E };
           finalKunci = map[finalKunci.toUpperCase()] || finalKunci;
-        } else if (row.tipe_soal === 'PGK') {
+        } else if (tipe === 'PGK') {
           try {
             const mapped = finalKunci.split(',').map(k => ({ A: row.opsi_A, B: row.opsi_B, C: row.opsi_C, D: row.opsi_D, E: row.opsi_E }[k.trim().toUpperCase()] || k.trim()));
             finalKunci = JSON.stringify(mapped);
           } catch (_) {}
-        } else if (row.tipe_soal === 'JODOH') {
+        } else if (tipe === 'JODOH') {
           const premis = [], respon = [];
           ['opsi_A','opsi_B','opsi_C','opsi_D','opsi_E'].forEach(k => {
             if (!row[k]) return;
@@ -689,7 +710,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
           }
         }
 
-        if ((row.tipe_soal === 'PG' || row.tipe_soal === 'PGK') && !opsiStr) {
+        if ((tipe === 'PG' || tipe === 'PGK') && !opsiStr) {
           opsiStr = JSON.stringify([row.opsi_A || '', row.opsi_B || '', row.opsi_C || '', row.opsi_D || '', row.opsi_E || '']);
         }
 
@@ -697,12 +718,11 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
           id_soal: `SOAL-${selectedMapel}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2,6).toUpperCase()}-${idx}`,
           id_mapel: selectedMapel,
           npsn: user.npsn,
-          tipe_soal: row.tipe_soal || 'PG',
+          tipe_soal: tipe,
           pertanyaan: finalPertanyaan,
           opsi: opsiStr,
           kunci_jawaban: finalKunci ? String(finalKunci) : '',
-          bobot: row.bobot || 10,
-          kd: row.kd || ''
+          bobot: Number(row.bobot) || 10
         };
       });
 
@@ -744,8 +764,10 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
       const mapelNama = dataMapel.find(m => m.id_mapel === payload.id_mapel)?.nama_mapel || payload.id_mapel;
       logActivity(actName, `${actName} (${payload.tipe_soal}) pada mapel ${mapelNama}`);
       fetchData();
+      return true;
     } else {
       showMessage('Gagal', 'Gagal menyimpan soal: ' + res.message, 'error');
+      return false;
     }
   };
 
@@ -848,7 +870,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
     }
     setSelectedHasilJadwal(jadwal);
     setIsLoading(true);
-    const res = await api('monitoring_ujian', { id_jadwal: jadwal.id_jadwal });
+    const res = await api('get_hasil_ujian', { id_jadwal: jadwal.id_jadwal, id_guru: guruId });
     setIsLoading(false);
     if (res.status === 'success') {
       setDataHasilSiswa(res.data || []);
@@ -865,7 +887,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
       return;
     }
     setIsLoading(true);
-    const res = await api('get_analisis_butir_soal', { id_jadwal: idJadwal, id_mapel: idMapel });
+    const res = await api('get_analisis_soal', { id_jadwal: idJadwal, id_mapel: idMapel });
     setIsLoading(false);
     if (res.status === 'success') {
       setDataAnalisis(res.data || []);
@@ -899,24 +921,29 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
     if (res.status === 'success') {
       logActivity('NILAI URAIAN', `Memberikan nilai uraian siswa pada sesi ${currentIdLog} skor ${totalNilai}`);
 
-      let updatedList = [];
-      setDataHasilSiswa(prev => {
-        updatedList = prev.map(s => {
-          if (s.id_log === currentIdLog) {
-            const pg = Number(s.nilai_auto) || 0;
-            return {
-              ...s,
-              nilai_uraian: totalNilai,
-              total_nilai: Math.min(100, Math.round((pg + totalNilai) * 100) / 100)
-            };
-          }
-          return s;
-        });
-        return updatedList;
+      let updatedList = (dataHasilSiswa || []).map(s => {
+        if (s.id_log === currentIdLog) {
+          const pg = Number(s.nilai_auto) || 0;
+          return {
+            ...s,
+            nilai_uraian: totalNilai,
+            total_nilai: s.is_blocked ? 0 : Math.min(100, Math.round((pg + totalNilai) * 100) / 100)
+          };
+        }
+        return s;
       });
+
+      if (selectedHasilJadwal?.id_jadwal) {
+        const refreshRes = await api('get_hasil_ujian', { id_jadwal: selectedHasilJadwal.id_jadwal, id_guru: guruId });
+        if (refreshRes.status === 'success' && Array.isArray(refreshRes.data)) {
+          updatedList = refreshRes.data;
+        }
+      }
+      setDataHasilSiswa(updatedList);
 
       if (isNext) {
         const nextStudent = updatedList.find(s =>
+          !s.is_blocked &&
           (s.status_ujian === 'SELESAI' || Number(s.total_dijawab) > 0) &&
           s.id_log !== currentIdLog &&
           (s.nilai_uraian === null || s.nilai_uraian === undefined)
@@ -1020,13 +1047,16 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
   // =========================================================================
   const renderPreviewModal = () => {
     if (!isPreviewOpen) return null;
+    const narasiMap = {};
+    dataSoal.filter(s => s.tipe_soal === 'NARASI').forEach(n => { narasiMap[n.id_soal] = n; });
+    const previewSoalList = filteredSoal.filter(s => s.tipe_soal !== 'NARASI');
     return (
       <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] animate-fade-in">
         <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-4xl h-[90vh] shadow-2xl flex flex-col overflow-hidden border border-slate-200/80 dark:border-slate-700 animate-scale-up">
           <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800/80">
             <div>
               <h3 className="font-bold text-base sm:text-lg text-slate-800 dark:text-white">Pratinjau Butir Soal</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Total {dataSoal.length} soal pada mata pelajaran ini</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Menampilkan {previewSoalList.length} soal aktif pada mata pelajaran ini</p>
             </div>
             <button
               onClick={() => setIsPreviewOpen(false)}
@@ -1036,16 +1066,25 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
             </button>
           </div>
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
-            {dataSoal.map((soal, idx) => (
+            {previewSoalList.map((soal, idx) => {
+              const tipe = normalizeTipeSoal(soal.tipe_soal || 'PG');
+              const linkedNarasi = soal.id_narasi ? narasiMap[soal.id_narasi] : null;
+              return (
               <div key={soal.id_soal || idx} className="p-4 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50/50 dark:bg-slate-900/30 shadow-xs space-y-3">
                 <div className="font-bold text-sm flex justify-between items-center">
-                  <span className="text-slate-800 dark:text-slate-200">Soal No. {idx + 1} ({soal.tipe_soal || 'PG'})</span>
+                  <span className="text-slate-800 dark:text-slate-200">Soal No. {idx + 1} ({tipe})</span>
                   <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
                     Bobot: {soal.bobot || 10}
                   </span>
                 </div>
+                {linkedNarasi && (
+                  <div className="p-3 bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-xs text-slate-700 dark:text-slate-300" dangerouslySetInnerHTML={{ __html: linkedNarasi.pertanyaan }} />
+                )}
+                {soal.gambar && (
+                  <img src={soal.gambar} alt="Gambar Soal" className="max-h-56 w-auto rounded-lg border border-slate-200 dark:border-slate-700 object-contain" />
+                )}
                 <div className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed" dangerouslySetInnerHTML={{ __html: soal.pertanyaan }} />
-                {soal.tipe_soal === 'PG' && soal.opsi && Array.isArray(soal.opsi) && (
+                {tipe === 'PG' && soal.opsi && Array.isArray(soal.opsi) && (
                   <div className="space-y-1.5 pt-1">
                     {soal.opsi.map((opt, oIdx) => (
                       <div key={oIdx} className={`p-2.5 rounded-lg border text-xs sm:text-sm ${soal.kunci_jawaban === opt ? 'bg-primary/10 border-primary dark:bg-primary/10 text-primary-800 dark:text-primary-200 font-semibold' : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'}`}>
@@ -1055,10 +1094,13 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                     ))}
                   </div>
                 )}
-                {soal.tipe_soal === 'PGK' && soal.opsi && Array.isArray(soal.opsi) && (
+                {tipe === 'PGK' && soal.opsi && Array.isArray(soal.opsi) && (
                   <div className="space-y-1.5 pt-1">
                     {soal.opsi.map((opt, oIdx) => {
-                      const isChecked = soal.kunci_jawaban && soal.kunci_jawaban.includes(opt);
+                      const kunciArr = typeof soal.kunci_jawaban === 'string' && soal.kunci_jawaban.trim().startsWith('[')
+                        ? (() => { try { return JSON.parse(soal.kunci_jawaban); } catch { return []; } })()
+                        : String(soal.kunci_jawaban || '').split(',').map(s => s.trim());
+                      const isChecked = Array.isArray(kunciArr) && kunciArr.includes(opt);
                       return (
                         <div key={oIdx} className={`p-2.5 rounded-lg border text-xs sm:text-sm ${isChecked ? 'bg-primary/10 border-primary dark:bg-primary/10 text-primary-800 dark:text-primary-200 font-semibold' : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'}`}>
                           <span className="font-bold mr-2">{String.fromCharCode(65 + oIdx)}.</span>
@@ -1068,13 +1110,42 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                     })}
                   </div>
                 )}
-                {soal.tipe_soal === 'URAIAN' && (
+                {tipe === 'BS' && (
+                  <div className="flex gap-2 pt-1">
+                    {['Benar', 'Salah'].map(val => (
+                      <div key={val} className={`px-3 py-1.5 rounded-lg border text-xs font-semibold ${String(soal.kunci_jawaban || '').trim().toLowerCase() === val.toLowerCase() ? 'bg-primary/10 border-primary text-primary-800 dark:text-primary-200' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'}`}>
+                        {val}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {tipe === 'JODOH' && soal.opsi && typeof soal.opsi === 'object' && (
+                  <div className="space-y-1.5 pt-1 text-xs">
+                    {(soal.opsi.premis || []).map((p, pIdx) => {
+                      const kObj = (() => { try { return typeof soal.kunci_jawaban === 'object' ? soal.kunci_jawaban : JSON.parse(soal.kunci_jawaban || '{}'); } catch { return {}; } })();
+                      return (
+                        <div key={pIdx} className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2">
+                          <span className="font-medium text-slate-700 dark:text-slate-300">{p}</span>
+                          <span className="text-primary font-bold">&rarr; {kObj[p] || '-'}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {tipe === 'ISIAN' && (
+                  <div className="mt-2 p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs">
+                    <span className="text-slate-500">Kunci Isian: </span>
+                    <strong className="text-primary">{soal.kunci_jawaban || '-'}</strong>
+                  </div>
+                )}
+                {tipe === 'URAIAN' && (
                   <div className="mt-2 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg">
                     <span className="text-slate-400 italic text-xs">Kolom input jawaban uraian siswa...</span>
                   </div>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
@@ -1604,6 +1675,24 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                             <div className="min-w-0">
                               <p className="font-bold text-xs text-slate-800 dark:text-slate-200 truncate">{j.nama_mapel || '-'}</p>
                               <p className="text-[10px] text-slate-500 truncate">Kelas: {j.target_kelas || '-'} • {j.waktu_mulai ? new Date(j.waktu_mulai).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' }) : '-'}</p>
+                              {j.status_ujian === 'AKTIF' && (
+                                <div className="flex items-center gap-1.5 mt-1">
+                                  <span className="text-[10px] text-slate-500">Token:</span>
+                                  <span className="font-mono font-black text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
+                                    {j.token || j.token_aktif || '-'}
+                                  </span>
+                                  <button
+                                    onClick={() => {
+                                      navigator.clipboard?.writeText(j.token || j.token_aktif || '');
+                                      showMessage('Disalin', 'Token ujian berhasil disalin!', 'success');
+                                    }}
+                                    className="p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                                    title="Salin Token"
+                                  >
+                                    <span className="material-symbols-outlined text-[14px]">content_copy</span>
+                                  </button>
+                                </div>
+                              )}
                             </div>
                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${j.status_ujian === 'AKTIF' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'}`}>
                               {j.status_ujian}
@@ -1790,18 +1879,20 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                       </div>
                       {/* Import Excel */}
                       <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-green-50 dark:bg-green-950/40 hover:bg-green-100 text-green-700 dark:text-green-300 transition-colors min-h-[44px]"
-                        title="Import dari Excel (.xlsx)"
+                        onClick={() => !isSelectedMapelActive && fileInputRef.current?.click()}
+                        disabled={isSelectedMapelActive}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-green-50 dark:bg-green-950/40 hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed text-green-700 dark:text-green-300 transition-colors min-h-[44px]"
+                        title={isSelectedMapelActive ? 'Soal terkunci selama ujian berlangsung' : 'Import dari Excel (.xlsx)'}
                       >
                         <span className="material-symbols-outlined text-[18px]">table_chart</span>
                         <span className="hidden sm:inline">Import Excel</span>
                       </button>
                       {/* Import Word */}
                       <button
-                        onClick={() => wordInputRef.current?.click()}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 text-blue-700 dark:text-blue-300 transition-colors min-h-[44px]"
-                        title="Import dari Word/TXT (.docx, .txt)"
+                        onClick={() => !isSelectedMapelActive && wordInputRef.current?.click()}
+                        disabled={isSelectedMapelActive}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed text-blue-700 dark:text-blue-300 transition-colors min-h-[44px]"
+                        title={isSelectedMapelActive ? 'Soal terkunci selama ujian berlangsung' : 'Import dari Word/TXT (.docx, .txt)'}
                       >
                         <span className="material-symbols-outlined text-[18px]">description</span>
                         <span className="hidden sm:inline">Import Word</span>
@@ -1889,19 +1980,8 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                       ))}
                     </div>
 
-                    {/* KD Filter & Search Input */}
+                    {/* Search Input */}
                     <div className="flex items-center gap-2">
-                      <select
-                        value={filterKDSoal}
-                        onChange={(e) => { setFilterKDSoal(e.target.value); setBankSoalPage(1); }}
-                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs rounded-xl px-3 py-2 outline-none text-slate-700 dark:text-slate-200 shrink-0"
-                      >
-                        <option value="ALL">Semua KD</option>
-                        {availableKDList.map(kd => (
-                          <option key={kd} value={kd}>KD {kd}</option>
-                        ))}
-                      </select>
-
                       <div className="relative flex-1 sm:w-56">
                         <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
                         <input
@@ -1931,7 +2011,6 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                           <tr className="border-b border-slate-200/80 dark:border-slate-700/80 bg-slate-50/90 dark:bg-slate-800/90 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                             <th className="py-3 px-4 w-12 text-center">#</th>
                             <th className="py-3 px-4 w-24">Tipe</th>
-                            <th className="py-3 px-4 w-20 text-center">KD</th>
                             <th className="py-3 px-4">Pertanyaan</th>
                             <th className="py-3 px-4 w-28 text-center">Bobot</th>
                             <th className="py-3 px-4 text-right w-24">Aksi</th>
@@ -1939,18 +2018,18 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
                           {isLoading ? (
-                            <TableSkeleton rows={6} cols={6} asTableRows={true} hasAvatar={false} />
+                            <TableSkeleton rows={6} cols={5} asTableRows={true} hasAvatar={false} />
                           ) : paginatedSoal.length === 0 ? (
                             <tr>
-                              <td colSpan={6} className="p-8">
+                              <td colSpan={5} className="p-8">
                                 <EmptyState
                                   compact={true}
                                   icon="quiz"
                                   title="Tidak Ada Butir Soal"
-                                  description={searchQuerySoal || filterTipeSoal !== 'ALL' || filterKDSoal !== 'ALL' ? 'Tidak ada soal yang cocok dengan filter yang dipilih.' : 'Belum ada soal pada mata pelajaran ini.'}
+                                  description={searchQuerySoal || filterTipeSoal !== 'ALL' ? 'Tidak ada soal yang cocok dengan filter yang dipilih.' : 'Belum ada soal pada mata pelajaran ini.'}
                                   action={{
                                     label: 'Tambah Soal Baru',
-                                    onClick: () => setFormSoal({ isOpen: true, data: null, id_mapel: selectedMapel })
+                                    onClick: () => !isSelectedMapelActive && setFormSoal({ isOpen: true, data: null, id_mapel: selectedMapel })
                                   }}
                                 />
                               </td>
@@ -1963,9 +2042,6 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                                 </td>
                                 <td className="py-3 px-4">
                                   {getTipeBadge(soal.tipe_soal || soal.tipe)}
-                                </td>
-                                <td className="py-3 px-4 text-center font-mono text-xs font-semibold text-slate-600 dark:text-slate-300">
-                                  {soal.kd || soal.kompetensi_dasar || '-'}
                                 </td>
                                 <td className="py-3 px-4">
                                   <div className="line-clamp-2 font-medium text-slate-800 dark:text-slate-200">
@@ -1981,21 +2057,24 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                                   <div className="flex items-center justify-end gap-1">
                                     <button
                                       onClick={() => {
+                                        if (isSelectedMapelActive) return;
                                         if (soal.tipe_soal === 'NARASI') {
                                           setFormNarasi({ isOpen: true, data: soal });
                                         } else {
                                           setFormSoal({ isOpen: true, data: soal, id_mapel: soal.id_mapel || selectedMapel });
                                         }
                                       }}
-                                      className="p-1.5 text-primary hover:bg-primary/10 dark:hover:bg-primary/10 rounded-lg transition-colors"
-                                      title={soal.tipe_soal === 'NARASI' ? 'Edit Narasi Soal' : 'Edit Soal'}
+                                      disabled={isSelectedMapelActive}
+                                      className="p-1.5 text-primary hover:bg-primary/10 dark:hover:bg-primary/10 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-colors"
+                                      title={isSelectedMapelActive ? 'Soal terkunci selama ujian berlangsung' : (soal.tipe_soal === 'NARASI' ? 'Edit Narasi Soal' : 'Edit Soal')}
                                     >
                                       <span className="material-symbols-outlined text-[18px]">edit</span>
                                     </button>
                                     <button
                                       onClick={() => deleteSoal(soal.id_soal)}
-                                      className="p-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors"
-                                      title="Hapus Soal"
+                                      disabled={isSelectedMapelActive}
+                                      className="p-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-colors"
+                                      title={isSelectedMapelActive ? 'Soal terkunci selama ujian berlangsung' : 'Hapus Soal'}
                                     >
                                       <span className="material-symbols-outlined text-[18px]">delete</span>
                                     </button>
@@ -2034,11 +2113,6 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                             <div className="flex items-center gap-1.5">
                               <span className="text-xs font-mono font-bold text-slate-400">#{(bankSoalPage - 1) * itemsPerPage + idx + 1}</span>
                               {getTipeBadge(soal.tipe_soal || soal.tipe)}
-                              {soal.kd && (
-                                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500">
-                                  KD {soal.kd}
-                                </span>
-                              )}
                             </div>
                             <span className="text-xs font-bold text-slate-500">
                               {soal.bobot || 10} Poin
@@ -2050,20 +2124,23 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                           <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
                             <button
                               onClick={() => {
+                                if (isSelectedMapelActive) return;
                                 if (soal.tipe_soal === 'NARASI') {
                                   setFormNarasi({ isOpen: true, data: soal });
                                 } else {
                                   setFormSoal({ isOpen: true, data: soal, id_mapel: soal.id_mapel || selectedMapel });
                                 }
                               }}
-                              className="px-3 py-1.5 rounded-lg text-xs font-bold text-primary bg-primary/10 dark:bg-primary/10 hover:bg-primary/20 flex items-center gap-1 min-h-[38px]"
+                              disabled={isSelectedMapelActive}
+                              className="px-3 py-1.5 rounded-lg text-xs font-bold text-primary bg-primary/10 dark:bg-primary/10 hover:bg-primary/20 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 min-h-[38px]"
                             >
                               <span className="material-symbols-outlined text-[16px]">edit</span>
                               <span>Edit</span>
                             </button>
                             <button
                               onClick={() => deleteSoal(soal.id_soal)}
-                              className="px-3 py-1.5 rounded-lg text-xs font-bold text-rose-600 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 flex items-center gap-1 min-h-[38px]"
+                              disabled={isSelectedMapelActive}
+                              className="px-3 py-1.5 rounded-lg text-xs font-bold text-rose-600 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 min-h-[38px]"
                             >
                               <span className="material-symbols-outlined text-[16px]">delete</span>
                               <span>Hapus</span>
@@ -2412,6 +2489,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
         const persentaseTuntas = totalPeserta > 0 ? Math.round((tuntasCount / totalPeserta) * 100) : 0;
 
         const unratedStudents = dataHasilSiswa.filter(s =>
+          !s.is_blocked &&
           (s.status_ujian === 'SELESAI' || Number(s.total_dijawab) > 0) &&
           (s.nilai_uraian === null || s.nilai_uraian === undefined)
         );
@@ -2720,6 +2798,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
       {/* ================================================================= */}
       {(() => {
         const remainingUnrated = (dataHasilSiswa || []).filter(s =>
+          !s.is_blocked &&
           (s.status_ujian === 'SELESAI' || Number(s.total_dijawab) > 0) &&
           (s.nilai_uraian === null || s.nilai_uraian === undefined)
         );
@@ -2753,7 +2832,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
               </button>
             </div>
             <div className="p-4 sm:p-5">
-              <SkemaPenilaianPanel dataSoal={dataSoal} onSave={saveSkema} />
+              <SkemaPenilaianPanel dataSoal={dataSoal} onSave={saveSkema} schoolDefaultScheme={schoolDefaultScheme} npsn={user?.npsn || ''} />
             </div>
           </div>
         </div>

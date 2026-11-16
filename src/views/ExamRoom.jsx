@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Loader from '../components/Loader.jsx';
 import Modal from '../components/Modal.jsx';
 import { safeJSONParse } from '../components/UI.jsx';
-import { createNexaBundle, downloadNexaBundle } from '../utils/nexaBundle.js';
+import { createNexaBundle, downloadNexaBundle, hashSeed, normalizeTipeSoal } from '../utils/nexaBundle.js';
 
 function mulberry32(a) {
   return function() {
@@ -45,11 +45,22 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
     } catch (e) {}
     return {};
   });
-  const [raguRagu, setRaguRagu] = useState({});
+  const [raguRagu, setRaguRagu] = useState(() => {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const saved = localStorage.getItem(`nexa_ragu_${idLog}`);
+        if (!saved) return {};
+        return safeJSONParse(saved, {});
+      }
+    } catch (e) {}
+    return {};
+  });
   const [currentIndex, setCurrentIndex] = useState(0);
   const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'unanswered' | 'flagged' | 'answered'
 
   const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(null);
+  const [networkErrorBanner, setNetworkErrorBanner] = useState(null);
   const [isHonestyPledged, setIsHonestyPledged] = useState(false);
   const initialViolations = (dataLog && dataLog.pelanggaran) || 0;
   const initialBlocked = Boolean((dataLog && dataLog.is_blocked) || initialViolations >= 3);
@@ -67,9 +78,22 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
   const isBlockedRef = useRef(initialBlocked);
   const lastViolationTimeRef = useRef(0);
   const endMsRef = useRef(jadwal?.waktu_selesai ? new Date(jadwal.waktu_selesai).getTime() : Date.now());
-  const serverOffsetMsRef = useRef(0);
+  const parsedSeedServerNow = dataLog?.serverNow ? new Date(dataLog.serverNow).getTime() : NaN;
+  const initialOffsetMs = Number.isFinite(parsedSeedServerNow) ? (parsedSeedServerNow - Date.now()) : 0;
+  const serverOffsetMsRef = useRef(initialOffsetMs);
   const perfStartRef = useRef((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now());
-  const initialRemainingMsRef = useRef(Math.max(0, endMsRef.current - Date.now()));
+  const initialRemainingMsRef = useRef(Math.max(0, endMsRef.current - (Date.now() + initialOffsetMs)));
+
+  const syncServerOffset = (serverNow, resetBaseline = false) => {
+    if (!serverNow) return;
+    const parsedServerMs = new Date(serverNow).getTime();
+    if (Number.isNaN(parsedServerMs)) return;
+    serverOffsetMsRef.current = parsedServerMs - Date.now();
+    if (resetBaseline) {
+      initialRemainingMsRef.current = Math.max(0, endMsRef.current - (Date.now() + serverOffsetMsRef.current));
+      perfStartRef.current = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    }
+  };
   const hasAlerted5MinRef = useRef(false);
   const hasAlerted1MinRef = useRef(false);
 
@@ -149,6 +173,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
 
     try {
       localStorage.removeItem(`nexa_ans_${idLog}`);
+      localStorage.removeItem(`nexa_ragu_${idLog}`);
       if (jadwal?.id_jadwal) {
         localStorage.removeItem(`jawaban_${jadwal.id_jadwal}`);
         localStorage.removeItem(`nexa_ans_${jadwal.id_jadwal}`);
@@ -186,12 +211,13 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
       api('get_status_log_ujian', { id_log: idLog }).then((res) => {
         if (res.status === 'success' && res.data) {
           const strikes = res.data.pelanggaran || 0;
-          const blocked = res.data.is_blocked || strikes >= 3 || (res.data.status_ujian === 'SELESAI' && res.data.nilai_auto === 0);
+          const blocked = Boolean(res.data.is_blocked || strikes >= 3);
           setViolationCount(strikes);
           if (blocked) {
             triggerStrike3Kick();
             return;
           }
+          syncServerOffset(res.data.serverNow, true);
         }
       }).catch((err) => console.warn('Sync exam log error:', err));
     }
@@ -212,6 +238,9 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
     };
     requestWakeLock();
     setupAntiCheat();
+    if (document.documentElement?.requestFullscreen && !document.fullscreenElement) {
+      setBlurOverlay(true);
+    }
 
     // =========================================================================
     // Server Time Guard (Clock Anti-Tampering & Monotonic Countdown)
@@ -292,8 +321,19 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
     const pollInterval = setInterval(async () => {
       if (!idLog) return;
       try {
-        const res = await api('get_status_log_ujian', { id_log: idLog });
+        const res = await api('get_status_log_ujian', { id_log: idLog, session_token: user?.session_token });
+        if (res.status === 'error' && res.session_conflict) {
+          clearInterval(pollInterval);
+          clearInterval(timerInterval);
+          if (showMessage) {
+            showMessage('Konflik Sesi', 'Akun Anda dibuka di perangkat lain atau sesi direset oleh proctor/admin.', 'error');
+          }
+          if (onFinish) onFinish();
+          return;
+        }
         if (res.status === 'success' && res.data) {
+          setNetworkErrorBanner(null);
+          syncServerOffset(res.data.serverNow);
           // 1. Time Extension Check (Teacher extended exam time)
           if (res.data.waktu_selesai) {
             const serverEndMs = new Date(res.data.waktu_selesai).getTime();
@@ -343,9 +383,12 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
             }
             executeSubmitExam(true);
           }
+        } else {
+          setNetworkErrorBanner('Sinkronisasi server terganggu sementara. Jawaban tetap aman tersimpan lokal.');
         }
       } catch (err) {
         console.warn('Proctor status sync warning:', err);
+        setNetworkErrorBanner('Koneksi terganggu sementara. Jawaban tetap aman tersimpan lokal.');
       }
     }, 60000); // Pelonggaran interval 60 detik (anti-429 Kong gateway limit 500 req/menit untuk 415 siswa konkuren)
 
@@ -365,6 +408,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
       cancelGracePeriod();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('selectstart', handleBlockClipboardAndContext);
       document.removeEventListener('contextmenu', handleBlockClipboardAndContext);
       document.removeEventListener('copy', handleBlockClipboardAndContext);
       document.removeEventListener('cut', handleBlockClipboardAndContext);
@@ -384,46 +428,52 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
         window.MathJax.typesetPromise().catch(err => console.error('MathJax error:', err));
       }, 100);
     }
-  }, [currentIndex, soal]);
+  }, [currentIndex, soal, narasiMap]);
 
   const fetchSoal = async () => {
     setIsLoading(true);
-    const activeNpsn = user?.npsn || jadwal?.npsn;
-    const res = await api('get_soal_ujian', { id_jadwal: jadwal.id_jadwal, id_log: idLog, npsn: activeNpsn });
-    if (res.status === 'success') {
-      if (res.logStatus) {
-        const strikes = res.logStatus.pelanggaran || 0;
-        const blocked = res.logStatus.is_blocked || strikes >= 3 || (res.logStatus.status_ujian === 'SELESAI' && res.logStatus.nilai_auto === 0);
-        setViolationCount(strikes);
-        if (blocked) {
-          triggerStrike3Kick();
-          setIsLoading(false);
-          return;
+    setFetchError(null);
+    try {
+      const activeNpsn = user?.npsn || jadwal?.npsn;
+      const res = await api('get_soal_ujian', { id_jadwal: jadwal.id_jadwal, id_log: idLog, npsn: activeNpsn });
+      if (res.status === 'success') {
+        syncServerOffset(res.serverNow, true);
+        if (res.logStatus) {
+          const strikes = res.logStatus.pelanggaran || 0;
+          const blocked = Boolean(res.logStatus.is_blocked || strikes >= 3);
+          setViolationCount(strikes);
+          if (blocked) {
+            triggerStrike3Kick();
+            return;
+          }
         }
-      }
-      let parsedSoal = (res.data || []).map(s => {
-        let parsedOpsi = null;
-        if (s.opsi) {
-          try { parsedOpsi = JSON.parse(s.opsi); } catch (e) { parsedOpsi = s.opsi; }
-        }
-        const seedVal = currentUserId ? currentUserId.toString().charCodeAt(0) : 1;
-        const seed = seedVal + (jadwal.id_jadwal * 10);
-        if (jadwal.acak_opsi && parsedOpsi && (s.tipe_soal === 'PG' || s.tipe_soal === 'PGK')) {
-          seededShuffle(parsedOpsi, seed + (s.id_soal || 0));
-        }
-        return { ...s, opsi: parsedOpsi };
-      });
+        const baseSeed = hashSeed(`${currentUserId || ''}_${jadwal.id_jadwal}`);
+        let parsedSoal = (res.data || []).map(s => {
+          const normTipe = normalizeTipeSoal(s.tipe_soal);
+          let parsedOpsi = null;
+          if (s.opsi) {
+            parsedOpsi = typeof s.opsi === 'string' ? safeJSONParse(s.opsi, s.opsi) : s.opsi;
+          }
+          if (jadwal.acak_opsi && Array.isArray(parsedOpsi) && (normTipe === 'PG' || normTipe === 'PGK')) {
+            parsedOpsi = seededShuffle([...parsedOpsi], hashSeed(`${baseSeed}_${s.id_soal}`));
+          }
+          return { ...s, tipe_soal: normTipe, opsi: parsedOpsi };
+        });
 
-      if (jadwal.acak_soal) {
-        const seedVal = currentUserId ? currentUserId.toString().charCodeAt(0) : 1;
-        const seed = seedVal + (jadwal.id_jadwal * 10);
-        seededShuffle(parsedSoal, seed);
-      }
+        if (jadwal.acak_soal) {
+          seededShuffle(parsedSoal, baseSeed);
+        }
 
-      setSoal(parsedSoal);
-      if (res.narasiMap) setNarasiMap(res.narasiMap);
+        setSoal(parsedSoal);
+        if (res.narasiMap) setNarasiMap(res.narasiMap);
+      } else {
+        setFetchError(res.message || 'Gagal memuat soal ujian.');
+      }
+    } catch (err) {
+      setFetchError(err?.message || 'Koneksi terputus saat memuat soal ujian.');
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const reportViolation = async (reason = 'Meninggalkan halaman ujian') => {
@@ -436,39 +486,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
       setViolationCount(strikes);
 
       if (res.terblokir || strikes >= 3) {
-        setIsBlocked(true);
-        isBlockedRef.current = true;
-        setIsSubmitting(true);
-        isSubmittingRef.current = true;
-
-        // Clean local storage & active exam session so no cached answers remain for this exam
-        try {
-          localStorage.removeItem(`nexa_ans_${idLog}`);
-          sessionStorage.removeItem('nexa_active_exam');
-          if (jadwal?.id_jadwal) {
-            localStorage.removeItem(`jawaban_${jadwal.id_jadwal}`);
-            localStorage.removeItem(`nexa_ans_${jadwal.id_jadwal}`);
-          }
-        } catch (e) {
-          console.error('Failed to clear cached answers:', e);
-        }
-
-        // Exit fullscreen if active
-        if (document.fullscreenElement) {
-          document.exitFullscreen().catch(() => {});
-        }
-
-        // Display unclosable danger modal (Strike 3)
-        setSecurityModal({
-          isOpen: true,
-          title: 'UJIAN DIHENTIKAN! (Pelanggaran ke-3)',
-          message: 'Anda telah melakukan pelanggaran sebanyak 3 kali. Sesi ujian Anda telah dihentikan secara permanen dan nilai Anda dicatat 0.'
-        });
-
-        // Automatically kick out the student after 3 seconds
-        setTimeout(() => {
-          onFinish();
-        }, 3000);
+        triggerStrike3Kick();
       } else if (strikes === 1) {
         showMessage(
           'Peringatan Keamanan (1/3)',
@@ -494,15 +512,18 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
     }
     lastViolationTimeRef.current = now;
     reportViolation(reason);
-    if (jadwal?.browser_lockdown) {
+    if (jadwal?.browser_lockdown !== false) {
       setBlurOverlay(true);
     }
     enforceFullscreen();
   };
 
   const scheduleSecurityViolation = (reason) => {
-    if (isSubmittingRef.current || isBlockedRef.current) return;
-    handleSecurityViolation(reason);
+    if (isSubmittingRef.current || isBlockedRef.current || gracePeriodTimer.current) return;
+    gracePeriodTimer.current = setTimeout(() => {
+      gracePeriodTimer.current = null;
+      handleSecurityViolation(reason);
+    }, 3000);
   };
 
   const triggerViolationImmediate = (reason) => {
@@ -567,6 +588,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
     if (document.documentElement && document.documentElement.requestFullscreen) {
       document.addEventListener('fullscreenchange', handleFullscreenChange);
     }
+    document.addEventListener('selectstart', handleBlockClipboardAndContext);
     document.addEventListener('contextmenu', handleBlockClipboardAndContext);
     document.addEventListener('copy', handleBlockClipboardAndContext);
     document.addEventListener('cut', handleBlockClipboardAndContext);
@@ -590,14 +612,16 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
   };
 
   const handleAnswerChange = (soalId, value, tipe, parentKey = null) => {
+    if (timeLeft.total <= 0 || isBlockedRef.current || isSubmittingRef.current) return;
+    const normTipe = normalizeTipeSoal(tipe);
     setJawabanSiswa(prev => {
       let newAns = prev;
-      if (tipe === 'PGK') {
+      if (normTipe === 'PGK') {
         let arr = Array.isArray(prev[soalId]) ? [...prev[soalId]] : [];
         if (arr.includes(value)) arr = arr.filter(item => item !== value);
         else arr.push(value);
         newAns = { ...prev, [soalId]: arr };
-      } else if (tipe === 'JODOH' && parentKey) {
+      } else if (normTipe === 'JODOH' && parentKey) {
         const currentObj = typeof prev[soalId] === 'object' && !Array.isArray(prev[soalId]) ? { ...prev[soalId] } : {};
         currentObj[parentKey] = value;
         newAns = { ...prev, [soalId]: currentObj };
@@ -605,13 +629,21 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
         newAns = { ...prev, [soalId]: value };
       }
       // Offline-First: Save answer to localStorage immediately
-      localStorage.setItem(`nexa_ans_${idLog}`, JSON.stringify(newAns));
+      try {
+        localStorage.setItem(`nexa_ans_${idLog}`, JSON.stringify(newAns));
+      } catch (e) {}
       return newAns;
     });
   };
 
   const toggleRaguRagu = (soalId) => {
-    setRaguRagu(prev => ({ ...prev, [soalId]: !prev[soalId] }));
+    setRaguRagu(prev => {
+      const next = { ...prev, [soalId]: !prev[soalId] };
+      try {
+        localStorage.setItem(`nexa_ragu_${idLog}`, JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
   };
 
   const handleEmergencyOfflineExport = () => {
@@ -681,11 +713,13 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
     if (res.status === 'success') {
       try {
         localStorage.removeItem(`nexa_ans_${idLog}`);
+        localStorage.removeItem(`nexa_ragu_${idLog}`);
         sessionStorage.removeItem('nexa_active_exam');
       } catch (e) {}
       showMessage('Ujian Selesai', `Terima kasih! Skor pilihan ganda/objektif Anda: ${res.nilai_auto}. Soal uraian dinilai terpisah oleh guru.`, 'success');
       setTimeout(onFinish, 4000);
     } else {
+      setNetworkErrorBanner('Pengiriman ke server gagal. Anda dapat mencoba kirim ulang atau mengekspor berkas .nexa.');
       showMessage('Gagal Mengumpulkan', (res.message || 'Koneksi ke server terputus') + '. Jika masalah jaringan berlanjut, Anda dapat mengekspor berkas jawaban offline.', 'error');
       setIsLoading(false);
       setIsSubmitting(false);
@@ -696,8 +730,10 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
 
   const renderQuestionInput = (s) => {
     const currentAns = jawabanSiswa[s.id_soal] || '';
+    const normTipe = normalizeTipeSoal(s.tipe_soal);
+    const isTimeExpired = timeLeft.total <= 0;
 
-    switch (s.tipe_soal) {
+    switch (normTipe) {
       case 'PG':
       case 'BS':
         return (s.opsi || []).map((op, idx) => {
@@ -722,11 +758,12 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
                 className="hidden" 
                 name={s.id_soal} 
                 value={op} 
-                checked={isSelected} 
-                onChange={() => handleAnswerChange(s.id_soal, op, s.tipe_soal)} 
+                checked={isSelected}
+                disabled={isTimeExpired}
+                onChange={() => handleAnswerChange(s.id_soal, op, normTipe)} 
               />
               <div className="ml-3 flex-1 min-w-0 flex items-start">
-                {s.tipe_soal === 'PG' && (
+                {normTipe === 'PG' && (
                   <span className={`font-bold mr-2 mt-0.5 ${isSelected ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}`}>
                     {letter}.
                   </span>
@@ -764,8 +801,9 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
                 type="checkbox" 
                 className="hidden" 
                 value={op} 
-                checked={isChecked} 
-                onChange={() => handleAnswerChange(s.id_soal, op, s.tipe_soal)} 
+                checked={isChecked}
+                disabled={isTimeExpired}
+                onChange={() => handleAnswerChange(s.id_soal, op, normTipe)} 
               />
               <div className="ml-3 flex-1 min-w-0 flex items-start">
                 <span className={`font-bold mr-2 mt-0.5 ${isChecked ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}`}>
@@ -795,17 +833,19 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
             <div className="space-y-2.5">
               {premis.map((p, idx) => p && (
                 <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
-                  <span className={`flex-1 font-medium ${fontClasses.options} text-slate-800 dark:text-slate-200 leading-relaxed`}>
-                    {p}
-                  </span>
+                  <span
+                    className={`flex-1 font-medium ${fontClasses.options} text-slate-800 dark:text-slate-200 leading-relaxed overflow-x-auto custom-scrollbar [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg`}
+                    dangerouslySetInnerHTML={{ __html: p }}
+                  />
                   <span className="material-symbols-outlined text-slate-400 hidden sm:block text-[18px]">arrow_forward</span>
                   <select 
                     value={ansObj[p] || ''} 
-                    onChange={(e) => handleAnswerChange(s.id_soal, e.target.value, s.tipe_soal, p)} 
+                    disabled={isTimeExpired}
+                    onChange={(e) => handleAnswerChange(s.id_soal, e.target.value, normTipe, p)} 
                     className="w-full sm:w-1/2 p-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-xs sm:text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[44px]"
                   >
                     <option value="">Pilih Respon...</option>
-                    {respon.map((r, i) => r && <option key={i} value={r}>{r}</option>)}
+                    {respon.map((r, i) => r && <option key={i} value={r}>{String(r).replace(/<[^>]+>/g, '')}</option>)}
                   </select>
                 </div>
               ))}
@@ -821,7 +861,8 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
             type="text"
             placeholder="Ketik jawaban singkat Anda di sini..."
             value={currentAns}
-            onChange={(e) => handleAnswerChange(s.id_soal, e.target.value, s.tipe_soal)}
+            disabled={isTimeExpired}
+            onChange={(e) => handleAnswerChange(s.id_soal, e.target.value, normTipe)}
             className={`w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl ${fontClasses.options} text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all`}
           />
         );
@@ -832,7 +873,8 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
             rows={8} 
             placeholder="Ketik jawaban uraian Anda di sini..." 
             value={currentAns} 
-            onChange={(e) => handleAnswerChange(s.id_soal, e.target.value, s.tipe_soal)} 
+            disabled={isTimeExpired}
+            onChange={(e) => handleAnswerChange(s.id_soal, e.target.value, normTipe)} 
             className={`w-full p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl ${fontClasses.options} text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all leading-relaxed`}
           />
         );
@@ -847,12 +889,39 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
     }
   };
 
+  const securityModalNode = (
+    <>
+      {securityModal.isOpen && (
+        <div 
+          className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4 select-none animate-fade-in"
+          role="alertdialog"
+          aria-modal="true"
+        >
+          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border-2 border-rose-500 animate-scale-in">
+            <div className="bg-rose-600 p-5 text-white font-black text-lg flex items-center gap-3">
+              <span className="material-symbols-outlined text-2xl animate-pulse">gpp_bad</span>
+              <h2 className="text-base sm:text-lg font-black leading-tight tracking-wide">{securityModal.title}</h2>
+            </div>
+            <div className="p-6 text-slate-700 dark:text-slate-200 text-sm font-medium leading-relaxed space-y-4">
+              <p>{securityModal.message}</p>
+              <div className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 flex items-center gap-2.5 text-xs text-rose-700 dark:text-rose-300 font-semibold">
+                <span className="material-symbols-outlined text-rose-500 animate-spin text-sm">progress_activity</span>
+                <span>Mengalihkan keluar dari sesi ujian dalam 3 detik...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
   if (isBlocked) {
     return (
       <div className="min-h-[100dvh] bg-rose-600 flex flex-col items-center justify-center p-6 text-center text-white space-y-4">
         <span className="material-symbols-outlined text-[80px]">block</span>
         <h1 className="text-2xl sm:text-3xl font-black">AKUN DIBLOKIR</h1>
         <p className="text-sm sm:text-base max-w-md">Sistem mendeteksi kecurangan. Hubungi proktor / pengawas ujian untuk membuka akses Anda.</p>
+        {securityModalNode}
       </div>
     );
   }
@@ -861,32 +930,36 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
     return (
       <div className="min-h-[100dvh] bg-slate-50 dark:bg-slate-900 flex flex-col items-center justify-center">
         <Loader text="Menyiapkan Soal dan Enkripsi Sesi..." />
+        {securityModalNode}
       </div>
     );
   }
 
   const currentS = soal[currentIndex];
 
-  const answeredCount = soal.filter(s => {
-    const ans = jawabanSiswa[s.id_soal];
+  const isQuestionAnswered = (s, ans) => {
     if (!ans) return false;
-    if (s.tipe_soal === 'PGK') return Array.isArray(ans) && ans.length > 0;
-    if (s.tipe_soal === 'JODOH') return typeof ans === 'object' && Object.keys(ans).length > 0 && Object.values(ans).some(v => v !== '');
+    const normTipe = normalizeTipeSoal(s.tipe_soal);
+    if (normTipe === 'PGK') return Array.isArray(ans) && ans.length > 0;
+    if (normTipe === 'JODOH') {
+      if (typeof ans !== 'object' || Array.isArray(ans)) return false;
+      const activePremis = (s.opsi?.premis || []).filter(Boolean);
+      if (activePremis.length > 0) {
+        return activePremis.every(p => ans[p] && String(ans[p]).trim() !== '');
+      }
+      return Object.keys(ans).length > 0 && Object.values(ans).some(v => v !== '');
+    }
     return String(ans).trim() !== '';
-  }).length;
+  };
+
+  const answeredCount = soal.filter(s => isQuestionAnswered(s, jawabanSiswa[s.id_soal])).length;
   
   const flaggedCount = Object.values(raguRagu).filter(Boolean).length;
   const unansweredCount = soal.length - answeredCount;
 
   // Filtered Question Indices for Palette
   const filteredQuestionIndices = soal.map((s, idx) => {
-    const ans = jawabanSiswa[s.id_soal];
-    let hasAnswered = false;
-    if (ans) {
-      if (s.tipe_soal === 'PGK') hasAnswered = Array.isArray(ans) && ans.length > 0;
-      else if (s.tipe_soal === 'JODOH') hasAnswered = typeof ans === 'object' && Object.keys(ans).length > 0 && Object.values(ans).some(v => v !== '');
-      else hasAnswered = String(ans).trim() !== '';
-    }
+    const hasAnswered = isQuestionAnswered(s, jawabanSiswa[s.id_soal]);
     const isFlagged = !!raguRagu[s.id_soal];
     return { s, idx, hasAnswered, isFlagged };
   }).filter(({ hasAnswered, isFlagged }) => {
@@ -989,26 +1062,30 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
             <div className="w-16 h-16 bg-rose-50 dark:bg-rose-950/40 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
               <span className="material-symbols-outlined text-[36px]">gavel</span>
             </div>
-            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Peringatan Keamanan!</h2>
+            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-2">
+              {!document.fullscreenElement && violationCount === 0 ? 'Mode Layar Penuh Wajib' : 'Peringatan Keamanan!'}
+            </h2>
             <p className="text-slate-500 dark:text-slate-400 mb-6 text-xs sm:text-sm leading-relaxed">
-              Anda terdeteksi keluar dari layar penuh, berganti tab, atau membuka jendela aplikasi lain. Tetap berada di halaman ujian hingga selesai.
+              {!document.fullscreenElement && violationCount === 0
+                ? 'Ujian ini memerlukan mode layar penuh. Klik tombol di bawah untuk masuk ke mode layar penuh.'
+                : 'Anda terdeteksi keluar dari layar penuh, berganti tab, atau membuka jendela aplikasi lain. Tetap berada di halaman ujian hingga selesai.'}
             </p>
             <button 
               onClick={returnToExam} 
               className="w-full py-3 rounded-xl font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors min-h-[44px]"
             >
-              Kembali ke Ujian
+              {!document.fullscreenElement && violationCount === 0 ? 'Klik untuk Masuk Mode Layar Penuh Ujian' : 'Kembali ke Ujian'}
             </button>
           </div>
         </div>
       )}
 
-      {/* Offline Status Banner (Friendly, No Unfair Violation Penalty) */}
-      {isOffline && (
+      {/* Offline or Network Warning Status Banner (Friendly, No Unfair Violation Penalty) */}
+      {(isOffline || networkErrorBanner) && (
         <div className="bg-amber-500 text-white px-4 py-2 text-xs font-bold flex flex-wrap items-center justify-between gap-2 z-[60] shadow-sm">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-[18px]">wifi_off</span>
-            <span>Koneksi internet terputus. Jawaban aman tersimpan lokal di perangkat.</span>
+            <span>{isOffline ? 'Koneksi internet terputus. Jawaban aman tersimpan lokal di perangkat.' : networkErrorBanner}</span>
           </div>
           <button
             type="button"
@@ -1240,6 +1317,17 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
                     {renderQuestionInput(currentS)}
                   </div>
                 </div>
+              </div>
+            ) : fetchError ? (
+              <div className="text-center py-20 space-y-4 max-w-md mx-auto">
+                <p className="text-rose-600 dark:text-rose-400 font-bold text-base">{fetchError}</p>
+                <button
+                  type="button"
+                  onClick={fetchSoal}
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-sm transition-colors min-h-[44px]"
+                >
+                  Muat Ulang Soal
+                </button>
               </div>
             ) : (
               <div className="text-center text-slate-400 py-20 font-bold text-lg">Tidak ada soal yang tersedia.</div>
@@ -1545,27 +1633,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
       </Modal>
 
       {/* Unclosable Security Danger Modal (Strike 3) */}
-      {securityModal.isOpen && (
-        <div 
-          className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4 select-none animate-fade-in"
-          role="alertdialog"
-          aria-modal="true"
-        >
-          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border-2 border-rose-500 animate-scale-in">
-            <div className="bg-rose-600 p-5 text-white font-black text-lg flex items-center gap-3">
-              <span className="material-symbols-outlined text-2xl animate-pulse">gpp_bad</span>
-              <h2 className="text-base sm:text-lg font-black leading-tight tracking-wide">{securityModal.title}</h2>
-            </div>
-            <div className="p-6 text-slate-700 dark:text-slate-200 text-sm font-medium leading-relaxed space-y-4">
-              <p>{securityModal.message}</p>
-              <div className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 flex items-center gap-2.5 text-xs text-rose-700 dark:text-rose-300 font-semibold">
-                <span className="material-symbols-outlined text-rose-500 animate-spin text-sm">progress_activity</span>
-                <span>Mengalihkan keluar dari sesi ujian dalam 3 detik...</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {securityModalNode}
     </div>
   );
 };

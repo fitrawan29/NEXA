@@ -1,4 +1,4 @@
-import { fetchAPI, isClassMatching } from '../api.js';
+import { fetchAPI } from '../api.js';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import ExamRoom from './ExamRoom.jsx';
 import {
@@ -132,6 +132,7 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
   const [detailNilaiModal, setDetailNilaiModal] = useState(null);
+  const [serverOffsetMs, setServerOffsetMs] = useState(0);
 
   useEffect(() => {
     loadPengumuman();
@@ -139,12 +140,19 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     loadRiwayat();
   }, [user?.npsn]);
 
+  // Refresh riwayat nilai whenever switching to 'nilai' tab
+  useEffect(() => {
+    if (activeTab === 'nilai') {
+      loadRiwayat();
+    }
+  }, [activeTab]);
+
   // Heartbeat session sync
   useEffect(() => {
     const interval = setInterval(async () => {
       if (user && user.session_token) {
         const res = await api('heartbeat_siswa', { id_siswa: currentUserId, session_token: user.session_token });
-        if (res.status === 'error') {
+        if (res.status === 'error' && res.session_conflict === true) {
           onLogout();
           showMessage('Sesi Berakhir', 'Sesi Anda telah digantikan oleh login di perangkat lain atau waktu telah habis.', 'error');
         }
@@ -153,11 +161,12 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     return () => clearInterval(interval);
   }, [user, currentUserId]);
 
-  // Background polling for exam schedule (non-active exam only, 60000ms anti-429)
+  // Background polling for exam schedule & grades (non-active exam only, 60000ms anti-429)
   useEffect(() => {
     if (activeExamData) return;
     const interval = setInterval(() => {
       loadJadwal(false);
+      loadRiwayat();
     }, 60000);
     return () => clearInterval(interval);
   }, [currentUserId, activeExamData]);
@@ -177,7 +186,13 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   const loadJadwal = async (showLoading = true) => {
     if (showLoading) setIsLoading(true);
     const res = await api('get_jadwal', { id_siswa: currentUserId });
-    if (res.status === 'success') setJadwal(res.data || []);
+    if (res.status === 'success') {
+      if (res.serverNow) {
+        const parsed = new Date(res.serverNow).getTime();
+        if (!Number.isNaN(parsed)) setServerOffsetMs(parsed - Date.now());
+      }
+      setJadwal(res.data || []);
+    }
     if (showLoading) setIsLoading(false);
   };
 
@@ -203,7 +218,6 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     const res = await api('update_profil_siswa', { id_siswa: currentUserId, npsn: user.npsn, foto_profil: url });
     setIsLoading(false);
     if (res.status === 'success') {
-      user.foto_profil = url;
       if (onUpdateUser) onUpdateUser({ foto_profil: url });
       showMessage('Sukses', 'Foto profil berhasil diperbarui', 'success');
       setIsAvatarModalOpen(false);
@@ -245,7 +259,10 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       const examData = {
         jadwal: selected,
         idLog: res.id_log,
-        dataLog: res.dataLog || { id_log: res.id_log, pelanggaran: res.pelanggaran || 0, is_blocked: res.is_blocked || false }
+        dataLog: {
+          ...(res.dataLog || { id_log: res.id_log, pelanggaran: res.pelanggaran || 0, is_blocked: res.is_blocked || false }),
+          serverNow: res.serverNow || undefined
+        }
       };
       try {
         sessionStorage.setItem('nexa_active_exam', JSON.stringify(examData));
@@ -259,31 +276,35 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     }
   };
 
-  // Filtered schedules for tabs
+  // Filtered schedules for tabs (backend get_jadwal already filters by class)
   const todaySchedules = useMemo(() => {
-    const today = new Date().toDateString();
-    return jadwal.filter(j => 
-      isClassMatching(j.target_kelas, user) &&
-      (new Date(j.waktu_mulai).toDateString() === today || j.status_siswa === 'SEDANG KERJA')
-    );
-  }, [jadwal, user]);
-
-  const filteredJadwalList = useMemo(() => {
-    const now = new Date();
+    const now = new Date(Date.now() + serverOffsetMs);
     const today = now.toDateString();
     return jadwal.filter(j => {
-      if (!isClassMatching(j.target_kelas, user)) return false;
       const mulai = new Date(j.waktu_mulai);
-      if (jadwalFilter === 'HARI INI') return mulai.toDateString() === today;
+      const selesai = new Date(j.waktu_selesai);
+      return mulai.toDateString() === today || (mulai <= now && selesai >= now) || j.status_siswa === 'SEDANG KERJA';
+    });
+  }, [jadwal, serverOffsetMs]);
+
+  const filteredJadwalList = useMemo(() => {
+    const now = new Date(Date.now() + serverOffsetMs);
+    const today = now.toDateString();
+    return jadwal.filter(j => {
+      const mulai = new Date(j.waktu_mulai);
+      const selesai = new Date(j.waktu_selesai);
+      if (jadwalFilter === 'HARI INI') {
+        return mulai.toDateString() === today || (mulai <= now && selesai >= now) || j.status_siswa === 'SEDANG KERJA';
+      }
       if (jadwalFilter === 'AKAN DATANG') return mulai > now && mulai.toDateString() !== today;
-      if (jadwalFilter === 'SELESAI') return j.status_siswa === 'SELESAI' || new Date(j.waktu_selesai) < now;
+      if (jadwalFilter === 'SELESAI') return j.status_siswa === 'SELESAI' || selesai < now;
       return true;
     });
-  }, [jadwal, jadwalFilter, user]);
+  }, [jadwal, jadwalFilter, serverOffsetMs]);
 
   // Render individual exam schedule card using UI primitives
   const renderJadwalCard = (j) => {
-    const now = new Date();
+    const now = new Date(Date.now() + serverOffsetMs);
     const mulai = new Date(j.waktu_mulai);
     const selesai = new Date(j.waktu_selesai);
     const isBelumMulai = mulai > now;
