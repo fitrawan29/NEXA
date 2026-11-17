@@ -528,6 +528,7 @@ export function cloneExamSchedule(sourceSchedule, targetKelas, customToken = nul
     id_guru: sourceSchedule.id_guru,
     target_kelas: targetKelas.trim(),
     durasi_menit: Number(sourceSchedule.durasi_menit ?? sourceSchedule.durasi ?? 90) || 90,
+    batas_pelanggaran: Number(sourceSchedule.batas_pelanggaran ?? 3) || 3,
     acak_soal: sourceSchedule.acak_soal ?? true,
     acak_opsi: sourceSchedule.acak_opsi ?? true,
     browser_lockdown: sourceSchedule.browser_lockdown ?? true,

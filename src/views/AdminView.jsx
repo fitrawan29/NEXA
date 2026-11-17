@@ -13,13 +13,13 @@ import {
   TableSkeleton,
   StatusBadge,
   Button,
-  PasswordInput
+  PasswordInput,
+  TokenCountdown
 } from '../components/UI.jsx';
 import SkemaPenilaianPanel from '../components/SkemaPenilaianPanel.jsx';
 import KartuUjianPrint from '../components/KartuUjianPrint.jsx';
 import FormSoalModal from '../components/FormSoalModal.jsx';
 import FormNarasiModal from '../components/FormNarasiModal.jsx';
-import mammoth from 'mammoth';
 import { compressImageFile } from '../utils/imageHelper.js';
 
 const isUniversalAlloc = (alloc) => {
@@ -94,6 +94,15 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   const [selectedGuru, setSelectedGuru] = useState([]);
   const [selectedJadwalBulk, setSelectedJadwalBulk] = useState([]);
 
+  // Data Kelas & Data Mapel Filter, Search & Bulk States (R2)
+  const [searchQueryKelas, setSearchQueryKelas] = useState('');
+  const [filterTingkatKelas, setFilterTingkatKelas] = useState('');
+  const [selectedKelasBulk, setSelectedKelasBulk] = useState([]);
+
+  const [searchQueryMapel, setSearchQueryMapel] = useState('');
+  const [filterAlokasiMapel, setFilterAlokasiMapel] = useState('');
+  const [selectedMapelBulk, setSelectedMapelBulk] = useState([]);
+
   // Print Kartu Peserta & KOP Persisten State
   const savedKop = (() => {
     try { return JSON.parse(localStorage.getItem('nexa_kop_' + (user?.npsn || 'default')) || '{}'); } catch { return {}; }
@@ -160,7 +169,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   const [skemaModal, setSkemaModal] = useState({ isOpen: false, id_mapel: null });
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const fileInputRef = useRef(null);
-  const wordInputRef = useRef(null);
 
   // Confirmation Dialog State (for proctor interventions)
   const [confirmDialog, setConfirmDialog] = useState({
@@ -477,190 +485,28 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
 
   const downloadTemplateSoal = () => {
     const templateData = [
-      { tipe_soal: 'PG',    pertanyaan: 'Hasil dari 5 + 7 adalah...', opsi_A: '10', opsi_B: '11', opsi_C: '12', opsi_D: '13', opsi_E: '14', kunci_jawaban: 'C', bobot: 10, kd: '3.1', narasi_soal: '' },
-      { tipe_soal: 'PGK',   pertanyaan: 'Manakah yang merupakan bilangan prima genap?', opsi_A: '2', opsi_B: '4', opsi_C: '6', opsi_D: '8', opsi_E: '10', kunci_jawaban: 'A,B', bobot: 10, kd: '3.1', narasi_soal: '' },
-      { tipe_soal: 'BS',    pertanyaan: 'Bumi mengelilingi Matahari.', opsi_A: '', opsi_B: '', opsi_C: '', opsi_D: '', opsi_E: '', kunci_jawaban: 'Benar', bobot: 5, kd: '3.1', narasi_soal: '' },
-      { tipe_soal: 'JODOH', pertanyaan: 'Pasangkan ibukota negara berikut:', opsi_A: 'Indonesia = Jakarta', opsi_B: 'Jepang = Tokyo', opsi_C: 'Inggris = London', opsi_D: '', opsi_E: '', kunci_jawaban: 'Indonesia=Jakarta, Jepang=Tokyo, Inggris=London', bobot: 15, kd: '3.2', narasi_soal: '' },
-      { tipe_soal: 'ISIAN', pertanyaan: 'Ibukota Indonesia adalah...', opsi_A: '', opsi_B: '', opsi_C: '', opsi_D: '', opsi_E: '', kunci_jawaban: 'Jakarta', bobot: 10, kd: '3.2', narasi_soal: '' },
-      { tipe_soal: 'URAIAN', pertanyaan: 'Jelaskan hukum kekekalan energi secara singkat.', opsi_A: '', opsi_B: '', opsi_C: '', opsi_D: '', opsi_E: '', kunci_jawaban: 'Energi tidak dapat diciptakan atau dimusnahkan, hanya berubah bentuk.', bobot: 20, kd: '3.3', narasi_soal: '' },
+      { no: 1, tipe_soal: 'NARASI', pertanyaan: 'Bacalah teks wacana/stimulus berikut untuk menjawab soal nomor selanjutnya...', opsi_A: '', opsi_B: '', opsi_C: '', opsi_D: '', opsi_E: '', kunci_jawaban: '-', bobot: 0, kd: '3.1', narasi_soal: '', id_narasi: 'N-DEMO-01' },
+      { no: 2, tipe_soal: 'PG',    pertanyaan: 'Hasil dari 5 + 7 adalah...', opsi_A: '10', opsi_B: '11', opsi_C: '12', opsi_D: '13', opsi_E: '14', kunci_jawaban: 'C', bobot: 10, kd: '3.1', narasi_soal: '', id_narasi: 'N-DEMO-01' },
+      { no: 3, tipe_soal: 'PGK',   pertanyaan: 'Manakah yang merupakan bilangan prima genap?', opsi_A: '2', opsi_B: '4', opsi_C: '6', opsi_D: '8', opsi_E: '10', kunci_jawaban: 'A,B', bobot: 10, kd: '3.1', narasi_soal: '', id_narasi: '' },
+      { no: 4, tipe_soal: 'BS',    pertanyaan: 'Bumi mengelilingi Matahari.', opsi_A: '', opsi_B: '', opsi_C: '', opsi_D: '', opsi_E: '', kunci_jawaban: 'Benar', bobot: 5, kd: '3.1', narasi_soal: '', id_narasi: '' },
+      { no: 5, tipe_soal: 'JODOH', pertanyaan: 'Pasangkan ibukota negara berikut:', opsi_A: 'Indonesia = Jakarta', opsi_B: 'Jepang = Tokyo', opsi_C: 'Inggris = London', opsi_D: '', opsi_E: '', kunci_jawaban: 'Indonesia=Jakarta, Jepang=Tokyo, Inggris=London', bobot: 15, kd: '3.2', narasi_soal: '', id_narasi: '' },
+      { no: 6, tipe_soal: 'ISIAN', pertanyaan: 'Ibukota Indonesia adalah...', opsi_A: '', opsi_B: '', opsi_C: '', opsi_D: '', opsi_E: '', kunci_jawaban: 'Jakarta', bobot: 10, kd: '3.2', narasi_soal: '', id_narasi: '' },
+      { no: 7, tipe_soal: 'URAIAN', pertanyaan: 'Jelaskan hukum kekekalan energi secara singkat.', opsi_A: '', opsi_B: '', opsi_C: '', opsi_D: '', opsi_E: '', kunci_jawaban: 'Energi tidak dapat diciptakan atau dimusnahkan, hanya berubah bentuk.', bobot: 20, kd: '3.3', narasi_soal: '', id_narasi: '' },
     ];
     const petunjukData = [
-      { Kolom: 'tipe_soal',     Keterangan: 'Wajib. Isi dengan: PG, PGK, BS, JODOH, ISIAN, atau URAIAN' },
-      { Kolom: 'pertanyaan',    Keterangan: 'Wajib. Teks pertanyaan soal.' },
-      { Kolom: 'opsi_A - E',   Keterangan: 'Untuk PG/PGK: teks pilihan. Untuk JODOH: format "Premis = Respon".' },
-      { Kolom: 'kunci_jawaban', Keterangan: 'PG: huruf A/B/C/D/E. PGK: pisah koma (A,B). BS: Benar/Salah. JODOH: "P=R, P2=R2". ISIAN/URAIAN: teks kunci.' },
-      { Kolom: 'bobot',         Keterangan: 'Angka bobot soal (default 10 jika kosong).' },
+      { Kolom: 'tipe_soal',     Keterangan: 'Wajib. Isi dengan: NARASI, PG, PGK, BS, JODOH, ISIAN, atau URAIAN' },
+      { Kolom: 'pertanyaan',    Keterangan: 'Wajib. Teks pertanyaan / narasi stimulus.' },
+      { Kolom: 'opsi_A - E',   Keterangan: 'Untuk PG/PGK: teks pilihan. Untuk JODOH: format "Premis = Respon". Kosongkan untuk NARASI.' },
+      { Kolom: 'kunci_jawaban', Keterangan: 'PG: huruf A/B/C/D/E. PGK: pisah koma (A,B). BS: Benar/Salah. JODOH: "P=R, P2=R2". ISIAN/URAIAN: teks kunci. NARASI: strip (-).' },
+      { Kolom: 'bobot',         Keterangan: 'Angka bobot soal (default 10 jika kosong; otomatis 0 untuk NARASI).' },
       { Kolom: 'kd',            Keterangan: 'Kode Dasar / KD, contoh: 3.1 (opsional).' },
-      { Kolom: 'narasi_soal',   Keterangan: 'Teks narasi/wacana pendahulu soal (opsional).' },
+      { Kolom: 'narasi_soal',   Keterangan: 'Teks wacana tambahan (opsional).' },
+      { Kolom: 'id_narasi',     Keterangan: 'ID stimulus narasi untuk mengaitkan butir soal dengan teks narasi (opsional).' },
     ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(templateData), 'Template Soal');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(petunjukData), 'Petunjuk');
     XLSX.writeFile(wb, 'Template_Soal_NEXA_CBT.xlsx');
-  };
-
-  const downloadTemplateWord = async () => {
-    try {
-      const zip = new JSZip();
-      zip.file('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
-      zip.file('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
-
-      const sampleLines = [
-        'PETUNJUK PENGISIAN SOAL NEXA CBT (MICROSOFT WORD)',
-        '--------------------------------------------------',
-        'Format Fleksibel: Admin/Guru dapat menggunakan tag SOAL: atau penomoran biasa (1., 2., dst.)',
-        '',
-        'CONTOH 1 - PILIHAN GANDA (PG):',
-        'SOAL: Hasil dari 5 + 7 adalah...',
-        'A. 10',
-        'B. 11',
-        'C. 12',
-        'D. 13',
-        'E. 14',
-        'KUNCI: C',
-        'BOBOT: 10',
-        'KD: 3.1',
-        '',
-        'CONTOH 2 - PILIHAN GANDA KOMPLEKS (PGK - Lebih dari 1 kunci):',
-        'TIPE: PGK',
-        'SOAL: Manakah yang merupakan bilangan prima genap?',
-        'A. 2',
-        'B. 4',
-        'C. 6',
-        'D. 8',
-        'KUNCI: A,B',
-        'BOBOT: 10',
-        '',
-        'CONTOH 3 - BENAR / SALAH (BS):',
-        'TIPE: BS',
-        'SOAL: Bumi mengelilingi Matahari.',
-        'KUNCI: Benar',
-        'BOBOT: 5',
-        '',
-        'CONTOH 4 - MENJODOHKAN (JODOH):',
-        'TIPE: JODOH',
-        'SOAL: Pasangkan ibukota negara berikut:',
-        'A. Indonesia = Jakarta',
-        'B. Jepang = Tokyo',
-        'C. Inggris = London',
-        'KUNCI: Indonesia=Jakarta, Jepang=Tokyo, Inggris=London',
-        'BOBOT: 15',
-        '',
-        'CONTOH 5 - ISIAN SINGKAT:',
-        'TIPE: ISIAN',
-        'SOAL: Ibukota Indonesia adalah...',
-        'KUNCI: Jakarta',
-        'BOBOT: 10',
-        '',
-        'CONTOH 6 - URAIAN / ESSAY:',
-        'TIPE: URAIAN',
-        'SOAL: Jelaskan hukum kekekalan energi secara singkat.',
-        'KUNCI: Energi tidak dapat diciptakan atau dimusnahkan, hanya berubah bentuk.',
-        'BOBOT: 20'
-      ];
-
-      const pXml = sampleLines.map(l =>
-        `<w:p><w:r><w:t xml:space="preserve">${l.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</w:t></w:r></w:p>`
-      ).join('');
-
-      zip.file('word/document.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${pXml}</w:body></w:document>`);
-
-      const blob = await zip.generateAsync({ type: 'blob' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'Template_Soal_NEXA_CBT.docx';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      showMessage('Gagal', 'Gagal mengunduh template Word: ' + err.message, 'error');
-    }
-  };
-
-  const parseWordText = (text) => {
-    const soalList = [];
-    const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').map(l => l.trim());
-
-    let current = null;
-    let currentNarasi = '';
-
-    const finalize = () => {
-      if (current && current.pertanyaan) {
-        if (!current.tipe_soal) {
-          if (current.opsi_A || current.opsi_B) {
-            current.tipe_soal = 'PG';
-          } else {
-            current.tipe_soal = 'URAIAN';
-          }
-        }
-        soalList.push({ ...current, narasi_soal: currentNarasi || current.narasi_soal || '' });
-        currentNarasi = '';
-      }
-    };
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (!line) continue;
-
-      if (/^(NARASI|WACANA|STIMULUS)\s*[:=]/i.test(line)) {
-        finalize();
-        current = null;
-        currentNarasi = line.replace(/^(NARASI|WACANA|STIMULUS)\s*[:=]\s*/i, '').trim();
-        continue;
-      }
-
-      if (/^(TIPE|JENIS)\s*[:=]/i.test(line)) {
-        const tipeVal = line.replace(/^(TIPE|JENIS)\s*[:=]\s*/i, '').trim();
-        if (current && !current.pertanyaan) {
-          current.tipe_soal = normalizeTipeSoal(tipeVal);
-        } else {
-          finalize();
-          current = { tipe_soal: normalizeTipeSoal(tipeVal) };
-        }
-        continue;
-      }
-
-      const matchSoal = line.match(/^(\d+)[\.\)]\s*(.*)$/) || line.match(/^(SOAL|PERTANYAAN)\s*[:=]\s*(.*)$/i);
-      if (matchSoal && !/^[A-E][\.\)]/i.test(line)) {
-        finalize();
-        const pertanyaanText = matchSoal[2] || '';
-        current = {
-          pertanyaan: pertanyaanText,
-          tipe_soal: current?.tipe_soal || undefined
-        };
-        continue;
-      }
-
-      const matchOpsi = line.match(/^([A-E])[\.\)]\s*(.*)$/i) || line.match(/^OPSI_([A-E])\s*[:=]\s*(.*)$/i);
-      if (matchOpsi && current) {
-        const huruf = matchOpsi[1].toUpperCase();
-        current[`opsi_${huruf}`] = matchOpsi[2] || '';
-        continue;
-      }
-
-      if (/^(KUNCI|JAWABAN|KEY)\s*[:=]/i.test(line) && current) {
-        current.kunci_jawaban = line.replace(/^(KUNCI|JAWABAN|KEY)\s*[:=]\s*/i, '').trim();
-        continue;
-      }
-
-      if (/^(BOBOT|SCORE|POIN)\s*[:=]/i.test(line) && current) {
-        current.bobot = parseInt(line.replace(/^(BOBOT|SCORE|POIN)\s*[:=]\s*/i, '').trim(), 10) || 10;
-        continue;
-      }
-
-      if (/^(KD|KOMPETENSI)\s*[:=]/i.test(line) && current) {
-        current.kd = line.replace(/^(KD|KOMPETENSI)\s*[:=]\s*/i, '').trim();
-        continue;
-      }
-
-      if (current && current.pertanyaan && !current.opsi_A && !current.kunci_jawaban) {
-        current.pertanyaan += ' ' + line;
-      }
-    }
-    finalize();
-    return soalList;
   };
 
   const handleImportExcel = (e) => {
@@ -683,16 +529,24 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
           return;
         }
 
+        let activeNarasiId = null;
+
         const payloadData = rawData.map((row, idx) => {
-          const tipe = normalizeTipeSoal(row.tipe_soal || 'PG');
-          let finalKunci = row.kunci_jawaban ? String(row.kunci_jawaban).trim() : '';
+          const rawTipe = String(row.tipe_soal || '').trim().toUpperCase();
+          const isNarasi = rawTipe === 'NARASI' || (!row.pertanyaan && row.narasi_soal);
+          const tipe = isNarasi ? 'NARASI' : normalizeTipeSoal(row.tipe_soal || 'PG');
+          let finalKunci = row.kunci_jawaban ? String(row.kunci_jawaban).trim() : (isNarasi ? '-' : '');
           let opsiStr = null;
-          let finalPertanyaan = row.pertanyaan || '';
-          if (row.narasi_soal) {
-            finalPertanyaan = `<strong>Narasi Soal:</strong><br/>${row.narasi_soal}<br/><br/>${finalPertanyaan}`;
+          let finalPertanyaan = isNarasi ? (row.pertanyaan || row.narasi_soal || '') : (row.pertanyaan || '');
+
+          if (row.id_narasi) {
+            activeNarasiId = String(row.id_narasi).trim();
           }
 
-          if (tipe === 'PG') {
+          if (isNarasi) {
+            opsiStr = '[]';
+            finalKunci = '-';
+          } else if (tipe === 'PG') {
             const map = { A: row.opsi_A, B: row.opsi_B, C: row.opsi_C, D: row.opsi_D, E: row.opsi_E };
             finalKunci = map[finalKunci.toUpperCase()] || finalKunci;
           } else if (tipe === 'PGK') {
@@ -723,15 +577,25 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
             opsiStr = JSON.stringify([row.opsi_A || '', row.opsi_B || '', row.opsi_C || '', row.opsi_D || '', row.opsi_E || '']);
           }
 
+          const parsedBobot = isNarasi ? 0 : ((row.bobot !== undefined && row.bobot !== '' && !isNaN(Number(row.bobot)))
+            ? Number(row.bobot)
+            : 10);
+
+          const uniqueId = `SOAL-${selectedMapel}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2,6).toUpperCase()}-${idx}`;
+          if (isNarasi && !row.id_narasi) {
+            activeNarasiId = uniqueId;
+          }
+
           return {
-            id_soal: `SOAL-${selectedMapel}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2,6).toUpperCase()}-${idx}`,
+            id_soal: uniqueId,
             id_mapel: selectedMapel,
             npsn: user.npsn,
             tipe_soal: tipe,
             pertanyaan: finalPertanyaan,
             opsi: opsiStr,
             kunci_jawaban: finalKunci ? String(finalKunci) : '',
-            bobot: Number(row.bobot) || 10
+            bobot: parsedBobot,
+            id_narasi: isNarasi ? (row.id_narasi ? String(row.id_narasi).trim() : uniqueId) : (row.id_narasi ? String(row.id_narasi).trim() : (activeNarasiId || null))
           };
         });
 
@@ -752,105 +616,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       }
     };
     reader.readAsBinaryString(file);
-  };
-
-  const handleImportWord = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    e.target.value = '';
-    if (isSelectedMapelActive) {
-      showMessage('Soal Terkunci', 'Tidak dapat mengimpor soal karena jadwal ujian mapel ini sedang AKTIF berlangsung.', 'error');
-      return;
-    }
-    const lowerName = file.name.toLowerCase();
-    if (lowerName.endsWith('.doc') && !lowerName.endsWith('.docx')) {
-      showMessage('Format Tidak Didukung', 'Format binary .doc lama tidak didukung. Silakan simpan ulang dokumen sebagai .docx atau .txt.', 'error');
-      return;
-    }
-    try {
-      setIsLoading(true);
-      let text = '';
-      if (lowerName.endsWith('.docx')) {
-        const arrayBuffer = await file.arrayBuffer();
-        const result = await mammoth.extractRawText({ arrayBuffer });
-        text = result.value;
-      } else {
-        text = await file.text();
-      }
-
-      const rawSoal = parseWordText(text);
-      if (!rawSoal.length) {
-        showMessage('Peringatan', 'Tidak ada soal yang terbaca. Pastikan format sesuai template.', 'error');
-        setIsLoading(false);
-        return;
-      }
-
-      const payloadData = rawSoal.map((row, idx) => {
-        const tipe = normalizeTipeSoal(row.tipe_soal || 'PG');
-        let finalKunci = row.kunci_jawaban ? String(row.kunci_jawaban).trim() : '';
-        let opsiStr = null;
-        let finalPertanyaan = row.pertanyaan || '';
-        if (row.narasi_soal) {
-          finalPertanyaan = `<strong>Narasi Soal:</strong><br/>${row.narasi_soal}<br/><br/>${finalPertanyaan}`;
-        }
-
-        if (tipe === 'PG') {
-          const map = { A: row.opsi_A, B: row.opsi_B, C: row.opsi_C, D: row.opsi_D, E: row.opsi_E };
-          finalKunci = map[finalKunci.toUpperCase()] || finalKunci;
-        } else if (tipe === 'PGK') {
-          try {
-            const mapped = finalKunci.split(',').map(k => ({ A: row.opsi_A, B: row.opsi_B, C: row.opsi_C, D: row.opsi_D, E: row.opsi_E }[k.trim().toUpperCase()] || k.trim()));
-            finalKunci = JSON.stringify(mapped);
-          } catch (_) {}
-        } else if (tipe === 'JODOH') {
-          const premis = [], respon = [];
-          ['opsi_A','opsi_B','opsi_C','opsi_D','opsi_E'].forEach(k => {
-            if (!row[k]) return;
-            const [p, r] = row[k].split('=').map(s => s.trim());
-            if (p && !premis.includes(p)) premis.push(p);
-            if (r && !respon.includes(r)) respon.push(r);
-          });
-          opsiStr = JSON.stringify({ premis, respon });
-          if (finalKunci) {
-            const kunciObj = {};
-            finalKunci.split(',').forEach(pair => {
-              const [p, r] = pair.split('=').map(s => s.trim());
-              if (p) kunciObj[p] = r;
-            });
-            finalKunci = JSON.stringify(kunciObj);
-          }
-        }
-
-        if ((tipe === 'PG' || tipe === 'PGK') && !opsiStr) {
-          opsiStr = JSON.stringify([row.opsi_A || '', row.opsi_B || '', row.opsi_C || '', row.opsi_D || '', row.opsi_E || '']);
-        }
-
-        return {
-          id_soal: `SOAL-${selectedMapel}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2,6).toUpperCase()}-${idx}`,
-          id_mapel: selectedMapel,
-          npsn: user.npsn,
-          tipe_soal: tipe,
-          pertanyaan: finalPertanyaan,
-          opsi: opsiStr,
-          kunci_jawaban: finalKunci ? String(finalKunci) : '',
-          bobot: Number(row.bobot) || 10
-        };
-      });
-
-      const res = await api('import_soal_bulk', { data: payloadData, npsn: user.npsn });
-      setIsLoading(false);
-      if (res.status === 'success') {
-        showMessage('Berhasil', `${payloadData.length} soal dari Word/TXT berhasil diimpor!`, 'success');
-        const refresh = await api('get_soal_by_mapel', { id_mapel: selectedMapel });
-        if (refresh.status === 'success') setDataSoal(refresh.data || []);
-        fetchData('mapel');
-      } else {
-        showMessage('Info', res.message, 'info');
-      }
-    } catch (err) {
-      setIsLoading(false);
-      showMessage('Gagal', 'Gagal memproses file Word: ' + err.message, 'error');
-    }
   };
 
   const handleDeleteClick = (id, type, item) => {
@@ -884,6 +649,8 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     if (type === 'siswa') ids = selectedSiswa;
     else if (type === 'guru') ids = selectedGuru;
     else if (type === 'jadwal') ids = selectedJadwalBulk;
+    else if (type === 'kelas') ids = selectedKelasBulk;
+    else if (type === 'mapel') ids = selectedMapelBulk;
 
     if (!ids || ids.length === 0) { showMessage('Peringatan', 'Pilih data terlebih dahulu.', 'error'); return; }
 
@@ -896,7 +663,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       type: 'delete',
       onConfirm: async () => {
         setIsLoading(true);
-        const res = await api(`delete_${type}_bulk`, { ids });
+        const res = await api(`delete_${type}_bulk`, { ids, npsn: user.npsn });
         setIsLoading(false);
         if (res.status === 'success') {
           showMessage('Info', res.message, 'info');
@@ -909,6 +676,8 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
           if (type === 'siswa') setSelectedSiswa([]);
           else if (type === 'guru') setSelectedGuru([]);
           else if (type === 'jadwal') setSelectedJadwalBulk([]);
+          else if (type === 'kelas') setSelectedKelasBulk([]);
+          else if (type === 'mapel') setSelectedMapelBulk([]);
           fetchData(activeTab);
         } else {
           showMessage('Info', res.message, 'info');
@@ -1442,6 +1211,9 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       if (payload.durasi_token_menit !== undefined) {
         payload.durasi_token_menit = parseInt(payload.durasi_token_menit, 10) || 5;
       }
+      if (payload.batas_pelanggaran !== undefined) {
+        payload.batas_pelanggaran = parseInt(payload.batas_pelanggaran, 10) || 3;
+      }
 
       if (payload.tanggal && payload.waktu_mulai_time && payload.waktu_selesai_time) {
         const mulaiDt = new Date(`${payload.tanggal}T${payload.waktu_mulai_time}`);
@@ -1530,8 +1302,11 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       headers = ['nama_mapel', 'nama_guru_atau_nip', 'tanggal', 'jam_mulai', 'jam_selesai', 'durasi_menit', 'target_kelas', 'token'];
       filename = 'Template_Jadwal.xlsx';
     } else if (importModal.type === 'mapel') {
-      headers = ['nama_mapel', 'alokasi_kelas'];
+      headers = ['nama_mapel', 'alokasi_kelas', 'agama'];
       filename = 'Template_Mata_Pelajaran.xlsx';
+    } else if (importModal.type === 'kelas') {
+      headers = ['tingkat', 'kelas_paralel'];
+      filename = 'Template_Kelas.xlsx';
     }
 
     const ws = XLSX.utils.aoa_to_sheet([headers]);
@@ -1792,9 +1567,14 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 if (!alokasi) alokasi = 'Semua Kelas';
               }
 
+              let rawAgama = row.agama ?? row.Agama ?? row.AGAMA;
+              let agama = rawAgama ? String(rawAgama).trim() : null;
+              if (agama === 'Semua/Umum' || agama === 'Semua' || agama === 'Umum' || !agama) agama = null;
+
               return {
                 nama_mapel: nama,
                 alokasi_kelas: alokasi,
+                agama,
                 npsn: user.npsn
               };
             })
@@ -1828,6 +1608,40 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
           }
           skippedMapelCount = processedData.length - newItems.length;
           processedData = newItems;
+        } else if (importModal.type === 'kelas') {
+          endpoint = 'create_kelas_bulk';
+          const seenInFile = new Set();
+          processedData = rawData.map(row => {
+            const tingkat = String(row.tingkat ?? row.Tingkat ?? row.TINGKAT ?? '').trim();
+            const kelas_paralel = String(row.kelas_paralel ?? row.paralel ?? row.Kelas_Paralel ?? row.KELAS_PARALEL ?? row.kelas ?? '').trim();
+            return {
+              tingkat,
+              kelas_paralel,
+              npsn: user.npsn
+            };
+          }).filter(item => {
+            if (!item.tingkat || !item.kelas_paralel) return false;
+            const key = `${item.tingkat}_${item.kelas_paralel}`.toLowerCase();
+            if (seenInFile.has(key)) return false;
+            seenInFile.add(key);
+            return true;
+          });
+
+          if (processedData.length === 0) {
+            showMessage('Peringatan', 'Tidak ada data kelas valid yang dapat diimpor.', 'error');
+            setIsSubmitting(false);
+            return;
+          }
+
+          const existingKeys = new Set((dataKelas || []).map(k => `${String(k.tingkat || '').trim()}_${String(k.kelas_paralel || '').trim()}`.toLowerCase()));
+          const newClasses = processedData.filter(k => !existingKeys.has(`${k.tingkat}_${k.kelas_paralel}`.toLowerCase()));
+          if (newClasses.length === 0) {
+            showMessage('Info', 'Semua kelas dalam file sudah terdaftar.', 'info');
+            setImportModal({ isOpen: false, type: '' });
+            setIsSubmitting(false);
+            return;
+          }
+          processedData = newClasses;
         }
 
         const modalType = importModal.type;
@@ -1918,6 +1732,26 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
         };
       });
       fileName = 'Data_Jadwal.xlsx';
+    } else if (type === 'kelas') {
+      if (!dataKelas || dataKelas.length === 0) { showMessage('Peringatan', 'Tidak ada data kelas untuk di-export', 'error'); return; }
+      exportData = dataKelas.map((k, i) => ({
+        'No': i + 1,
+        'ID Kelas': k.id_kelas,
+        'Tingkat': k.tingkat,
+        'Kelas Paralel': k.kelas_paralel,
+      }));
+      fileName = 'Data_Kelas.xlsx';
+    } else if (type === 'mapel') {
+      if (!dataMapel || dataMapel.length === 0) { showMessage('Peringatan', 'Tidak ada data mata pelajaran untuk di-export', 'error'); return; }
+      exportData = dataMapel.map((m, i) => ({
+        'No': i + 1,
+        'ID Mapel': m.id_mapel,
+        'Nama Mata Pelajaran': m.nama_mapel,
+        'Alokasi Kelas': m.alokasi_kelas || 'Semua Kelas',
+        'Agama': m.agama || 'Semua/Umum',
+        'Jumlah Soal': m.jumlah_soal || 0
+      }));
+      fileName = 'Data_Mata_Pelajaran.xlsx';
     }
 
     if (exportData.length > 0) {
@@ -1990,6 +1824,34 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     return list;
   }, [dataJadwal, filterMapel, filterJadwalStatus, searchQuery, sortConfigJadwal]);
 
+  const sortedFilteredKelas = useMemo(() => {
+    return (dataKelas || []).filter(k => {
+      const q = (searchQueryKelas || '').trim().toLowerCase();
+      const tingkat = String(k.tingkat || '').toLowerCase();
+      const paralel = String(k.kelas_paralel || '').toLowerCase();
+      const full = `${tingkat} ${paralel}`;
+      const matchesQuery = !q || tingkat.includes(q) || paralel.includes(q) || full.includes(q);
+      const matchesTingkat = !filterTingkatKelas || k.tingkat === filterTingkatKelas;
+      return matchesQuery && matchesTingkat;
+    });
+  }, [dataKelas, searchQueryKelas, filterTingkatKelas]);
+
+  const sortedFilteredMapel = useMemo(() => {
+    return (dataMapel || []).filter(m => {
+      const q = (searchQueryMapel || '').trim().toLowerCase();
+      const nama = String(m.nama_mapel || '').toLowerCase();
+      const alokasi = String(m.alokasi_kelas || '').toLowerCase();
+      const agama = String(m.agama || '').toLowerCase();
+      const matchesQuery = !q || nama.includes(q) || alokasi.includes(q) || agama.includes(q);
+      const matchesAlokasi = !filterAlokasiMapel || (
+        filterAlokasiMapel === 'Semua'
+          ? (isUniversalAlloc(m.alokasi_kelas))
+          : (m.alokasi_kelas && m.alokasi_kelas.includes(filterAlokasiMapel))
+      );
+      return matchesQuery && matchesAlokasi;
+    });
+  }, [dataMapel, searchQueryMapel, filterAlokasiMapel]);
+
   // Live Monitoring Computed Metrics and Filtered List
   const { monitoringMetrics, filteredMonitoringLogs } = useMemo(() => {
     const total = dataLog.length;
@@ -2025,6 +1887,10 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       filteredMonitoringLogs: filtered
     };
   }, [dataLog, monitoringFilterStatus, monitoringFilterKelas, monitoringSearch]);
+
+  const selectedJadwalObj = useMemo(() => {
+    return (dataJadwal || []).find(j => j.id_jadwal === selectedJadwal) || null;
+  }, [dataJadwal, selectedJadwal]);
 
   // Available classes for monitoring sourced from canonical master dataKelas
   const availableMonitoringClasses = useMemo(() => {
@@ -2215,9 +2081,25 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                       <input name="id_mapel" defaultValue={data?.id_mapel || ''} readOnly={isEdit} required className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm bg-slate-50" />
                     </div>
                   )}
-                  <div className={isEdit ? 'col-span-1 md:col-span-1 xl:col-span-2' : 'col-span-1 md:col-span-2 xl:col-span-3'}>
+                  <div className={isEdit ? 'col-span-1 md:col-span-1' : 'col-span-1 md:col-span-2'}>
                     <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Nama Mapel</label>
                     <input name="nama_mapel" defaultValue={data?.nama_mapel || ''} required placeholder="Contoh: Matematika Wajib" className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Batasan Agama Peserta</label>
+                    <select
+                      name="agama"
+                      defaultValue={data?.agama || 'Semua/Umum'}
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white"
+                    >
+                      <option value="Semua/Umum">Semua Agama / Umum</option>
+                      <option value="Islam">Islam</option>
+                      <option value="Kristen">Kristen</option>
+                      <option value="Katolik">Katolik</option>
+                      <option value="Hindu">Hindu</option>
+                      <option value="Buddha">Buddha</option>
+                      <option value="Konghucu">Konghucu</option>
+                    </select>
                   </div>
                   <div className="col-span-1 md:col-span-2 xl:col-span-3 space-y-3">
                     <div className="flex items-center justify-between">
@@ -2439,7 +2321,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Password {isEdit && '(Kosongkan jika tidak diubah)'}</label>
-                  <PasswordInput name="password" required={!isEdit} className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
+                  <PasswordInput name="password" required={!isEdit} defaultValue={data?.password || ''} className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Kelas</label>
@@ -2457,6 +2339,10 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   <select name="agama" defaultValue={data?.agama || 'Islam'} className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white">
                     <option value="Islam">Islam</option>
                     <option value="Kristen">Kristen</option>
+                    <option value="Katolik">Katolik</option>
+                    <option value="Hindu">Hindu</option>
+                    <option value="Buddha">Buddha</option>
+                    <option value="Konghucu">Konghucu</option>
                   </select>
                 </div>
                 <div>
@@ -2488,7 +2374,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Password {isEdit && '(Kosongkan jika tidak diubah)'}</label>
-                  <PasswordInput name="password" required={!isEdit} className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
+                  <PasswordInput name="password" required={!isEdit} defaultValue={data?.password || ''} className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
                 </div>
                 <div className="col-span-1 md:col-span-2">
                   <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">Mata Pelajaran (Bisa Pilih Lebih dari 1)</label>
@@ -2563,7 +2449,22 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Guru Pengampu</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-300">Guru Pengampu</label>
+                    {jadwalGuruId && (() => {
+                      const curMapelId = (typeof document !== 'undefined' && document.getElementById('input_jadwal_id_mapel')?.value) || formModal.data?.id_mapel;
+                      const gObj = dataGuru.find(g => String(g.id_guru) === String(jadwalGuruId));
+                      const isAssigned = gObj && (
+                        (gObj.id_mapels && gObj.id_mapels.some(id => String(id) === String(curMapelId))) ||
+                        (gObj.guru_mapel && gObj.guru_mapel.some(gm => String(gm.id_mapel) === String(curMapelId)))
+                      );
+                      return isAssigned ? (
+                        <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                          ✓ Terpilih Otomatis
+                        </span>
+                      ) : null;
+                    })()}
+                  </div>
                   <select
                     id="input_jadwal_id_guru"
                     name="id_guru"
@@ -2573,11 +2474,36 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white"
                   >
                     <option value="">Pilih Guru</option>
-                    {dataGuru.map(g => (
-                      <option key={g.id_guru} value={g.id_guru}>
-                        {g.nama_lengkap} {g.mapels_list && g.mapels_list !== '-' ? `(${g.mapels_list})` : (g.nama_mapel ? `(${g.nama_mapel})` : '')} {g.alokasi_kelas ? `[${g.alokasi_kelas}]` : ''}
-                      </option>
-                    ))}
+                    {(() => {
+                      const curMapelId = (typeof document !== 'undefined' && document.getElementById('input_jadwal_id_mapel')?.value) || formModal.data?.id_mapel;
+                      const assignedGurus = dataGuru.filter(g =>
+                        (g.id_mapels && g.id_mapels.some(id => String(id) === String(curMapelId))) ||
+                        (g.guru_mapel && g.guru_mapel.some(gm => String(gm.id_mapel) === String(curMapelId)))
+                      );
+                      const assignedIds = new Set(assignedGurus.map(g => g.id_guru));
+                      const otherGurus = dataGuru.filter(g => !assignedIds.has(g.id_guru));
+
+                      return (
+                        <>
+                          {assignedGurus.length > 0 && (
+                            <optgroup label="Guru Pengampu Mapel Ini">
+                              {assignedGurus.map(g => (
+                                <option key={g.id_guru} value={g.id_guru}>
+                                  ⭐ {g.nama_lengkap} {g.mapels_list && g.mapels_list !== '-' ? `(${g.mapels_list})` : ''} {g.alokasi_kelas ? `[${g.alokasi_kelas}]` : ''}
+                                </option>
+                              ))}
+                            </optgroup>
+                          )}
+                          <optgroup label={assignedGurus.length > 0 ? "Guru Lainnya" : "Daftar Semua Guru"}>
+                            {otherGurus.map(g => (
+                              <option key={g.id_guru} value={g.id_guru}>
+                                {g.nama_lengkap} {g.mapels_list && g.mapels_list !== '-' ? `(${g.mapels_list})` : (g.nama_mapel ? `(${g.nama_mapel})` : '')} {g.alokasi_kelas ? `[${g.alokasi_kelas}]` : ''}
+                              </option>
+                            ))}
+                          </optgroup>
+                        </>
+                      );
+                    })()}
                   </select>
                 </div>
                 <div>
@@ -2719,6 +2645,10 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 <div>
                   <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Interval Pergantian Token (Menit)</label>
                   <input type="number" name="durasi_token_menit" min="1" max="120" defaultValue={data?.durasi_token_menit || 5} required className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Batas Maksimal Pelanggaran</label>
+                  <input type="number" name="batas_pelanggaran" min="1" max="10" defaultValue={data?.batas_pelanggaran || 3} required className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 text-xs sm:text-sm dark:text-white" />
                 </div>
               </>
             )}
@@ -2908,7 +2838,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
         <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl relative p-5 sm:p-6 border border-slate-200 dark:border-slate-700 animate-scale-up">
           <div className="flex justify-between items-center mb-3">
             <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">
-              Import Data {importModal.type === 'siswa' ? 'Siswa' : importModal.type === 'guru' ? 'Guru' : importModal.type === 'mapel' ? 'Mata Pelajaran' : 'Jadwal'}
+              Import Data {importModal.type === 'siswa' ? 'Siswa' : importModal.type === 'guru' ? 'Guru' : importModal.type === 'mapel' ? 'Mata Pelajaran' : importModal.type === 'kelas' ? 'Kelas' : 'Jadwal'}
             </h3>
             <button
               onClick={() => setImportModal({ isOpen: false, type: '' })}
@@ -3895,6 +3825,11 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                         <p className="text-xs text-slate-500 mt-0.5">
                           {new Date(j.waktu_mulai).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} - {new Date(j.waktu_selesai).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
                           {' '}| Token: <strong className="font-mono text-primary dark:text-primary-400">{j.token || 'Menunggu'}</strong>
+                          {j.status_ujian === 'AKTIF' && (j.token_aktif || j.token) && (
+                            <span className="ml-2 inline-block">
+                              <TokenCountdown lastUpdate={j.last_update_token} intervalMinutes={j.durasi_token_menit || 5} onExpire={() => fetchData('jadwal')} />
+                            </span>
+                          )}
                         </p>
                       </div>
                       <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/60">
@@ -4794,7 +4729,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                             </td>
                             <td className="py-3 px-4">
                               <div className="flex flex-col gap-1.5">
-                                <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-1.5 flex-wrap">
                                   <span className="font-mono font-bold text-sm text-primary dark:text-primary-400">
                                     {j.token_aktif || j.token || '-'}
                                   </span>
@@ -4818,6 +4753,9 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                                     <span className="material-symbols-outlined text-[13px]">autorenew</span>
                                     <span>Rilis</span>
                                   </button>
+                                  {j.status_ujian === 'AKTIF' && (
+                                    <TokenCountdown lastUpdate={j.last_update_token} intervalMinutes={j.durasi_token_menit || 5} onExpire={() => fetchData('jadwal')} />
+                                  )}
                                 </div>
 
                                 <div>
@@ -4976,7 +4914,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                         </div>
                         <div className="flex items-center justify-between text-xs">
                           <span className="text-slate-500">Token Ujian:</span>
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 flex-wrap justify-end">
                             <strong className="font-mono text-primary dark:text-primary-400 font-bold">
                               #{j.token_aktif || j.token || '-'}
                             </strong>
@@ -5000,6 +4938,9 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                               <span className="material-symbols-outlined text-[13px]">autorenew</span>
                               <span>Rilis</span>
                             </button>
+                            {j.status_ujian === 'AKTIF' && (
+                              <TokenCountdown lastUpdate={j.last_update_token} intervalMinutes={j.durasi_token_menit || 5} onExpire={() => fetchData('jadwal')} />
+                            )}
                           </div>
                         </div>
                       </div>
@@ -5290,11 +5231,11 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                                   </td>
                                   <td className="py-3 px-4 text-center">
                                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
-                                      (p.pelanggaran || 0) >= 3 ? 'bg-rose-100 text-rose-700' :
+                                      (p.pelanggaran || 0) >= (selectedJadwalObj?.batas_pelanggaran || 3) ? 'bg-rose-100 text-rose-700' :
                                       (p.pelanggaran || 0) > 0 ? 'bg-amber-100 text-amber-700' :
                                       'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
                                     }`}>
-                                      {p.pelanggaran || 0}/3
+                                      {p.pelanggaran || 0}/{(selectedJadwalObj?.batas_pelanggaran || 3)}
                                     </span>
                                   </td>
                                   <td className="py-3 px-4 text-center">
@@ -5368,7 +5309,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                               <div className="min-w-0 flex-1">
                                 <h5 className="font-bold text-xs sm:text-sm text-slate-800 dark:text-white truncate">{p.nama_lengkap}</h5>
                                 <p className="text-[11px] text-slate-500 mt-0.5">
-                                  {p.angkatan} {p.kelas_paralel} • Pelanggaran: <strong className={p.pelanggaran >= 3 ? 'text-rose-600' : 'text-slate-700 dark:text-slate-300'}>{p.pelanggaran || 0}/3</strong>
+                                  {p.angkatan} {p.kelas_paralel} • Pelanggaran: <strong className={p.pelanggaran >= (selectedJadwalObj?.batas_pelanggaran || 3) ? 'text-rose-600' : 'text-slate-700 dark:text-slate-300'}>{p.pelanggaran || 0}/{(selectedJadwalObj?.batas_pelanggaran || 3)}</strong>
                                 </p>
                               </div>
                               <StatusBadge
@@ -5461,26 +5402,15 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
 
                     <div className="flex items-center gap-2 flex-wrap justify-end">
                       <input type="file" ref={fileInputRef} onChange={handleImportExcel} accept=".xlsx,.xls" className="hidden" />
-                      <input type="file" ref={wordInputRef} onChange={handleImportWord} accept=".docx,.txt" className="hidden" />
-                      {/* Template dropdown */}
-                      <div className="relative group">
-                        <button
-                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 transition-colors min-h-[44px]"
-                          title="Unduh Template"
-                        >
-                          <span className="material-symbols-outlined text-[18px]">download</span>
-                          <span className="hidden sm:inline">Template</span>
-                          <span className="material-symbols-outlined text-[14px]">expand_more</span>
-                        </button>
-                        <div className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 z-50 hidden group-hover:block">
-                          <button onClick={downloadTemplateSoal} className="w-full text-left px-4 py-2.5 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2 rounded-t-xl">
-                            <span className="material-symbols-outlined text-[16px] text-green-600">table_chart</span> Template Excel (.xlsx)
-                          </button>
-                          <button onClick={downloadTemplateWord} className="w-full text-left px-4 py-2.5 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2 rounded-b-xl">
-                            <span className="material-symbols-outlined text-[16px] text-blue-600">description</span> Template Word (.docx)
-                          </button>
-                        </div>
-                      </div>
+                      {/* Unduh Template Excel */}
+                      <button
+                        onClick={downloadTemplateSoal}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 transition-colors min-h-[44px]"
+                        title="Unduh Template Excel (.xlsx)"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">download</span>
+                        <span className="hidden sm:inline">Template Excel</span>
+                      </button>
                       {/* Import Excel */}
                       <button
                         onClick={() => !isSelectedMapelActive && fileInputRef.current?.click()}
@@ -5490,16 +5420,6 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                       >
                         <span className="material-symbols-outlined text-[18px]">table_chart</span>
                         <span className="hidden sm:inline">Import Excel</span>
-                      </button>
-                      {/* Import Word */}
-                      <button
-                        onClick={() => !isSelectedMapelActive && wordInputRef.current?.click()}
-                        disabled={isSelectedMapelActive}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed text-blue-700 dark:text-blue-300 transition-colors min-h-[44px]"
-                        title={isSelectedMapelActive ? 'Soal terkunci selama ujian berlangsung' : 'Import dari Word/TXT (.docx, .txt)'}
-                      >
-                        <span className="material-symbols-outlined text-[18px]">description</span>
-                        <span className="hidden sm:inline">Import Word</span>
                       </button>
                       <button
                         onClick={() => !isSelectedMapelActive && setFormNarasi({ isOpen: true, data: null })}
@@ -5708,6 +5628,14 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     </div>
                     <div className="flex items-center gap-2 flex-wrap self-end sm:self-auto">
                       <button
+                        onClick={() => exportDataToExcel('mapel')}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 transition-colors min-h-[44px]"
+                        title="Export Excel"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">download</span>
+                        <span className="hidden sm:inline">Export</span>
+                      </button>
+                      <button
                         onClick={() => setImportModal({ isOpen: true, type: 'mapel' })}
                         className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 transition-colors min-h-[44px]"
                         title="Import Excel"
@@ -5725,12 +5653,96 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     </div>
                   </div>
 
+                  {/* Filter & Search Bar Mapel */}
+                  <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center justify-between">
+                    <div className="relative flex-1">
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+                      <input
+                        type="text"
+                        value={searchQueryMapel}
+                        onChange={(e) => setSearchQueryMapel(e.target.value)}
+                        placeholder="Cari mapel, alokasi kelas, atau agama..."
+                        className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:ring-2 focus:ring-primary/20 focus:outline-none"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={filterAlokasiMapel}
+                        onChange={(e) => setFilterAlokasiMapel(e.target.value)}
+                        className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:outline-none"
+                      >
+                        <option value="">Semua Alokasi</option>
+                        <option value="Semua">Semua Kelas</option>
+                        {Array.from(new Set((dataKelas || []).map(k => k.tingkat).filter(Boolean))).sort().map(t => (
+                          <option key={t} value={t}>Tingkat {t}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Mapel Bulk Action Bar */}
+                  {selectedMapelBulk.length > 0 && (
+                    <div className="flex items-center justify-between bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 px-4 py-2.5 rounded-xl animate-fade-in">
+                      <div className="flex items-center gap-2 text-xs font-semibold text-rose-700 dark:text-rose-300">
+                        <span className="material-symbols-outlined text-[18px]">check_box</span>
+                        <span>{selectedMapelBulk.length} mapel dipilih</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setSelectedMapelBulk([])}
+                          className="px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white"
+                        >
+                          Batal
+                        </button>
+                        <button
+                          onClick={() => handleBulkDelete('mapel')}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-sm transition-all"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">delete</span>
+                          <span>Hapus Terpilih ({selectedMapelBulk.length})</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Select All Checkbox Header */}
+                  {sortedFilteredMapel.length > 0 && (
+                    <div className="flex items-center justify-between px-1 text-xs text-slate-500">
+                      <label className="flex items-center gap-2 cursor-pointer font-semibold">
+                        <input
+                          type="checkbox"
+                          aria-label="Pilih Semua Mapel"
+                          checked={sortedFilteredMapel.length > 0 && selectedMapelBulk.length === sortedFilteredMapel.length}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedMapelBulk(sortedFilteredMapel.map(m => m.id_mapel));
+                            } else {
+                              setSelectedMapelBulk([]);
+                            }
+                          }}
+                          className="rounded text-primary focus:ring-primary"
+                        />
+                        <span>Pilih Semua ({sortedFilteredMapel.length} Mapel)</span>
+                      </label>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
-                    {dataMapel.map((m) => (
+                    {sortedFilteredMapel.map((m) => (
                       <div
                         key={m.id_mapel}
                         className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex items-center justify-between gap-3"
                       >
+                        <input
+                          type="checkbox"
+                          aria-label={`Pilih mapel ${m.nama_mapel}`}
+                          checked={selectedMapelBulk.includes(m.id_mapel)}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            setSelectedMapelBulk(prev => e.target.checked ? [...prev, m.id_mapel] : prev.filter(id => id !== m.id_mapel));
+                          }}
+                          className="rounded text-primary focus:ring-primary shrink-0"
+                        />
                         <div
                           className="flex items-center gap-3 min-w-0 flex-1"
                         >
@@ -5740,6 +5752,13 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <h4 className="font-bold text-xs sm:text-sm text-slate-800 dark:text-white truncate">{m.nama_mapel}</h4>
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                m.agama
+                                  ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800'
+                                  : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                              }`}>
+                                {m.agama || 'Semua Agama'}
+                              </span>
                               {(!m.alokasi_kelas || isUniversalAlloc(m.alokasi_kelas) || splitCompoundTargets(m.alokasi_kelas).length <= 1) ? (
                                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                                   m.alokasi_kelas && !isUniversalAlloc(m.alokasi_kelas)
@@ -5789,7 +5808,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                       </div>
                     ))}
 
-                    {dataMapel.length === 0 && (
+                    {sortedFilteredMapel.length === 0 && (
                       <div className="col-span-full">
                         <EmptyState
                           compact={true}
@@ -5814,21 +5833,122 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg sm:text-xl">Manajemen Kelas & Rombel</h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Kelola struktur tingkat dan kelas paralel</p>
                 </div>
-                <button
-                  onClick={() => openCreateModal('kelas')}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 self-end sm:self-auto min-h-[44px]"
-                >
-                  <span className="material-symbols-outlined text-[18px]">add_circle</span>
-                  <span>Tambah Kelas</span>
-                </button>
+                <div className="flex items-center gap-2 flex-wrap self-end sm:self-auto">
+                  <button
+                    onClick={() => exportDataToExcel('kelas')}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 transition-colors min-h-[44px]"
+                    title="Export Excel"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">download</span>
+                    <span className="hidden sm:inline">Export</span>
+                  </button>
+                  <button
+                    onClick={() => setImportModal({ isOpen: true, type: 'kelas' })}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 transition-colors min-h-[44px]"
+                    title="Import Excel"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">upload_file</span>
+                    <span className="hidden sm:inline">Import</span>
+                  </button>
+                  <button
+                    onClick={() => openCreateModal('kelas')}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-white shadow-sm transition-all active:scale-95 min-h-[44px]"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">add_circle</span>
+                    <span>Tambah Kelas</span>
+                  </button>
+                </div>
               </div>
 
+              {/* Filter & Search Bar Kelas */}
+              <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center justify-between">
+                <div className="relative flex-1">
+                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+                  <input
+                    type="text"
+                    value={searchQueryKelas}
+                    onChange={(e) => setSearchQueryKelas(e.target.value)}
+                    placeholder="Cari tingkat atau nama rombel/paralel..."
+                    className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:ring-2 focus:ring-primary/20 focus:outline-none"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={filterTingkatKelas}
+                    onChange={(e) => setFilterTingkatKelas(e.target.value)}
+                    className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:outline-none"
+                  >
+                    <option value="">Semua Tingkat</option>
+                    {Array.from(new Set((dataKelas || []).map(k => k.tingkat).filter(Boolean))).sort().map(t => (
+                      <option key={t} value={t}>Tingkat {t}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Kelas Bulk Action Bar */}
+              {selectedKelasBulk.length > 0 && (
+                <div className="flex items-center justify-between bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 px-4 py-2.5 rounded-xl animate-fade-in">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-rose-700 dark:text-rose-300">
+                    <span className="material-symbols-outlined text-[18px]">check_box</span>
+                    <span>{selectedKelasBulk.length} kelas dipilih</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setSelectedKelasBulk([])}
+                      className="px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      onClick={() => handleBulkDelete('kelas')}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-sm transition-all"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">delete</span>
+                      <span>Hapus Terpilih ({selectedKelasBulk.length})</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Select All Checkbox Header */}
+              {sortedFilteredKelas.length > 0 && (
+                <div className="flex items-center justify-between px-1 text-xs text-slate-500">
+                  <label className="flex items-center gap-2 cursor-pointer font-semibold">
+                    <input
+                      type="checkbox"
+                      aria-label="Pilih Semua Kelas"
+                      checked={sortedFilteredKelas.length > 0 && selectedKelasBulk.length === sortedFilteredKelas.length}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedKelasBulk(sortedFilteredKelas.map(k => k.id_kelas));
+                        } else {
+                          setSelectedKelasBulk([]);
+                        }
+                      }}
+                      className="rounded text-primary focus:ring-primary"
+                    />
+                    <span>Pilih Semua ({sortedFilteredKelas.length} Kelas)</span>
+                  </label>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
-                {dataKelas.map((k) => (
+                {sortedFilteredKelas.map((k) => (
                   <div
                     key={k.id_kelas}
                     className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex items-center justify-between gap-3"
                   >
+                    <input
+                      type="checkbox"
+                      aria-label={`Pilih kelas ${k.tingkat} ${k.kelas_paralel}`}
+                      checked={selectedKelasBulk.includes(k.id_kelas)}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        setSelectedKelasBulk(prev => e.target.checked ? [...prev, k.id_kelas] : prev.filter(id => id !== k.id_kelas));
+                      }}
+                      className="rounded text-primary focus:ring-primary shrink-0"
+                    />
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div className="w-10 h-10 rounded-xl bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 flex items-center justify-center shrink-0">
                         <span className="material-symbols-outlined text-xl">meeting_room</span>
@@ -5859,7 +5979,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   </div>
                 ))}
 
-                {dataKelas.length === 0 && (
+                {sortedFilteredKelas.length === 0 && (
                   <div className="col-span-full">
                     <EmptyState
                       compact={true}

@@ -51,11 +51,16 @@ import { safeJSONParse } from './UI';
         };
       }, []);
       
-      const initialOpsiPG = data && (data.tipe_soal==='PG' || data.tipe_soal==='PGK') ? safeJSONParse(data.opsi, ["","","","",""]) : (savedDraft.opsiPG || ['','','','','']);
+      const rawOpsiPG = data && (data.tipe_soal==='PG' || data.tipe_soal==='PGK') ? safeJSONParse(data.opsi, ["","","","",""]) : (savedDraft.opsiPG || ['','','','','']);
+      const initialOpsiPG = Array.isArray(rawOpsiPG)
+        ? (rawOpsiPG.length < 5 ? [...rawOpsiPG, ...Array(5 - rawOpsiPG.length).fill('')] : rawOpsiPG)
+        : ['','','','',''];
       const [opsiPG, setOpsiPG] = useState(initialOpsiPG);
       const [kunciPG, setKunciPG] = useState(() => {
         if (data && data.tipe_soal === 'PG') {
-          const idx = initialOpsiPG.indexOf(data.kunci_jawaban);
+          const textIdx = initialOpsiPG.indexOf(data.kunci_jawaban);
+          const letterIdx = ['A','B','C','D','E'].indexOf(String(data.kunci_jawaban || '').trim().toUpperCase());
+          const idx = textIdx >= 0 ? textIdx : letterIdx;
           return idx >= 0 ? String(idx) : '';
         }
         return savedDraft.kunciPG !== undefined ? String(savedDraft.kunciPG) : '';
@@ -64,7 +69,11 @@ import { safeJSONParse } from './UI';
         if (data && data.tipe_soal === 'PGK') {
           const arr = safeJSONParse(data.kunci_jawaban, []);
           return Array.isArray(arr)
-            ? arr.map(val => initialOpsiPG.indexOf(val)).filter(i => i >= 0)
+            ? arr.map(val => {
+                const textIdx = initialOpsiPG.indexOf(val);
+                const letterIdx = ['A','B','C','D','E'].indexOf(String(val || '').trim().toUpperCase());
+                return textIdx >= 0 ? textIdx : letterIdx;
+              }).filter(i => i >= 0)
             : [];
         }
         return Array.isArray(savedDraft.kunciPGK) ? savedDraft.kunciPGK : [];

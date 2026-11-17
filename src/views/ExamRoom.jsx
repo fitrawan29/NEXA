@@ -64,8 +64,22 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
   const [isHonestyPledged, setIsHonestyPledged] = useState(false);
   const initialViolations = (dataLog && dataLog.pelanggaran) || 0;
   const initialBlocked = Boolean((dataLog && dataLog.is_blocked) || initialViolations >= 3);
+  const maxStrikes = Number(jadwal?.batas_pelanggaran) || 3;
+  const effectiveBlocked = Boolean((dataLog && dataLog.is_blocked) || (maxStrikes ? initialViolations >= maxStrikes : initialViolations >= 3));
   const [violationCount, setViolationCount] = useState(initialViolations);
-  const [isBlocked, setIsBlocked] = useState(initialBlocked);
+  const [isBlocked, setIsBlocked] = useState(effectiveBlocked);
+
+  const initialFsTolerance = (() => {
+    try {
+      const saved = localStorage.getItem(`nexa_fs_tolerance_${idLog}`);
+      return saved ? parseInt(saved, 10) || 0 : 0;
+    } catch (e) {
+      return 0;
+    }
+  })();
+  const [fullscreenToleranceCount, setFullscreenToleranceCount] = useState(initialFsTolerance);
+  const fullscreenToleranceRef = useRef(initialFsTolerance);
+  const [warningModalInfo, setWarningModalInfo] = useState(null);
 
   const [timeLeft, setTimeLeft] = useState({ total: 1, hours: 0, minutes: 0, seconds: 0 });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -75,12 +89,21 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [blurOverlay, setBlurOverlay] = useState(false);
   const isSubmittingRef = useRef(false);
-  const isBlockedRef = useRef(initialBlocked);
+  const isBlockedRef = useRef(effectiveBlocked);
   const lastViolationTimeRef = useRef(0);
-  const endMsRef = useRef(jadwal?.waktu_selesai ? new Date(jadwal.waktu_selesai).getTime() : Date.now());
   const parsedSeedServerNow = dataLog?.serverNow ? new Date(dataLog.serverNow).getTime() : NaN;
   const initialOffsetMs = Number.isFinite(parsedSeedServerNow) ? (parsedSeedServerNow - Date.now()) : 0;
   const serverOffsetMsRef = useRef(initialOffsetMs);
+
+  // Late student duration cap (R4): sisa_waktu = min(durasi_normal, jam_selesai_jadwal - waktu_mulai_siswa)
+  const normalDurationMs = (Number(jadwal?.durasi_menit) || 90) * 60 * 1000;
+  const scheduleEndMs = jadwal?.waktu_selesai ? new Date(jadwal.waktu_selesai).getTime() : Infinity;
+  const studentStartMs = dataLog?.waktu_login
+    ? new Date(dataLog.waktu_login).getTime()
+    : (Number.isFinite(parsedSeedServerNow) ? parsedSeedServerNow : (Date.now() + initialOffsetMs));
+  const initialEffectiveEndMs = Math.min(studentStartMs + normalDurationMs, scheduleEndMs);
+
+  const endMsRef = useRef(Number.isFinite(initialEffectiveEndMs) ? initialEffectiveEndMs : Date.now());
   const perfStartRef = useRef((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now());
   const initialRemainingMsRef = useRef(Math.max(0, endMsRef.current - (Date.now() + initialOffsetMs)));
 
@@ -174,6 +197,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
     try {
       localStorage.removeItem(`nexa_ans_${idLog}`);
       localStorage.removeItem(`nexa_ragu_${idLog}`);
+      localStorage.removeItem(`nexa_fs_tolerance_${idLog}`);
       if (jadwal?.id_jadwal) {
         localStorage.removeItem(`jawaban_${jadwal.id_jadwal}`);
         localStorage.removeItem(`nexa_ans_${jadwal.id_jadwal}`);
@@ -190,8 +214,8 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
 
     setSecurityModal({
       isOpen: true,
-      title: 'UJIAN DIHENTIKAN! (Pelanggaran ke-3)',
-      message: 'Anda telah melakukan pelanggaran sebanyak 3 kali. Sesi ujian Anda telah dihentikan secara permanen dan nilai Anda dicatat 0.'
+      title: maxStrikes === 3 ? 'UJIAN DIHENTIKAN! (Pelanggaran ke-3)' : `UJIAN DIHENTIKAN! (Pelanggaran ke-${maxStrikes})`,
+      message: maxStrikes === 3 ? 'Anda telah melakukan pelanggaran sebanyak 3 kali. Sesi ujian Anda telah dihentikan secara permanen dan nilai Anda dicatat 0.' : `Anda telah melakukan pelanggaran sebanyak ${maxStrikes} kali. Sesi ujian Anda telah dihentikan secara permanen dan nilai Anda dicatat 0.`
     });
 
     setTimeout(() => {
@@ -202,7 +226,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
   // Initial mount: Check strike/block status
   useEffect(() => {
     window.dispatchEvent(new Event('storage'));
-    if (initialBlocked || initialViolations >= 3) {
+    if (effectiveBlocked || (maxStrikes === 3 && (initialBlocked || initialViolations >= 3))) {
       triggerStrike3Kick();
       return;
     }
@@ -211,7 +235,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
       api('get_status_log_ujian', { id_log: idLog }).then((res) => {
         if (res.status === 'success' && res.data) {
           const strikes = res.data.pelanggaran || 0;
-          const blocked = Boolean(res.data.is_blocked || strikes >= 3);
+          const blocked = Boolean(res.data.is_blocked || (maxStrikes ? strikes >= maxStrikes : strikes >= 3));
           setViolationCount(strikes);
           if (blocked) {
             triggerStrike3Kick();
@@ -336,11 +360,13 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
           syncServerOffset(res.data.serverNow);
           // 1. Time Extension Check (Teacher extended exam time)
           if (res.data.waktu_selesai) {
-            const serverEndMs = new Date(res.data.waktu_selesai).getTime();
-            if (serverEndMs > endMsRef.current + 30000) {
-              endMsRef.current = serverEndMs;
+            const serverScheduleEndMs = new Date(res.data.waktu_selesai).getTime();
+            const studentDuration = (Number(res.data.durasi_menit) || Number(jadwal?.durasi_menit) || 90) * 60 * 1000;
+            const updatedEffectiveEndMs = Math.min(studentStartMs + studentDuration, serverScheduleEndMs);
+            if (updatedEffectiveEndMs > endMsRef.current + 10000) {
+              endMsRef.current = updatedEffectiveEndMs;
               const correctedNow = Date.now() + serverOffsetMsRef.current;
-              initialRemainingMsRef.current = Math.max(0, serverEndMs - correctedNow);
+              initialRemainingMsRef.current = Math.max(0, updatedEffectiveEndMs - correctedNow);
               perfStartRef.current = ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now());
               const newRemaining = calculateTimeLeft();
               setTimeLeft(newRemaining);
@@ -358,7 +384,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
           }
 
           // 2. Live Unblock Check (Teacher clicked Buka Blokir)
-          if (isBlockedRef.current && res.data.is_blocked === false && (res.data.pelanggaran || 0) < 3) {
+          if (isBlockedRef.current && res.data.is_blocked === false && (res.data.pelanggaran || 0) < (maxStrikes || 3)) {
             setIsBlocked(false);
             isBlockedRef.current = false;
             setIsSubmitting(false);
@@ -370,7 +396,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
           }
 
           // 3. Remote Block Check (Teacher clicked Blokir)
-          if (!isBlockedRef.current && (res.data.is_blocked || (res.data.pelanggaran || 0) >= 3)) {
+          if (!isBlockedRef.current && (res.data.is_blocked || (maxStrikes ? (res.data.pelanggaran || 0) >= maxStrikes : (res.data.pelanggaran || 0) >= 3))) {
             triggerStrike3Kick();
           }
 
@@ -416,6 +442,8 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
       document.removeEventListener('keydown', handleBlockShortcuts);
       window.removeEventListener('blur', handleWindowBlur);
       window.removeEventListener('focus', handleWindowFocus);
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('pagehide', handlePageHide);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       if (wakeLock) wakeLock.release().catch(()=>{});
@@ -440,7 +468,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
         syncServerOffset(res.serverNow, true);
         if (res.logStatus) {
           const strikes = res.logStatus.pelanggaran || 0;
-          const blocked = Boolean(res.logStatus.is_blocked || strikes >= 3);
+          const blocked = Boolean(res.logStatus.is_blocked || (maxStrikes ? strikes >= maxStrikes : strikes >= 3));
           setViolationCount(strikes);
           if (blocked) {
             triggerStrike3Kick();
@@ -480,12 +508,22 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
     if (isBlockedRef.current || isSubmittingRef.current) return;
 
     const activeNpsn = user?.npsn || jadwal?.npsn;
-    const res = await api('catat_pelanggaran', { id_log: idLog, alasan: reason, npsn: activeNpsn });
+    const effectiveLimit = maxStrikes || 3;
+    const res = await api('catat_pelanggaran', { id_log: idLog, alasan: reason, npsn: activeNpsn, batas_pelanggaran: effectiveLimit });
     if (res.status === 'success') {
       const strikes = res.pelanggaran_saat_ini;
       setViolationCount(strikes);
 
-      if (res.terblokir || strikes >= 3) {
+      setWarningModalInfo({
+        isTolerance: false,
+        title: `Peringatan Keamanan (${strikes}/${effectiveLimit})`,
+        reason: reason,
+        strikes: strikes,
+        maxStrikes: effectiveLimit,
+        remainingStrikes: Math.max(0, effectiveLimit - strikes)
+      });
+
+      if (res.terblokir || strikes >= effectiveLimit || (effectiveLimit === 3 && strikes >= 3)) {
         triggerStrike3Kick();
       } else if (strikes === 1) {
         showMessage(
@@ -498,6 +536,12 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
           'PERINGATAN TERAKHIR (2/3)!',
           'PERINGATAN TERAKHIR (2/3)! Anda kembali meninggalkan halaman ujian. Satu pelanggaran lagi akan langsung menghentikan ujian Anda dan mencatat nilai 0!',
           'error'
+        );
+      } else {
+        showMessage(
+          `Peringatan Keamanan (${strikes}/${effectiveLimit})`,
+          `Peringatan Keamanan (${strikes}/${effectiveLimit}): ${reason}. Sisa pelanggaran: ${Math.max(0, effectiveLimit - strikes)} kali.`,
+          'warning'
         );
       }
     }
@@ -546,8 +590,27 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
 
   const handleFullscreenChange = () => {
     if (!document.fullscreenElement) {
-      setBlurOverlay(true);
-      scheduleSecurityViolation('Terdeteksi keluar dari mode layar penuh (fullscreen exit)');
+      const currentTolerance = fullscreenToleranceRef.current;
+      if (currentTolerance < 2) {
+        const nextTolerance = currentTolerance + 1;
+        fullscreenToleranceRef.current = nextTolerance;
+        setFullscreenToleranceCount(nextTolerance);
+        try {
+          localStorage.setItem(`nexa_fs_tolerance_${idLog}`, String(nextTolerance));
+        } catch (e) {}
+        setWarningModalInfo({
+          isTolerance: true,
+          title: `Peringatan Layar Penuh (Toleransi ${nextTolerance}/2)`,
+          reason: 'Terdeteksi keluar dari mode layar penuh (fullscreen exit).',
+          toleranceCount: nextTolerance,
+          maxTolerance: 2,
+          remainingTolerance: 2 - nextTolerance
+        });
+        setBlurOverlay(true);
+      } else {
+        setBlurOverlay(true);
+        scheduleSecurityViolation('Terdeteksi keluar dari mode layar penuh (fullscreen exit)');
+      }
     } else if (document.fullscreenElement) {
       cancelGracePeriod();
       setBlurOverlay(false);
@@ -565,6 +628,33 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
     } else {
       cancelGracePeriod();
     }
+  };
+
+  const isVirtualKeyboardActive = () => {
+    const active = document.activeElement;
+    if (!active) return false;
+    const tagName = (active.tagName || '').toUpperCase();
+    if (tagName === 'INPUT' || tagName === 'TEXTAREA') return true;
+    if (active.isContentEditable) return true;
+    if (active.closest && (active.closest('.ql-editor') || active.closest('input') || active.closest('textarea'))) return true;
+    return false;
+  };
+
+  const handleResize = () => {
+    if (isBlockedRef.current || isSubmittingRef.current) return;
+    if (isVirtualKeyboardActive()) return;
+
+    const screenHeight = (window.screen && (window.screen.availHeight || window.screen.height)) || window.innerHeight;
+    if (screenHeight > 0) {
+      const ratio = window.innerHeight / screenHeight;
+      if (ratio < 0.70) {
+        handleSecurityViolation('Terdeteksi pembagian layar (split-screen mode)');
+      }
+    }
+  };
+
+  const handlePageHide = () => {
+    scheduleSecurityViolation('Terdeteksi keluar dari layar ujian (pagehide / aplikasi ditutup)');
   };
 
   const handleBlockClipboardAndContext = (e) => {
@@ -596,12 +686,15 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
     document.addEventListener('keydown', handleBlockShortcuts);
     window.addEventListener('blur', handleWindowBlur);
     window.addEventListener('focus', handleWindowFocus);
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('pagehide', handlePageHide);
     enforceFullscreen();
   };
 
   const returnToExam = () => {
     cancelGracePeriod();
     setBlurOverlay(false);
+    setWarningModalInfo(null);
     enforceFullscreen();
   };
 
@@ -1055,7 +1148,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
       ref={examContainerRef} 
       onClick={enforceFullscreen}
     >
-      {/* Anti-Cheat Blur Overlay */}
+      {/* Anti-Cheat Blur Overlay & Interactive Security Warning Modal */}
       {blurOverlay && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[150] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 max-w-md text-center shadow-2xl border border-rose-500/20 animate-fade-in-up">
@@ -1063,18 +1156,48 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
               <span className="material-symbols-outlined text-[36px]">gavel</span>
             </div>
             <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-2">
-              {!document.fullscreenElement && violationCount === 0 ? 'Mode Layar Penuh Wajib' : 'Peringatan Keamanan!'}
+              {!document.fullscreenElement && violationCount === 0 && (!warningModalInfo || (warningModalInfo.isTolerance && warningModalInfo.toleranceCount === 0))
+                ? 'Mode Layar Penuh Wajib'
+                : warningModalInfo?.title || 'Peringatan Keamanan!'}
             </h2>
-            <p className="text-slate-500 dark:text-slate-400 mb-6 text-xs sm:text-sm leading-relaxed">
-              {!document.fullscreenElement && violationCount === 0
-                ? 'Ujian ini memerlukan mode layar penuh. Klik tombol di bawah untuk masuk ke mode layar penuh.'
-                : 'Anda terdeteksi keluar dari layar penuh, berganti tab, atau membuka jendela aplikasi lain. Tetap berada di halaman ujian hingga selesai.'}
-            </p>
+            <div className="text-slate-500 dark:text-slate-400 mb-6 text-xs sm:text-sm leading-relaxed space-y-2">
+              {warningModalInfo?.isTolerance ? (
+                <>
+                  <p className="font-semibold text-amber-600 dark:text-amber-400">
+                    {warningModalInfo.reason}
+                  </p>
+                  <p>
+                    Anda keluar dari mode layar penuh. Harap segera kembali ke mode layar penuh.
+                  </p>
+                  <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/40 text-amber-800 dark:text-amber-300 font-bold text-xs">
+                    Kesempatan toleransi tersisa: {warningModalInfo.remainingTolerance} dari {warningModalInfo.maxTolerance} kali.
+                  </div>
+                </>
+              ) : warningModalInfo?.strikes > 0 ? (
+                <>
+                  <p className="font-semibold text-rose-600 dark:text-rose-400">
+                    Alasan: {warningModalInfo.reason}
+                  </p>
+                  <p>
+                    Pelanggaran ke-{warningModalInfo.strikes} dari batas maksimal {warningModalInfo.maxStrikes}.
+                  </p>
+                  <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/40 text-rose-800 dark:text-rose-300 font-bold text-xs">
+                    Sisa pelanggaran yang ditoleransi: {warningModalInfo.remainingStrikes} kali.
+                  </div>
+                </>
+              ) : (
+                <p>
+                  {!document.fullscreenElement && violationCount === 0
+                    ? 'Ujian ini memerlukan mode layar penuh. Klik tombol di bawah untuk masuk ke mode layar penuh.'
+                    : 'Anda terdeteksi keluar dari layar penuh, berganti tab, atau membuka jendela aplikasi lain. Tetap berada di halaman ujian hingga selesai.'}
+                </p>
+              )}
+            </div>
             <button 
               onClick={returnToExam} 
               className="w-full py-3 rounded-xl font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors min-h-[44px]"
             >
-              {!document.fullscreenElement && violationCount === 0 ? 'Klik untuk Masuk Mode Layar Penuh Ujian' : 'Kembali ke Ujian'}
+              {!document.fullscreenElement && violationCount === 0 && !warningModalInfo ? 'Klik untuk Masuk Mode Layar Penuh Ujian' : 'Kembali ke Ujian'}
             </button>
           </div>
         </div>
@@ -1228,7 +1351,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
             {violationCount > 0 && (
               <p className="text-xs text-rose-600 dark:text-rose-400 mt-2 font-bold flex items-center gap-1">
                 <span className="material-symbols-outlined text-[16px]">warning</span>
-                <span>Pelanggaran: {violationCount} / 3</span>
+                <span>Pelanggaran: {violationCount} / {maxStrikes}</span>
               </p>
             )}
           </div>

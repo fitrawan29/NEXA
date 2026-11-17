@@ -115,6 +115,8 @@ export { supabaseClient };
 
         return {
           ...j,
+          token_aktif: tokenAktif,
+          last_update_token: (currentStatus === 'AKTIF' && tokenAktif !== j.token_aktif) ? now.toISOString() : (currentStatus === 'SELESAI' ? null : j.last_update_token),
           durasi_token_menit: j.durasi_token_menit !== undefined && j.durasi_token_menit !== null ? Number(j.durasi_token_menit) : 5,
           status_ujian: currentStatus,
           token: tokenAktif,
@@ -273,13 +275,13 @@ export { supabaseClient };
       '12': 'XII', 'XII': 'XII'
     };
 
-    const normalizeGrade = (tok) => {
+    export const normalizeGrade = (tok) => {
       if (!tok) return '';
       const up = String(tok).trim().toUpperCase();
       return GRADE_MAP[up] || up;
     };
 
-    const cleanTokens = (str, normalizeFirstAsGrade = true) => {
+    export const cleanTokens = (str, normalizeFirstAsGrade = true) => {
       if (!str) return [];
       let s = String(str).trim().toUpperCase();
       s = s.replace(/\|/g, ' ');
@@ -442,15 +444,21 @@ export { supabaseClient };
 
     /**
      * Resolves required religion for a subject.
-     * Returns 'Islam' for PAI, 'Kristen' for PAK, or null for general/universal subjects.
+     * Supports all 6 recognized religions (Islam, Kristen, Katolik, Hindu, Buddha, Konghucu).
+     * Returns TitleCased religion name or null for general/universal subjects.
      */
     export const getMapelReligion = (mapelOrName) => {
       if (!mapelOrName) return null;
       const explicit = typeof mapelOrName === 'object' ? (mapelOrName.agama || mapelOrName.mata_pelajaran?.agama) : null;
       if (explicit) {
         const normExp = String(explicit).trim().toLowerCase();
+        if (normExp === 'semua/umum' || normExp === 'semua' || normExp === 'umum' || normExp === '') return null;
         if (normExp === 'islam') return 'Islam';
-        if (normExp === 'kristen') return 'Kristen';
+        if (normExp === 'kristen' || normExp === 'protestan') return 'Kristen';
+        if (normExp === 'katolik') return 'Katolik';
+        if (normExp === 'hindu') return 'Hindu';
+        if (normExp === 'buddha' || normExp === 'budha') return 'Buddha';
+        if (normExp === 'konghucu' || normExp === 'khonghucu') return 'Konghucu';
       }
       const name = typeof mapelOrName === 'object'
         ? (mapelOrName.nama_mapel || mapelOrName.mata_pelajaran?.nama_mapel || '')
@@ -460,6 +468,10 @@ export { supabaseClient };
 
       if (/\b(pai)\b/i.test(norm) || /agama\s+islam/i.test(norm)) return 'Islam';
       if (/\b(pak)\b/i.test(norm) || /agama\s+kristen/i.test(norm)) return 'Kristen';
+      if (/agama\s+katolik/i.test(norm) || /\b(katolik)\b/i.test(norm)) return 'Katolik';
+      if (/agama\s+hindu/i.test(norm) || /\b(hindu)\b/i.test(norm)) return 'Hindu';
+      if (/agama\s+budd?ha/i.test(norm) || /\b(budd?ha)\b/i.test(norm)) return 'Buddha';
+      if (/agama\s+k[ho]+nghucu/i.test(norm) || /\bk[ho]+nghucu\b/i.test(norm)) return 'Konghucu';
 
       return null;
     };
@@ -472,7 +484,12 @@ export { supabaseClient };
       const requiredReligion = getMapelReligion(mapelOrName);
       if (!requiredReligion) return true; // General subjects are universal
       const sRel = String(studentReligion || '').trim().toLowerCase();
-      return sRel === requiredReligion.toLowerCase();
+      const reqRel = requiredReligion.toLowerCase();
+      if (sRel === reqRel) return true;
+      if ((sRel === 'budha' && reqRel === 'buddha') || (sRel === 'buddha' && reqRel === 'budha')) return true;
+      if ((sRel === 'khonghucu' && reqRel === 'konghucu') || (sRel === 'konghucu' && reqRel === 'khonghucu')) return true;
+      if ((sRel === 'protestan' && reqRel === 'kristen') || (sRel === 'kristen' && reqRel === 'protestan')) return true;
+      return false;
     };
 
     /**
@@ -1126,6 +1143,41 @@ export { supabaseClient };
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Kelas berhasil dihapus' };
           }
+          case 'create_kelas_bulk': {
+            const rawList = Array.isArray(payload) ? payload : (payload?.data || []);
+            const npsn = payload?.npsn || rawList[0]?.npsn;
+            if (!Array.isArray(rawList) || rawList.length === 0) {
+              return { status: 'error', message: 'Tidak ada data kelas untuk disimpan' };
+            }
+            const bulkData = rawList.map(k => ({
+              id_kelas: k.id_kelas || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : ('KLS-' + Math.random().toString(36).substr(2, 9))),
+              tingkat: String(k.tingkat || '').trim(),
+              kelas_paralel: String(k.kelas_paralel || '').trim(),
+              npsn: k.npsn || npsn
+            })).filter(k => k.tingkat && k.kelas_paralel);
+
+            if (bulkData.length === 0) {
+              return { status: 'error', message: 'Data kelas tidak valid (tingkat dan kelas paralel wajib diisi)' };
+            }
+            ({ error } = await supabaseClient.from('kelas').insert(bulkData));
+            if (error) return { status: 'error', message: error.message };
+            return { status: 'success', message: `${bulkData.length} kelas berhasil ditambahkan`, insertedCount: bulkData.length };
+          }
+          case 'delete_kelas_bulk': {
+            if (!Array.isArray(payload?.ids) || payload.ids.length === 0) {
+              return { status: 'error', message: 'Tidak ada kelas yang dipilih' };
+            }
+            let query = supabaseClient.from('kelas').delete().in('id_kelas', payload.ids);
+            if (payload.npsn) query = query.eq('npsn', payload.npsn);
+            const resBulkKelas = await query;
+            if (resBulkKelas.error) {
+              if (resBulkKelas.error.code === '23503') {
+                return { status: 'error', message: 'Gagal: Sebagian atau seluruh kelas terpilih masih digunakan oleh data siswa.' };
+              }
+              return { status: 'error', message: resBulkKelas.error.message };
+            }
+            return { status: 'success', message: `${payload.ids.length} kelas berhasil dihapus` };
+          }
 
           // GURU
           case 'get_guru': {
@@ -1308,6 +1360,9 @@ export { supabaseClient };
             const alokasiKelas = payload.alokasi_kelas || 'Semua Kelas';
             const { alokasi_kelas, ...mapelPayload } = payload;
             if (!mapelPayload.id_mapel) mapelPayload.id_mapel = generateId('M');
+            if (mapelPayload.agama === 'Semua/Umum' || mapelPayload.agama === 'Semua' || mapelPayload.agama === 'Umum' || mapelPayload.agama === '') {
+              mapelPayload.agama = null;
+            }
 
             const resInsert = await supabaseClient.from('mata_pelajaran').insert([mapelPayload]);
             if (resInsert.error) return { status: 'error', message: resInsert.error.message };
@@ -1333,10 +1388,12 @@ export { supabaseClient };
               const key = `${npsn}_${name.toLowerCase()}`;
               if (seen.has(key)) continue;
               seen.add(key);
+              const agamaVal = item.agama && item.agama !== 'Semua/Umum' && item.agama !== 'Semua' && item.agama !== 'Umum' ? String(item.agama).trim() : null;
               bulkData.push({
                 id_mapel: item.id_mapel || generateId('M'),
                 npsn: item.npsn,
                 nama_mapel: name,
+                agama: agamaVal,
                 alokasi_kelas: item.alokasi_kelas || 'Semua Kelas'
               });
             }
@@ -1372,6 +1429,9 @@ export { supabaseClient };
           }
           case 'update_mapel': {
             const { id_mapel, npsn, alokasi_kelas, ...updates } = payload;
+            if (updates.agama === 'Semua/Umum' || updates.agama === 'Semua' || updates.agama === 'Umum' || updates.agama === '') {
+              updates.agama = null;
+            }
             const resUpdate = await supabaseClient.from('mata_pelajaran').update(updates).eq('id_mapel', id_mapel).eq('npsn', payload.npsn);
             if (resUpdate.error) return { status: 'error', message: resUpdate.error.message };
 
@@ -1390,6 +1450,22 @@ export { supabaseClient };
             await deleteMapelAlokasi(payload.id_mapel, payload.npsn);
             return { status: 'success', message: 'Mata pelajaran berhasil dihapus' };
           }
+          case 'delete_mapel_bulk': {
+            if (!Array.isArray(payload?.ids) || payload.ids.length === 0) {
+              return { status: 'error', message: 'Tidak ada mata pelajaran yang dipilih' };
+            }
+            let query = supabaseClient.from('mata_pelajaran').delete().in('id_mapel', payload.ids);
+            if (payload.npsn) query = query.eq('npsn', payload.npsn);
+            const resBulkDelete = await query;
+            if (resBulkDelete.error) {
+              if (resBulkDelete.error.code === '23503') {
+                return { status: 'error', message: 'Gagal: Sebagian atau seluruh Mata Pelajaran terpilih tidak dapat dihapus karena masih memiliki Bank Soal atau Jadwal Ujian yang aktif.' };
+              }
+              return { status: 'error', message: resBulkDelete.error.message };
+            }
+            await Promise.all(payload.ids.map(id => deleteMapelAlokasi(id, payload.npsn)));
+            return { status: 'success', message: `${payload.ids.length} mata pelajaran berhasil dihapus` };
+          }
 
           case 'get_all_jadwal': {
             ({ data, error } = await supabaseClient.from('jadwal').select('*, guru(nama_guru), mata_pelajaran(nama_mapel)').eq('npsn', payload.npsn));
@@ -1406,7 +1482,8 @@ export { supabaseClient };
             if (!payload.id_jadwal) payload.id_jadwal = generateId('U');
             const insertPayload = {
               ...payload,
-              durasi_token_menit: payload.durasi_token_menit !== undefined ? Number(payload.durasi_token_menit) : 5
+              durasi_token_menit: payload.durasi_token_menit !== undefined ? Number(payload.durasi_token_menit) : 5,
+              batas_pelanggaran: payload.batas_pelanggaran !== undefined ? Number(payload.batas_pelanggaran) : 3
             };
             ({ error } = await supabaseClient.from('jadwal').insert([insertPayload]));
             if (error) return { status: 'error', message: error.message };
@@ -1416,6 +1493,9 @@ export { supabaseClient };
             const { id_jadwal, npsn, ...updates } = payload;
             if (updates.durasi_token_menit !== undefined) {
               updates.durasi_token_menit = Number(updates.durasi_token_menit);
+            }
+            if (updates.batas_pelanggaran !== undefined) {
+              updates.batas_pelanggaran = Number(updates.batas_pelanggaran);
             }
             ({ error } = await supabaseClient.from('jadwal').update(updates).eq('id_jadwal', id_jadwal).eq('npsn', npsn));
             if (error) return { status: 'error', message: error.message };
@@ -1628,7 +1708,7 @@ export { supabaseClient };
           }
 
           case 'get_jawaban_uraian': {
-            ({ data, error } = await supabaseClient.from('jawaban_siswa').select('*, soal_ujian(pertanyaan, tipe_soal, bobot)').eq('id_log', payload.id_log));
+            ({ data, error } = await supabaseClient.from('jawaban_siswa').select('*, soal_ujian(pertanyaan, tipe_soal, bobot, kunci_jawaban)').eq('id_log', payload.id_log));
             if (error) return { status: 'error', message: error.message };
             const uraianList = (data || []).filter(j => j.soal_ujian && j.soal_ujian.tipe_soal === 'URAIAN');
             return {
@@ -1636,7 +1716,8 @@ export { supabaseClient };
               data: uraianList.map(j => ({
                 ...j,
                 pertanyaan: j.soal_ujian ? j.soal_ujian.pertanyaan : 'Unknown',
-                bobot: j.soal_ujian?.bobot ?? 10
+                bobot: j.soal_ujian?.bobot ?? 10,
+                kunci_jawaban: j.soal_ujian?.kunci_jawaban || ''
               }))
             };
           }
@@ -1799,7 +1880,8 @@ export { supabaseClient };
                   angkatan: l.siswa ? l.siswa.angkatan : '-',
                   kelas_paralel: l.siswa ? l.siswa.kelas_paralel : '-',
                   kelas: l.siswa ? (l.siswa.kelas || `${l.siswa.angkatan || ''} ${l.siswa.kelas_paralel || ''}`.trim()) : '-',
-                  belum_dikoreksi: !l.is_blocked && (l.nilai_uraian === null || l.nilai_uraian === undefined),
+                  has_uraian: mapelSoal.some(s => s.tipe_soal === 'URAIAN'),
+                  belum_dikoreksi: mapelSoal.some(s => s.tipe_soal === 'URAIAN') && !l.is_blocked && (l.nilai_uraian === null || l.nilai_uraian === undefined),
                   total_nilai: totalNilai
                 };
               })
@@ -1876,7 +1958,8 @@ export { supabaseClient };
                 data: matchingJadwal.map(j => {
                   const l = logMap[j.id_jadwal];
                   const strikes = l ? (l.pelanggaran || 0) : 0;
-                  const blocked = l ? (l.is_blocked || strikes >= 3) : false;
+                  const maxAllowedStrikes = Number(j.batas_pelanggaran) || 3;
+                  const blocked = l ? (l.is_blocked || (strikes >= maxAllowedStrikes) || (strikes >= 3 && maxAllowedStrikes === 3)) : false;
                   const { token: _t, token_aktif: _ta, ...safeJadwal } = j;
                   return {
                     ...safeJadwal,
@@ -1894,7 +1977,7 @@ export { supabaseClient };
           case 'get_status_log_ujian': {
             const { data: log, error: logErr } = await supabaseClient
               .from('log_ujian')
-              .select('id_log, id_jadwal, id_siswa, pelanggaran, is_blocked, status_ujian, nilai_auto')
+              .select('id_log, id_jadwal, id_siswa, waktu_login, pelanggaran, is_blocked, status_ujian, nilai_auto')
               .eq('id_log', payload.id_log)
               .single();
             if (logErr || !log) return { status: 'error', message: logErr?.message || 'Log tidak ditemukan' };
@@ -1943,7 +2026,7 @@ export { supabaseClient };
           case 'mulai_ujian': {
             ({ data, error } = await supabaseClient
               .from('jadwal')
-              .select('token_aktif, waktu_mulai, waktu_selesai, target_kelas, id_mapel, mata_pelajaran(nama_mapel, agama)')
+              .select('token_aktif, waktu_mulai, waktu_selesai, target_kelas, id_mapel, batas_pelanggaran, mata_pelajaran(nama_mapel, agama)')
               .eq('id_jadwal', payload.id_jadwal)
               .eq('npsn', payload.npsn)
               .single());
@@ -1979,13 +2062,14 @@ export { supabaseClient };
             let idLog = logData ? logData.id_log : null;
 
             if (logsData && logsData.length > 0) {
-              const blockedLog = logsData.find(l => l.is_blocked || (l.pelanggaran || 0) >= 3);
+              const maxAllowedStrikes = Number(data.batas_pelanggaran) || 3;
+              const blockedLog = logsData.find(l => l.is_blocked || (l.pelanggaran || 0) >= maxAllowedStrikes || ((l.pelanggaran || 0) >= 3 && maxAllowedStrikes === 3));
               if (blockedLog) {
                 return { 
                   status: 'error', 
-                  message: 'Akun Anda diblokir dari ujian ini (pelanggaran melebihi batas 3 kali).',
+                  message: `Akun Anda diblokir dari ujian ini (pelanggaran melebihi batas ${maxAllowedStrikes} kali).`,
                   terblokir: true,
-                  pelanggaran: blockedLog.pelanggaran || 3
+                  pelanggaran: blockedLog.pelanggaran || maxAllowedStrikes
                 };
               }
               if (logData.status_ujian === 'SELESAI') return { status: 'error', message: 'Anda sudah menyelesaikan ujian ini.' };
@@ -2018,6 +2102,10 @@ export { supabaseClient };
               is_blocked: logData ? (logData.is_blocked || false) : false,
               dataLog: logData || { 
                 id_log: idLog, 
+                id_jadwal: payload.id_jadwal,
+                id_siswa: payload.id_siswa,
+                waktu_login: nowTrue.toISOString(),
+                status_ujian: 'SEDANG KERJA',
                 pelanggaran: 0, 
                 is_blocked: false
               }
@@ -2033,7 +2121,7 @@ export { supabaseClient };
               };
             }
 
-            const { data: jadwal } = await supabaseClient.from('jadwal').select('id_mapel, npsn, mata_pelajaran(nama_mapel, agama)').eq('id_jadwal', payload.id_jadwal).single();
+            const { data: jadwal } = await supabaseClient.from('jadwal').select('id_mapel, npsn, batas_pelanggaran, mata_pelajaran(nama_mapel, agama)').eq('id_jadwal', payload.id_jadwal).single();
             if (!jadwal) return { status: 'error', message: 'Jadwal tidak ditemukan' };
             const effectiveNpsn = payload.npsn || jadwal.npsn;
             const soalColumns = isPrivileged
@@ -2085,6 +2173,12 @@ export { supabaseClient };
                 }
               }
 
+              const maxAllowedStrikes = Number(jadwal?.batas_pelanggaran) || 3;
+              if (log) {
+                if (log.is_blocked || (log.pelanggaran || 0) >= maxAllowedStrikes || ((log.pelanggaran || 0) >= 3 && maxAllowedStrikes === 3)) {
+                  log.is_blocked = true;
+                }
+              }
               logStatus = log;
             }
 
@@ -2094,15 +2188,28 @@ export { supabaseClient };
           case 'catat_pelanggaran': {
               const { data: currLog, error: fetchErr } = await supabaseClient
                 .from('log_ujian')
-                .select('pelanggaran, pelanggaran_detail')
+                .select('pelanggaran, pelanggaran_detail, id_jadwal')
                 .eq('id_log', payload.id_log)
                 .single();
 
               if (fetchErr || !currLog) return { status: 'error', message: fetchErr?.message || 'Log tidak ditemukan' };
 
+              let maxPelanggaran = Number(payload.batas_pelanggaran) || 0;
+              if (!maxPelanggaran && currLog.id_jadwal) {
+                const { data: currJadwal } = await supabaseClient
+                  .from('jadwal')
+                  .select('batas_pelanggaran')
+                  .eq('id_jadwal', currLog.id_jadwal)
+                  .single();
+                if (currJadwal?.batas_pelanggaran) {
+                  maxPelanggaran = Number(currJadwal.batas_pelanggaran);
+                }
+              }
+              if (!maxPelanggaran) maxPelanggaran = 3;
+
               const forceBlock = payload.force_block === true;
-              const newPelanggaran = forceBlock ? 3 : (currLog.pelanggaran || 0) + 1;
-              const isBlocked = forceBlock || newPelanggaran >= 3;
+              const newPelanggaran = forceBlock ? maxPelanggaran : (currLog.pelanggaran || 0) + 1;
+              const isBlocked = forceBlock || newPelanggaran >= maxPelanggaran || (newPelanggaran >= 3 && maxPelanggaran === 3);
               const details = Array.isArray(currLog.pelanggaran_detail) ? currLog.pelanggaran_detail : [];
               const waktu = new Date().toISOString();
               details.push({ 
@@ -2141,7 +2248,7 @@ export { supabaseClient };
             // Cek status sesi & blokir (idempoten jika sudah SELESAI)
             const { data: currLog, error: logErr } = await supabaseClient
               .from('log_ujian')
-              .select('status_ujian, is_blocked, pelanggaran, nilai_auto')
+              .select('status_ujian, is_blocked, pelanggaran, nilai_auto, id_jadwal')
               .eq('id_log', logId)
               .maybeSingle();
             if (logErr) return { status: 'error', message: 'Gagal memeriksa log ujian: ' + logErr.message };
@@ -2153,7 +2260,12 @@ export { supabaseClient };
                 nilai_auto: currLog.is_blocked ? 0 : (currLog.nilai_auto ?? 0)
               };
             }
-            const isBlocked = Boolean(currLog?.is_blocked || (currLog?.pelanggaran || 0) >= 3);
+            const effectiveJadwalId = payload.id_jadwal || currLog?.id_jadwal;
+            const { data: jadwal } = effectiveJadwalId
+              ? await supabaseClient.from('jadwal').select('id_mapel, npsn, batas_pelanggaran').eq('id_jadwal', effectiveJadwalId).maybeSingle()
+              : { data: null };
+            const maxAllowedStrikes = Number(jadwal?.batas_pelanggaran) || 3;
+            const isBlocked = Boolean(currLog?.is_blocked || (currLog?.pelanggaran || 0) >= maxAllowedStrikes || ((currLog?.pelanggaran || 0) >= 3 && maxAllowedStrikes === 3));
 
             // Konversi array jawaban [{id_soal, jawaban}] atau object {id_soal: jawaban} menjadi map
             const jawaban = {};
@@ -2165,7 +2277,6 @@ export { supabaseClient };
               Object.assign(jawaban, payload.jawaban);
             }
 
-            const { data: jadwal } = await supabaseClient.from('jadwal').select('id_mapel, npsn').eq('id_jadwal', payload.id_jadwal).single();
             const effectiveNpsn = payload.npsn || jadwal?.npsn;
             const { data: rawSoalData } = await supabaseClient.from('soal_ujian').select('*').eq('id_mapel', jadwal?.id_mapel).eq('npsn', effectiveNpsn);
             const soalData = (rawSoalData || []).map(s => {
@@ -2297,15 +2408,20 @@ export { supabaseClient };
             const { data: logRow } = await supabaseClient.from('log_ujian').select('*').eq('id_log', logId).maybeSingle();
             if (logRow) currLog = logRow;
 
-            const isBlocked = (bundle.pelanggaran >= 3) || (currLog?.pelanggaran >= 3) || (currLog?.is_blocked === true);
-
             // Ambil jadwal & soal
             const idJadwal = bundle.id_jadwal || currLog?.id_jadwal;
             let idMapel = payload.id_mapel;
-            if (!idMapel && idJadwal) {
-              const { data: jRow } = await supabaseClient.from('jadwal').select('id_mapel, npsn').eq('id_jadwal', idJadwal).maybeSingle();
-              if (jRow) idMapel = jRow.id_mapel;
+            let batasPelanggaran = Number(bundle.batas_pelanggaran) || 0;
+            if (idJadwal) {
+              const { data: jRow } = await supabaseClient.from('jadwal').select('id_mapel, npsn, batas_pelanggaran').eq('id_jadwal', idJadwal).maybeSingle();
+              if (jRow) {
+                if (!idMapel) idMapel = jRow.id_mapel;
+                if (!batasPelanggaran && jRow.batas_pelanggaran) batasPelanggaran = Number(jRow.batas_pelanggaran);
+              }
             }
+            if (!batasPelanggaran) batasPelanggaran = 3;
+            const maxAllowedStrikes = batasPelanggaran;
+            const isBlocked = (bundle.pelanggaran >= maxAllowedStrikes) || ((currLog?.pelanggaran || 0) >= maxAllowedStrikes) || (currLog?.is_blocked === true) || (maxAllowedStrikes === 3 && (bundle.pelanggaran >= 3 || (currLog?.pelanggaran || 0) >= 3));
 
             let soalQuery = supabaseClient.from('soal_ujian').select('*');
             if (idMapel) soalQuery = soalQuery.eq('id_mapel', idMapel);
@@ -2439,9 +2555,22 @@ export { supabaseClient };
           }
 
           // ================= ADMIN NEW FEATURES =================
+          case 'get_analisis_butir_soal':
           case 'get_analisis_soal': {
+            let teacherAlloc = payload.alokasi_kelas;
+            if (!teacherAlloc && payload.id_guru) {
+              const { data: gData } = await supabaseClient
+                .from('guru')
+                .select('alokasi_kelas')
+                .eq('id_guru', payload.id_guru)
+                .maybeSingle();
+              if (gData?.alokasi_kelas) {
+                teacherAlloc = gData.alokasi_kelas;
+              }
+            }
+
             const { data: soalData, error: soalErr } = await supabaseClient.from('soal_ujian')
-              .select('id_soal, pertanyaan, tipe_soal')
+              .select('id_soal, pertanyaan, opsi, kunci_jawaban, bobot, tipe_soal')
               .eq('id_mapel', payload.id_mapel)
               .eq('npsn', payload.npsn)
               .neq('tipe_soal', 'NARASI')
@@ -2450,26 +2579,199 @@ export { supabaseClient };
               .neq('tipe_soal', 'MAPEL_ALLOC');
             if (soalErr) return { status: 'error', message: soalErr.message };
 
-            const { data: logData, error: logErr } = await supabaseClient.from('log_ujian')
-              .select('id_log').eq('id_jadwal', payload.id_jadwal).eq('status_ujian', 'SELESAI');
+            let q = supabaseClient.from('log_ujian')
+              .select('id_log, id_siswa, id_jadwal, nilai_auto, nilai_uraian, status_ujian, is_blocked, siswa!inner(id_siswa, nama_lengkap, nisn, angkatan, kelas_paralel, kelas, npsn)')
+              .eq('status_ujian', 'SELESAI')
+              .eq('siswa.npsn', payload.npsn);
+
+            if (Array.isArray(payload.id_jadwal)) {
+              q = q.in('id_jadwal', payload.id_jadwal);
+            } else if (payload.id_jadwal) {
+              q = q.eq('id_jadwal', payload.id_jadwal);
+            }
+            const { data: logData, error: logErr } = await q;
             if (logErr) return { status: 'error', message: logErr.message };
 
-            if (!logData || logData.length === 0) return { status: 'success', data: [] };
-            
-            const logIds = logData.map(l => l.id_log);
+            let examinees = logData || [];
+            if (teacherAlloc && !isUniversalAlloc(teacherAlloc)) {
+              examinees = examinees.filter(l => isClassMatching(teacherAlloc, l.siswa));
+            }
+            if (payload.tingkat && payload.tingkat !== 'Umum') {
+              examinees = examinees.filter(l => {
+                const sGrade = l.siswa?.angkatan || l.siswa?.kelas;
+                return sGrade && normalizeGrade(sGrade) === normalizeGrade(payload.tingkat);
+              });
+            }
+            if (payload.kelas_paralel && payload.kelas_paralel !== 'ALL') {
+              examinees = examinees.filter(l => l.siswa?.kelas_paralel === payload.kelas_paralel);
+            }
+
+            const N = examinees.length;
+            if (N === 0) {
+              const emptyResult = (soalData || []).map((soal, idx) => ({
+                ...soal,
+                nomor_soal: idx + 1,
+                bobot: Number(soal.bobot) || 10,
+                total: 0,
+                correct: 0,
+                wrong: 0,
+                jumlah_benar: 0,
+                jumlah_salah: 0,
+                difficulty: '0.00',
+                tingkat_kesukaran: {
+                  indeks: 0,
+                  klasifikasi: 'Sukar'
+                },
+                daya_pembeda: {
+                  indeks: null,
+                  klasifikasi: 'Tidak Cukup Data',
+                  metode: 'Insufficient Data'
+                },
+                komparasi_siswa: []
+              }));
+              const resPayload = { total_peserta: 0, butir_soal: emptyResult };
+              if (action === 'get_analisis_butir_soal' || payload.as_object) {
+                return { status: 'success', data: resPayload };
+              }
+              Object.assign(emptyResult, resPayload);
+              return { status: 'success', data: emptyResult, ...resPayload };
+            }
+
+            const examineeScores = examinees.map(l => {
+              const totalScore = (Number(l.nilai_auto) || 0) + (Number(l.nilai_uraian) || 0);
+              return {
+                id_log: l.id_log,
+                id_siswa: l.id_siswa,
+                nama_lengkap: l.siswa ? l.siswa.nama_lengkap : 'Unknown',
+                nisn: l.siswa ? l.siswa.nisn : '-',
+                kelas: l.siswa ? (l.siswa.kelas || `${l.siswa.angkatan || ''} ${l.siswa.kelas_paralel || ''}`.trim()) : '-',
+                totalScore
+              };
+            });
+            examineeScores.sort((a, b) => b.totalScore - a.totalScore);
+
+            let groupMethod = 'Insufficient Data';
+            const upperLogIds = new Set();
+            const lowerLogIds = new Set();
+
+            if (N >= 30) {
+              groupMethod = 'Kelley 27%';
+              const n = Math.max(1, Math.round(N * 0.27));
+              for (let i = 0; i < n; i++) upperLogIds.add(examineeScores[i].id_log);
+              for (let i = N - n; i < N; i++) lowerLogIds.add(examineeScores[i].id_log);
+            } else if (N >= 2) {
+              groupMethod = 'Median Split 50%';
+              const nA = Math.ceil(N / 2);
+              const nB = Math.floor(N / 2);
+              for (let i = 0; i < nA; i++) upperLogIds.add(examineeScores[i].id_log);
+              for (let i = N - nB; i < N; i++) lowerLogIds.add(examineeScores[i].id_log);
+            }
+
+            const logIds = examinees.map(l => l.id_log);
             const { data: jwbData, error: jwbErr } = await supabaseClient.from('jawaban_siswa')
-              .select('id_soal, is_correct').in('id_log', logIds);
+              .select('id_soal, id_log, jawaban_user, is_correct, skor_diperoleh')
+              .in('id_log', logIds);
             if (jwbErr) return { status: 'error', message: jwbErr.message };
 
-            const analysis = soalData.map(soal => {
-              const answers = jwbData.filter(j => j.id_soal === soal.id_soal);
-              const total = answers.length;
-              const correct = answers.filter(a => a.is_correct).length;
-              const wrong = total - correct;
-              const difficulty = total > 0 ? (correct / total) * 100 : 0;
-              return { ...soal, total, correct, wrong, difficulty: difficulty.toFixed(2) };
+            const answers = jwbData || [];
+
+            const analysis = (soalData || []).map((soal, idx) => {
+              const qAnswers = answers.filter(j => j.id_soal === soal.id_soal);
+              const answerMap = new Map();
+              qAnswers.forEach(a => answerMap.set(a.id_log, a));
+
+              const isEssay = soal.tipe_soal === 'URAIAN';
+              const maxBobot = Number(soal.bobot) || 10;
+
+              const checkCorrect = (ans) => {
+                if (!ans) return false;
+                if (isEssay) {
+                  return Boolean(ans.is_correct) || (Number(ans.skor_diperoleh) > 0);
+                }
+                return Boolean(ans.is_correct);
+              };
+
+              let correctCount = 0;
+              let upperCorrect = 0;
+              let lowerCorrect = 0;
+
+              const komparasiSiswa = examineeScores.map(student => {
+                const ans = answerMap.get(student.id_log);
+                const isCorrect = checkCorrect(ans);
+                if (isCorrect) correctCount++;
+
+                let kelompok = 'TENGAH';
+                if (upperLogIds.has(student.id_log)) {
+                  kelompok = 'ATAS';
+                  if (isCorrect) upperCorrect++;
+                } else if (lowerLogIds.has(student.id_log)) {
+                  kelompok = 'BAWAH';
+                  if (isCorrect) lowerCorrect++;
+                }
+
+                return {
+                  id_siswa: student.id_siswa,
+                  nama_lengkap: student.nama_lengkap,
+                  kelas: student.kelas,
+                  jawaban_user: ans ? (ans.jawaban_user || '-') : '-',
+                  kunci_jawaban: soal.kunci_jawaban || '-',
+                  is_correct: isCorrect,
+                  skor_diperoleh: ans ? (Number(ans.skor_diperoleh) || 0) : 0,
+                  kelompok
+                };
+              });
+
+              const wrongCount = Math.max(0, N - correctCount);
+
+              const P = N > 0 ? Math.round((correctCount / N) * 100) / 100 : 0;
+              let klasKesukaran = 'Sedang';
+              if (P < 0.30) klasKesukaran = 'Sukar';
+              else if (P > 0.70) klasKesukaran = 'Mudah';
+
+              let D = null;
+              let klasPembeda = 'Tidak Cukup Data';
+              const nA = upperLogIds.size;
+              const nB = lowerLogIds.size;
+
+              if (nA > 0 && nB > 0) {
+                const diff = (upperCorrect / nA) - (lowerCorrect / nB);
+                D = Math.round(diff * 100) / 100;
+                if (D >= 0.40) klasPembeda = 'Sangat Baik';
+                else if (D >= 0.30) klasPembeda = 'Baik';
+                else if (D >= 0.20) klasPembeda = 'Cukup';
+                else if (D >= 0.00) klasPembeda = 'Buruk';
+                else klasPembeda = 'Sangat Buruk';
+              }
+
+              return {
+                ...soal,
+                nomor_soal: idx + 1,
+                bobot: maxBobot,
+                total: N,
+                correct: correctCount,
+                wrong: wrongCount,
+                jumlah_benar: correctCount,
+                jumlah_salah: wrongCount,
+                difficulty: (P * 100).toFixed(2),
+                tingkat_kesukaran: {
+                  indeks: P,
+                  klasifikasi: klasKesukaran
+                },
+                daya_pembeda: {
+                  indeks: D,
+                  klasifikasi: klasPembeda,
+                  metode: groupMethod
+                },
+                komparasi_siswa: komparasiSiswa
+              };
             });
-            return { status: 'success', data: analysis };
+
+            const resPayload = { total_peserta: N, butir_soal: analysis };
+            if (action === 'get_analisis_butir_soal' || payload.as_object) {
+              return { status: 'success', data: resPayload };
+            }
+            Object.assign(analysis, resPayload);
+            return { status: 'success', data: analysis, ...resPayload };
           }
           
           case 'get_audit_log': {

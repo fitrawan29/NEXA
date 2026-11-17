@@ -45,10 +45,10 @@ test('api.js get_mapel_guru enriches jumlah_soal & alokasi_kelas scoped by npsn;
   assert.match(importBlock, /normalizeTipeSoal/, 'import_soal_bulk must normalize tipe_soal');
 });
 
-test('GuruView parseWordText resets currentNarasi & ignores non-PG extra options, removes dead kd & fixes preview/MathJax', () => {
+test('GuruView decommissioning Word import & ignores non-PG extra options, removes dead kd & fixes preview/MathJax', () => {
   assert.doesNotMatch(guruCode, /filterKD|setFilterKD/, 'GuruView should remove dead kd filter since soal_ujian has no kd column');
   assert.match(guruCode, /window\.MathJax\?\.typesetPromise/, 'MathJax call must guard window.MathJax?.typesetPromise');
-  assert.match(guruCode, /parseWordText[\s\S]*?currentNarasi\s*=\s*''/, 'parseWordText should reset currentNarasi when closing/flushing question');
+  assert.ok(!guruCode.includes('parseWordText'), 'Word import (parseWordText) decommissioned in favor of Excel import');
   assert.doesNotMatch(guruCode, /FileReader[\s\S]*?Format file \.xls/, 'fix mojibake in file format hints if present');
 });
 

@@ -30,20 +30,16 @@ const ModalPeriksaUraian = ({ isOpen, logUjian, jawabanUraian = [], onClose, onS
   };
 
   const handleSave = (isNext = false) => {
-    const maxMap = {};
-    (jawabanUraian || []).forEach(j => {
-      const k = j.id_jawaban || j.id_soal;
-      if (k) maxMap[k] = Number(j.bobot) || 100;
-    });
     let totalUraian = 0;
     const detailSkor = [];
-    for (let key in scores) {
-      const maxBobot = maxMap[key] || 100;
-      const rawVal = Number(scores[key] || 0);
+    (jawabanUraian || []).forEach(j => {
+      const k = j.id_jawaban || j.id_soal;
+      const maxBobot = Number(j.bobot) || 100;
+      const rawVal = scores[k] !== undefined && scores[k] !== '' ? Number(scores[k]) : (Number(j.skor_diperoleh) || 0);
       const val = isNaN(rawVal) ? 0 : Math.max(0, Math.min(maxBobot, rawVal));
       totalUraian += val;
-      detailSkor.push({ id_jawaban: key, skor_diperoleh: val });
-    }
+      detailSkor.push({ id_jawaban: j.id_jawaban || k, skor_diperoleh: val });
+    });
     onSave(totalUraian, isNext, detailSkor);
   };
 
@@ -95,6 +91,17 @@ const ModalPeriksaUraian = ({ isOpen, logUjian, jawabanUraian = [], onClose, onS
                     className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed" 
                     dangerouslySetInnerHTML={{ __html: j.pertanyaan || j.soal || '-' }}
                   />
+                  {j.kunci_jawaban && (
+                    <div>
+                      <div className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 mb-1 uppercase tracking-wider flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[14px]">key</span>
+                        Rubrik / Kunci Jawaban:
+                      </div>
+                      <div className="bg-emerald-50/70 dark:bg-emerald-950/30 p-3 rounded-lg border border-emerald-200/80 dark:border-emerald-800/80 text-xs sm:text-sm text-emerald-900 dark:text-emerald-200 whitespace-pre-wrap leading-relaxed">
+                        {j.kunci_jawaban}
+                      </div>
+                    </div>
+                  )}
                   <div>
                     <div className="text-[11px] font-bold text-primary dark:text-primary-400 mb-1 uppercase tracking-wider">
                       Jawaban Siswa:

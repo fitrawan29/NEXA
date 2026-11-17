@@ -1,11 +1,10 @@
-import { fetchAPI, getTrueNow, get_default_skema_sekolah, isClassMatching, isUniversalAlloc } from '../api.js';
+import { fetchAPI, getTrueNow, get_default_skema_sekolah, isClassMatching, isUniversalAlloc, splitCompoundTargets, cleanTokens, normalizeGrade } from '../api.js';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import FormSoalModal from '../components/FormSoalModal.jsx';
 import FormNarasiModal from '../components/FormNarasiModal.jsx';
 import ModalPeriksaUraian from '../components/ModalPeriksaUraian.jsx';
 import SkemaPenilaianPanel from '../components/SkemaPenilaianPanel.jsx';
 import * as XLSX from 'xlsx';
-import mammoth from 'mammoth';
 import JSZip from 'jszip';
 import {
   EmptyState,
@@ -17,7 +16,8 @@ import {
   CardHeader,
   CardTitle,
   CardContent,
-  PasswordInput
+  PasswordInput,
+  TokenCountdown
 } from '../components/UI.jsx';
 import { compressImageFile } from '../utils/imageHelper.js';
 import { normalizeTipeSoal } from '../utils/nexaBundle.js';
@@ -136,10 +136,57 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
   const [filterHasilParalelDetail, setFilterHasilParalelDetail] = useState('ALL');
   const [searchHasilSiswa, setSearchHasilSiswa] = useState('');
 
+  // Examination / Manual Essay Grading State (R2)
+  const [filterTingkatPeriksa, setFilterTingkatPeriksa] = useState('');
+  const [filterParalelPeriksa, setFilterParalelPeriksa] = useState('ALL');
+  const [filterMapelPeriksa, setFilterMapelPeriksa] = useState('ALL');
+  const [filterStatusKoreksi, setFilterStatusKoreksi] = useState('ALL');
+  const [selectedPeriksaJadwal, setSelectedPeriksaJadwal] = useState(null);
+  const [dataPeriksaSiswa, setDataPeriksaSiswa] = useState([]);
+  const [searchPeriksaSiswa, setSearchPeriksaSiswa] = useState('');
+  const [isLoadingPeriksa, setIsLoadingPeriksa] = useState(false);
+
+  // Item Analysis & Student Comparison State (R3)
+  const [filterTingkatAnalisis, setFilterTingkatAnalisis] = useState('');
+  const [filterParalelAnalisis, setFilterParalelAnalisis] = useState('ALL');
+  const [filterMapelAnalisis, setFilterMapelAnalisis] = useState('ALL');
+  const [selectedJadwalAnalisis, setSelectedJadwalAnalisis] = useState(null);
+  const [dataAnalisisButir, setDataAnalisisButir] = useState({ total_peserta: 0, butir_soal: [] });
+  const [isLoadingAnalisis, setIsLoadingAnalisis] = useState(false);
+  const [selectedDetailSoal, setSelectedDetailSoal] = useState(null);
+  const [filterKelompokAnalisis, setFilterKelompokAnalisis] = useState('ALL');
+  const [searchSiswaAnalisis, setSearchSiswaAnalisis] = useState('');
+
   const fileInputRef = useRef(null);
-  const wordInputRef = useRef(null);
   const guruId = user?.id_guru || user?.id_user;
   const fetchReqIdRef = useRef(0);
+
+  const guruAssignedKelas = useMemo(() => {
+    if (!dataKelas || dataKelas.length === 0) return [];
+    const alloc = user?.alokasi_kelas;
+    if (alloc && !isUniversalAlloc(alloc)) {
+      return dataKelas.filter(k => isClassMatching(alloc, {
+        angkatan: k.tingkat,
+        kelas_paralel: k.kelas_paralel,
+        kelas: `${k.tingkat} ${k.kelas_paralel}`
+      }));
+    }
+    if (dataJadwal && dataJadwal.length > 0) {
+      const targets = dataJadwal
+        .filter(j => j.id_guru === guruId || dataMapel.some(m => String(m.id_mapel) === String(j.id_mapel)))
+        .map(j => j.target_kelas)
+        .filter(Boolean);
+      if (targets.length > 0) {
+        if (targets.some(t => isUniversalAlloc(t))) return dataKelas;
+        return dataKelas.filter(k => targets.some(target => isClassMatching(target, {
+          angkatan: k.tingkat,
+          kelas_paralel: k.kelas_paralel,
+          kelas: `${k.tingkat} ${k.kelas_paralel}`
+        })));
+      }
+    }
+    return dataKelas;
+  }, [dataKelas, user?.alokasi_kelas, dataJadwal, dataMapel, guruId]);
 
   // =========================================================================
   // Data Fetching
@@ -153,7 +200,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
       if (reqId !== fetchReqIdRef.current) return;
       if (resKelas.status === 'success') setDataKelas(resKelas.data || []);
 
-      if (activeTab === 'dashboard' || activeTab === 'akun' || activeTab === 'hasil') {
+      if (activeTab === 'dashboard' || activeTab === 'akun' || activeTab === 'hasil' || activeTab === 'pemeriksaan' || activeTab === 'analisis_soal') {
         const resMapel = await api('get_mapel_guru', { id_guru: guruId });
         if (reqId !== fetchReqIdRef.current) return;
         if (resMapel.status === 'success') setDataMapel(resMapel.data || []);
@@ -286,107 +333,28 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
   // =========================================================================
   const downloadTemplateSoal = () => {
     const templateData = [
-      { tipe_soal: 'PG',    pertanyaan: 'Hasil dari 5 + 7 adalah...', opsi_A: '10', opsi_B: '11', opsi_C: '12', opsi_D: '13', opsi_E: '14', kunci_jawaban: 'C', bobot: 10, kd: '3.1', narasi_soal: '' },
-      { tipe_soal: 'PGK',   pertanyaan: 'Manakah yang merupakan bilangan prima genap?', opsi_A: '2', opsi_B: '4', opsi_C: '6', opsi_D: '8', opsi_E: '10', kunci_jawaban: 'A,B', bobot: 10, kd: '3.1', narasi_soal: '' },
-      { tipe_soal: 'BS',    pertanyaan: 'Bumi mengelilingi Matahari.', opsi_A: '', opsi_B: '', opsi_C: '', opsi_D: '', opsi_E: '', kunci_jawaban: 'Benar', bobot: 5, kd: '3.1', narasi_soal: '' },
-      { tipe_soal: 'JODOH', pertanyaan: 'Pasangkan ibukota negara berikut:', opsi_A: 'Indonesia = Jakarta', opsi_B: 'Jepang = Tokyo', opsi_C: 'Inggris = London', opsi_D: '', opsi_E: '', kunci_jawaban: 'Indonesia=Jakarta, Jepang=Tokyo, Inggris=London', bobot: 15, kd: '3.2', narasi_soal: '' },
-      { tipe_soal: 'ISIAN', pertanyaan: 'Ibukota Indonesia adalah...', opsi_A: '', opsi_B: '', opsi_C: '', opsi_D: '', opsi_E: '', kunci_jawaban: 'Jakarta', bobot: 10, kd: '3.2', narasi_soal: '' },
-      { tipe_soal: 'URAIAN', pertanyaan: 'Jelaskan hukum kekekalan energi secara singkat.', opsi_A: '', opsi_B: '', opsi_C: '', opsi_D: '', opsi_E: '', kunci_jawaban: 'Energi tidak dapat diciptakan atau dimusnahkan, hanya berubah bentuk.', bobot: 20, kd: '3.3', narasi_soal: '' },
+      { tipe_soal: 'NARASI', pertanyaan: 'Bacalah teks berikut untuk menjawab soal nomor 1 dan 2:\nPembelajaran berbasis digital meningkatkan efektivitas belajar siswa.', opsi_A: '', opsi_B: '', opsi_C: '', opsi_D: '', opsi_E: '', kunci_jawaban: '', bobot: 0, kd: '3.1', narasi_soal: '', id_narasi: 'WACANA-1' },
+      { tipe_soal: 'PG',    pertanyaan: 'Hasil dari 5 + 7 adalah...', opsi_A: '10', opsi_B: '11', opsi_C: '12', opsi_D: '13', opsi_E: '14', kunci_jawaban: 'C', bobot: 10, kd: '3.1', narasi_soal: '', id_narasi: 'WACANA-1' },
+      { tipe_soal: 'PGK',   pertanyaan: 'Manakah yang merupakan bilangan prima genap?', opsi_A: '2', opsi_B: '4', opsi_C: '6', opsi_D: '8', opsi_E: '10', kunci_jawaban: 'A,B', bobot: 10, kd: '3.1', narasi_soal: '', id_narasi: '' },
+      { tipe_soal: 'BS',    pertanyaan: 'Bumi mengelilingi Matahari.', opsi_A: '', opsi_B: '', opsi_C: '', opsi_D: '', opsi_E: '', kunci_jawaban: 'Benar', bobot: 5, kd: '3.1', narasi_soal: '', id_narasi: '' },
+      { tipe_soal: 'JODOH', pertanyaan: 'Pasangkan ibukota negara berikut:', opsi_A: 'Indonesia = Jakarta', opsi_B: 'Jepang = Tokyo', opsi_C: 'Inggris = London', opsi_D: '', opsi_E: '', kunci_jawaban: 'Indonesia=Jakarta, Jepang=Tokyo, Inggris=London', bobot: 15, kd: '3.2', narasi_soal: '', id_narasi: '' },
+      { tipe_soal: 'ISIAN', pertanyaan: 'Ibukota Indonesia adalah...', opsi_A: '', opsi_B: '', opsi_C: '', opsi_D: '', opsi_E: '', kunci_jawaban: 'Jakarta', bobot: 10, kd: '3.2', narasi_soal: '', id_narasi: '' },
+      { tipe_soal: 'URAIAN', pertanyaan: 'Jelaskan hukum kekekalan energi secara singkat.', opsi_A: '', opsi_B: '', opsi_C: '', opsi_D: '', opsi_E: '', kunci_jawaban: 'Energi tidak dapat diciptakan atau dimusnahkan, hanya berubah bentuk.', bobot: 20, kd: '3.3', narasi_soal: '', id_narasi: '' },
     ];
     const petunjukData = [
-      { Kolom: 'tipe_soal',     Keterangan: 'Wajib. Isi dengan: PG, PGK, BS, JODOH, ISIAN, atau URAIAN' },
-      { Kolom: 'pertanyaan',    Keterangan: 'Wajib. Teks pertanyaan soal.' },
-      { Kolom: 'opsi_A - E',   Keterangan: 'Untuk PG/PGK: teks pilihan. Untuk JODOH: format "Premis = Respon".' },
-      { Kolom: 'kunci_jawaban', Keterangan: 'PG: huruf A/B/C/D/E. PGK: pisah koma (A,B). BS: Benar/Salah. JODOH: "P=R, P2=R2". ISIAN/URAIAN: teks kunci.' },
-      { Kolom: 'bobot',         Keterangan: 'Angka bobot soal (default 10 jika kosong).' },
+      { Kolom: 'tipe_soal',     Keterangan: 'Wajib. Isi dengan: NARASI, PG, PGK, BS, JODOH, ISIAN, atau URAIAN' },
+      { Kolom: 'pertanyaan',    Keterangan: 'Wajib (kecuali jika tipe NARASI, teks wacana diletakkan di pertanyaan atau narasi_soal).' },
+      { Kolom: 'opsi_A - E',   Keterangan: 'Untuk PG/PGK: teks pilihan. Untuk JODOH: format "Premis = Respon". Kosongkan untuk NARASI.' },
+      { Kolom: 'kunci_jawaban', Keterangan: 'PG: huruf A/B/C/D/E. PGK: pisah koma (A,B). BS: Benar/Salah. JODOH: "P=R, P2=R2". ISIAN/URAIAN: teks kunci. Kosongkan untuk NARASI.' },
+      { Kolom: 'bobot',         Keterangan: 'Angka bobot soal (default 10 jika kosong; otomatis 0 untuk NARASI).' },
       { Kolom: 'kd',            Keterangan: 'Kode Dasar / KD, contoh: 3.1 (opsional).' },
+      { Kolom: 'id_narasi',     Keterangan: 'ID grup narasi/wacana untuk menautkan butir soal dengan stimulus wacana (opsional).' },
       { Kolom: 'narasi_soal',   Keterangan: 'Teks narasi/wacana pendahulu soal (opsional).' },
     ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(templateData), 'Template Soal');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(petunjukData), 'Petunjuk');
     XLSX.writeFile(wb, 'Template_Soal_NEXA_CBT.xlsx');
-  };
-
-  // ponytail: generate file .docx asli via JSZip agar langsung bisa diedit guru di Word
-  const downloadTemplateWord = async () => {
-    try {
-      const zip = new JSZip();
-      zip.file('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
-      zip.file('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
-
-      const sampleLines = [
-        'PETUNJUK PENGISIAN SOAL NEXA CBT (MICROSOFT WORD)',
-        '--------------------------------------------------',
-        'Format Fleksibel: Guru dapat menggunakan tag SOAL: atau penomoran biasa (1., 2., dst.)',
-        '',
-        'CONTOH 1 - PILIHAN GANDA (PG):',
-        'SOAL: Hasil dari 5 + 7 adalah...',
-        'A. 10',
-        'B. 11',
-        'C. 12',
-        'D. 13',
-        'E. 14',
-        'KUNCI: C',
-        'BOBOT: 10',
-        'KD: 3.1',
-        '',
-        'CONTOH 2 - PILIHAN GANDA KOMPLEKS (PGK - Lebih dari 1 kunci):',
-        'TIPE: PGK',
-        'SOAL: Manakah yang merupakan bilangan prima genap?',
-        'A. 2',
-        'B. 4',
-        'C. 6',
-        'D. 8',
-        'KUNCI: A,B',
-        'BOBOT: 10',
-        '',
-        'CONTOH 3 - BENAR / SALAH (BS):',
-        'TIPE: BS',
-        'SOAL: Bumi mengelilingi Matahari.',
-        'KUNCI: Benar',
-        'BOBOT: 5',
-        '',
-        'CONTOH 4 - ISIAN SINGKAT:',
-        'TIPE: ISIAN',
-        'SOAL: Ibukota negara Indonesia adalah...',
-        'KUNCI: Jakarta',
-        'BOBOT: 10',
-        '',
-        'CONTOH 5 - URAIAN / ESSAY:',
-        'TIPE: URAIAN',
-        'SOAL: Jelaskan prinsip hukum kekekalan energi secara singkat.',
-        'KUNCI: Energi tidak dapat diciptakan atau dimusnahkan, hanya berubah bentuk.',
-        'BOBOT: 20',
-        '',
-        'CONTOH 6 - SOAL DENGAN NARASI/STIMULUS:',
-        'NARASI: Bacalah teks berikut: "Energi adalah kemampuan untuk melakukan usaha."',
-        'SOAL: Apa yang dimaksud dengan energi menurut teks di atas?',
-        'A. Kemampuan untuk melakukan usaha',
-        'B. Kemampuan untuk bergerak',
-        'C. Kemampuan untuk berpindah',
-        'D. Kemampuan untuk bekerja',
-        'KUNCI: A',
-        'BOBOT: 10'
-      ];
-
-      const paragraphs = sampleLines.map(p => {
-        const escaped = (p || ' ').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        return `<w:p><w:r><w:t>${escaped}</w:t></w:r></w:p>`;
-      }).join('');
-
-      zip.file('word/document.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${paragraphs}</w:body></w:document>`);
-
-      const blob = await zip.generateAsync({ type: 'blob' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'Template_Soal_NEXA_CBT.docx';
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      showMessage('Gagal', 'Gagal membuat file template Word: ' + err.message, 'error');
-    }
   };
 
   // Helper normalisasi nama kolom Excel dari berbagai format guru
@@ -416,6 +384,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
       kunci_jawaban: String(getVal('kunci_jawaban', 'kuncijawaban', 'kunci', 'jawaban', 'answer', 'key')),
       bobot: parseInt(getVal('bobot', 'skor', 'nilai', 'poin', 'score')) || 10,
       kd: String(getVal('kd', 'kompetensidasar')),
+      id_narasi: String(getVal('id_narasi', 'idnarasi', 'narasiid', 'stimulusid', 'grupnarasi')),
       narasi_soal: String(getVal('narasi_soal', 'narasisoal', 'narasi', 'wacana', 'stimulus'))
     };
   };
@@ -442,20 +411,31 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
         const ws = wb.Sheets[wsName];
         const rawData = XLSX.utils.sheet_to_json(ws);
 
-        const validRows = (rawData || []).map(normalizeExcelRow).filter(r => r && (String(r.pertanyaan || '').trim() !== '' || String(r.tipe_soal || '').trim() !== ''));
+        const validRows = (rawData || []).map(normalizeExcelRow).filter(r => r && (String(r.pertanyaan || '').trim() !== '' || String(r.narasi_soal || '').trim() !== '' || String(r.tipe_soal || '').trim() !== ''));
         if (validRows.length === 0) {
           showMessage('Peringatan', 'File Excel kosong atau format tidak sesuai.', 'error');
           return;
         }
 
+        let activeNarasiId = null;
+
         const payloadData = validRows.map((row, idx) => {
-          const tipe = normalizeTipeSoal(row.tipe_soal || 'PG');
+          const rawTipe = (row.tipe_soal || '').toUpperCase().trim();
+          const isExplicitNarasi = rawTipe === 'NARASI' || (!row.pertanyaan && row.narasi_soal);
+          const tipe = isExplicitNarasi ? 'NARASI' : normalizeTipeSoal(row.tipe_soal || 'PG');
+
           let finalKunci = row.kunci_jawaban ? String(row.kunci_jawaban).trim() : '';
           let opsiStr = null;
-          let finalPertanyaan = row.pertanyaan || '';
+          let finalPertanyaan = (row.pertanyaan || '').trim();
 
-          if (row.narasi_soal) {
-            finalPertanyaan = `<strong>Narasi Soal:</strong><br/>${row.narasi_soal}<br/><br/>${finalPertanyaan}`;
+          if (tipe === 'NARASI') {
+            finalPertanyaan = finalPertanyaan || (row.narasi_soal || '').trim();
+            finalKunci = '';
+            opsiStr = null;
+          } else {
+            if (row.id_narasi) {
+              activeNarasiId = row.id_narasi;
+            }
           }
 
           if (tipe === 'PG') {
@@ -475,16 +455,6 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
               });
               finalKunci = JSON.stringify(mappedKeys);
             } catch (_) {}
-          }
-
-          if (tipe === 'PG' || tipe === 'PGK') {
-            opsiStr = JSON.stringify([
-              row.opsi_A || '',
-              row.opsi_B || '',
-              row.opsi_C || '',
-              row.opsi_D || '',
-              row.opsi_E || ''
-            ]);
           } else if (tipe === 'JODOH') {
             let premis = [];
             let respon = [];
@@ -517,6 +487,16 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
             }
           }
 
+          if (tipe === 'PG' || tipe === 'PGK') {
+            opsiStr = JSON.stringify([
+              row.opsi_A || '',
+              row.opsi_B || '',
+              row.opsi_C || '',
+              row.opsi_D || '',
+              row.opsi_E || ''
+            ]);
+          }
+
           const uniqueId = `SOAL-${selectedMapel}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${idx}`;
 
           return {
@@ -527,7 +507,8 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
             pertanyaan: finalPertanyaan,
             opsi: opsiStr,
             kunci_jawaban: finalKunci ? String(finalKunci) : '',
-            bobot: Number(row.bobot) || 10
+            bobot: tipe === 'NARASI' ? 0 : (Number(row.bobot) || 10),
+            id_narasi: tipe === 'NARASI' ? (row.id_narasi || uniqueId) : (row.id_narasi || activeNarasiId || null)
           };
         });
 
@@ -548,198 +529,6 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
       }
     };
     reader.readAsBinaryString(file);
-  };
-
-  // Parse teks dari Word/TXT menjadi array soal dengan format yang fleksibel
-  const parseWordText = (text) => {
-    const soalList = [];
-    const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').map(l => l.trim());
-
-    let current = null;
-    let currentNarasi = '';
-
-    const finalize = () => {
-      if (current && current.pertanyaan) {
-        if (!current.tipe_soal) {
-          if (current.opsi_A || current.opsi_B) {
-            current.tipe_soal = 'PG';
-          } else {
-            current.tipe_soal = 'URAIAN';
-          }
-        }
-        soalList.push({ ...current, narasi_soal: currentNarasi || current.narasi_soal || '' });
-        currentNarasi = '';
-      }
-    };
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (!line) continue;
-
-      // 1. Tag NARASI/WACANA
-      if (/^(NARASI|WACANA|STIMULUS)\s*[:=]/i.test(line)) {
-        finalize();
-        current = null;
-        currentNarasi = line.replace(/^(NARASI|WACANA|STIMULUS)\s*[:=]\s*/i, '').trim();
-        continue;
-      }
-
-      // 2. Tag TIPE SOAL
-      if (/^(TIPE|JENIS)(\s*SOAL)?\s*[:=]/i.test(line)) {
-        finalize();
-        const t = normalizeTipeSoal(line.replace(/^(TIPE|JENIS)(\s*SOAL)?\s*[:=]\s*/i, '').trim().toUpperCase());
-        current = { tipe_soal: t, opsi_A: '', opsi_B: '', opsi_C: '', opsi_D: '', opsi_E: '', kunci_jawaban: '', bobot: 10 };
-        continue;
-      }
-
-      // 3. Tag SOAL: atau Penomoran Soal (misal "1. ", "1) ", "Soal 1: ")
-      const soalTagMatch = line.match(/^SOAL\s*[:=]\s*(.+)/i);
-      const soalNumMatch = !soalTagMatch && line.match(/^(\d+|No\.?\s*\d+|Soal\s*\d+)[\.\)\:\-]\s*(.+)/i);
-
-      if (soalTagMatch || soalNumMatch) {
-        if (current && current.pertanyaan) {
-          finalize();
-          current = null;
-        }
-        if (!current) {
-          current = { tipe_soal: '', opsi_A: '', opsi_B: '', opsi_C: '', opsi_D: '', opsi_E: '', kunci_jawaban: '', bobot: 10 };
-        }
-        current.pertanyaan = (soalTagMatch ? soalTagMatch[1] : soalNumMatch[2]).trim();
-        continue;
-      }
-
-      // 4. Opsi A, B, C, D, E
-      const opsiMatch = line.match(/^(\[)?([A-Ea-e])(\])?[\.\)\:\-]?\s+(.+)/);
-      if (opsiMatch && current && current.pertanyaan && !current.kunci_jawaban) {
-        const letter = opsiMatch[2].toUpperCase();
-        const key = `opsi_${letter}`;
-        current[key] = opsiMatch[4].trim();
-        continue;
-      }
-
-      // 5. Kunci Jawaban
-      if (/^(KUNCI(\s*JAWABAN)?|JAWABAN)(\s*SOAL|\s*BENAR)?\s*[:=]/i.test(line)) {
-        if (current) {
-          current.kunci_jawaban = line.replace(/^(KUNCI(\s*JAWABAN)?|JAWABAN)(\s*SOAL|\s*BENAR)?\s*[:=]\s*/i, '').trim();
-        }
-        continue;
-      }
-
-      // 6. Bobot / Skor
-      if (/^(BOBOT|SKOR|NILAI|POIN)\s*[:=]/i.test(line)) {
-        if (current) {
-          const val = parseInt(line.replace(/^(BOBOT|SKOR|NILAI|POIN)\s*[:=]\s*/i, '').trim(), 10);
-          if (!isNaN(val)) current.bobot = val;
-        }
-        continue;
-      }
-
-      // 7. Baris kelanjutan pertanyaan (abaikan jika kunci jawaban sudah ditentukan untuk non-PG)
-      if (current && current.pertanyaan && !current.opsi_A && !current.kunci_jawaban) {
-        current.pertanyaan += ' ' + line;
-      }
-    }
-    finalize();
-    return soalList;
-  };
-
-  const handleImportWord = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    e.target.value = '';
-    if (isSelectedMapelActive) {
-      showMessage('Soal Terkunci', 'Tidak dapat mengimpor soal karena jadwal ujian mapel ini sedang AKTIF berlangsung.', 'error');
-      return;
-    }
-    const lowerName = file.name.toLowerCase();
-    if (lowerName.endsWith('.doc') && !lowerName.endsWith('.docx')) {
-      showMessage('Format Tidak Didukung', 'Format binary .doc lama tidak didukung. Silakan simpan ulang dokumen sebagai .docx atau .txt.', 'error');
-      return;
-    }
-    try {
-      setIsLoading(true);
-      let text = '';
-      if (lowerName.endsWith('.docx')) {
-        const arrayBuffer = await file.arrayBuffer();
-        const result = await mammoth.extractRawText({ arrayBuffer });
-        text = result.value;
-      } else {
-        text = await file.text();
-      }
-
-      const rawSoal = parseWordText(text);
-      if (!rawSoal.length) {
-        showMessage('Peringatan', 'Tidak ada soal yang terbaca. Pastikan format sesuai template.', 'error');
-        setIsLoading(false);
-        return;
-      }
-
-      const payloadData = rawSoal.map((row, idx) => {
-        const tipe = normalizeTipeSoal(row.tipe_soal || 'PG');
-        let finalKunci = row.kunci_jawaban ? String(row.kunci_jawaban).trim() : '';
-        let opsiStr = null;
-        let finalPertanyaan = row.pertanyaan || '';
-        if (row.narasi_soal) {
-          finalPertanyaan = `<strong>Narasi Soal:</strong><br/>${row.narasi_soal}<br/><br/>${finalPertanyaan}`;
-        }
-
-        if (tipe === 'PG') {
-          const map = { A: row.opsi_A, B: row.opsi_B, C: row.opsi_C, D: row.opsi_D, E: row.opsi_E };
-          finalKunci = map[finalKunci.toUpperCase()] || finalKunci;
-        } else if (tipe === 'PGK') {
-          try {
-            const mapped = finalKunci.split(',').map(k => ({ A: row.opsi_A, B: row.opsi_B, C: row.opsi_C, D: row.opsi_D, E: row.opsi_E }[k.trim().toUpperCase()] || k.trim()));
-            finalKunci = JSON.stringify(mapped);
-          } catch (_) {}
-        } else if (tipe === 'JODOH') {
-          const premis = [], respon = [];
-          ['opsi_A','opsi_B','opsi_C','opsi_D','opsi_E'].forEach(k => {
-            if (!row[k]) return;
-            const [p, r] = row[k].split('=').map(s => s.trim());
-            if (p && !premis.includes(p)) premis.push(p);
-            if (r && !respon.includes(r)) respon.push(r);
-          });
-          opsiStr = JSON.stringify({ premis, respon });
-          if (finalKunci) {
-            const kunciObj = {};
-            finalKunci.split(',').forEach(pair => {
-              const [p, r] = pair.split('=').map(s => s.trim());
-              if (p) kunciObj[p] = r;
-            });
-            finalKunci = JSON.stringify(kunciObj);
-          }
-        }
-
-        if ((tipe === 'PG' || tipe === 'PGK') && !opsiStr) {
-          opsiStr = JSON.stringify([row.opsi_A || '', row.opsi_B || '', row.opsi_C || '', row.opsi_D || '', row.opsi_E || '']);
-        }
-
-        return {
-          id_soal: `SOAL-${selectedMapel}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2,6).toUpperCase()}-${idx}`,
-          id_mapel: selectedMapel,
-          npsn: user.npsn,
-          tipe_soal: tipe,
-          pertanyaan: finalPertanyaan,
-          opsi: opsiStr,
-          kunci_jawaban: finalKunci ? String(finalKunci) : '',
-          bobot: Number(row.bobot) || 10
-        };
-      });
-
-      const res = await api('import_soal_bulk', { data: payloadData, npsn: user.npsn });
-      setIsLoading(false);
-      if (res.status === 'success') {
-        showMessage('Berhasil', `${payloadData.length} soal dari Word/TXT berhasil diimpor!`, 'success');
-        const mapelNama = dataMapel.find(m => m.id_mapel === selectedMapel)?.nama_mapel || selectedMapel;
-        logActivity('IMPORT SOAL', `Import ${payloadData.length} butir soal Word pada mapel ${mapelNama}`);
-        fetchData();
-      } else {
-        showMessage('Info', res.message, 'info');
-      }
-    } catch (err) {
-      setIsLoading(false);
-      showMessage('Gagal', 'Gagal memproses file Word: ' + err.message, 'error');
-    }
   };
 
   const handleSaveSoal = async (soalData) => {
@@ -799,7 +588,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
       return;
     }
     if (!confirm('Hapus butir soal ini?')) return;
-    // ponytail: confirm() ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â GuruView belum punya confirmDialog state, biarkan sementara
+    // ponytail: confirm() — GuruView belum punya confirmDialog state, biarkan sementara
     setIsLoading(true);
     const res = await api('delete_soal_mapel', { id_soal: id });
     setIsLoading(false);
@@ -880,17 +669,109 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
     }
   };
 
+  const openKoreksiUraianJadwal = async (jadwal) => {
+    const isTaughtSubject = dataMapel.some(m => String(m.id_mapel) === String(jadwal?.id_mapel));
+    if (!isTaughtSubject) {
+      showMessage('Akses Terbatas', 'Anda hanya berhak mengakses koreksi uraian untuk mata pelajaran yang Anda ampu.', 'info');
+      return;
+    }
+    setSelectedHasilJadwal(jadwal);
+    setIsLoading(true);
+    const res = await api('get_hasil_ujian', { id_jadwal: jadwal.id_jadwal, id_guru: guruId });
+    setIsLoading(false);
+    if (res.status === 'success') {
+      const students = res.data || [];
+      setDataHasilSiswa(students);
+      const unrated = students.find(s =>
+        !s.is_blocked &&
+        (s.status_ujian === 'SELESAI' || Number(s.total_dijawab) > 0) &&
+        (s.nilai_uraian === null || s.nilai_uraian === undefined)
+      );
+      if (unrated) {
+        openPeriksaUraian(unrated);
+      } else if (students.length > 0) {
+        openPeriksaUraian(students[0]);
+      } else {
+        showMessage('Info', 'Belum ada siswa yang menyelesaikan ujian ini.', 'info');
+      }
+    } else {
+      showMessage('Gagal', 'Gagal memuat rekap nilai: ' + res.message, 'error');
+    }
+  };
+
+  const loadPeriksaQueue = async (jadwal) => {
+    if (!jadwal) {
+      setSelectedPeriksaJadwal(null);
+      setDataPeriksaSiswa([]);
+      return;
+    }
+    const isTaughtSubject = dataMapel.some(m => String(m.id_mapel) === String(jadwal?.id_mapel));
+    if (!isTaughtSubject) {
+      showMessage('Akses Terbatas', 'Anda hanya berhak memeriksa ujian untuk mata pelajaran yang Anda ampu.', 'info');
+      return;
+    }
+    setSelectedPeriksaJadwal(jadwal);
+    setIsLoadingPeriksa(true);
+    const res = await api('get_hasil_ujian', { id_jadwal: jadwal.id_jadwal, id_guru: guruId });
+    setIsLoadingPeriksa(false);
+    if (res.status === 'success') {
+      setDataPeriksaSiswa(res.data || []);
+    } else {
+      showMessage('Gagal', 'Gagal memuat antrean pemeriksaan: ' + res.message, 'error');
+    }
+  };
+
+  const loadAnalisisButir = async (jadwal, tingkat = filterTingkatAnalisis, paralel = filterParalelAnalisis) => {
+    if (!jadwal) {
+      setSelectedJadwalAnalisis(null);
+      setDataAnalisisButir({ total_peserta: 0, butir_soal: [] });
+      setSelectedDetailSoal(null);
+      return;
+    }
+    const isTaughtSubject = dataMapel.some(m => String(m.id_mapel) === String(jadwal?.id_mapel));
+    if (!isTaughtSubject) {
+      showMessage('Akses Terbatas', 'Anda hanya berhak melihat analisis butir soal untuk mata pelajaran yang Anda ampu.', 'info');
+      return;
+    }
+    setSelectedJadwalAnalisis(jadwal);
+    setSelectedDetailSoal(null);
+    setIsLoadingAnalisis(true);
+    const res = await api('get_analisis_butir_soal', {
+      id_jadwal: jadwal.id_jadwal,
+      id_mapel: jadwal.id_mapel,
+      id_guru: guruId,
+      tingkat: tingkat || undefined,
+      kelas_paralel: paralel !== 'ALL' ? paralel : undefined
+    });
+    setIsLoadingAnalisis(false);
+    if (res.status === 'success') {
+      const resultData = res.data?.butir_soal
+        ? res.data
+        : { total_peserta: res.total_peserta || 0, butir_soal: Array.isArray(res.data) ? res.data : [] };
+      setDataAnalisisButir(resultData);
+    } else {
+      showMessage('Gagal', 'Gagal memuat analisis butir soal: ' + res.message, 'error');
+    }
+  };
+
   const openAnalisisSoal = async (idJadwal, idMapel) => {
     const isTaughtSubject = dataMapel.some(m => String(m.id_mapel) === String(idMapel));
     if (!isTaughtSubject) {
       showMessage('Akses Terbatas', 'Anda hanya berhak mengakses analisis butir soal untuk mata pelajaran yang Anda ampu.', 'info');
       return;
     }
+    const targetJadwal = dataJadwal.find(j => j.id_jadwal === idJadwal);
+    if (targetJadwal) {
+      navigateTab('analisis_soal');
+      loadAnalisisButir(targetJadwal);
+      return;
+    }
     setIsLoading(true);
     const res = await api('get_analisis_soal', { id_jadwal: idJadwal, id_mapel: idMapel });
     setIsLoading(false);
     if (res.status === 'success') {
-      setDataAnalisis(res.data || []);
+      const items = Array.isArray(res.data) ? res.data : (res.data?.butir_soal || []);
+      setDataAnalisis(items);
       setIsAnalisisModalOpen(true);
     } else {
       showMessage('Gagal', 'Gagal mengambil analisis: ' + res.message, 'error');
@@ -933,13 +814,28 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
         return s;
       });
 
-      if (selectedHasilJadwal?.id_jadwal) {
-        const refreshRes = await api('get_hasil_ujian', { id_jadwal: selectedHasilJadwal.id_jadwal, id_guru: guruId });
+      const targetJadwalId = selectedHasilJadwal?.id_jadwal || selectedPeriksaJadwal?.id_jadwal || modalUraian.logUjian?.id_jadwal;
+      if (targetJadwalId) {
+        const refreshRes = await api('get_hasil_ujian', { id_jadwal: targetJadwalId, id_guru: guruId });
         if (refreshRes.status === 'success' && Array.isArray(refreshRes.data)) {
           updatedList = refreshRes.data;
+          setDataHasilSiswa(updatedList);
+          setDataPeriksaSiswa(updatedList);
         }
+      } else {
+        setDataHasilSiswa(updatedList);
+        setDataPeriksaSiswa(prev => (prev || []).map(s => {
+          if (s.id_log === currentIdLog) {
+            const pg = Number(s.nilai_auto) || 0;
+            return {
+              ...s,
+              nilai_uraian: totalNilai,
+              total_nilai: s.is_blocked ? 0 : Math.min(100, Math.round((pg + totalNilai) * 100) / 100)
+            };
+          }
+          return s;
+        }));
       }
-      setDataHasilSiswa(updatedList);
 
       if (isNext) {
         const nextStudent = updatedList.find(s =>
@@ -951,6 +847,8 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
         if (nextStudent) {
           openPeriksaUraian(nextStudent);
           return;
+        } else {
+          showMessage('Selesai', 'Semua jawaban uraian untuk ujian ini telah dinilai.', 'success');
         }
       }
 
@@ -1010,6 +908,8 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
       title: 'Akademik',
       items: [
         { id: 'bank_soal', label: 'Bank Soal & Narasi', icon: 'quiz' },
+        { id: 'pemeriksaan', label: 'Pemeriksaan Uraian', icon: 'draw' },
+        { id: 'analisis_soal', label: 'Analisis Butir Soal', icon: 'analytics' },
         { id: 'hasil', label: 'Hasil & Rekap Nilai', icon: 'assessment' }
       ]
     },
@@ -1024,6 +924,8 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
   const bottomBarItems = [
     { id: 'dashboard', label: 'Beranda', icon: 'dashboard' },
     { id: 'bank_soal', label: 'Bank Soal', icon: 'quiz' },
+    { id: 'pemeriksaan', label: 'Pemeriksaan Uraian', icon: 'draw' },
+    { id: 'analisis_soal', label: 'Analisis Butir Soal', icon: 'analytics' },
     { id: 'hasil', label: 'Rekap Nilai', icon: 'assessment' },
     { id: 'akun', label: 'Profil', icon: 'person' }
   ];
@@ -1031,6 +933,8 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
   const tabTitleMap = {
     dashboard: 'Beranda Guru',
     bank_soal: 'Bank Soal & Narasi',
+    pemeriksaan: 'Pemeriksaan Manual Uraian',
+    analisis_soal: 'Analisis Butir Soal',
     hasil: 'Hasil & Rekap Evaluasi',
     akun: 'Pengaturan Profil'
   };
@@ -1038,6 +942,8 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
   const tabSubtitleMap = {
     dashboard: 'Ringkasan tugas mengajar, pembuatan soal, dan status penilaian',
     bank_soal: 'Kelola butir soal evaluasi, narasi soal stimulus, dan skema penilaian',
+    pemeriksaan: 'Penilaian dan pemberian skor jawaban uraian siswa secara manual',
+    analisis_soal: 'Evaluasi tingkat kesukaran, daya pembeda, dan perbandingan respon siswa',
     hasil: 'Rekapitulasi nilai, antrean koreksi uraian, dan analisis butir soal',
     akun: 'Kelola foto profil, avatar, dan keamanan akun guru'
   };
@@ -1607,7 +1513,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                       onClick={() => navigateTab('bank_soal')}
                       className="text-[11px] font-bold text-primary hover:text-primary-700 transition-colors"
                     >
-                      Buka Semua Soal ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢
+                      Buka Semua Soal →
                     </button>
                   </div>
 
@@ -1676,7 +1582,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                               <p className="font-bold text-xs text-slate-800 dark:text-slate-200 truncate">{j.nama_mapel || '-'}</p>
                               <p className="text-[10px] text-slate-500 truncate">Kelas: {j.target_kelas || '-'} • {j.waktu_mulai ? new Date(j.waktu_mulai).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' }) : '-'}</p>
                               {j.status_ujian === 'AKTIF' && (
-                                <div className="flex items-center gap-1.5 mt-1">
+                                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                                   <span className="text-[10px] text-slate-500">Token:</span>
                                   <span className="font-mono font-black text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
                                     {j.token || j.token_aktif || '-'}
@@ -1691,6 +1597,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                                   >
                                     <span className="material-symbols-outlined text-[14px]">content_copy</span>
                                   </button>
+                                  <TokenCountdown lastUpdate={j.last_update_token} intervalMinutes={j.durasi_token_menit || 5} onExpire={() => fetchData()} />
                                 </div>
                               )}
                             </div>
@@ -1719,7 +1626,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                         <span className="material-symbols-outlined text-primary text-base shrink-0 mt-0.5">quiz</span>
                         <div>
                           <p className="font-bold text-slate-800 dark:text-slate-200">Bank Soal AKM</p>
-                          <p className="text-[11px] text-slate-500">Kelola 6 tipe soal AKM, stimulus narasi, serta import Word & Excel.</p>
+                          <p className="text-[11px] text-slate-500">Kelola 6 tipe soal AKM, stimulus narasi, serta import Excel.</p>
                         </div>
                       </div>
                       <div className="flex items-start gap-2 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800">
@@ -1857,26 +1764,15 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
 
                     <div className="flex items-center gap-2 flex-wrap justify-end">
                       <input type="file" ref={fileInputRef} onChange={handleImportExcel} accept=".xlsx,.xls" className="hidden" />
-                      <input type="file" ref={wordInputRef} onChange={handleImportWord} accept=".docx,.txt" className="hidden" />
-                      {/* Template dropdown */}
-                      <div className="relative group">
-                        <button
-                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 transition-colors min-h-[44px]"
-                          title="Unduh Template"
-                        >
-                          <span className="material-symbols-outlined text-[18px]">download</span>
-                          <span className="hidden sm:inline">Template</span>
-                          <span className="material-symbols-outlined text-[14px]">expand_more</span>
-                        </button>
-                        <div className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 z-50 hidden group-hover:block">
-                          <button onClick={downloadTemplateSoal} className="w-full text-left px-4 py-2.5 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2 rounded-t-xl">
-                            <span className="material-symbols-outlined text-[16px] text-green-600">table_chart</span> Template Excel (.xlsx)
-                          </button>
-                          <button onClick={downloadTemplateWord} className="w-full text-left px-4 py-2.5 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2 rounded-b-xl">
-                            <span className="material-symbols-outlined text-[16px] text-blue-600">description</span> Template Word (.docx)
-                          </button>
-                        </div>
-                      </div>
+                      {/* Unduh Template Excel */}
+                      <button
+                        onClick={downloadTemplateSoal}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 transition-colors min-h-[44px]"
+                        title="Unduh Template Excel (.xlsx)"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">download</span>
+                        <span className="hidden sm:inline">Template Excel</span>
+                      </button>
                       {/* Import Excel */}
                       <button
                         onClick={() => !isSelectedMapelActive && fileInputRef.current?.click()}
@@ -1886,16 +1782,6 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                       >
                         <span className="material-symbols-outlined text-[18px]">table_chart</span>
                         <span className="hidden sm:inline">Import Excel</span>
-                      </button>
-                      {/* Import Word */}
-                      <button
-                        onClick={() => !isSelectedMapelActive && wordInputRef.current?.click()}
-                        disabled={isSelectedMapelActive}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed text-blue-700 dark:text-blue-300 transition-colors min-h-[44px]"
-                        title={isSelectedMapelActive ? 'Soal terkunci selama ujian berlangsung' : 'Import dari Word/TXT (.docx, .txt)'}
-                      >
-                        <span className="material-symbols-outlined text-[18px]">description</span>
-                        <span className="hidden sm:inline">Import Word</span>
                       </button>
                       <button
                         onClick={() => setIsPreviewOpen(true)}
@@ -2180,11 +2066,886 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
             </div>
           )}
 
+          {/* ================= TAB 3: PEMERIKSAAN MANUAL URAIAN ================= */}
+          {activeTab === 'pemeriksaan' && (() => {
+            const periksaTingkatList = Array.from(new Set(guruAssignedKelas.map(k => k.tingkat).filter(Boolean)));
+            const periksaParalelList = filterTingkatPeriksa
+              ? Array.from(new Set(guruAssignedKelas.filter(k => k.tingkat === filterTingkatPeriksa).map(k => k.kelas_paralel).filter(Boolean)))
+              : [];
+
+            const matchingJadwalPeriksa = dataJadwal.filter(j => {
+              const isTaughtSubject = dataMapel.some(m => String(m.id_mapel) === String(j.id_mapel));
+              if (!isTaughtSubject) return false;
+              if (filterMapelPeriksa && filterMapelPeriksa !== 'ALL' && j.nama_mapel !== filterMapelPeriksa) return false;
+              if (filterTingkatPeriksa && j.target_kelas && !isUniversalAlloc(j.target_kelas)) {
+                const subTargets = splitCompoundTargets(j.target_kelas);
+                const selectedGradeNorm = normalizeGrade(filterTingkatPeriksa);
+                const matchesGrade = subTargets.some(st => {
+                  const tokens = cleanTokens(st, true);
+                  return tokens.length > 0 && tokens[0] === selectedGradeNorm;
+                });
+                if (!matchesGrade) return false;
+              }
+              if (filterParalelPeriksa && filterParalelPeriksa !== 'ALL' && filterTingkatPeriksa && j.target_kelas && !isUniversalAlloc(j.target_kelas)) {
+                const subTargets = splitCompoundTargets(j.target_kelas);
+                const matchesParalel = subTargets.some(st => isClassMatching(st, {
+                  angkatan: filterTingkatPeriksa,
+                  kelas_paralel: filterParalelPeriksa,
+                  kelas: `${filterTingkatPeriksa} ${filterParalelPeriksa}`
+                }));
+                if (!matchesParalel) return false;
+              }
+              return true;
+            });
+
+            let filteredQueue = (dataPeriksaSiswa || []).filter(s => {
+              if (s.is_blocked) return false;
+              if (filterTingkatPeriksa) {
+                const studentGrade = s.angkatan || s.kelas;
+                if (studentGrade && normalizeGrade(studentGrade) !== normalizeGrade(filterTingkatPeriksa)) return false;
+              }
+              if (filterParalelPeriksa && filterParalelPeriksa !== 'ALL') {
+                if (s.kelas_paralel !== filterParalelPeriksa) return false;
+              }
+              if (filterStatusKoreksi === 'BELUM') {
+                if (s.nilai_uraian !== null && s.nilai_uraian !== undefined) return false;
+              } else if (filterStatusKoreksi === 'SUDAH') {
+                if (s.nilai_uraian === null || s.nilai_uraian === undefined) return false;
+              }
+              if (searchPeriksaSiswa.trim()) {
+                const q = searchPeriksaSiswa.toLowerCase();
+                const nameMatch = (s.nama_lengkap || '').toLowerCase().includes(q);
+                const nisnMatch = (s.nisn || '').toLowerCase().includes(q);
+                if (!nameMatch && !nisnMatch) return false;
+              }
+              return true;
+            });
+
+            filteredQueue.sort((a, b) => {
+              const aUnrated = a.nilai_uraian === null || a.nilai_uraian === undefined;
+              const bUnrated = b.nilai_uraian === null || b.nilai_uraian === undefined;
+              if (aUnrated && !bUnrated) return -1;
+              if (!aUnrated && bUnrated) return 1;
+              return (a.nama_lengkap || '').localeCompare(b.nama_lengkap || '');
+            });
+
+            const totalPesertaQueue = dataPeriksaSiswa.length;
+            const unratedQueue = dataPeriksaSiswa.filter(s => s.nilai_uraian === null || s.nilai_uraian === undefined);
+            const unratedCount = unratedQueue.length;
+            const ratedCount = totalPesertaQueue - unratedCount;
+
+            return (
+              <div className="space-y-5 animate-fade-in-up">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg sm:text-xl flex items-center gap-2">
+                      <span className="material-symbols-outlined text-primary">draw</span>
+                      Pemeriksaan Manual Jawaban Uraian
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Pemberian skor dan rubrik penilaian esai siswa secara manual dan terintegrasi
+                    </p>
+                  </div>
+                </div>
+
+                {/* Filter Cascade Panel */}
+                <div className="bg-white dark:bg-slate-800 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[16px] text-primary">school</span>
+                        Kelas / Tingkat
+                      </label>
+                      <select
+                        value={filterTingkatPeriksa}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setFilterTingkatPeriksa(val);
+                          setFilterParalelPeriksa('ALL');
+                          setSelectedPeriksaJadwal(null);
+                          setDataPeriksaSiswa([]);
+                        }}
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2.5 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-primary/40 dark:text-white"
+                      >
+                        <option value="">-- Pilih Tingkat --</option>
+                        {periksaTingkatList.map(t => (
+                          <option key={t} value={t}>{t.startsWith('Kelas') || t.startsWith('Tingkat') ? t : `Tingkat ${t}`}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[16px] text-amber-500">splitscreen</span>
+                        Kelas Paralel
+                      </label>
+                      <select
+                        value={filterParalelPeriksa}
+                        disabled={!filterTingkatPeriksa}
+                        onChange={(e) => {
+                          setFilterParalelPeriksa(e.target.value);
+                          setSelectedPeriksaJadwal(null);
+                          setDataPeriksaSiswa([]);
+                        }}
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2.5 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-primary/40 dark:text-white disabled:opacity-50"
+                      >
+                        <option value="ALL">Semua Paralel</option>
+                        {periksaParalelList.map(p => (
+                          <option key={p} value={p}>Kelas {filterTingkatPeriksa} {p}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[16px] text-purple-500">menu_book</span>
+                        Mata Pelajaran
+                      </label>
+                      <select
+                        value={filterMapelPeriksa}
+                        onChange={(e) => {
+                          setFilterMapelPeriksa(e.target.value);
+                          setSelectedPeriksaJadwal(null);
+                          setDataPeriksaSiswa([]);
+                        }}
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2.5 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-primary/40 dark:text-white"
+                      >
+                        <option value="ALL">Semua Mata Pelajaran</option>
+                        {dataMapel.map(m => (
+                          <option key={m.id_mapel} value={m.nama_mapel}>{m.nama_mapel}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[16px] text-emerald-500">fact_check</span>
+                        Status Penilaian
+                      </label>
+                      <select
+                        value={filterStatusKoreksi}
+                        onChange={(e) => setFilterStatusKoreksi(e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2.5 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-primary/40 dark:text-white"
+                      >
+                        <option value="ALL">Semua Status</option>
+                        <option value="BELUM">Belum Dinilai</option>
+                        <option value="SUDAH">Sudah Dinilai</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-100 dark:border-slate-700/60">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-1.5 flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[16px] text-primary">event_available</span>
+                      Pilih Jadwal Ujian Uraian:
+                    </label>
+                    {matchingJadwalPeriksa.length === 0 ? (
+                      <p className="text-xs text-slate-400 italic">Tidak ada jadwal ujian yang cocok dengan kombinasi filter di atas.</p>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                        {matchingJadwalPeriksa.map(j => {
+                          const isSelected = selectedPeriksaJadwal?.id_jadwal === j.id_jadwal;
+                          return (
+                            <button
+                              key={j.id_jadwal}
+                              type="button"
+                              onClick={() => loadPeriksaQueue(j)}
+                              className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                                isSelected
+                                  ? 'border-primary bg-primary/5 dark:bg-primary/10 ring-2 ring-primary/30'
+                                  : 'border-slate-200 dark:border-slate-700 hover:border-primary/50 bg-slate-50/50 dark:bg-slate-800/50'
+                              }`}
+                            >
+                              <div>
+                                <span className="font-bold text-xs text-slate-800 dark:text-white line-clamp-1">{j.nama_mapel}</span>
+                                <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">Target: {j.target_kelas || 'Semua Kelas'}</span>
+                              </div>
+                              <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 dark:border-slate-700/60 text-[10px]">
+                                <span className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 font-semibold text-slate-700 dark:text-slate-300">
+                                  {j.status_ujian}
+                                </span>
+                                <span className="text-primary font-bold">{isSelected ? '✓ Terpilih' : 'Pilih Ujian →'}</span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {selectedPeriksaJadwal && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                    <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between shadow-xs">
+                      <div>
+                        <p className="text-xs font-bold text-slate-400">Total Peserta Selesai</p>
+                        <h4 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white mt-1">{totalPesertaQueue}</h4>
+                      </div>
+                      <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                        <span className="material-symbols-outlined text-xl">group</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-amber-200 dark:border-amber-900/50 flex items-center justify-between shadow-xs">
+                      <div>
+                        <p className="text-xs font-bold text-amber-600 dark:text-amber-400">Belum Dinilai</p>
+                        <h4 className="text-xl sm:text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">{unratedCount}</h4>
+                      </div>
+                      <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                        <span className="material-symbols-outlined text-xl">pending_actions</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-emerald-200 dark:border-emerald-900/50 flex items-center justify-between shadow-xs">
+                      <div>
+                        <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">Sudah Dinilai</p>
+                        <h4 className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{ratedCount}</h4>
+                      </div>
+                      {unratedCount > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (unratedQueue.length > 0) openPeriksaUraian(unratedQueue[0]);
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1 active:scale-95"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">play_arrow</span>
+                          Koreksi Cepat
+                        </button>
+                      ) : (
+                        <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                          <span className="material-symbols-outlined text-xl">check_circle</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm overflow-hidden">
+                  <div className="p-4 border-b border-slate-100 dark:border-slate-700/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h4 className="font-bold text-sm sm:text-base text-slate-800 dark:text-white">Daftar Antrean Koreksi Siswa</h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {selectedPeriksaJadwal ? `Ujian: ${selectedPeriksaJadwal.nama_mapel}` : 'Pilih salah satu jadwal ujian di atas'}
+                      </p>
+                    </div>
+                    {selectedPeriksaJadwal && (
+                      <div className="relative w-full sm:w-64">
+                        <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-sm">search</span>
+                        <input
+                          type="text"
+                          placeholder="Cari siswa atau NISN..."
+                          value={searchPeriksaSiswa}
+                          onChange={(e) => setSearchPeriksaSiswa(e.target.value)}
+                          className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-primary/40"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {isLoadingPeriksa ? (
+                    <div className="p-8 text-center"><TableSkeleton rows={5} cols={7} /></div>
+                  ) : !selectedPeriksaJadwal ? (
+                    <div className="p-12 text-center text-slate-400 text-sm">
+                      <span className="material-symbols-outlined text-4xl mb-2 opacity-50 block">arrow_upward</span>
+                      Silakan pilih salah satu jadwal ujian pada panel di atas untuk menampilkan daftar jawaban siswa.
+                    </div>
+                  ) : filteredQueue.length === 0 ? (
+                    <div className="p-12 text-center text-slate-400 text-sm">
+                      <span className="material-symbols-outlined text-4xl mb-2 opacity-50 block">sentiment_neutral</span>
+                      Tidak ada data siswa yang cocok dengan filter.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs sm:text-sm">
+                        <thead className="bg-slate-50 dark:bg-slate-900 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
+                          <tr>
+                            <th className="p-3 w-12 text-center">No</th>
+                            <th className="p-3">Siswa &amp; NISN</th>
+                            <th className="p-3">Kelas &amp; Paralel</th>
+                            <th className="p-3 text-center">Nilai PG (Auto)</th>
+                            <th className="p-3 text-center">Nilai Uraian</th>
+                            <th className="p-3 text-center">Total Nilai</th>
+                            <th className="p-3 text-center">Status</th>
+                            <th className="p-3 text-center">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                          {filteredQueue.map((s, idx) => {
+                            const isRated = s.nilai_uraian !== null && s.nilai_uraian !== undefined;
+                            return (
+                              <tr key={s.id_log} className="hover:bg-slate-50/70 dark:hover:bg-slate-700/40 transition-colors">
+                                <td className="p-3 text-center text-slate-400 font-bold">{idx + 1}</td>
+                                <td className="p-3">
+                                  <div className="font-bold text-slate-800 dark:text-white">{s.nama_lengkap}</div>
+                                  <div className="text-[11px] text-slate-400">NISN: {s.nisn || '-'}</div>
+                                </td>
+                                <td className="p-3 font-semibold text-slate-600 dark:text-slate-300">
+                                  {s.kelas || `${s.angkatan} ${s.kelas_paralel}`}
+                                </td>
+                                <td className="p-3 text-center font-bold text-slate-700 dark:text-slate-200">
+                                  {Number(s.nilai_auto) || 0}
+                                </td>
+                                <td className="p-3 text-center font-bold">
+                                  {isRated ? (
+                                    <span className="text-emerald-600 dark:text-emerald-400">{s.nilai_uraian}</span>
+                                  ) : (
+                                    <span className="text-slate-400 italic">-</span>
+                                  )}
+                                </td>
+                                <td className="p-3 text-center font-bold text-primary">
+                                  {s.total_nilai ?? (Number(s.nilai_auto) || 0) + (Number(s.nilai_uraian) || 0)}
+                                </td>
+                                <td className="p-3 text-center">
+                                  {isRated ? (
+                                    <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 inline-flex items-center gap-1">
+                                      <span className="material-symbols-outlined text-[13px]">check_circle</span>
+                                      Sudah Dinilai
+                                    </span>
+                                  ) : (
+                                    <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 inline-flex items-center gap-1">
+                                      <span className="material-symbols-outlined text-[13px]">schedule</span>
+                                      Belum Dinilai
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="p-3 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => openPeriksaUraian(s)}
+                                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1 mx-auto active:scale-95 ${
+                                      isRated
+                                        ? 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200'
+                                        : 'bg-primary hover:bg-primary/90 text-white'
+                                    }`}
+                                  >
+                                    <span className="material-symbols-outlined text-[15px]">{isRated ? 'edit' : 'draw'}</span>
+                                    <span>{isRated ? 'Ubah Nilai' : 'Koreksi'}</span>
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ================= TAB 4: ANALISIS BUTIR SOAL ================= */}
+          {activeTab === 'analisis_soal' && (() => {
+            const analisisTingkatList = Array.from(new Set(guruAssignedKelas.map(k => k.tingkat).filter(Boolean)));
+            const analisisParalelList = filterTingkatAnalisis
+              ? Array.from(new Set(guruAssignedKelas.filter(k => k.tingkat === filterTingkatAnalisis).map(k => k.kelas_paralel).filter(Boolean)))
+              : [];
+
+            const matchingJadwalAnalisis = dataJadwal.filter(j => {
+              const isTaughtSubject = dataMapel.some(m => String(m.id_mapel) === String(j.id_mapel));
+              if (!isTaughtSubject) return false;
+              if (filterMapelAnalisis && filterMapelAnalisis !== 'ALL' && j.nama_mapel !== filterMapelAnalisis) return false;
+              if (filterTingkatAnalisis && j.target_kelas && !isUniversalAlloc(j.target_kelas)) {
+                const subTargets = splitCompoundTargets(j.target_kelas);
+                const selectedGradeNorm = normalizeGrade(filterTingkatAnalisis);
+                const matchesGrade = subTargets.some(st => {
+                  const tokens = cleanTokens(st, true);
+                  return tokens.length > 0 && tokens[0] === selectedGradeNorm;
+                });
+                if (!matchesGrade) return false;
+              }
+              if (filterParalelAnalisis && filterParalelAnalisis !== 'ALL' && filterTingkatAnalisis && j.target_kelas && !isUniversalAlloc(j.target_kelas)) {
+                const subTargets = splitCompoundTargets(j.target_kelas);
+                const matchesParalel = subTargets.some(st => isClassMatching(st, {
+                  angkatan: filterTingkatAnalisis,
+                  kelas_paralel: filterParalelAnalisis,
+                  kelas: `${filterTingkatAnalisis} ${filterParalelAnalisis}`
+                }));
+                if (!matchesParalel) return false;
+              }
+              return true;
+            });
+
+            const itemsList = dataAnalisisButir?.butir_soal || [];
+            const totalPeserta = dataAnalisisButir?.total_peserta || 0;
+
+            return (
+              <div className="space-y-5 animate-fade-in-up">
+                <div>
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg sm:text-xl flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary">analytics</span>
+                    Analisis Butir Soal &amp; Komparasi Respon Siswa
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Evaluasi psikometrik tingkat kesukaran ($P$), daya pembeda ($D$), dan peninjauan detail perbandingan respon siswa vs kunci jawaban
+                  </p>
+                </div>
+
+                {/* Filter Cascade Panel */}
+                <div className="bg-white dark:bg-slate-800 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[16px] text-primary">school</span>
+                        Kelas / Tingkat
+                      </label>
+                      <select
+                        value={filterTingkatAnalisis}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setFilterTingkatAnalisis(val);
+                          setFilterParalelAnalisis('ALL');
+                          setSelectedJadwalAnalisis(null);
+                          setSelectedDetailSoal(null);
+                          setDataAnalisisButir({ total_peserta: 0, butir_soal: [] });
+                        }}
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2.5 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-primary/40 dark:text-white"
+                      >
+                        <option value="">-- Pilih Tingkat --</option>
+                        {analisisTingkatList.map(t => (
+                          <option key={t} value={t}>{t.startsWith('Kelas') || t.startsWith('Tingkat') ? t : `Tingkat ${t}`}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[16px] text-amber-500">splitscreen</span>
+                        Kelas Paralel
+                      </label>
+                      <select
+                        value={filterParalelAnalisis}
+                        disabled={!filterTingkatAnalisis}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setFilterParalelAnalisis(val);
+                          if (selectedJadwalAnalisis) {
+                            loadAnalisisButir(selectedJadwalAnalisis, filterTingkatAnalisis, val);
+                          }
+                        }}
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2.5 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-primary/40 dark:text-white disabled:opacity-50"
+                      >
+                        <option value="ALL">Semua Paralel</option>
+                        {analisisParalelList.map(p => (
+                          <option key={p} value={p}>Kelas {filterTingkatAnalisis} {p}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[16px] text-purple-500">menu_book</span>
+                        Mata Pelajaran
+                      </label>
+                      <select
+                        value={filterMapelAnalisis}
+                        onChange={(e) => {
+                          setFilterMapelAnalisis(e.target.value);
+                          setSelectedJadwalAnalisis(null);
+                          setSelectedDetailSoal(null);
+                          setDataAnalisisButir({ total_peserta: 0, butir_soal: [] });
+                        }}
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2.5 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-primary/40 dark:text-white"
+                      >
+                        <option value="ALL">Semua Mata Pelajaran</option>
+                        {dataMapel.map(m => (
+                          <option key={m.id_mapel} value={m.nama_mapel}>{m.nama_mapel}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-100 dark:border-slate-700/60">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-1.5 flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[16px] text-primary">assessment</span>
+                      Pilih Ujian untuk Dianalisis:
+                    </label>
+                    {matchingJadwalAnalisis.length === 0 ? (
+                      <p className="text-xs text-slate-400 italic">Tidak ada jadwal ujian yang cocok dengan pilihan filter.</p>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                        {matchingJadwalAnalisis.map(j => {
+                          const isSelected = selectedJadwalAnalisis?.id_jadwal === j.id_jadwal;
+                          return (
+                            <button
+                              key={j.id_jadwal}
+                              type="button"
+                              onClick={() => loadAnalisisButir(j)}
+                              className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                                isSelected
+                                  ? 'border-primary bg-primary/5 dark:bg-primary/10 ring-2 ring-primary/30'
+                                  : 'border-slate-200 dark:border-slate-700 hover:border-primary/50 bg-slate-50/50 dark:bg-slate-800/50'
+                              }`}
+                            >
+                              <div>
+                                <span className="font-bold text-xs text-slate-800 dark:text-white line-clamp-1">{j.nama_mapel}</span>
+                                <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">Target: {j.target_kelas || 'Semua Kelas'}</span>
+                              </div>
+                              <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 dark:border-slate-700/60 text-[10px]">
+                                <span className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 font-semibold text-slate-700 dark:text-slate-300">
+                                  {j.status_ujian}
+                                </span>
+                                <span className="text-primary font-bold">{isSelected ? '✓ Terpilih' : 'Pilih Ujian →'}</span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {selectedDetailSoal ? (() => {
+                  let studentComparisonList = selectedDetailSoal.komparasi_siswa || [];
+                  if (filterKelompokAnalisis === 'ATAS') {
+                    studentComparisonList = studentComparisonList.filter(s => s.kelompok === 'ATAS');
+                  } else if (filterKelompokAnalisis === 'BAWAH') {
+                    studentComparisonList = studentComparisonList.filter(s => s.kelompok === 'BAWAH');
+                  } else if (filterKelompokAnalisis === 'SALAH') {
+                    studentComparisonList = studentComparisonList.filter(s => !s.is_correct);
+                  }
+                  if (searchSiswaAnalisis.trim()) {
+                    const q = searchSiswaAnalisis.toLowerCase();
+                    studentComparisonList = studentComparisonList.filter(s =>
+                      (s.nama_lengkap || '').toLowerCase().includes(q) || (s.kelas || '').toLowerCase().includes(q)
+                    );
+                  }
+
+                  const pVal = selectedDetailSoal.tingkat_kesukaran?.indeks ?? 0;
+                  const pKlas = selectedDetailSoal.tingkat_kesukaran?.klasifikasi || 'Sedang';
+                  const dVal = selectedDetailSoal.daya_pembeda?.indeks;
+                  const dKlas = selectedDetailSoal.daya_pembeda?.klasifikasi || 'Tidak Cukup Data';
+                  const dMetode = selectedDetailSoal.daya_pembeda?.metode || '-';
+
+                  return (
+                    <div className="space-y-4 animate-scale-up">
+                      <div className="flex items-center justify-between bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-xs">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDetailSoal(null)}
+                          className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 flex items-center gap-1.5 transition-all"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+                          Kembali ke Ringkasan Butir Soal
+                        </button>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-500">Soal #{selectedDetailSoal.nomor_soal}</span>
+                          <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-primary/10 text-primary">
+                            {selectedDetailSoal.tipe_soal}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-4">
+                        <div>
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Pertanyaan / Stimulus:</span>
+                          <div
+                            className="text-xs sm:text-sm text-slate-800 dark:text-slate-100 leading-relaxed bg-slate-50 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200/60 dark:border-slate-700/60"
+                            dangerouslySetInnerHTML={{ __html: selectedDetailSoal.pertanyaan || '-' }}
+                          />
+                        </div>
+
+                        <div className="bg-emerald-50/80 dark:bg-emerald-950/40 p-4 rounded-xl border border-emerald-200 dark:border-emerald-800">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="material-symbols-outlined text-emerald-600 dark:text-emerald-400 text-[18px]">key</span>
+                            <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                              Kunci Jawaban Resmi / Rubrik Acuan:
+                            </span>
+                          </div>
+                          <div className="text-xs sm:text-sm font-bold text-emerald-900 dark:text-emerald-100 whitespace-pre-wrap pl-6">
+                            {typeof selectedDetailSoal.kunci_jawaban === 'object'
+                              ? JSON.stringify(selectedDetailSoal.kunci_jawaban, null, 2)
+                              : String(selectedDetailSoal.kunci_jawaban || '-')}
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-100 dark:border-slate-700/60 text-xs">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-slate-400">Tingkat Kesukaran (P):</span>
+                            <span className="font-bold text-slate-700 dark:text-slate-200">{pVal}</span>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              pKlas === 'Mudah' ? 'bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300' :
+                              pKlas === 'Sedang' ? 'bg-primary/10 text-primary-700 dark:bg-primary/20 dark:text-primary-300' :
+                              'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
+                            }`}>
+                              {pKlas}
+                            </span>
+                          </div>
+
+                          <span className="text-slate-300 dark:text-slate-600">|</span>
+
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-slate-400">Daya Pembeda (D):</span>
+                            <span className="font-bold text-slate-700 dark:text-slate-200">{dVal !== null ? dVal : '-'}</span>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              dKlas === 'Sangat Baik' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' :
+                              dKlas === 'Baik' ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300' :
+                              dKlas === 'Cukup' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300' :
+                              dKlas === 'Buruk' ? 'bg-orange-100 text-orange-700 dark:bg-orange-950/50 dark:text-orange-300' :
+                              'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
+                            }`}>
+                              {dKlas}
+                            </span>
+                            <span className="text-[10px] text-slate-400">({dMetode})</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm overflow-hidden">
+                        <div className="p-4 border-b border-slate-100 dark:border-slate-700/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => setFilterKelompokAnalisis('ALL')}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                                filterKelompokAnalisis === 'ALL'
+                                  ? 'bg-primary text-white shadow-xs'
+                                  : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                              }`}
+                            >
+                              Semua Siswa ({selectedDetailSoal.komparasi_siswa?.length || 0})
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setFilterKelompokAnalisis('SALAH')}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                                filterKelompokAnalisis === 'SALAH'
+                                  ? 'bg-rose-600 text-white shadow-xs'
+                                  : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                              }`}
+                            >
+                              Hanya Salah ({selectedDetailSoal.komparasi_siswa?.filter(s => !s.is_correct).length || 0})
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setFilterKelompokAnalisis('ATAS')}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                                filterKelompokAnalisis === 'ATAS'
+                                  ? 'bg-emerald-600 text-white shadow-xs'
+                                  : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                              }`}
+                            >
+                              Kelompok Atas ({selectedDetailSoal.komparasi_siswa?.filter(s => s.kelompok === 'ATAS').length || 0})
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setFilterKelompokAnalisis('BAWAH')}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                                filterKelompokAnalisis === 'BAWAH'
+                                  ? 'bg-amber-600 text-white shadow-xs'
+                                  : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                              }`}
+                            >
+                              Kelompok Bawah ({selectedDetailSoal.komparasi_siswa?.filter(s => s.kelompok === 'BAWAH').length || 0})
+                            </button>
+                          </div>
+
+                          <div className="relative w-full sm:w-56">
+                            <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-sm">search</span>
+                            <input
+                              type="text"
+                              placeholder="Cari siswa / kelas..."
+                              value={searchSiswaAnalisis}
+                              onChange={(e) => setSearchSiswaAnalisis(e.target.value)}
+                              className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-primary/40"
+                            />
+                          </div>
+                        </div>
+
+                        {studentComparisonList.length === 0 ? (
+                          <div className="p-8 text-center text-slate-400 text-sm">
+                            Tidak ada respon siswa pada kriteria filter ini.
+                          </div>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left text-xs sm:text-sm">
+                              <thead className="bg-slate-50 dark:bg-slate-900 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
+                                <tr>
+                                  <th className="p-3 w-12 text-center">No</th>
+                                  <th className="p-3">Siswa &amp; Kelas</th>
+                                  <th className="p-3 text-center">Kelompok</th>
+                                  <th className="p-3 w-1/3">Jawaban Siswa</th>
+                                  <th className="p-3 w-1/3">Kunci Jawaban Resmi</th>
+                                  <th className="p-3 text-center">Kesesuaian</th>
+                                  <th className="p-3 text-center">Skor</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                                {studentComparisonList.map((st, idx) => (
+                                  <tr key={idx} className="hover:bg-slate-50/70 dark:hover:bg-slate-700/40 transition-colors">
+                                    <td className="p-3 text-center text-slate-400 font-bold">{idx + 1}</td>
+                                    <td className="p-3">
+                                      <div className="font-bold text-slate-800 dark:text-white">{st.nama_lengkap}</div>
+                                      <div className="text-[11px] text-slate-400">{st.kelas}</div>
+                                    </td>
+                                    <td className="p-3 text-center">
+                                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                                        st.kelompok === 'ATAS' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300' :
+                                        st.kelompok === 'BAWAH' ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300' :
+                                        'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                                      }`}>
+                                        {st.kelompok}
+                                      </span>
+                                    </td>
+                                    <td className="p-3">
+                                      <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700 text-xs font-mono text-slate-800 dark:text-slate-200 whitespace-pre-wrap max-h-28 overflow-y-auto">
+                                        {st.jawaban_user}
+                                      </div>
+                                    </td>
+                                    <td className="p-3">
+                                      <div className="p-2 rounded-lg bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800 text-xs font-mono text-emerald-900 dark:text-emerald-200 whitespace-pre-wrap max-h-28 overflow-y-auto">
+                                        {typeof st.kunci_jawaban === 'object' ? JSON.stringify(st.kunci_jawaban) : String(st.kunci_jawaban)}
+                                      </div>
+                                    </td>
+                                    <td className="p-3 text-center">
+                                      {st.is_correct ? (
+                                        <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 inline-flex items-center gap-1">
+                                          <span className="material-symbols-outlined text-[13px]">check_circle</span>
+                                          Sesuai (Benar)
+                                        </span>
+                                      ) : (
+                                        <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 inline-flex items-center gap-1">
+                                          <span className="material-symbols-outlined text-[13px]">cancel</span>
+                                          Tidak Sesuai
+                                        </span>
+                                      )}
+                                    </td>
+                                    <td className="p-3 text-center font-bold text-slate-700 dark:text-slate-200">
+                                      {st.skor_diperoleh}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })() : (
+                  <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 dark:border-slate-700/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <h4 className="font-bold text-sm sm:text-base text-slate-800 dark:text-white">Daftar Evaluasi Butir Soal</h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {selectedJadwalAnalisis ? `Ujian: ${selectedJadwalAnalisis.nama_mapel} • Total Peserta: ${totalPeserta} Siswa` : 'Pilih ujian pada panel di atas'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {isLoadingAnalisis ? (
+                      <div className="p-8 text-center"><TableSkeleton rows={5} cols={8} /></div>
+                    ) : !selectedJadwalAnalisis ? (
+                      <div className="p-12 text-center text-slate-400 text-sm">
+                        <span className="material-symbols-outlined text-4xl mb-2 opacity-50 block">arrow_upward</span>
+                        Silakan pilih jadwal ujian pada panel di atas untuk melihat analisis butir soal.
+                      </div>
+                    ) : itemsList.length === 0 ? (
+                      <div className="p-12 text-center text-slate-400 text-sm">
+                        <span className="material-symbols-outlined text-4xl mb-2 opacity-50 block">description</span>
+                        Belum ada data pengerjaan atau butir soal untuk dianalisis pada jadwal ini.
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs sm:text-sm">
+                          <thead className="bg-slate-50 dark:bg-slate-900 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
+                            <tr>
+                              <th className="p-3 w-12 text-center">No</th>
+                              <th className="p-3 text-center">Tipe</th>
+                              <th className="p-3 w-1/3">Pertanyaan</th>
+                              <th className="p-3 text-center">Bobot</th>
+                              <th className="p-3 text-center">Benar / Salah</th>
+                              <th className="p-3 text-center">Tingkat Kesukaran (P)</th>
+                              <th className="p-3 text-center">Daya Pembeda (D)</th>
+                              <th className="p-3 text-center">Aksi</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                            {itemsList.map((item, idx) => {
+                              const P = item.tingkat_kesukaran?.indeks ?? 0;
+                              const pKlas = item.tingkat_kesukaran?.klasifikasi || 'Sedang';
+                              const D = item.daya_pembeda?.indeks;
+                              const dKlas = item.daya_pembeda?.klasifikasi || 'Tidak Cukup Data';
+                              const dMetode = item.daya_pembeda?.metode || '';
+
+                              return (
+                                <tr key={item.id_soal || idx} className="hover:bg-slate-50/70 dark:hover:bg-slate-700/40 transition-colors">
+                                  <td className="p-3 text-center text-slate-400 font-bold">{item.nomor_soal || idx + 1}</td>
+                                  <td className="p-3 text-center">
+                                    <span className="bg-primary/10 text-primary dark:text-primary-400 px-2 py-0.5 rounded text-[11px] font-bold">
+                                      {item.tipe_soal}
+                                    </span>
+                                  </td>
+                                  <td className="p-3">
+                                    <div
+                                      className="line-clamp-2 text-xs text-slate-700 dark:text-slate-200 max-w-sm"
+                                      dangerouslySetInnerHTML={{ __html: item.pertanyaan || '-' }}
+                                    />
+                                  </td>
+                                  <td className="p-3 text-center font-bold text-slate-600 dark:text-slate-300">
+                                    {item.bobot || 10}
+                                  </td>
+                                  <td className="p-3 text-center font-semibold">
+                                    <span className="text-emerald-600 dark:text-emerald-400">{item.jumlah_benar ?? item.correct ?? 0}</span>
+                                    <span className="text-slate-300 dark:text-slate-600 mx-1">/</span>
+                                    <span className="text-rose-600 dark:text-rose-400">{item.jumlah_salah ?? item.wrong ?? 0}</span>
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    <div className="flex flex-col items-center gap-0.5">
+                                      <span className="font-bold text-xs">{P}</span>
+                                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                        pKlas === 'Mudah' ? 'bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300' :
+                                        pKlas === 'Sedang' ? 'bg-primary/10 text-primary-700 dark:bg-primary/20 dark:text-primary-300' :
+                                        'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
+                                      }`}>
+                                        {pKlas}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    <div className="flex flex-col items-center gap-0.5">
+                                      <span className="font-bold text-xs">{D !== null ? D : '-'}</span>
+                                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                        dKlas === 'Sangat Baik' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' :
+                                        dKlas === 'Baik' ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300' :
+                                        dKlas === 'Cukup' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300' :
+                                        dKlas === 'Buruk' ? 'bg-orange-100 text-orange-700 dark:bg-orange-950/50 dark:text-orange-300' :
+                                        'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
+                                      }`}>
+                                        {dKlas}
+                                      </span>
+                                      {dMetode && <span className="text-[9px] text-slate-400">({dMetode})</span>}
+                                    </div>
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    <button
+                                      type="button"
+                                      onClick={() => setSelectedDetailSoal(item)}
+                                      className="px-3 py-1.5 rounded-xl bg-primary/10 hover:bg-primary text-primary hover:text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1 mx-auto active:scale-95"
+                                    >
+                                      <span className="material-symbols-outlined text-[15px]">compare_arrows</span>
+                                      <span>Komparasi</span>
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           {/* ================= TAB 6: HASIL & EVALUASI ================= */}
           {activeTab === 'hasil' && (() => {
-            const tingkatList = Array.from(new Set(dataKelas.map(k => k.tingkat).filter(Boolean)));
+            const tingkatList = Array.from(new Set(guruAssignedKelas.map(k => k.tingkat).filter(Boolean)));
             const availableParalels = filterKelasHasil && filterKelasHasil !== 'Umum'
-              ? Array.from(new Set(dataKelas.filter(k => k.tingkat === filterKelasHasil).map(k => k.kelas_paralel).filter(Boolean)))
+              ? Array.from(new Set(guruAssignedKelas.filter(k => k.tingkat === filterKelasHasil).map(k => k.kelas_paralel).filter(Boolean)))
               : [];
 
             const filteredJadwalHasil = dataJadwal.filter(j => {
@@ -2194,8 +2955,27 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
               if (!isTaughtSubject) return false;
               if (filterMapelHasil && filterMapelHasil !== 'ALL' && j.nama_mapel !== filterMapelHasil) return false;
               if (filterKelasHasil && filterKelasHasil !== 'Umum') {
-                if (j.target_kelas && !isUniversalAlloc(j.target_kelas) && !isClassMatching(j.target_kelas, { angkatan: filterKelasHasil, kelas: filterKelasHasil })) {
-                  return false;
+                if (j.target_kelas && !isUniversalAlloc(j.target_kelas)) {
+                  const subTargets = splitCompoundTargets(j.target_kelas);
+                  const selectedGradeNorm = normalizeGrade(filterKelasHasil);
+                  const matchesGrade = subTargets.some(st => {
+                    const tokens = cleanTokens(st, true);
+                    return tokens.length > 0 && tokens[0] === selectedGradeNorm;
+                  });
+                  if (!matchesGrade) return false;
+                }
+              }
+              if (filterParalelHasil.length > 0 && filterKelasHasil && filterKelasHasil !== 'Umum') {
+                if (j.target_kelas && !isUniversalAlloc(j.target_kelas)) {
+                  const subTargets = splitCompoundTargets(j.target_kelas);
+                  const matchesParalel = subTargets.some(st => {
+                    return filterParalelHasil.some(p => isClassMatching(st, {
+                      angkatan: filterKelasHasil,
+                      kelas_paralel: p,
+                      kelas: `${filterKelasHasil} ${p}`
+                    }));
+                  });
+                  if (!matchesParalel) return false;
                 }
               }
               return true;
@@ -2221,7 +3001,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                         onChange={(e) => {
                           const val = e.target.value;
                           setFilterKelasHasil(val);
-                          const allP = dataKelas.filter(k => k.tingkat === val).map(k => k.kelas_paralel).filter(Boolean);
+                          const allP = guruAssignedKelas.filter(k => k.tingkat === val).map(k => k.kelas_paralel).filter(Boolean);
                           setFilterParalelHasil(Array.from(new Set(allP)));
                         }}
                         className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2.5 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-primary/40 dark:text-white"
@@ -2230,7 +3010,9 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                         {tingkatList.map(t => (
                           <option key={t} value={t}>{t.startsWith('Kelas') || t.startsWith('Tingkat') ? t : `Tingkat ${t}`}</option>
                         ))}
-                        <option value="Umum">Umum / Semua Tingkat</option>
+                        {(!user?.alokasi_kelas || isUniversalAlloc(user?.alokasi_kelas)) && (
+                          <option value="Umum">Umum / Semua Tingkat</option>
+                        )}
                       </select>
                     </div>
 
@@ -2264,7 +3046,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                           <button
                             type="button"
                             onClick={() => {
-                              const allP = dataKelas.filter(k => k.tingkat === filterKelasHasil).map(k => k.kelas_paralel).filter(Boolean);
+                              const allP = guruAssignedKelas.filter(k => k.tingkat === filterKelasHasil).map(k => k.kelas_paralel).filter(Boolean);
                               setFilterParalelHasil(Array.from(new Set(allP)));
                             }}
                             className="text-[11px] text-primary hover:underline font-bold"
@@ -2362,7 +3144,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                           </button>
                           <button
                             type="button"
-                            onClick={() => openDetailHasil(j)}
+                            onClick={() => openKoreksiUraianJadwal(j)}
                             className="py-2 px-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 font-bold text-xs transition-colors flex items-center justify-center gap-1 min-h-[44px]"
                             title="Koreksi Jawaban Uraian Siswa"
                           >
@@ -2465,6 +3247,12 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
         const uniqueParalelsInResult = Array.from(new Set(dataHasilSiswa.map(s => s.kelas_paralel).filter(Boolean)));
 
         let filteredSiswa = dataHasilSiswa.filter(s => {
+          if (filterKelasHasil && filterKelasHasil !== 'Umum') {
+            const studentGrade = s.angkatan || s.kelas;
+            if (studentGrade && normalizeGrade(studentGrade) !== normalizeGrade(filterKelasHasil)) {
+              return false;
+            }
+          }
           if (filterHasilParalelDetail !== 'ALL' && s.kelas_paralel !== filterHasilParalelDetail) return false;
           if (filterParalelHasil.length > 0 && filterHasilParalelDetail === 'ALL') {
             if (!filterParalelHasil.includes(s.kelas_paralel)) return false;
@@ -2488,11 +3276,15 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
         const tuntasCount = filteredSiswa.filter(s => (Number(s.total_nilai) || 0) >= 75).length;
         const persentaseTuntas = totalPeserta > 0 ? Math.round((tuntasCount / totalPeserta) * 100) : 0;
 
-        const unratedStudents = dataHasilSiswa.filter(s =>
+        const hasUraian = dataHasilSiswa.length > 0 && dataHasilSiswa[0].has_uraian !== undefined
+          ? Boolean(dataHasilSiswa[0].has_uraian)
+          : true;
+
+        const unratedStudents = hasUraian ? dataHasilSiswa.filter(s =>
           !s.is_blocked &&
           (s.status_ujian === 'SELESAI' || Number(s.total_dijawab) > 0) &&
           (s.nilai_uraian === null || s.nilai_uraian === undefined)
-        );
+        ) : [];
         const unratedCount = unratedStudents.length;
 
         return (
@@ -2631,7 +3423,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                 ) : (
                   <div className="bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-800/40 rounded-2xl p-3.5 flex items-center gap-2.5 text-emerald-800 dark:text-emerald-300 text-xs font-semibold">
                     <span className="material-symbols-outlined text-lg text-emerald-600 dark:text-emerald-400">check_circle</span>
-                    <span>Semua jawaban uraian telah dinilai untuk jadwal ujian ini.</span>
+                    <span>{hasUraian ? 'Semua jawaban uraian telah dinilai untuk jadwal ujian ini.' : 'Ujian ini bertipe objektif (tanpa butir uraian). Seluruh nilai telah terkoreksi otomatis.'}</span>
                   </div>
                 )}
 
@@ -2705,7 +3497,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                           return (
                             <tr key={s.id_log || idx} className="hover:bg-slate-50/80 dark:hover:bg-slate-750/50 transition-colors">
                               <td className="p-3.5 text-center font-bold text-slate-400">
-                                {idx === 0 ? 'ÃƒÂ°Ã…Â¸Ã‚Â¥Ã¢â‚¬Â¡' : idx === 1 ? 'ÃƒÂ°Ã…Â¸Ã‚Â¥Ã‹â€ ' : idx === 2 ? 'ÃƒÂ°Ã…Â¸Ã‚Â¥Ã¢â‚¬Â°' : idx + 1}
+                                {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1}
                               </td>
                               <td className="p-3.5 font-bold text-slate-800 dark:text-slate-100">
                                 {s.nama_lengkap}

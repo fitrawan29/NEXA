@@ -2,9 +2,11 @@ import React from 'react';
 
 /**
  * Utility: Safe JSON Parser (Backward & Forward Compatibility)
+ * If str is already an Object or Array, return it directly.
  */
 export const safeJSONParse = (str, fallback) => {
-  if (!str) return fallback;
+  if (str === null || str === undefined) return fallback;
+  if (typeof str !== 'string') return str;
   try {
     return JSON.parse(str);
   } catch (e) {
@@ -601,6 +603,56 @@ export const PasswordInput = ({
   );
 };
 
+/**
+ * TokenCountdown
+ * Menampilkan hitungan mundur real-time MM:SS sebelum token berganti secara otomatis.
+ */
+export const TokenCountdown = ({
+  lastUpdate,
+  intervalMinutes = 5,
+  onExpire,
+  className = '',
+}) => {
+  const [timeLeft, setTimeLeft] = React.useState('');
+  const expireTriggeredRef = React.useRef(false);
+
+  React.useEffect(() => {
+    expireTriggeredRef.current = false;
+    const intervalMs = (Number(intervalMinutes) || 5) * 60 * 1000;
+    const lastUpdateMs = lastUpdate ? new Date(lastUpdate).getTime() : Date.now();
+
+    const updateCountdown = () => {
+      const nextUpdateMs = lastUpdateMs + intervalMs;
+      const diffMs = nextUpdateMs - Date.now();
+      const totalSec = Math.max(0, Math.floor(diffMs / 1000));
+      const mm = String(Math.floor(totalSec / 60)).padStart(2, '0');
+      const ss = String(totalSec % 60).padStart(2, '0');
+      setTimeLeft(`${mm}:${ss}`);
+
+      if (totalSec <= 0 && !expireTriggeredRef.current) {
+        expireTriggeredRef.current = true;
+        if (typeof onExpire === 'function') {
+          onExpire();
+        }
+      }
+    };
+
+    updateCountdown();
+    const timer = setInterval(updateCountdown, 1000);
+    return () => clearInterval(timer);
+  }, [lastUpdate, intervalMinutes, onExpire]);
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 font-mono text-[11px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-800/50 ${className}`}
+      title="Sisa waktu sebelum token berganti"
+    >
+      <span className="text-[12px] leading-none">⏱️</span>
+      <span>{timeLeft || '--:--'}</span>
+    </span>
+  );
+};
+
 export default {
   EmptyState,
   TableSkeleton,
@@ -614,6 +666,7 @@ export default {
   CardFooter,
   Button,
   PasswordInput,
+  TokenCountdown,
   safeJSONParse,
 };
 
