@@ -1,4 +1,4 @@
-import { fetchAPI, getTrueNow, get_default_skema_sekolah, isClassMatching, isUniversalAlloc, splitCompoundTargets, cleanTokens, normalizeGrade } from '../api.js';
+import { fetchAPI, getTrueNow, get_default_skema_sekolah, get_admin_skema_mapel, isClassMatching, isUniversalAlloc, splitCompoundTargets, cleanTokens, normalizeGrade } from '../api.js';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import FormSoalModal from '../components/FormSoalModal.jsx';
 import FormNarasiModal from '../components/FormNarasiModal.jsx';
@@ -239,12 +239,20 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
   }, [activeTab, selectedMapel]);
 
   useEffect(() => {
-    if (user?.npsn) {
+    if (user?.npsn && selectedMapel) {
+      get_admin_skema_mapel(selectedMapel, user.npsn).then(res => {
+        if (res) setSchoolDefaultScheme(res);
+      }).catch(() => {
+        get_default_skema_sekolah(user.npsn).then(res => {
+          if (res) setSchoolDefaultScheme(res);
+        }).catch(() => {});
+      });
+    } else if (user?.npsn) {
       get_default_skema_sekolah(user.npsn).then(res => {
         if (res) setSchoolDefaultScheme(res);
       }).catch(() => {});
     }
-  }, [user?.npsn]);
+  }, [user?.npsn, selectedMapel]);
 
   useEffect(() => {
     if (window.MathJax?.typesetPromise) {
@@ -260,7 +268,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
   // =========================================================================
   const filteredSoal = useMemo(() => {
     return dataSoal.filter(s => {
-      if (s.tipe_soal === 'SKEMA_PENILAIAN' || s.tipe_soal === 'SKEMA_DEFAULT' || s.tipe_soal === 'MAPEL_ALLOC') return false;
+      if (s.tipe_soal === 'SKEMA_PENILAIAN' || s.tipe_soal === 'SKEMA_DEFAULT' || s.tipe_soal === 'MAPEL_ALLOC') return false; // Ensure s.tipe_soal !== 'SKEMA_PENILAIAN'
 
       // Filter Tipe Soal (PG, PGK, JODOH, URAIAN, SEMUA)
       if (filterTipeSoal && filterTipeSoal !== 'ALL' && filterTipeSoal !== 'SEMUA') {
@@ -612,6 +620,8 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
         return;
       }
       const res = await api('save_skema_penilaian', {
+        role: 'guru',
+        id_guru: user?.id_guru || user?.id,
         id_mapels: idMapels,
         npsn: user.npsn,
         kunci_jawaban: payload.kunci_jawaban,
@@ -632,6 +642,8 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
     }
 
     const res = await api('save_skema_penilaian', {
+      role: 'guru',
+      id_guru: user?.id_guru || user?.id,
       id_mapel: selectedMapel,
       npsn: user.npsn,
       kunci_jawaban: payload.kunci_jawaban,
@@ -3634,6 +3646,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
               </button>
             </div>
             <div className="p-4 sm:p-5">
+              {/* <SkemaPenilaianPanel dataSoal={dataSoal} onSave={saveSkema} /> */}
               <SkemaPenilaianPanel dataSoal={dataSoal} onSave={saveSkema} schoolDefaultScheme={schoolDefaultScheme} npsn={user?.npsn || ''} />
             </div>
           </div>

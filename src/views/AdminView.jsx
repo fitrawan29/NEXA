@@ -167,6 +167,8 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   const [filterTipeSoal, setFilterTipeSoal] = useState('ALL');
   const [searchQuerySoal, setSearchQuerySoal] = useState('');
   const [skemaModal, setSkemaModal] = useState({ isOpen: false, id_mapel: null });
+  const [adminMapelSkemaData, setAdminMapelSkemaData] = useState([]);
+  const [isAdminMapelSkemaLoading, setIsAdminMapelSkemaLoading] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -231,6 +233,86 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       showMessage('Gagal', 'Gagal menyimpan skema default sekolah: ' + err.message, 'error');
     }
   };
+
+  const handleSaveAdminMapelSkema = async (payload, applyToAll = false) => {
+    try {
+      const targetMapelIds = applyToAll
+        ? (dataMapel || []).map(m => m.id_mapel).filter(Boolean)
+        : [skemaModal.id_mapel];
+
+      if (targetMapelIds.length === 0) {
+        showMessage('Peringatan', 'Mata pelajaran tidak valid.', 'error');
+        return;
+      }
+
+      const res = await api('save_skema_penilaian', {
+        role: 'admin',
+        id_mapels: targetMapelIds,
+        npsn: user?.npsn,
+        mode: payload.mode,
+        skema: payload.skema,
+        kunci_jawaban: payload.kunci_jawaban,
+        bobot: payload.bobot
+      });
+
+      if (res?.status === 'success') {
+        showMessage('Berhasil', res.message || 'Skema penilaian berhasil disimpan.', 'success');
+        setSkemaModal({ isOpen: false, id_mapel: null });
+        if (selectedMapel && targetMapelIds.includes(selectedMapel)) {
+          fetchSoal(selectedMapel);
+        }
+        await api('create_audit_log', {
+          username: user.username,
+          role: 'admin',
+          action: 'SKEMA_MAPEL',
+          target: `Skema bobot AKM mapel: ${targetMapelIds.join(', ')}`
+        });
+      } else {
+        showMessage('Gagal', res?.message || 'Gagal menyimpan skema penilaian.', 'error');
+      }
+    } catch (err) {
+      showMessage('Error', err.message || 'Terjadi kesalahan sistem.', 'error');
+    }
+  };
+
+  useEffect(() => {
+    if (skemaModal.isOpen && skemaModal.id_mapel) {
+      let isMounted = true;
+      setIsAdminMapelSkemaLoading(true);
+      api('get_soal_mapel', { id_mapel: skemaModal.id_mapel, npsn: user?.npsn }).then(res => {
+        if (!isMounted) return;
+        const soals = res?.data || [];
+        const adminRow = soals.find(s => s.id_soal === 'SKEMA_ADMIN_' + skemaModal.id_mapel) ||
+                         soals.find(s => s.tipe_soal === 'SKEMA_PENILAIAN' && String(s.id_soal).startsWith('SKEMA_ADMIN_'));
+        if (adminRow) {
+          setAdminMapelSkemaData([adminRow]);
+        } else {
+          let localCached = null;
+          if (typeof localStorage !== 'undefined' && user?.npsn) {
+            try {
+              const raw = localStorage.getItem(`nexa_admin_skema_${user.npsn}_${skemaModal.id_mapel}`);
+              if (raw) localCached = JSON.parse(raw);
+            } catch {}
+          }
+          if (localCached) {
+            setAdminMapelSkemaData([{
+              id_soal: 'SKEMA_ADMIN_' + skemaModal.id_mapel,
+              tipe_soal: 'SKEMA_PENILAIAN',
+              id_mapel: skemaModal.id_mapel,
+              kunci_jawaban: JSON.stringify(localCached)
+            }]);
+          } else {
+            setAdminMapelSkemaData([]);
+          }
+        }
+      }).catch(() => {
+        if (isMounted) setAdminMapelSkemaData([]);
+      }).finally(() => {
+        if (isMounted) setIsAdminMapelSkemaLoading(false);
+      });
+      return () => { isMounted = false; };
+    }
+  }, [skemaModal.isOpen, skemaModal.id_mapel]);
 
   useEffect(() => {
     if (user?.npsn) {
@@ -5424,6 +5506,15 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
 
                     <div className="flex items-center gap-2 flex-wrap justify-end">
                       <input type="file" ref={fileInputRef} onChange={handleImportExcel} accept=".xlsx,.xls" className="hidden" />
+                      {/* Atur Bobot AKM */}
+                      <button
+                        onClick={() => setSkemaModal({ isOpen: true, id_mapel: selectedMapel })}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 text-purple-700 dark:text-purple-300 transition-colors min-h-[44px]"
+                        title="Atur Bobot AKM Mata Pelajaran"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">tune</span>
+                        <span className="hidden sm:inline">Atur Bobot AKM</span>
+                      </button>
                       {/* Unduh Template Excel */}
                       <button
                         onClick={downloadTemplateSoal}
@@ -5804,6 +5895,14 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                           </div>
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => setSkemaModal({ isOpen: true, id_mapel: m.id_mapel })}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 transition-colors"
+                            title="Atur Bobot AKM"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">tune</span>
+                            <span className="hidden sm:inline">Bobot AKM</span>
+                          </button>
                           <button
                             onClick={() => { setSelectedMapel(m.id_mapel); setBankSoalPage(1); }}
                             className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
@@ -6636,6 +6735,46 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
               >
                 Tutup
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================================================================= */}
+      {/* MODAL: PENGATURAN SKEMA BOBOT AKM PER MAPEL                      */}
+      {/* ================================================================= */}
+      {skemaModal.isOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-2xl shadow-xl max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-slate-700 animate-scale-up">
+            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+              <div>
+                <h3 className="font-bold text-base sm:text-lg text-slate-800 dark:text-white">
+                  Pengaturan Bobot AKM — {dataMapel.find(m => m.id_mapel === skemaModal.id_mapel)?.nama_mapel || skemaModal.id_mapel}
+                </h3>
+                <p className="text-xs text-slate-500">Konfigurasi bobot persentase tipe soal AKM khusus mata pelajaran ini</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSkemaModal({ isOpen: false, id_mapel: null })}
+                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <span className="material-symbols-outlined text-sm">close</span>
+              </button>
+            </div>
+            <div className="p-4 sm:p-5">
+              {isAdminMapelSkemaLoading ? (
+                <div className="p-8 flex flex-col items-center justify-center">
+                  <span className="material-symbols-outlined text-3xl animate-spin text-primary mb-2">progress_activity</span>
+                  <span className="text-xs text-slate-500">Memuat konfigurasi skema bobot mapel...</span>
+                </div>
+              ) : (
+                <SkemaPenilaianPanel
+                  dataSoal={adminMapelSkemaData}
+                  onSave={handleSaveAdminMapelSkema}
+                  schoolDefaultScheme={defaultSkemaSekolah}
+                  npsn={user?.npsn || ''}
+                />
+              )}
             </div>
           </div>
         </div>

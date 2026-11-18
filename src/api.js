@@ -59,16 +59,88 @@ export { supabaseClient };
 
     // Note: Database uses `id_mapel` now, `id_jadwal` column in `soal_ujian` might still exist but `id_mapel` is what we use.
 
-    const normalizeSkemaConfig = (raw) => (!raw || typeof raw !== 'object') ? null : (raw.skema ? raw : { skema: raw });
-    const resolveMapelSkemaFromSoal = (soalList, defaultSkema = null) => {
-      const skemaRow = (soalList || []).find(s => s.tipe_soal === 'SKEMA_PENILAIAN');
-      if (skemaRow?.kunci_jawaban) {
-        try {
-          const p = JSON.parse(skemaRow.kunci_jawaban);
-          if (p?.mode === 'custom' && p?.skema) return normalizeSkemaConfig(p);
-        } catch {}
+    export const normalizeSkemaConfig = (raw) => {
+      if (!raw || typeof raw !== 'object') return null;
+      const targetSkema = raw.skema && typeof raw.skema === 'object' ? raw.skema : raw;
+      let mode = raw.mode;
+      if (!mode) {
+        const hasPositive = Object.values(targetSkema).some(v => parseFloat(v) > 0);
+        mode = hasPositive ? 'custom' : 'default';
       }
-      return normalizeSkemaConfig(defaultSkema);
+      return { mode, skema: targetSkema };
+    };
+
+    export const resolveMapelSkemaFromSoal = (soalList, defaultSkema = null) => {
+      const skemaRows = (soalList || []).filter(s => s && s.tipe_soal === 'SKEMA_PENILAIAN');
+
+      let guruParsed = null;
+      let adminMapelParsed = null;
+
+      for (const row of skemaRows) {
+        if (!row?.kunci_jawaban) continue;
+        let p = null;
+        try {
+          p = typeof row.kunci_jawaban === 'string' ? JSON.parse(row.kunci_jawaban) : row.kunci_jawaban;
+        } catch {
+          continue;
+        }
+        if (!p || typeof p !== 'object') continue;
+
+        // Partitioned row support: { guru: ..., admin: ... }
+        if (p.guru && typeof p.guru === 'object') {
+          guruParsed = p.guru;
+        }
+        if (p.admin && typeof p.admin === 'object') {
+          adminMapelParsed = p.admin;
+        }
+
+        const isExplicitAdmin = (row.id_soal && String(row.id_soal).startsWith('SKEMA_ADMIN_')) || p.role === 'admin';
+        const isExplicitGuru = (row.id_soal && String(row.id_soal).startsWith('SKEMA-')) || p.role === 'guru';
+
+        if (isExplicitAdmin) {
+          if (!adminMapelParsed) adminMapelParsed = p;
+        } else if (isExplicitGuru) {
+          if (!guruParsed) guruParsed = p;
+        } else {
+          // Legacy flat or unpartitioned row defaults to teacher
+          if (!guruParsed) guruParsed = p;
+        }
+      }
+
+      // Tier 1: Guru custom weights for the subject
+      if (guruParsed) {
+        const config = normalizeSkemaConfig(guruParsed);
+        if (config?.mode === 'custom' && config?.skema && typeof config.skema === 'object') {
+          const keys = ['PG', 'PGK', 'BS', 'JODOH', 'ISIAN', 'URAIAN'];
+          const hasPositive = keys.some(k => Number(config.skema[k]) > 0);
+          if (hasPositive) return config;
+        }
+      }
+
+      // Tier 2: Admin per-mapel custom weights for the subject
+      if (adminMapelParsed) {
+        const config = normalizeSkemaConfig(adminMapelParsed);
+        if (config?.mode === 'custom' && config?.skema && typeof config.skema === 'object') {
+          const keys = ['PG', 'PGK', 'BS', 'JODOH', 'ISIAN', 'URAIAN'];
+          const hasPositive = keys.some(k => Number(config.skema[k]) > 0);
+          if (hasPositive) return config;
+        }
+      }
+
+      // Tier 3: Admin global default
+      const fallbackSchoolDefault = {
+        mode: 'default',
+        skema: { PG: 20, PGK: 20, BS: 20, JODOH: 20, ISIAN: 10, URAIAN: 10 }
+      };
+
+      if (defaultSkema) {
+        const norm = normalizeSkemaConfig(defaultSkema);
+        if (norm?.skema && typeof norm.skema === 'object') {
+          return norm;
+        }
+      }
+
+      return fallbackSchoolDefault;
     };
 
     const processJadwalData = async (data, now) => {
@@ -255,6 +327,62 @@ export { supabaseClient };
       }
 
       return { success: true, data: payload };
+    };
+
+    export const get_admin_skema_mapel = async (id_mapel, npsn) => {
+      const fallbackDefault = {
+        mode: 'default',
+        skema: { PG: 20, PGK: 20, BS: 20, JODOH: 20, ISIAN: 10, URAIAN: 10 }
+      };
+
+      if (!id_mapel) {
+        return npsn ? await get_default_skema_sekolah(npsn) : fallbackDefault;
+      }
+
+      // 1. Check database for SKEMA_ADMIN_${id_mapel}
+      try {
+        let query = supabaseClient
+          .from('soal_ujian')
+          .select('kunci_jawaban')
+          .eq('id_soal', 'SKEMA_ADMIN_' + id_mapel);
+        if (npsn) query = query.eq('npsn', npsn);
+        const { data, error } = await query.maybeSingle();
+
+        if (!error && data?.kunci_jawaban) {
+          try {
+            const parsed = typeof data.kunci_jawaban === 'string' ? JSON.parse(data.kunci_jawaban) : data.kunci_jawaban;
+            if (parsed && typeof parsed === 'object') {
+              if (typeof localStorage !== 'undefined' && npsn) {
+                localStorage.setItem(`nexa_admin_skema_${npsn}_${id_mapel}`, JSON.stringify(parsed));
+              }
+              return parsed;
+            }
+          } catch (e) {
+            console.warn('Error parsing admin mapel skema from DB:', e);
+          }
+        }
+      } catch (err) {
+        console.warn('get_admin_skema_mapel DB error:', err);
+      }
+
+      // 2. Check localStorage cache
+      if (typeof localStorage !== 'undefined' && npsn) {
+        try {
+          const cached = localStorage.getItem(`nexa_admin_skema_${npsn}_${id_mapel}`);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed && typeof parsed === 'object') return parsed;
+          }
+        } catch (e) {
+          console.warn('Error reading admin mapel skema from cache:', e);
+        }
+      }
+
+      // 3. Fallback to school global default
+      if (npsn) {
+        return await get_default_skema_sekolah(npsn);
+      }
+      return fallbackDefault;
     };
 
     /**
@@ -3090,6 +3218,10 @@ export { supabaseClient };
             if (!res.success) return { status: 'error', message: res.message || 'Gagal menyimpan skema penilaian default sekolah.' };
             return { status: 'success', data: res.data, message: 'Skema penilaian default sekolah berhasil disimpan.' };
           }
+          case 'get_admin_skema_mapel': {
+            const data = await get_admin_skema_mapel(payload.id_mapel, payload.npsn);
+            return { status: 'success', data };
+          }
           case 'save_skema_penilaian': {
             const targetMapelIds = (payload.id_mapels && Array.isArray(payload.id_mapels) && payload.id_mapels.length > 0)
               ? payload.id_mapels
@@ -3099,30 +3231,97 @@ export { supabaseClient };
               return { status: 'error', message: 'Mata pelajaran tidak valid.' };
             }
 
+            const role = payload.role === 'admin' ? 'admin' : 'guru';
             const effectiveNpsn = payload.npsn;
-            const kunciJawaban = typeof payload.kunci_jawaban === 'string'
-              ? payload.kunci_jawaban
-              : JSON.stringify({
-                  mode: payload.mode || 'default',
-                  skema: payload.skema || {}
-                });
 
-            let mode = payload.mode;
-            if (!mode) {
-              try {
-                const parsed = JSON.parse(kunciJawaban);
-                mode = parsed.mode;
-              } catch (e) {
-                mode = 'default';
+            // Authorization: Guru role can only configure assigned subjects
+            if (role === 'guru') {
+              if (!payload.id_guru) {
+                return { status: 'error', message: 'ID Guru diperlukan untuk verifikasi hak akses mata pelajaran.' };
+              }
+              const { data: assignments, error: gmErr } = await supabaseClient
+                .from('guru_mapel')
+                .select('id_mapel')
+                .eq('id_guru', payload.id_guru);
+
+              if (gmErr) {
+                return { status: 'error', message: 'Gagal memverifikasi penugasan guru: ' + gmErr.message };
+              }
+
+              const assignedSet = new Set((assignments || []).map(a => a.id_mapel));
+              const unauthorized = targetMapelIds.filter(id => !assignedSet.has(id));
+              if (unauthorized.length > 0) {
+                return {
+                  status: 'error',
+                  message: `Guru tidak memiliki hak akses untuk mata pelajaran: ${unauthorized.join(', ')}.`
+                };
               }
             }
+
+            // Mode determination
+            let mode = payload.mode;
+            let rawSkema = payload.skema;
+            if (!mode || !rawSkema) {
+              if (payload.kunci_jawaban) {
+                try {
+                  const parsedKunci = typeof payload.kunci_jawaban === 'string' ? JSON.parse(payload.kunci_jawaban) : payload.kunci_jawaban;
+                  if (!mode && parsedKunci?.mode) mode = parsedKunci.mode;
+                  if (!rawSkema && parsedKunci?.skema) rawSkema = parsedKunci.skema;
+                  else if (!rawSkema && !parsedKunci?.skema && typeof parsedKunci === 'object') rawSkema = parsedKunci;
+                } catch (e) {}
+              }
+            }
+            mode = mode || 'default';
+
+            // Validation: Custom mode requires total weights across all 6 question types to equal exactly 100%
+            const AKM_TYPES = ['PG', 'PGK', 'BS', 'JODOH', 'ISIAN', 'URAIAN'];
+            const cleanSkema = {};
+            if (mode === 'custom') {
+              if (!rawSkema || typeof rawSkema !== 'object') {
+                return { status: 'error', message: 'Skema pembobotan kustom harus berupa objek yang valid.' };
+              }
+              let totalWeight = 0;
+              for (const type of AKM_TYPES) {
+                const raw = rawSkema[type];
+                const num = typeof raw === 'string' ? parseFloat(raw.replace(',', '.')) : Number(raw);
+                if (isNaN(num) || num < 0) {
+                  return { status: 'error', message: `Bobot tipe soal ${type} tidak boleh negatif atau tidak valid.` };
+                }
+                cleanSkema[type] = num;
+                totalWeight += num;
+              }
+              const roundedTotal = Math.round(totalWeight * 100) / 100;
+              if (roundedTotal !== 100) {
+                return { status: 'error', message: `Total persentase bobot harus tepat 100%. Saat ini: ${roundedTotal}%.` };
+              }
+            } else {
+              for (const type of AKM_TYPES) {
+                cleanSkema[type] = 0;
+              }
+            }
+
             const bobot = payload.bobot !== undefined ? payload.bobot : (mode === 'custom' ? 1 : 0);
+
+            const payloadObj = {
+              mode,
+              skema: cleanSkema,
+              role,
+              ...(payload.id_guru ? { id_guru: payload.id_guru } : {}),
+              updated_at: new Date().toISOString()
+            };
+            const kunciJawaban = JSON.stringify(payloadObj);
+
+            // Row ID conventions:
+            // Admin: 'SKEMA_ADMIN_' + mapelId
+            // Guru:  'SKEMA-' + mapelId
+            const targetIdPattern = (mapelId) => (role === 'admin' ? 'SKEMA_ADMIN_' + mapelId : 'SKEMA-' + mapelId);
+            const targetIdList = targetMapelIds.map(targetIdPattern);
 
             let existingQuery = supabaseClient
               .from('soal_ujian')
               .select('id_soal, id_mapel')
               .eq('tipe_soal', 'SKEMA_PENILAIAN')
-              .in('id_mapel', targetMapelIds);
+              .in('id_soal', targetIdList);
 
             if (effectiveNpsn) {
               existingQuery = existingQuery.eq('npsn', effectiveNpsn);
@@ -3131,16 +3330,17 @@ export { supabaseClient };
 
             const existingMap = {};
             (existingRecords || []).forEach(r => {
-              existingMap[r.id_mapel] = r.id_soal;
+              existingMap[r.id_soal] = r;
             });
 
             const toUpdate = [];
             const toInsert = [];
 
             for (const mapelId of targetMapelIds) {
-              if (existingMap[mapelId]) {
+              const desiredId = targetIdPattern(mapelId);
+              if (existingMap[desiredId]) {
                 toUpdate.push({
-                  id_soal: existingMap[mapelId],
+                  id_soal: desiredId,
                   id_mapel: mapelId,
                   npsn: effectiveNpsn,
                   kunci_jawaban: kunciJawaban,
@@ -3148,7 +3348,7 @@ export { supabaseClient };
                 });
               } else {
                 toInsert.push({
-                  id_soal: 'SKEMA-' + mapelId,
+                  id_soal: desiredId,
                   id_mapel: mapelId,
                   npsn: effectiveNpsn,
                   tipe_soal: 'SKEMA_PENILAIAN',
@@ -3156,6 +3356,13 @@ export { supabaseClient };
                   kunci_jawaban: kunciJawaban,
                   bobot
                 });
+              }
+
+              // LocalStorage cache for Admin per-mapel offline resilience
+              if (role === 'admin' && typeof localStorage !== 'undefined' && effectiveNpsn) {
+                try {
+                  localStorage.setItem(`nexa_admin_skema_${effectiveNpsn}_${mapelId}`, kunciJawaban);
+                } catch (e) {}
               }
             }
 
@@ -3177,6 +3384,8 @@ export { supabaseClient };
               status: 'success',
               message: `Skema penilaian berhasil disimpan untuk ${targetMapelIds.length} mata pelajaran.`,
               data: {
+                role,
+                mode,
                 totalUpdated: toUpdate.length,
                 totalInserted: toInsert.length,
                 id_mapels: targetMapelIds

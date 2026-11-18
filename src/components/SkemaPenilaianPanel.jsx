@@ -37,7 +37,7 @@ const SkemaPenilaianPanel = ({
 
     // Teacher mode: check dataSoal
     if (!isUserEditingRef.current) {
-      const skemaRecord = dataSoal?.find(s => s.tipe_soal === 'SKEMA_PENILAIAN');
+      const skemaRecord = dataSoal?.find(s => s.tipe_soal === 'SKEMA_PENILAIAN' && !String(s.id_soal || '').startsWith('SKEMA_ADMIN_')) || dataSoal?.find(s => s.tipe_soal === 'SKEMA_PENILAIAN');
       if (skemaRecord && skemaRecord.kunci_jawaban) {
         let parsed = null;
         try {
