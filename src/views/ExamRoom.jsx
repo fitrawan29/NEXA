@@ -91,6 +91,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
   const isSubmittingRef = useRef(false);
   const isBlockedRef = useRef(effectiveBlocked);
   const lastViolationTimeRef = useRef(0);
+  const lastKeyboardFocusTimeRef = useRef(0);
   const parsedSeedServerNow = dataLog?.serverNow ? new Date(dataLog.serverNow).getTime() : NaN;
   const initialOffsetMs = Number.isFinite(parsedSeedServerNow) ? (parsedSeedServerNow - Date.now()) : 0;
   const serverOffsetMsRef = useRef(initialOffsetMs);
@@ -440,6 +441,8 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
       document.removeEventListener('cut', handleBlockClipboardAndContext);
       document.removeEventListener('paste', handleBlockClipboardAndContext);
       document.removeEventListener('keydown', handleBlockShortcuts);
+      document.removeEventListener('focusin', handleFocusIn);
+      document.removeEventListener('focusout', handleFocusOut);
       window.removeEventListener('blur', handleWindowBlur);
       window.removeEventListener('focus', handleWindowFocus);
       window.removeEventListener('resize', handleResize);
@@ -481,6 +484,9 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
           let parsedOpsi = null;
           if (s.opsi) {
             parsedOpsi = typeof s.opsi === 'string' ? safeJSONParse(s.opsi, s.opsi) : s.opsi;
+          }
+          if (normTipe === 'BS' && (!Array.isArray(parsedOpsi) || parsedOpsi.length === 0)) {
+            parsedOpsi = ['Benar', 'Salah'];
           }
           if (jadwal.acak_opsi && Array.isArray(parsedOpsi) && (normTipe === 'PG' || normTipe === 'PGK')) {
             parsedOpsi = seededShuffle([...parsedOpsi], hashSeed(`${baseSeed}_${s.id_soal}`));
@@ -588,8 +594,37 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
     }
   };
 
+  const handleFocusIn = (e) => {
+    const target = e.target;
+    if (target && (
+      target.tagName === 'INPUT' ||
+      target.tagName === 'TEXTAREA' ||
+      target.tagName === 'SELECT' ||
+      target.isContentEditable ||
+      (target.closest && (target.closest('.ql-editor') || target.closest('input') || target.closest('textarea') || target.closest('select')))
+    )) {
+      lastKeyboardFocusTimeRef.current = Date.now();
+    }
+  };
+
+  const handleFocusOut = (e) => {
+    const target = e?.target;
+    if (target && (
+      target.tagName === 'INPUT' ||
+      target.tagName === 'TEXTAREA' ||
+      target.tagName === 'SELECT' ||
+      target.isContentEditable ||
+      (target.closest && (target.closest('.ql-editor') || target.closest('input') || target.closest('textarea') || target.closest('select')))
+    )) {
+      lastKeyboardFocusTimeRef.current = Date.now();
+    }
+  };
+
   const handleFullscreenChange = () => {
     if (!document.fullscreenElement) {
+      if (isVirtualKeyboardActive()) {
+        return;
+      }
       const currentTolerance = fullscreenToleranceRef.current;
       if (currentTolerance < 2) {
         const nextTolerance = currentTolerance + 1;
@@ -618,25 +653,40 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
   };
 
   const handleWindowBlur = () => {
+    if (isVirtualKeyboardActive()) {
+      return;
+    }
     scheduleSecurityViolation('Terdeteksi keluar dari layar ujian (window blur)');
   };
 
   const handleWindowFocus = () => {
+    cancelGracePeriod();
     if (document.documentElement?.requestFullscreen && !document.fullscreenElement) {
-      setBlurOverlay(true);
-      enforceFullscreen();
-    } else {
-      cancelGracePeriod();
+      if (!isVirtualKeyboardActive()) {
+        setBlurOverlay(true);
+        enforceFullscreen();
+      }
     }
   };
 
   const isVirtualKeyboardActive = () => {
     const active = document.activeElement;
-    if (!active) return false;
-    const tagName = (active.tagName || '').toUpperCase();
-    if (tagName === 'INPUT' || tagName === 'TEXTAREA') return true;
-    if (active.isContentEditable) return true;
-    if (active.closest && (active.closest('.ql-editor') || active.closest('input') || active.closest('textarea'))) return true;
+    if (active) {
+      const tagName = (active.tagName || '').toUpperCase();
+      if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT') return true;
+      if (active.isContentEditable) return true;
+      if (active.closest && (active.closest('.ql-editor') || active.closest('input') || active.closest('textarea') || active.closest('select'))) return true;
+    }
+    if (typeof window !== 'undefined' && window.visualViewport) {
+      const vvHeight = window.visualViewport.height;
+      const winHeight = window.innerHeight;
+      if (winHeight > 0 && (winHeight - vvHeight > 100 || vvHeight / winHeight < 0.85)) {
+        return true;
+      }
+    }
+    if (Date.now() - lastKeyboardFocusTimeRef.current < 1200) {
+      return true;
+    }
     return false;
   };
 
@@ -644,11 +694,15 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
     if (isBlockedRef.current || isSubmittingRef.current) return;
     if (isVirtualKeyboardActive()) return;
 
-    const screenHeight = (window.screen && (window.screen.availHeight || window.screen.height)) || window.innerHeight;
+    const isLandscape = typeof window !== 'undefined' && window.innerWidth > window.innerHeight;
+    const screenHeight = isLandscape
+      ? Math.min(window.screen.width, window.screen.height)
+      : (window.screen && (window.screen.availHeight || window.screen.height)) || window.innerHeight;
+
     if (screenHeight > 0) {
       const ratio = window.innerHeight / screenHeight;
       if (ratio < 0.70) {
-        handleSecurityViolation('Terdeteksi pembagian layar (split-screen mode)');
+        scheduleSecurityViolation('Terdeteksi pembagian layar (split-screen mode)');
       }
     }
   };
@@ -684,6 +738,8 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
     document.addEventListener('cut', handleBlockClipboardAndContext);
     document.addEventListener('paste', handleBlockClipboardAndContext);
     document.addEventListener('keydown', handleBlockShortcuts);
+    document.addEventListener('focusin', handleFocusIn);
+    document.addEventListener('focusout', handleFocusOut);
     window.addEventListener('blur', handleWindowBlur);
     window.addEventListener('focus', handleWindowFocus);
     window.addEventListener('resize', handleResize);
@@ -822,15 +878,24 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
   };
 
   const renderQuestionInput = (s) => {
-    const currentAns = jawabanSiswa[s.id_soal] || '';
+    const currentAns = jawabanSiswa[s.id_soal] ?? '';
     const normTipe = normalizeTipeSoal(s.tipe_soal);
     const isTimeExpired = timeLeft.total <= 0;
 
     switch (normTipe) {
       case 'PG':
-      case 'BS':
-        return (s.opsi || []).map((op, idx) => {
-          const isSelected = currentAns === op;
+      case 'BS': {
+        const opsiList = (normTipe === 'BS' && (!Array.isArray(s.opsi) || s.opsi.length === 0))
+          ? ['Benar', 'Salah']
+          : (Array.isArray(s.opsi) ? s.opsi : (normTipe === 'BS' ? ['Benar', 'Salah'] : []));
+        return opsiList.map((op, idx) => {
+          const isSelected = normTipe === 'BS'
+            ? (
+                (currentAns !== null && currentAns !== undefined ? String(currentAns) : '').trim().toLowerCase() === String(op || '').trim().toLowerCase() ||
+                (['s', 'false', '0', 'salah'].includes((currentAns !== null && currentAns !== undefined ? String(currentAns) : '').trim().toLowerCase()) && ['s', 'false', '0', 'salah'].includes(String(op || '').trim().toLowerCase())) ||
+                (['b', 'true', '1', 'benar'].includes((currentAns !== null && currentAns !== undefined ? String(currentAns) : '').trim().toLowerCase()) && ['b', 'true', '1', 'benar'].includes(String(op || '').trim().toLowerCase()))
+              )
+            : currentAns === op;
           const letter = String.fromCharCode(65 + idx);
           return (
             <label 
@@ -871,6 +936,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
             </label>
           );
         });
+      }
 
       case 'PGK':
         return (s.opsi || []).map((op, idx) => {
@@ -1031,7 +1097,7 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
   const currentS = soal[currentIndex];
 
   const isQuestionAnswered = (s, ans) => {
-    if (!ans) return false;
+    if (ans === undefined || ans === null || ans === '') return false;
     const normTipe = normalizeTipeSoal(s.tipe_soal);
     if (normTipe === 'PGK') return Array.isArray(ans) && ans.length > 0;
     if (normTipe === 'JODOH') {

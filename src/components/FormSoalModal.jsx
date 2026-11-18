@@ -2,6 +2,7 @@ import ReactQuill from 'react-quill';
 import React, { useState, useEffect, useRef } from 'react';
 import { compressImageFile } from '../utils/imageHelper.js';
 import { safeJSONParse } from './UI';
+import { normalizeTipeSoal } from '../utils/nexaBundle.js';
 
     const FormSoalModal = ({
       isOpen,
@@ -25,7 +26,7 @@ import { safeJSONParse } from './UI';
       };
       const stripHtml = (html) => String(html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
       const savedDraft = !data ? safeJSONParse(localStorage.getItem('formSoalDraft'), {}) : {};
-      const [tipe, setTipe] = useState(data ? data.tipe_soal : (savedDraft.tipe || 'PG'));
+      const [tipe, setTipe] = useState(data ? normalizeTipeSoal(data.tipe_soal) : (savedDraft.tipe || 'PG'));
       const [pertanyaan, setPertanyaan] = useState(data ? data.pertanyaan : (savedDraft.pertanyaan || ''));
       const [idNarasi, setIdNarasi] = useState(data && data.id_narasi ? data.id_narasi : (savedDraft.idNarasi || ''));
       const [gambar, setGambar] = useState(data ? data.gambar : null);
@@ -78,7 +79,7 @@ import { safeJSONParse } from './UI';
         }
         return Array.isArray(savedDraft.kunciPGK) ? savedDraft.kunciPGK : [];
       });
-      const [kunciBS, setKunciBS] = useState(data && data.tipe_soal==='BS' ? data.kunci_jawaban : (savedDraft.kunciBS || 'Benar'));
+      const [kunciBS, setKunciBS] = useState(data && normalizeTipeSoal(data.tipe_soal)==='BS' ? data.kunci_jawaban : (savedDraft.kunciBS || 'Benar'));
       
       const defaultPremis = [''];
       const defaultRespon = [''];

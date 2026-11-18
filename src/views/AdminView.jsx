@@ -181,6 +181,14 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     onConfirm: null
   });
 
+  // Modal Detail Rincian Hasil & Nilai Siswa
+  const [detailHasilModal, setDetailHasilModal] = useState({
+    isOpen: false,
+    jadwal: null,
+    data: [],
+    isLoading: false
+  });
+
   // Direct file upload replaces Dicebear preset avatars
 
   const navigateTab = (tabId) => {
@@ -575,6 +583,8 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
 
           if ((tipe === 'PG' || tipe === 'PGK') && !opsiStr) {
             opsiStr = JSON.stringify([row.opsi_A || '', row.opsi_B || '', row.opsi_C || '', row.opsi_D || '', row.opsi_E || '']);
+          } else if (tipe === 'BS' && !opsiStr) {
+            opsiStr = JSON.stringify(['Benar', 'Salah']);
           }
 
           const parsedBobot = isNarasi ? 0 : ((row.bobot !== undefined && row.bobot !== '' && !isNaN(Number(row.bobot)))
@@ -5243,6 +5253,11 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                                       status={p.is_blocked ? 'TERBLOKIR' : (p.status_ujian || 'AKTIF')}
                                       pulse={!p.is_blocked && p.status_ujian !== 'SELESAI'}
                                     />
+                                    {p.status_ujian === 'SELESAI' && (
+                                      <div className="mt-1 text-[11px] font-black text-primary">
+                                        Nilai: {p.total_nilai ?? p.nilai_auto ?? 0}
+                                      </div>
+                                    )}
                                   </td>
                                   <td className="py-3 px-4 text-right">
                                     <div className="flex items-center justify-end gap-1.5">
@@ -5312,11 +5327,18 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                                   {p.angkatan} {p.kelas_paralel} • Pelanggaran: <strong className={p.pelanggaran >= (selectedJadwalObj?.batas_pelanggaran || 3) ? 'text-rose-600' : 'text-slate-700 dark:text-slate-300'}>{p.pelanggaran || 0}/{(selectedJadwalObj?.batas_pelanggaran || 3)}</strong>
                                 </p>
                               </div>
-                              <StatusBadge
-                                status={p.is_blocked ? 'TERBLOKIR' : (p.status_ujian || 'AKTIF')}
-                                size="xs"
-                                pulse={!p.is_blocked && p.status_ujian !== 'SELESAI'}
-                              />
+                              <div className="flex flex-col items-end gap-1">
+                                <StatusBadge
+                                  status={p.is_blocked ? 'TERBLOKIR' : (p.status_ujian || 'AKTIF')}
+                                  size="xs"
+                                  pulse={!p.is_blocked && p.status_ujian !== 'SELESAI'}
+                                />
+                                {p.status_ujian === 'SELESAI' && (
+                                  <span className="text-[11px] font-black text-primary">
+                                    Nilai: {p.total_nilai ?? p.nilai_auto ?? 0}
+                                  </span>
+                                )}
+                              </div>
                             </div>
 
                             {/* Progress Bar */}
@@ -6288,36 +6310,54 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                         </td>
                         <td className="p-3 text-center font-black text-primary">{item.rata_rata}</td>
                         <td className="p-3 text-right">
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              setIsLoading(true);
-                              const res = await api('get_hasil_ujian', { id_jadwal: item.id_jadwal, npsn: user.npsn });
-                              setIsLoading(false);
-                              if (res.status === 'success' && (res.data || []).length > 0) {
-                                const rows = res.data.map((r, idx) => ({
-                                  No: idx + 1,
-                                  NISN: r.nisn,
-                                  Nama: r.nama_lengkap,
-                                  Kelas: `${r.angkatan || ''} ${r.kelas_paralel || ''}`.trim(),
-                                  Nilai_Objektif: r.nilai_auto || 0,
-                                  Nilai_Uraian: r.nilai_uraian ?? 'Belum Dinilai',
-                                  Total_Nilai: r.total_nilai,
-                                  Status: r.is_blocked ? 'TERBLOKIR' : (r.belum_dikoreksi ? 'MENUNGGU KOREKSI' : 'FINAL')
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                setDetailHasilModal({ isOpen: true, jadwal: item, data: [], isLoading: true });
+                                const res = await api('get_hasil_ujian', { id_jadwal: item.id_jadwal, npsn: user.npsn });
+                                setDetailHasilModal(prev => ({
+                                  ...prev,
+                                  isLoading: false,
+                                  data: res.status === 'success' ? (res.data || []) : []
                                 }));
-                                const ws = XLSX.utils.json_to_sheet(rows);
-                                const wb = XLSX.utils.book_new();
-                                XLSX.utils.book_append_sheet(wb, ws, 'Leger Nilai');
-                                XLSX.writeFile(wb, `Leger_${item.nama_mapel}_${item.target_kelas}.xlsx`.replace(/\s+/g, '_'));
-                              } else {
-                                showMessage('Info', 'Belum ada peserta yang menyelesaikan ujian ini.', 'info');
-                              }
-                            }}
-                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] inline-flex items-center gap-1"
-                          >
-                            <span className="material-symbols-outlined text-[14px]">download</span>
-                            <span>Leger Excel</span>
-                          </button>
+                              }}
+                              className="px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-white font-bold text-[11px] inline-flex items-center gap-1 shadow-sm transition-all"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">visibility</span>
+                              <span>Lihat Nilai</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                setIsLoading(true);
+                                const res = await api('get_hasil_ujian', { id_jadwal: item.id_jadwal, npsn: user.npsn });
+                                setIsLoading(false);
+                                if (res.status === 'success' && (res.data || []).length > 0) {
+                                  const rows = res.data.map((r, idx) => ({
+                                    No: idx + 1,
+                                    NISN: r.nisn,
+                                    Nama: r.nama_lengkap,
+                                    Kelas: `${r.angkatan || ''} ${r.kelas_paralel || ''}`.trim(),
+                                    Nilai_Objektif: r.nilai_auto || 0,
+                                    Nilai_Uraian: r.nilai_uraian ?? 'Belum Dinilai',
+                                    Total_Nilai: r.total_nilai,
+                                    Status: r.is_blocked ? 'TERBLOKIR' : (r.belum_dikoreksi ? 'MENUNGGU KOREKSI' : 'FINAL')
+                                  }));
+                                  const ws = XLSX.utils.json_to_sheet(rows);
+                                  const wb = XLSX.utils.book_new();
+                                  XLSX.utils.book_append_sheet(wb, ws, 'Leger Nilai');
+                                  XLSX.writeFile(wb, `Leger_${item.nama_mapel}_${item.target_kelas}.xlsx`.replace(/\s+/g, '_'));
+                                } else {
+                                  showMessage('Info', 'Belum ada peserta yang menyelesaikan ujian ini.', 'info');
+                                }
+                              }}
+                              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] inline-flex items-center gap-1 shadow-sm transition-all"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">download</span>
+                              <span>Leger Excel</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -6502,6 +6542,103 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
           onClose={() => setFormNarasi({ isOpen: false, data: null })}
           onSave={saveSoal}
         />
+      )}
+
+      {/* Detail Hasil Ujian Modal */}
+      {detailHasilModal.isOpen && (
+        <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-4xl shadow-2xl p-5 sm:p-6 relative border border-slate-200 dark:border-slate-700 animate-scale-up max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-700">
+              <div>
+                <h3 className="font-bold text-base sm:text-lg text-slate-800 dark:text-white">
+                  Rincian Nilai Siswa - {detailHasilModal.jadwal?.nama_mapel}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Kelas: {detailHasilModal.jadwal?.target_kelas} | Guru: {detailHasilModal.jadwal?.nama_guru}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDetailHasilModal({ isOpen: false, jadwal: null, data: [], isLoading: false })}
+                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <span className="material-symbols-outlined text-sm">close</span>
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              {detailHasilModal.isLoading ? (
+                <div className="py-12 text-center text-slate-400 flex flex-col items-center gap-2">
+                  <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  <span className="text-xs">Memuat rincian nilai siswa...</span>
+                </div>
+              ) : detailHasilModal.data.length === 0 ? (
+                <div className="py-12 text-center text-slate-400 text-xs">
+                  Belum ada peserta yang menyelesaikan ujian ini.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700 text-slate-500 uppercase sticky top-0">
+                        <th className="p-2.5 font-bold text-center w-12">No</th>
+                        <th className="p-2.5 font-bold">Nama Lengkap</th>
+                        <th className="p-2.5 font-bold">NISN</th>
+                        <th className="p-2.5 font-bold">Kelas</th>
+                        <th className="p-2.5 font-bold text-center">Nilai PG</th>
+                        <th className="p-2.5 font-bold text-center">Nilai Uraian</th>
+                        <th className="p-2.5 font-bold text-center">Total Nilai</th>
+                        <th className="p-2.5 font-bold text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                      {detailHasilModal.data.map((r, idx) => (
+                        <tr key={r.id_log || idx} className="hover:bg-slate-50/70 dark:hover:bg-slate-900/30">
+                          <td className="p-2.5 text-center text-slate-500">{idx + 1}</td>
+                          <td className="p-2.5 font-semibold text-slate-800 dark:text-white">{r.nama_lengkap}</td>
+                          <td className="p-2.5 font-mono text-slate-500">{r.nisn || '-'}</td>
+                          <td className="p-2.5 font-mono text-slate-600 dark:text-slate-300">
+                            {`${r.angkatan || ''} ${r.kelas_paralel || ''}`.trim() || r.kelas || '-'}
+                          </td>
+                          <td className="p-2.5 text-center font-semibold text-slate-700 dark:text-slate-200">
+                            {r.nilai_auto ?? 0}
+                          </td>
+                          <td className="p-2.5 text-center font-semibold text-slate-700 dark:text-slate-200">
+                            {r.nilai_uraian !== null && r.nilai_uraian !== undefined ? r.nilai_uraian : (
+                              <span className="text-[10px] text-amber-600 dark:text-amber-400 font-normal">Belum Dinilai</span>
+                            )}
+                          </td>
+                          <td className="p-2.5 text-center font-black text-primary">
+                            {r.total_nilai ?? 0}
+                          </td>
+                          <td className="p-2.5 text-center">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              r.is_blocked ? 'bg-rose-100 text-rose-700' :
+                              r.belum_dikoreksi ? 'bg-amber-100 text-amber-800' :
+                              'bg-emerald-100 text-emerald-800'
+                            }`}>
+                              {r.is_blocked ? 'TERBLOKIR' : (r.belum_dikoreksi ? 'MENUNGGU KOREKSI' : 'FINAL')}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setDetailHasilModal({ isOpen: false, jadwal: null, data: [], isLoading: false })}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl transition-colors"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
     </>

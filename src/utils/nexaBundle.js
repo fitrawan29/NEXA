@@ -309,7 +309,29 @@ export function normalizeTipeSoal(rawTipe) {
   const t = String(rawTipe || 'PG').trim().toUpperCase();
   if (t === 'ISIAN_SINGKAT' || t === 'ISIAN SINGKAT') return 'ISIAN';
   if (t === 'MENJODOHKAN') return 'JODOH';
-  if (t === 'BENAR_SALAH' || t === 'BENAR SALAH') return 'BS';
+  if (
+    t === 'BS' ||
+    t === 'B/S' ||
+    t === 'B_S' ||
+    t === 'B-S' ||
+    t === 'B / S' ||
+    t === 'B - S' ||
+    t === 'BENAR_SALAH' ||
+    t === 'BENAR SALAH' ||
+    t === 'BENAR/SALAH' ||
+    t === 'BENAR / SALAH' ||
+    t === 'BENAR-SALAH' ||
+    t === 'TRUE_FALSE' ||
+    t === 'TRUE/FALSE' ||
+    t === 'TRUE-FALSE' ||
+    t === 'TRUE FALSE' ||
+    t === 'BOOLEAN' ||
+    t === 'BOOL' ||
+    t.includes('BENAR') ||
+    t.includes('SALAH')
+  ) {
+    return 'BS';
+  }
   return t;
 }
 
@@ -317,17 +339,27 @@ const normalizeIsianText = (val) => String(val || '').trim().replace(/\s+/g, ' '
 
 export function evaluateAKMQuestion(soal, studentAnswer) {
   const tipe = normalizeTipeSoal(soal.tipe_soal);
-  const bobot = Number(soal.bobot) || 10;
+  const bobot = (soal.bobot !== undefined && soal.bobot !== null && String(soal.bobot).trim() !== '' && !isNaN(Number(soal.bobot))) ? Number(soal.bobot) : 10;
   let isCorrect = false;
   let skorDiperoleh = 0;
 
-  if (tipe === 'URAIAN') {
+  if (tipe === 'URAIA' || tipe === 'URAIAN') {
     return { isCorrect: false, skorDiperoleh: 0, maxSkor: 0, isEssay: true };
   }
 
-  if (tipe === 'PG' || tipe === 'BS') {
+  if (tipe === 'PG') {
     const key = String(soal.kunci_jawaban || '').trim().toLowerCase();
     const ans = String(studentAnswer || '').trim().toLowerCase();
+    isCorrect = ans !== '' && ans === key;
+  } else if (tipe === 'BS') {
+    const normalizeBS = (v) => {
+      const s = (v !== null && v !== undefined ? String(v) : '').trim().toLowerCase();
+      if (s === 'b' || s === 'true' || s === '1' || s === 'benar') return 'benar';
+      if (s === 's' || s === 'false' || s === '0' || s === 'salah') return 'salah';
+      return s;
+    };
+    const key = normalizeBS(soal.kunci_jawaban);
+    const ans = normalizeBS(studentAnswer);
     isCorrect = ans !== '' && ans === key;
   } else if (tipe === 'PGK') {
     let kunciArr = [];

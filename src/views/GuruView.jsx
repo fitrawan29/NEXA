@@ -495,6 +495,8 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
               row.opsi_D || '',
               row.opsi_E || ''
             ]);
+          } else if (tipe === 'BS' && !opsiStr) {
+            opsiStr = JSON.stringify(['Benar', 'Salah']);
           }
 
           const uniqueId = `SOAL-${selectedMapel}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${idx}`;
@@ -2949,7 +2951,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
               : [];
 
             const filteredJadwalHasil = dataJadwal.filter(j => {
-              if (j.status_ujian !== 'SELESAI') return false;
+              if (j.status_ujian !== 'SELESAI' && !(Number(j.total_selesai) > 0)) return false;
               // Strict Scoping: Guru only accesses evaluation for subjects they teach
               const isTaughtSubject = dataMapel.some(m => String(m.id_mapel) === String(j.id_mapel));
               if (!isTaughtSubject) return false;
@@ -3121,8 +3123,12 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                           <div className="flex justify-between items-start mb-1">
                             <h4 className="font-bold text-base text-slate-800 dark:text-white leading-tight">{j.nama_mapel}</h4>
                             <div className="flex items-center gap-1.5">
-                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 border border-sky-200/60 dark:border-sky-800/60">
-                                SELESAI
+                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                                j.status_ujian === 'SELESAI'
+                                  ? 'bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 border-sky-200/60 dark:border-sky-800/60'
+                                  : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-200/60 dark:border-emerald-800/60'
+                              }`}>
+                                {j.status_ujian === 'SELESAI' ? 'SELESAI' : 'AKTIF'}
                               </span>
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/80 flex items-center gap-1">
                                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
@@ -3250,7 +3256,11 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
           if (filterKelasHasil && filterKelasHasil !== 'Umum') {
             const studentGrade = s.angkatan || s.kelas;
             if (studentGrade && normalizeGrade(studentGrade) !== normalizeGrade(filterKelasHasil)) {
-              return false;
+              if (selectedHasilJadwal?.target_kelas && isClassMatching(selectedHasilJadwal.target_kelas, s)) {
+                // Sesuai target jadwal
+              } else {
+                return false;
+              }
             }
           }
           if (filterHasilParalelDetail !== 'ALL' && s.kelas_paralel !== filterHasilParalelDetail) return false;

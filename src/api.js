@@ -1574,8 +1574,24 @@ export { supabaseClient };
             const now = await getTrueNow();
             const processedData = await processJadwalData(data, now);
 
+            const jIds = processedData.map(j => j.id_jadwal).filter(Boolean);
+            const selesaiCountMap = {};
+            if (jIds.length > 0) {
+              const { data: doneLogs } = await supabaseClient
+                .from('log_ujian')
+                .select('id_jadwal')
+                .in('id_jadwal', jIds)
+                .eq('status_ujian', 'SELESAI');
+              (doneLogs || []).forEach(dl => {
+                selesaiCountMap[dl.id_jadwal] = (selesaiCountMap[dl.id_jadwal] || 0) + 1;
+              });
+            }
+
             // Scope schedules by teacher's alokasi_kelas and id_guru
-            let finalJadwal = processedData;
+            let finalJadwal = processedData.map(j => ({
+              ...j,
+              total_selesai: selesaiCountMap[j.id_jadwal] || 0
+            }));
             if (payload.id_guru && teacherAlloc && !isUniversalAlloc(teacherAlloc)) {
               const teacherClasses = splitCompoundTargets(teacherAlloc);
               finalJadwal = processedData.filter(j => {
@@ -1654,8 +1670,12 @@ export { supabaseClient };
             
             // Format opsi column string to array if it is a JSON string
             const formatOpsi = (s) => {
+              const normTipe = normalizeTipeSoal(s.tipe_soal);
               if (s.opsi && typeof s.opsi === 'string') {
                 try { s.opsi = JSON.parse(s.opsi); } catch(e) {}
+              }
+              if (normTipe === 'BS' && (!Array.isArray(s.opsi) || s.opsi.length === 0)) {
+                s.opsi = ['Benar', 'Salah'];
               }
               return s;
             }
@@ -1664,14 +1684,19 @@ export { supabaseClient };
 
           case 'create_soal_mapel': {
             const { id_soal, id_mapel, npsn, kunci_jawaban, pertanyaan, tipe_soal, opsi, bobot, gambar, id_narasi } = payload;
+            const normTipe = normalizeTipeSoal(tipe_soal);
+            let finalOpsi = opsi ? (typeof opsi === 'string' ? opsi : JSON.stringify(opsi)) : null;
+            if (normTipe === 'BS' && !finalOpsi) {
+              finalOpsi = JSON.stringify(['Benar', 'Salah']);
+            }
             
             const insertData = {
               id_soal,
               id_mapel,
               npsn,
-              tipe_soal: normalizeTipeSoal(tipe_soal),
+              tipe_soal: normTipe,
               pertanyaan,
-              opsi: opsi ? (typeof opsi === 'string' ? opsi : JSON.stringify(opsi)) : null,
+              opsi: finalOpsi,
               kunci_jawaban,
               bobot: bobot !== undefined ? bobot : 1,
               gambar: gambar || null,
@@ -2132,8 +2157,12 @@ export { supabaseClient };
             
             // Format opsi
             const unpackedData = (data || []).map(s => {
+              const normTipe = normalizeTipeSoal(s.tipe_soal);
               if (s.opsi && typeof s.opsi === 'string') {
                 try { s.opsi = JSON.parse(s.opsi); } catch(e) {}
+              }
+              if (normTipe === 'BS' && (!Array.isArray(s.opsi) || s.opsi.length === 0)) {
+                s.opsi = ['Benar', 'Salah'];
               }
               return s;
             });
@@ -3034,9 +3063,15 @@ export { supabaseClient };
           case 'import_soal_bulk': {
             const sanitized = (payload.data || []).map((item, idx) => {
               const { kd, ...rest } = item;
+              const normTipe = normalizeTipeSoal(item.tipe_soal || 'PG');
+              let opsi = item.opsi;
+              if (normTipe === 'BS' && !opsi) {
+                opsi = JSON.stringify(['Benar', 'Salah']);
+              }
               return {
                 ...rest,
-                tipe_soal: normalizeTipeSoal(item.tipe_soal || 'PG'),
+                tipe_soal: normTipe,
+                opsi,
                 id_soal: item.id_soal || `SOAL-${generateId('IMP')}-${idx}`,
                 bobot: item.bobot !== undefined ? Number(item.bobot) : 10
               };
