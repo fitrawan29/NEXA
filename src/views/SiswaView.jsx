@@ -124,6 +124,17 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   const [tokenError, setTokenError] = useState('');
   const [isVerifyingToken, setIsVerifyingToken] = useState(false);
 
+  // SOP 2: Virtual Admission Queue Modal state (Maksimal 50 siswa masuk bersamaan)
+  const [queueModal, setQueueModal] = useState({
+    isOpen: false,
+    id_log: null,
+    id_jadwal: null,
+    position: 1,
+    currentCount: 50,
+    maxCapacity: 50,
+    jadwal: null
+  });
+
   const [activeTab, setActiveTab] = useState('beranda');
   const [jadwalFilter, setJadwalFilter] = useState('HARI INI');
   const [dataPengumuman, setDataPengumuman] = useState([]);
@@ -254,6 +265,23 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
 
     setIsVerifyingToken(false);
 
+    // SOP 2: Jika kuota gerbang masuk 50 siswa sedang penuh, masuk ruang tunggu antrean
+    if (res.status === 'queued') {
+      const selected = tokenModalJadwal;
+      setTokenModalJadwal(null);
+      setInputToken('');
+      setQueueModal({
+        isOpen: true,
+        id_log: res.id_log,
+        id_jadwal: selected.id_jadwal,
+        position: res.position || 1,
+        currentCount: res.current_count || 50,
+        maxCapacity: res.max_capacity || 50,
+        jadwal: selected
+      });
+      return;
+    }
+
     if (res.status === 'success') {
       const selected = tokenModalJadwal;
       const examData = {
@@ -275,6 +303,67 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       setTokenError(res.message || 'Token ujian tidak valid atau sudah kedaluwarsa.');
     }
   };
+
+  // SOP 2: Polling status ruang tunggu antrean masuk ujian (Interval 3.5s - 4.5s dengan jitter)
+  useEffect(() => {
+    if (!queueModal.isOpen || !queueModal.id_log || !queueModal.id_jadwal) return;
+    let isCancelled = false;
+    let timerId = null;
+
+    const pollQueue = async () => {
+      try {
+        const res = await api('cek_antrean_ujian', {
+          id_log: queueModal.id_log,
+          id_jadwal: queueModal.id_jadwal,
+          id_siswa: currentUserId
+        });
+
+        if (isCancelled) return;
+
+        if (res.status === 'admitted' || res.status === 'success') {
+          // Slot terbuka, siswa diizinkan masuk!
+          const examData = {
+            jadwal: queueModal.jadwal,
+            idLog: res.id_log || queueModal.id_log,
+            dataLog: {
+              ...(res.dataLog || { id_log: res.id_log || queueModal.id_log, pelanggaran: res.pelanggaran || 0, is_blocked: res.is_blocked || false }),
+              serverNow: res.serverNow || undefined
+            }
+          };
+          try {
+            sessionStorage.setItem('nexa_active_exam', JSON.stringify(examData));
+            window.dispatchEvent(new Event('storage'));
+          } catch (err) {}
+          setQueueModal({ isOpen: false, id_log: null, id_jadwal: null, position: 1, currentCount: 0, maxCapacity: 50, jadwal: null });
+          setActiveExamData(examData);
+          return;
+        }
+
+        if (res.status === 'queued') {
+          setQueueModal(prev => ({
+            ...prev,
+            position: res.position || prev.position,
+            currentCount: res.current_count ?? prev.currentCount,
+            maxCapacity: res.max_capacity ?? prev.maxCapacity
+          }));
+        }
+      } catch (err) {
+        console.warn('Queue poll warning:', err);
+      }
+
+      if (!isCancelled) {
+        const jitter = Math.floor(Math.random() * 1000) - 500;
+        timerId = setTimeout(pollQueue, Math.max(3000, 4000 + jitter));
+      }
+    };
+
+    timerId = setTimeout(pollQueue, 3500);
+
+    return () => {
+      isCancelled = true;
+      if (timerId) clearTimeout(timerId);
+    };
+  }, [queueModal.isOpen, queueModal.id_log, queueModal.id_jadwal, currentUserId]);
 
   // Filtered schedules for tabs (backend get_jadwal already filters by class)
   const todaySchedules = useMemo(() => {
@@ -1072,6 +1161,58 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* MODAL: RUANG TUNGGU ANTREAN GELOMBANG MASUK UJIAN (SOP 2)     */}
+      {/* ------------------------------------------------------------- */}
+      {queueModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
+          <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm"></div>
+          <div className="bg-white dark:bg-slate-800 rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md relative z-10 p-6 shadow-2xl animate-slide-up sm:animate-fade-in-up border border-slate-200 dark:border-slate-700 text-center">
+            
+            <div className="w-16 h-16 rounded-2xl bg-amber-50 dark:bg-amber-900/30 text-amber-500 flex items-center justify-center mx-auto mb-4 border border-amber-200 dark:border-amber-700/50">
+              <span className="material-symbols-outlined text-3xl animate-pulse">hourglass_top</span>
+            </div>
+
+            <span className="inline-block px-3 py-1 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-[11px] font-bold rounded-full uppercase tracking-wider mb-2">
+              Lalu Lintas Masuk Diatur
+            </span>
+
+            <h3 className="font-bold text-xl text-slate-800 dark:text-white">
+              Ruang Tunggu Antrean
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-5">
+              {queueModal.jadwal?.nama_mapel || 'Ujian CBT'}
+            </p>
+
+            <div className="bg-slate-50 dark:bg-slate-900/50 p-5 rounded-2xl border border-slate-100 dark:border-slate-700/60 mb-5">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mb-1">
+                Nomor Antrean Anda
+              </p>
+              <div className="text-4xl font-black text-amber-600 dark:text-amber-400 tracking-tight mb-2">
+                #{queueModal.position}
+              </div>
+              <p className="text-[12px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                Gelombang saat ini penuh (<span className="font-bold">{queueModal.currentCount}/{queueModal.maxCapacity} siswa</span>). Sistem akan <strong>otomatis memproses masuk</strong> begitu siswa di depan Anda selesai memuat naskah soal.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-center gap-2 text-xs text-slate-400 mb-6">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
+              <span>Menunggu giliran masuk otomatis...</span>
+            </div>
+
+            <Button
+              variant="outline"
+              size="md"
+              className="w-full min-h-[44px]"
+              onClick={() => setQueueModal({ isOpen: false, id_log: null, id_jadwal: null, position: 1, currentCount: 0, maxCapacity: 50, jadwal: null })}
+            >
+              Batal Antre
+            </Button>
           </div>
         </div>
       )}

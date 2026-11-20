@@ -11,6 +11,8 @@ import { normalizeTipeSoal } from '../utils/nexaBundle.js';
       schoolName = '',
       className = '',
       subjectName = '',
+      subMapelList = [],
+      isTerpadu = false,
       gasWebhookUrl = '',
       onClose,
       onSave
@@ -27,6 +29,7 @@ import { normalizeTipeSoal } from '../utils/nexaBundle.js';
       const stripHtml = (html) => String(html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
       const savedDraft = !data ? safeJSONParse(localStorage.getItem('formSoalDraft'), {}) : {};
       const [tipe, setTipe] = useState(data ? normalizeTipeSoal(data.tipe_soal) : (savedDraft.tipe || 'PG'));
+      const [subMapel, setSubMapel] = useState(data ? (data.sub_mapel || '') : (savedDraft.subMapel || ''));
       const [pertanyaan, setPertanyaan] = useState(data ? data.pertanyaan : (savedDraft.pertanyaan || ''));
       const [idNarasi, setIdNarasi] = useState(data && data.id_narasi ? data.id_narasi : (savedDraft.idNarasi || ''));
       const [gambar, setGambar] = useState(data ? data.gambar : null);
@@ -243,7 +246,8 @@ import { normalizeTipeSoal } from '../utils/nexaBundle.js';
           pertanyaan: pertanyaan,
           id_narasi: idNarasi,
           gambar: gambar,
-          bobot: bobot
+          bobot: bobot,
+          sub_mapel: subMapel || null
         };
 
         if (tipe === 'PG') {
@@ -273,8 +277,8 @@ import { normalizeTipeSoal } from '../utils/nexaBundle.js';
       };
 
       return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 sm:p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-3xl max-h-[95vh] flex flex-col shadow-2xl">
             <div className="p-6 border-b dark:border-slate-700 flex justify-between items-center">
               <h2 className="text-2xl font-bold">{data ? 'Edit Soal' : 'Tambah Soal'}</h2>
               <button onClick={onClose} className="text-slate-500 hover:text-slate-800"><span className="material-symbols-outlined">close</span></button>
@@ -291,6 +295,24 @@ import { normalizeTipeSoal } from '../utils/nexaBundle.js';
                   <option value="URAIAN">Uraian</option>
                 </select>
               </div>
+              {(isTerpadu || (subMapelList && subMapelList.length > 0) || /ipa|ips|terpadu/i.test(normSubject)) && (
+                <div>
+                  <label className="block text-sm font-bold mb-1">
+                    Bidang Kajian / Sub-Mata Pelajaran <span className="text-xs font-normal text-slate-500">(Kolaborasi Tim Terpadu)</span>
+                  </label>
+                  <select 
+                    value={subMapel} 
+                    onChange={(e) => setSubMapel(e.target.value)} 
+                    className="w-full p-2 border rounded bg-white dark:bg-slate-900"
+                  >
+                    <option value="">-- Pilih Bidang Kajian (Opsional) --</option>
+                    {(subMapelList && subMapelList.length > 0 ? subMapelList : (/ipa/i.test(normSubject) ? ['Biologi', 'Fisika', 'Kimia'] : ['Sosiologi', 'Ekonomi', 'Geografi', 'Sejarah'])).map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-slate-500 mt-1">Pilih bidang ilmu agar butir soal otomatis terkategori dan terhitung di buku nilai masing-masing guru.</p>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-bold mb-1">Pilih Narasi / Stimulus Bersama (Opsional)</label>
                 <select value={idNarasi} onChange={(e) => setIdNarasi(e.target.value)} className="w-full p-2 border rounded bg-white dark:bg-slate-900">

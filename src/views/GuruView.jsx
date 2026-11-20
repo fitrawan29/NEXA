@@ -115,6 +115,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
   // Question Bank Filters & Pagination
   const [searchQuerySoal, setSearchQuerySoal] = useState('');
   const [filterTipeSoal, setFilterTipeSoal] = useState('ALL');
+  const [filterSubMapel, setFilterSubMapel] = useState('ALL');
   const [bankSoalPage, setBankSoalPage] = useState(1);
   const itemsPerPage = 12;
 
@@ -266,9 +267,47 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
   // =========================================================================
   // Question Bank Helpers & Memoized Filtering
   // =========================================================================
+  const curMapelObj = useMemo(() => {
+    return (dataMapel || []).find(m => String(m.id_mapel) === String(selectedMapel));
+  }, [dataMapel, selectedMapel]);
+
+  const curSubMapelList = useMemo(() => {
+    if (!curMapelObj) return [];
+    if (curMapelObj.sub_mapel_list && Array.isArray(curMapelObj.sub_mapel_list) && curMapelObj.sub_mapel_list.length > 0) {
+      return curMapelObj.sub_mapel_list;
+    }
+    const name = (curMapelObj.nama_mapel || '').toLowerCase();
+    if (name.includes('ipa terpadu') || (name.includes('ipa') && name.includes('terpadu')) || name === 'ipa') {
+      return ['Biologi', 'Fisika', 'Kimia'];
+    }
+    if (name.includes('ips terpadu') || (name.includes('ips') && name.includes('terpadu')) || name === 'ips') {
+      return ['Sosiologi', 'Ekonomi', 'Geografi', 'Sejarah'];
+    }
+    return [];
+  }, [curMapelObj]);
+
+  const subMapelCounts = useMemo(() => {
+    const counts = {};
+    (curSubMapelList || []).forEach(sm => { counts[sm] = 0; });
+    (dataSoal || []).forEach(s => {
+      if (['SKEMA_PENILAIAN', 'SKEMA_DEFAULT', 'MAPEL_ALLOC', 'NARASI'].includes(s.tipe_soal)) return;
+      const sm = (s.sub_mapel || '').trim();
+      if (sm && counts[sm] !== undefined) {
+        counts[sm] = (counts[sm] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [curSubMapelList, dataSoal]);
+
   const filteredSoal = useMemo(() => {
     return dataSoal.filter(s => {
       if (s.tipe_soal === 'SKEMA_PENILAIAN' || s.tipe_soal === 'SKEMA_DEFAULT' || s.tipe_soal === 'MAPEL_ALLOC') return false; // Ensure s.tipe_soal !== 'SKEMA_PENILAIAN'
+
+      // Filter Sub-Mapel (e.g. Biologi, Fisika, Kimia)
+      if (filterSubMapel && filterSubMapel !== 'ALL') {
+        const sm = (s.sub_mapel || '').trim();
+        if (sm.toLowerCase() !== filterSubMapel.toLowerCase()) return false;
+      }
 
       // Filter Tipe Soal (PG, PGK, JODOH, URAIAN, SEMUA)
       if (filterTipeSoal && filterTipeSoal !== 'ALL' && filterTipeSoal !== 'SEMUA') {
@@ -286,7 +325,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
 
       return true;
     });
-  }, [dataSoal, filterTipeSoal, searchQuerySoal]);
+  }, [dataSoal, filterTipeSoal, filterSubMapel, searchQuerySoal]);
 
   // Paginated Question Bank
   const totalSoalPages = Math.ceil(filteredSoal.length / itemsPerPage) || 1;
@@ -547,7 +586,9 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
     let payload = {
       ...soalData,
       npsn: user.npsn,
-      id_mapel: formSoal.id_mapel || selectedMapel
+      id_mapel: formSoal.id_mapel || selectedMapel,
+      id_guru_pembuat: user.id_guru || null,
+      nama_guru_pembuat: user.nama_guru || user.nama_lengkap || null
     };
     if (formSoal.data) {
       payload.id_soal = formSoal.data.id_soal;
@@ -1861,6 +1902,43 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                     ))}
                   </div>
 
+                  {/* Integrated Subject Sub-Mapel Breakdown & Filter Strip */}
+                  {curSubMapelList.length > 0 && (
+                    <div className="bg-white dark:bg-slate-800 p-3 rounded-2xl border border-indigo-200/80 dark:border-indigo-900/50 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+                        <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 shrink-0 flex items-center gap-1 mr-1">
+                          <span className="material-symbols-outlined text-[15px]">layers</span> Rumpun:
+                        </span>
+                        <button
+                          onClick={() => { setFilterSubMapel('ALL'); setBankSoalPage(1); }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap min-h-[36px] ${
+                            filterSubMapel === 'ALL'
+                              ? 'bg-indigo-600 text-white shadow-xs'
+                              : 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100'
+                          }`}
+                        >
+                          Semua Bidang ({dataSoal.filter(s => !['SKEMA_PENILAIAN', 'SKEMA_DEFAULT', 'MAPEL_ALLOC', 'NARASI'].includes(s.tipe_soal)).length})
+                        </button>
+                        {curSubMapelList.map(sm => (
+                          <button
+                            key={sm}
+                            onClick={() => { setFilterSubMapel(sm); setBankSoalPage(1); }}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap min-h-[36px] ${
+                              filterSubMapel === sm
+                                ? 'bg-indigo-600 text-white shadow-xs'
+                                : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                            }`}
+                          >
+                            {sm} ({subMapelCounts[sm] || 0})
+                          </button>
+                        ))}
+                      </div>
+                      <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 shrink-0 self-end sm:self-auto">
+                        Kolaborasi Tim: <span className="text-indigo-600 dark:text-indigo-400 font-bold">{curSubMapelList.join(' + ')}</span>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Filter & Search Bar */}
                   <div className="bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
                     {/* Tipe Soal Pills */}
@@ -1941,12 +2019,25 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                                   {(bankSoalPage - 1) * itemsPerPage + idx + 1}
                                 </td>
                                 <td className="py-3 px-4">
-                                  {getTipeBadge(soal.tipe_soal || soal.tipe)}
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    {getTipeBadge(soal.tipe_soal || soal.tipe)}
+                                    {soal.sub_mapel && (
+                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800">
+                                        {soal.sub_mapel}
+                                      </span>
+                                    )}
+                                  </div>
                                 </td>
                                 <td className="py-3 px-4">
                                   <div className="line-clamp-2 font-medium text-slate-800 dark:text-slate-200">
                                     {stripHtml(soal.pertanyaan)}
                                   </div>
+                                  {soal.nama_guru_pembuat && (
+                                    <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 flex items-center gap-1">
+                                      <span className="material-symbols-outlined text-[12px]">person</span>
+                                      <span>Pembuat: {soal.nama_guru_pembuat}</span>
+                                    </div>
+                                  )}
                                 </td>
                                 <td className="py-3 px-4 text-center">
                                   <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs">
@@ -2010,9 +2101,14 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                           className="bg-white dark:bg-slate-800 rounded-xl p-3.5 border border-slate-200/80 dark:border-slate-700/80 shadow-xs space-y-2"
                         >
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="text-xs font-mono font-bold text-slate-400">#{(bankSoalPage - 1) * itemsPerPage + idx + 1}</span>
                               {getTipeBadge(soal.tipe_soal || soal.tipe)}
+                              {soal.sub_mapel && (
+                                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800">
+                                  {soal.sub_mapel}
+                                </span>
+                              )}
                             </div>
                             <span className="text-xs font-bold text-slate-500">
                               {soal.bobot || 10} Poin
@@ -2021,6 +2117,12 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                           <p className="text-xs text-slate-700 dark:text-slate-300 line-clamp-2 leading-relaxed">
                             {stripHtml(soal.pertanyaan)}
                           </p>
+                          {soal.nama_guru_pembuat && (
+                            <div className="text-[10px] text-slate-400 dark:text-slate-500 flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[12px]">person</span>
+                              <span>Pembuat: {soal.nama_guru_pembuat}</span>
+                            </div>
+                          )}
                           <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
                             <button
                               onClick={() => {
@@ -3720,6 +3822,9 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
             dataMapel.find(m => String(m.id_mapel) === String(formSoal.id_mapel || selectedMapel))?.nama_mapel ||
             'Mata Pelajaran'
           }
+          subMapelList={curSubMapelList}
+          isTerpadu={Boolean(curMapelObj?.is_terpadu || curSubMapelList.length > 0)}
+          gasWebhookUrl={user?.gas_drive_webhook || (typeof window !== 'undefined' ? localStorage.getItem('nexa_gas_drive_webhook') : '') || ''}
           onClose={() => setFormSoal({ isOpen: false, data: null, id_mapel: '' })}
           onSave={handleSaveSoal}
         />

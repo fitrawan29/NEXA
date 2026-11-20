@@ -440,18 +440,27 @@ export function computeWeightedExamScores(questions, answersMap, isBlocked = fal
       totalNilai: 0,
       totalDiperoleh: 0,
       totalMaxAuto: 0,
-      details: validQuestions.map(q => ({ id_soal: q.id_soal, isCorrect: false, skorDiperoleh: 0, isEssay: normalizeTipeSoal(q.tipe_soal) === 'URAIAN' }))
+      subMapelBreakdown: null,
+      details: validQuestions.map(q => ({ id_soal: q.id_soal, sub_mapel: q.sub_mapel || undefined, isCorrect: false, skorDiperoleh: 0, isEssay: normalizeTipeSoal(q.tipe_soal) === 'URAIAN' }))
     };
   }
 
   let totalSkorMaxAuto = 0;
   let totalSkorDiperolehAuto = 0;
   const byType = {};
+  const bySubMapel = {};
   const details = [];
 
   for (const q of validQuestions) {
     const tipe = normalizeTipeSoal(q.tipe_soal);
     if (!byType[tipe]) byType[tipe] = { earned: 0, max: 0 };
+    
+    // Sub-Mapel tracking for integrated subjects (e.g. IPA / IPS Terpadu)
+    const subMapelKey = q.sub_mapel ? String(q.sub_mapel).trim() : null;
+    if (subMapelKey && !bySubMapel[subMapelKey]) {
+      bySubMapel[subMapelKey] = { earned: 0, max: 0, count: 0, essayMax: 0 };
+    }
+
     const studentAns = (answersMap || {})[q.id_soal];
     const res = evaluateAKMQuestion(q, studentAns);
     if (!res.isEssay) {
@@ -459,15 +468,46 @@ export function computeWeightedExamScores(questions, answersMap, isBlocked = fal
       totalSkorDiperolehAuto += res.skorDiperoleh;
       byType[tipe].earned += res.skorDiperoleh;
       byType[tipe].max += res.maxSkor;
+
+      if (subMapelKey) {
+        bySubMapel[subMapelKey].earned += res.skorDiperoleh;
+        bySubMapel[subMapelKey].max += res.maxSkor;
+        bySubMapel[subMapelKey].count += 1;
+      }
     } else {
-      byType[tipe].max += Number(q.bobot) || 10;
+      const essayWeight = Number(q.bobot) || 10;
+      byType[tipe].max += essayWeight;
+      if (subMapelKey) {
+        bySubMapel[subMapelKey].max += essayWeight;
+        bySubMapel[subMapelKey].essayMax += essayWeight;
+        bySubMapel[subMapelKey].count += 1;
+      }
     }
     details.push({
       id_soal: q.id_soal,
+      sub_mapel: subMapelKey || undefined,
       isCorrect: res.isCorrect,
       skorDiperoleh: res.skorDiperoleh,
       isEssay: res.isEssay
     });
+  }
+
+  // Calculate breakdown per sub-mapel if present
+  let subMapelBreakdown = null;
+  const subKeys = Object.keys(bySubMapel);
+  if (subKeys.length > 0) {
+    subMapelBreakdown = {};
+    for (const k of subKeys) {
+      const item = bySubMapel[k];
+      const score100 = item.max > 0 ? Math.round((item.earned / item.max) * 10000) / 100 : 0;
+      subMapelBreakdown[k] = {
+        earned: item.earned,
+        max: item.max,
+        count: item.count,
+        essayMax: item.essayMax,
+        score100
+      };
+    }
   }
 
   const skemaWeights = skemaConfig?.skema && typeof skemaConfig.skema === 'object' ? skemaConfig.skema : null;
@@ -514,6 +554,7 @@ export function computeWeightedExamScores(questions, answersMap, isBlocked = fal
     totalNilai,
     totalDiperoleh: totalSkorDiperolehAuto,
     totalMaxAuto: totalSkorMaxAuto,
+    subMapelBreakdown,
     details
   };
 }

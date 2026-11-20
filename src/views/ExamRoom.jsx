@@ -500,6 +500,9 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
 
         setSoal(parsedSoal);
         if (res.narasiMap) setNarasiMap(res.narasiMap);
+
+        // SOP 2: Konfirmasi naskah soal selesai dimuat -> lepaskan slot gerbang masuk bagi siswa berikutnya
+        api('konfirmasi_masuk_ujian', { id_log: idLog, id_jadwal: jadwal.id_jadwal }).catch(() => {});
       } else {
         setFetchError(res.message || 'Gagal memuat soal ujian.');
       }

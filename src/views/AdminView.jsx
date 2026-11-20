@@ -114,6 +114,10 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     nama_kepsek: savedKop.nama_kepsek || '',
     nip_kepsek: savedKop.nip_kepsek || ''
   });
+  // SOP 3: Google Drive Webhook state (Zero-Egress Image Pipeline)
+  const [gasDriveWebhook, setGasDriveWebhook] = useState(user?.gas_drive_webhook || (typeof window !== 'undefined' ? localStorage.getItem('nexa_gas_drive_webhook') : '') || '');
+  const [isTestingWebhook, setIsTestingWebhook] = useState(false);
+  const [isSavingWebhook, setIsSavingWebhook] = useState(false);
   const [dataRekapHasil, setDataRekapHasil] = useState([]);
   const [dataPengumuman, setDataPengumuman] = useState([]);
   const [pengumumanForm, setPengumumanForm] = useState({ judul: '', isi: '' });
@@ -433,13 +437,9 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     }
   };
 
+  // SOP 1: Monitoring pengawas menggunakan penyegaran manual on-demand (Auto-polling 15s dinonaktifkan demi mencegah kebocoran egress Supabase)
   useEffect(() => {
     fetchData(activeTab);
-    let interval;
-    if (activeTab === 'monitoring' && selectedJadwal) {
-      interval = setInterval(() => refreshMonitoringLogs(selectedJadwal), 15000);
-    }
-    return () => clearInterval(interval);
   }, [activeTab, selectedJadwal]);
 
   // R2: Fetch questions when selectedMapel is active
@@ -5142,11 +5142,15 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     ))}
                   </select>
                   <button
-                    onClick={() => fetchData('monitoring')}
-                    className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-slate-200 transition-colors min-h-[44px] min-w-[44px]"
-                    title="Refresh Data"
+                    onClick={() => {
+                      refreshMonitoringLogs(selectedJadwal);
+                      if (showMessage) showMessage('Data Disegarkan', 'Data pemantauan peserta berhasil diperbarui.', 'info');
+                    }}
+                    className="h-10 px-3.5 rounded-xl bg-primary text-white hover:bg-primary-600 transition-colors flex items-center gap-1.5 text-xs font-bold shadow-sm shadow-primary/20 min-h-[44px]"
+                    title="Segarkan Monitoring Peserta"
                   >
                     <span className="material-symbols-outlined text-[18px]">refresh</span>
+                    <span>Segarkan Data</span>
                   </button>
                 </div>
               </div>
@@ -6273,61 +6277,83 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                   <span className="material-symbols-outlined text-slate-400">chevron_right</span>
                 </button>
 
-                {/* Pengaturan KOP & Identitas Sekolah Persisten */}
+                {/* Pengaturan Integrasi Google Drive Webhook (Menggantikan KOP Sekolah) */}
                 <div className="w-full bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-3">
                   <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-700 pb-2">
-                    <span className="material-symbols-outlined text-primary text-xl">domain</span>
+                    <span className="material-symbols-outlined text-primary text-xl">cloud_upload</span>
                     <div>
-                      <h4 className="font-bold text-sm text-slate-800 dark:text-white">Pengaturan KOP & Kepala Sekolah</h4>
-                      <p className="text-[11px] text-slate-500">Dipakai otomatis saat mencetak Kartu Peserta Ujian</p>
+                      <h4 className="font-bold text-sm text-slate-800 dark:text-white">Webhook Google Drive (Gambar Soal)</h4>
+                      <p className="text-[11px] text-slate-500">Menyimpan gambar soal ke Google Drive (Zero-Egress Supabase)</p>
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                      URL Webhook Google Apps Script
+                    </label>
                     <input
-                      type="text"
-                      value={kopSettings.nama_kepsek}
-                      onChange={(e) => setKopSettings(prev => ({ ...prev, nama_kepsek: e.target.value }))}
-                      placeholder="Nama Kepala Sekolah"
-                      className="rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 dark:text-white"
+                      type="url"
+                      value={gasDriveWebhook}
+                      onChange={(e) => setGasDriveWebhook(e.target.value)}
+                      placeholder="https://script.google.com/macros/s/.../exec"
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 text-xs dark:bg-slate-900 dark:text-white outline-none focus:border-primary"
                     />
-                    <input
-                      type="text"
-                      value={kopSettings.nip_kepsek}
-                      onChange={(e) => setKopSettings(prev => ({ ...prev, nip_kepsek: e.target.value }))}
-                      placeholder="NIP Kepala Sekolah"
-                      className="rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 dark:text-white"
-                    />
-                    <input
-                      type="text"
-                      value={kopSettings.tahun_ajaran}
-                      onChange={(e) => setKopSettings(prev => ({ ...prev, tahun_ajaran: e.target.value }))}
-                      placeholder="Tahun Ajaran (mis. 2026/2027)"
-                      className="rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 dark:text-white"
-                    />
-                    <input
-                      type="text"
-                      value={kopSettings.alamat_sekolah}
-                      onChange={(e) => setKopSettings(prev => ({ ...prev, alamat_sekolah: e.target.value }))}
-                      placeholder="Alamat Sekolah"
-                      className="rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 dark:bg-slate-900 dark:text-white"
-                    />
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      Salin URL Web App dari Google Apps Script (template kode tersedia di folder <code>scripts/google_apps_script_drive_uploader.js</code>).
+                    </p>
                   </div>
-                  <div className="flex justify-end">
+                  <div className="flex items-center justify-end gap-2 pt-1">
                     <button
                       type="button"
-                      onClick={() => {
-                        localStorage.setItem('nexa_kop_' + (user?.npsn || 'default'), JSON.stringify(kopSettings));
-                        setPrintKartuModal(prev => ({
-                          ...prev,
-                          tahunAjaran: kopSettings.tahun_ajaran || prev.tahunAjaran,
-                          namaKepalaSekolah: kopSettings.nama_kepsek || '',
-                          nipKepalaSekolah: kopSettings.nip_kepsek || ''
-                        }));
-                        showMessage('Berhasil', 'Pengaturan KOP Sekolah berhasil disimpan.', 'success');
+                      disabled={isTestingWebhook || !gasDriveWebhook.trim()}
+                      onClick={async () => {
+                        const url = gasDriveWebhook.trim();
+                        if (!url) return;
+                        setIsTestingWebhook(true);
+                        try {
+                          const resp = await fetch(url, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                            body: JSON.stringify({ action: 'test_connection' })
+                          });
+                          const resJson = await resp.json();
+                          if (resJson && resJson.status === 'success') {
+                            showMessage('Koneksi Berhasil', 'Webhook Google Drive aktif dan merespons dengan baik.', 'success');
+                          } else {
+                            showMessage('Respon Webhook', resJson?.message || 'Webhook merespons tetapi status tidak sukses.', 'warning');
+                          }
+                        } catch (err) {
+                          showMessage('Uji Gagal', 'Gagal menghubungi Webhook: ' + err.message + '. Pastikan hak akses diatur ke "Anyone".', 'error');
+                        } finally {
+                          setIsTestingWebhook(false);
+                        }
                       }}
-                      className="px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-white text-xs font-bold transition-colors"
+                      className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-colors disabled:opacity-50"
                     >
-                      Simpan KOP Sekolah
+                      {isTestingWebhook ? 'Menguji...' : 'Uji Koneksi'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isSavingWebhook}
+                      onClick={async () => {
+                        setIsSavingWebhook(true);
+                        try {
+                          const url = gasDriveWebhook.trim();
+                          if (typeof window !== 'undefined') {
+                            localStorage.setItem('nexa_gas_drive_webhook', url);
+                          }
+                          if (user?.npsn) {
+                            await api('update_gas_drive_webhook', { npsn: user.npsn, gas_drive_webhook: url });
+                          }
+                          showMessage('Berhasil', 'URL Webhook Google Drive berhasil disimpan untuk seluruh sekolah.', 'success');
+                        } catch (err) {
+                          showMessage('Gagal', err.message || 'Gagal menyimpan Webhook.', 'error');
+                        } finally {
+                          setIsSavingWebhook(false);
+                        }
+                      }}
+                      className="px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-white text-xs font-bold transition-colors disabled:opacity-50"
+                    >
+                      {isSavingWebhook ? 'Menyimpan...' : 'Simpan Webhook'}
                     </button>
                   </div>
                 </div>
@@ -6628,6 +6654,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
             dataMapel.find(m => String(m.id_mapel) === String(formSoal.id_mapel || selectedMapel))?.nama_mapel ||
             'Mata Pelajaran'
           }
+          gasWebhookUrl={user?.gas_drive_webhook || (typeof window !== 'undefined' ? localStorage.getItem('nexa_gas_drive_webhook') : '') || ''}
           onClose={() => setFormSoal({ isOpen: false, data: null, id_mapel: '' })}
           onSave={handleSaveSoal}
         />
