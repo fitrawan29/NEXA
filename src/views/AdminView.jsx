@@ -102,6 +102,8 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   const [searchQueryMapel, setSearchQueryMapel] = useState('');
   const [filterAlokasiMapel, setFilterAlokasiMapel] = useState('');
   const [selectedMapelBulk, setSelectedMapelBulk] = useState([]);
+  const [sortConfigMapel, setSortConfigMapel] = useState({ key: 'nama_mapel', direction: 'asc' });
+  const [mapelViewMode, setMapelViewMode] = useState('table');
 
   // Print Kartu Peserta & KOP Persisten State
   const savedKop = (() => {
@@ -1929,7 +1931,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   }, [dataKelas, searchQueryKelas, filterTingkatKelas]);
 
   const sortedFilteredMapel = useMemo(() => {
-    return (dataMapel || []).filter(m => {
+    let list = (dataMapel || []).filter(m => {
       const q = (searchQueryMapel || '').trim().toLowerCase();
       const nama = String(m.nama_mapel || '').toLowerCase();
       const alokasi = String(m.alokasi_kelas || '').toLowerCase();
@@ -1942,7 +1944,26 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       );
       return matchesQuery && matchesAlokasi;
     });
-  }, [dataMapel, searchQueryMapel, filterAlokasiMapel]);
+
+    if (sortConfigMapel.key) {
+      list = [...list].sort((a, b) => {
+        let valA = a[sortConfigMapel.key];
+        let valB = b[sortConfigMapel.key];
+        if (sortConfigMapel.key === 'jumlah_soal') {
+          valA = parseInt(valA || 0, 10);
+          valB = parseInt(valB || 0, 10);
+          return sortConfigMapel.direction === 'asc' ? valA - valB : valB - valA;
+        }
+        valA = String(valA || '').toLowerCase();
+        valB = String(valB || '').toLowerCase();
+        return sortConfigMapel.direction === 'asc'
+          ? valA.localeCompare(valB, undefined, { numeric: true })
+          : valB.localeCompare(valA, undefined, { numeric: true });
+      });
+    }
+
+    return list;
+  }, [dataMapel, searchQueryMapel, filterAlokasiMapel, sortConfigMapel]);
 
   // Live Monitoring Computed Metrics and Filtered List
   const { monitoringMetrics, filteredMonitoringLogs } = useMemo(() => {
@@ -5740,8 +5761,13 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                 <>
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
-                      <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg sm:text-xl">Mata Pelajaran</h3>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Kelola daftar kurikulum mata pelajaran dan bank soal</p>
+                      <div className="flex items-center gap-2.5">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg sm:text-xl">Data Ujian & Mata Pelajaran</h3>
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 border border-primary/30">
+                          {sortedFilteredMapel.length} Mapel
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Kelola kurikulum mata pelajaran, alokasi rombel, dan bank soal</p>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap self-end sm:self-auto">
                       <button
@@ -5779,14 +5805,14 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                         value={searchQueryMapel}
                         onChange={(e) => setSearchQueryMapel(e.target.value)}
                         placeholder="Cari mapel, alokasi kelas, atau agama..."
-                        className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:ring-2 focus:ring-primary/20 focus:outline-none"
+                        className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:ring-2 focus:ring-primary/20 focus:outline-none text-slate-800 dark:text-slate-100"
                       />
                     </div>
                     <div className="flex items-center gap-2">
                       <select
                         value={filterAlokasiMapel}
                         onChange={(e) => setFilterAlokasiMapel(e.target.value)}
-                        className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:outline-none"
+                        className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:outline-none text-slate-700 dark:text-slate-200"
                       >
                         <option value="">Semua Alokasi</option>
                         <option value="Semua">Semua Kelas</option>
@@ -5794,6 +5820,34 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                           <option key={t} value={t}>Tingkat {t}</option>
                         ))}
                       </select>
+
+                      {/* View Switcher Toggle (Desktop) */}
+                      <div className="hidden sm:flex items-center bg-slate-100 dark:bg-slate-700/60 p-1 rounded-xl">
+                        <button
+                          type="button"
+                          onClick={() => setMapelViewMode('table')}
+                          className={`p-1.5 rounded-lg transition-all ${
+                            mapelViewMode === 'table'
+                              ? 'bg-white dark:bg-slate-800 text-primary shadow-xs font-bold'
+                              : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                          }`}
+                          title="Tampilan Tabel"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">table_rows</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setMapelViewMode('grid')}
+                          className={`p-1.5 rounded-lg transition-all ${
+                            mapelViewMode === 'grid'
+                              ? 'bg-white dark:bg-slate-800 text-primary shadow-xs font-bold'
+                              : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                          }`}
+                          title="Tampilan Kartu"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">grid_view</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -5822,53 +5876,390 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     </div>
                   )}
 
-                  {/* Select All Checkbox Header */}
-                  {sortedFilteredMapel.length > 0 && (
-                    <div className="flex items-center justify-between px-1 text-xs text-slate-500">
-                      <label className="flex items-center gap-2 cursor-pointer font-semibold">
-                        <input
-                          type="checkbox"
-                          aria-label="Pilih Semua Mapel"
-                          checked={sortedFilteredMapel.length > 0 && selectedMapelBulk.length === sortedFilteredMapel.length}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedMapelBulk(sortedFilteredMapel.map(m => m.id_mapel));
-                            } else {
-                              setSelectedMapelBulk([]);
-                            }
-                          }}
-                          className="rounded text-primary focus:ring-primary"
-                        />
-                        <span>Pilih Semua ({sortedFilteredMapel.length} Mapel)</span>
-                      </label>
+                  {/* DESKTOP MAPEL TABLE (hidden md:block saat mode table) */}
+                  {mapelViewMode === 'table' ? (
+                    <div className="hidden md:block w-full overflow-hidden bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse text-xs sm:text-sm">
+                          <thead>
+                            <tr className="border-b border-slate-200/80 dark:border-slate-700/80 bg-slate-50/90 dark:bg-slate-800/90 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                              <th className="py-3 px-3 w-10 text-center">
+                                <input
+                                  type="checkbox"
+                                  aria-label="Pilih Semua Mapel"
+                                  checked={sortedFilteredMapel.length > 0 && selectedMapelBulk.length === sortedFilteredMapel.length}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedMapelBulk(sortedFilteredMapel.map(m => m.id_mapel));
+                                    } else {
+                                      setSelectedMapelBulk([]);
+                                    }
+                                  }}
+                                  className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/50 cursor-pointer"
+                                />
+                              </th>
+                              <th className="py-3 px-2 w-10 text-center">#</th>
+                              <th
+                                className="py-3 px-4 cursor-pointer select-none hover:text-primary transition-colors"
+                                onClick={() => setSortConfigMapel(prev => ({ key: 'nama_mapel', direction: prev.key === 'nama_mapel' && prev.direction === 'asc' ? 'desc' : 'asc' }))}
+                              >
+                                <div className="flex items-center gap-1">
+                                  <span>Mata Pelajaran</span>
+                                  <span className="material-symbols-outlined text-[14px]">
+                                    {sortConfigMapel.key === 'nama_mapel' ? (sortConfigMapel.direction === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more'}
+                                  </span>
+                                </div>
+                              </th>
+                              <th
+                                className="py-3 px-4 cursor-pointer select-none hover:text-primary transition-colors"
+                                onClick={() => setSortConfigMapel(prev => ({ key: 'agama', direction: prev.key === 'agama' && prev.direction === 'asc' ? 'desc' : 'asc' }))}
+                              >
+                                <div className="flex items-center gap-1">
+                                  <span>Batasan Agama</span>
+                                  <span className="material-symbols-outlined text-[14px]">
+                                    {sortConfigMapel.key === 'agama' ? (sortConfigMapel.direction === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more'}
+                                  </span>
+                                </div>
+                              </th>
+                              <th className="py-3 px-4">Alokasi Rombel / Kelas</th>
+                              <th
+                                className="py-3 px-4 cursor-pointer select-none hover:text-primary transition-colors text-center"
+                                onClick={() => setSortConfigMapel(prev => ({ key: 'jumlah_soal', direction: prev.key === 'jumlah_soal' && prev.direction === 'asc' ? 'desc' : 'asc' }))}
+                              >
+                                <div className="flex items-center justify-center gap-1">
+                                  <span>Bank Soal</span>
+                                  <span className="material-symbols-outlined text-[14px]">
+                                    {sortConfigMapel.key === 'jumlah_soal' ? (sortConfigMapel.direction === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more'}
+                                  </span>
+                                </div>
+                              </th>
+                              <th className="py-3 px-4 text-right">Aksi</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                            {isLoading ? (
+                              <TableSkeleton rows={5} cols={7} asTableRows={true} hasAvatar={false} />
+                            ) : sortedFilteredMapel.length === 0 ? (
+                              <tr>
+                                <td colSpan={7} className="p-8">
+                                  <EmptyState
+                                    compact={true}
+                                    icon="menu_book"
+                                    title="Belum Ada Mata Pelajaran"
+                                    description={searchQueryMapel || filterAlokasiMapel ? 'Tidak ada mata pelajaran yang cocok dengan kriteria pencarian.' : 'Tambahkan mata pelajaran untuk memulai penyusunan kurikulum dan bank soal.'}
+                                    action={{ label: 'Tambah Mapel', onClick: () => openCreateModal('mapel'), icon: 'add' }}
+                                  />
+                                </td>
+                              </tr>
+                            ) : (
+                              sortedFilteredMapel.map((m, idx) => {
+                                const isUniversal = !m.alokasi_kelas || isUniversalAlloc(m.alokasi_kelas);
+                                const classes = isUniversal ? [] : splitCompoundTargets(m.alokasi_kelas);
+                                const displayClasses = classes.slice(0, 3);
+                                const extraCount = classes.length - 3;
+                                return (
+                                  <tr key={m.id_mapel || idx} className="hover:bg-slate-50/80 dark:hover:bg-slate-700/40 transition-colors group">
+                                    <td className="py-3 px-3 text-center">
+                                      <input
+                                        type="checkbox"
+                                        aria-label={`Pilih mapel ${m.nama_mapel}`}
+                                        checked={selectedMapelBulk.includes(m.id_mapel)}
+                                        onChange={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedMapelBulk(prev => e.target.checked ? [...prev, m.id_mapel] : prev.filter(id => id !== m.id_mapel));
+                                        }}
+                                        className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/50 cursor-pointer"
+                                      />
+                                    </td>
+                                    <td className="py-3 px-2 text-center font-mono text-slate-400 text-xs">
+                                      {idx + 1}
+                                    </td>
+                                    <td className="py-3 px-4">
+                                      <div className="flex items-center gap-2.5">
+                                        <div className="w-8 h-8 rounded-lg bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 flex items-center justify-center shrink-0">
+                                          <span className="material-symbols-outlined text-[18px]">menu_book</span>
+                                        </div>
+                                        <div className="min-w-0">
+                                          <p className="font-bold text-slate-800 dark:text-white leading-tight truncate">
+                                            {m.nama_mapel}
+                                          </p>
+                                          <p className="text-[11px] font-mono text-slate-400 mt-0.5">
+                                            ID: {m.id_mapel}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </td>
+                                    <td className="py-3 px-4">
+                                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold inline-block ${
+                                        m.agama
+                                          ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800'
+                                          : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                                      }`}>
+                                        {m.agama || 'Semua Agama'}
+                                      </span>
+                                    </td>
+                                    <td className="py-3 px-4">
+                                      {isUniversal ? (
+                                        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                                          Semua Kelas
+                                        </span>
+                                      ) : (
+                                        <div className="flex items-center gap-1 flex-wrap max-w-xs">
+                                          {displayClasses.map((cls, cIdx) => (
+                                            <span
+                                              key={cIdx}
+                                              className="px-2 py-0.5 rounded-full text-xs font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800"
+                                            >
+                                              {cls}
+                                            </span>
+                                          ))}
+                                          {extraCount > 0 && (
+                                            <span
+                                              className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                                              title={classes.slice(3).join(', ')}
+                                            >
+                                              +{extraCount} lainnya
+                                            </span>
+                                          )}
+                                        </div>
+                                      )}
+                                    </td>
+                                    <td className="py-3 px-4 text-center">
+                                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200">
+                                        <span className="material-symbols-outlined text-[15px] text-primary">quiz</span>
+                                        <span>{m.jumlah_soal || 0} Soal</span>
+                                      </span>
+                                    </td>
+                                    <td className="py-3 px-4 text-right">
+                                      <div className="flex items-center justify-end gap-1.5">
+                                        <button
+                                          onClick={() => { setSelectedMapel(m.id_mapel); setBankSoalPage(1); }}
+                                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-primary/10 hover:bg-primary/20 text-primary dark:text-primary-400 transition-colors"
+                                          title="Kelola Bank Soal"
+                                        >
+                                          <span className="material-symbols-outlined text-[16px]">menu_book</span>
+                                          <span className="hidden xl:inline">Kelola Soal</span>
+                                        </button>
+                                        <button
+                                          onClick={() => setSkemaModal({ isOpen: true, id_mapel: m.id_mapel })}
+                                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 text-purple-700 dark:text-purple-300 transition-colors"
+                                          title="Atur Bobot AKM"
+                                        >
+                                          <span className="material-symbols-outlined text-[16px]">tune</span>
+                                          <span className="hidden xl:inline">Bobot AKM</span>
+                                        </button>
+                                        <button
+                                          onClick={() => openEditModal('mapel', m)}
+                                          className="w-8 h-8 rounded-lg flex items-center justify-center text-primary hover:bg-primary/10 dark:hover:bg-primary/10 transition-colors"
+                                          title="Edit Data Mapel"
+                                        >
+                                          <span className="material-symbols-outlined text-[18px]">edit</span>
+                                        </button>
+                                        <button
+                                          onClick={() => handleDeleteClick(m.id_mapel, 'mapel', m)}
+                                          className="w-8 h-8 rounded-lg flex items-center justify-center text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                                          title="Hapus Mapel"
+                                        >
+                                          <span className="material-symbols-outlined text-[18px]">delete</span>
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    /* DESKTOP GRID CARDS (hidden md:grid saat mode grid) */
+                    <div className="hidden md:grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                      {sortedFilteredMapel.length === 0 ? (
+                        <div className="col-span-full">
+                          <EmptyState
+                            compact={true}
+                            icon="menu_book"
+                            title="Belum Ada Mata Pelajaran"
+                            description={searchQueryMapel || filterAlokasiMapel ? 'Tidak ada mata pelajaran yang cocok dengan filter.' : 'Tambahkan mata pelajaran untuk memulai penyusunan kurikulum dan bank soal.'}
+                            action={{ label: 'Tambah Mapel', onClick: () => openCreateModal('mapel'), icon: 'add' }}
+                          />
+                        </div>
+                      ) : (
+                        sortedFilteredMapel.map((m) => {
+                          const isUniversal = !m.alokasi_kelas || isUniversalAlloc(m.alokasi_kelas);
+                          const classes = isUniversal ? [] : splitCompoundTargets(m.alokasi_kelas);
+                          return (
+                            <div
+                              key={m.id_mapel}
+                              className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200/80 dark:border-slate-700/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-3.5 group"
+                            >
+                              <div className="flex items-start justify-between gap-2.5">
+                                <div className="flex items-start gap-3 min-w-0 flex-1">
+                                  <input
+                                    type="checkbox"
+                                    aria-label={`Pilih mapel ${m.nama_mapel}`}
+                                    checked={selectedMapelBulk.includes(m.id_mapel)}
+                                    onChange={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedMapelBulk(prev => e.target.checked ? [...prev, m.id_mapel] : prev.filter(id => id !== m.id_mapel));
+                                    }}
+                                    className="rounded text-primary focus:ring-primary mt-1 shrink-0 cursor-pointer"
+                                  />
+                                  <div className="w-10 h-10 rounded-xl bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 flex items-center justify-center shrink-0">
+                                    <span className="material-symbols-outlined text-xl">menu_book</span>
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <h4 className="font-bold text-sm text-slate-800 dark:text-white leading-snug line-clamp-2" title={m.nama_mapel}>
+                                      {m.nama_mapel}
+                                    </h4>
+                                    <p className="text-[11px] font-mono text-slate-400 mt-0.5">ID: {m.id_mapel}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-0.5 shrink-0">
+                                  <button
+                                    onClick={() => openEditModal('mapel', m)}
+                                    className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-primary hover:bg-primary/10 transition-colors"
+                                    title="Edit"
+                                  >
+                                    <span className="material-symbols-outlined text-[17px]">edit</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteClick(m.id_mapel, 'mapel', m)}
+                                    className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                                    title="Hapus"
+                                  >
+                                    <span className="material-symbols-outlined text-[17px]">delete</span>
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="space-y-2 pt-1 border-t border-slate-100 dark:border-slate-700/60">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                    m.agama
+                                      ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800'
+                                      : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                                  }`}>
+                                    {m.agama || 'Semua Agama'}
+                                  </span>
+
+                                  {isUniversal ? (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                                      Semua Kelas
+                                    </span>
+                                  ) : (
+                                    <>
+                                      {classes.slice(0, 3).map((cls, idx) => (
+                                        <span
+                                          key={idx}
+                                          className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800"
+                                        >
+                                          {cls}
+                                        </span>
+                                      ))}
+                                      {classes.length > 3 && (
+                                        <span
+                                          className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                                          title={classes.slice(3).join(', ')}
+                                        >
+                                          +{classes.length - 3} lainnya
+                                        </span>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-0.5">
+                                  <span className="flex items-center gap-1 font-medium">
+                                    <span className="material-symbols-outlined text-[15px] text-primary">quiz</span>
+                                    <span>{m.jumlah_soal || 0} Butir Soal</span>
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/60">
+                                <button
+                                  onClick={() => setSkemaModal({ isOpen: true, id_mapel: m.id_mapel })}
+                                  className="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-xl text-xs font-bold bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 transition-colors"
+                                  title="Atur Bobot AKM"
+                                >
+                                  <span className="material-symbols-outlined text-[16px]">tune</span>
+                                  <span>Bobot AKM</span>
+                                </button>
+                                <button
+                                  onClick={() => { setSelectedMapel(m.id_mapel); setBankSoalPage(1); }}
+                                  className="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-xl text-xs font-bold bg-primary hover:bg-primary/90 text-white shadow-xs transition-all active:scale-95"
+                                  title="Kelola Bank Soal"
+                                >
+                                  <span className="material-symbols-outlined text-[16px]">menu_book</span>
+                                  <span>Kelola Soal</span>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
                   )}
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
-                    {sortedFilteredMapel.map((m) => (
-                      <div
-                        key={m.id_mapel}
-                        className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex items-center justify-between gap-3"
-                      >
-                        <input
-                          type="checkbox"
-                          aria-label={`Pilih mapel ${m.nama_mapel}`}
-                          checked={selectedMapelBulk.includes(m.id_mapel)}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            setSelectedMapelBulk(prev => e.target.checked ? [...prev, m.id_mapel] : prev.filter(id => id !== m.id_mapel));
-                          }}
-                          className="rounded text-primary focus:ring-primary shrink-0"
-                        />
-                        <div
-                          className="flex items-center gap-3 min-w-0 flex-1"
-                        >
-                          <div className="w-10 h-10 rounded-xl bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary-400 flex items-center justify-center shrink-0">
-                            <span className="material-symbols-outlined text-xl">menu_book</span>
-                          </div>
-                          <div className="min-w-0 flex-1">
+                  {/* MOBILE COMPACT CARD-ROWS MAPEL (md:hidden - 375px) */}
+                  <div className="md:hidden space-y-3">
+                    {sortedFilteredMapel.length === 0 ? (
+                      <EmptyState
+                        compact={true}
+                        icon="search_off"
+                        title="Data Tidak Ditemukan"
+                        description="Tidak ada mata pelajaran yang cocok dengan filter."
+                        action={(searchQueryMapel || filterAlokasiMapel) ? { label: 'Reset Filter', onClick: () => { setSearchQueryMapel(''); setFilterAlokasiMapel(''); } } : null}
+                      />
+                    ) : (
+                      sortedFilteredMapel.map((m) => {
+                        const isUniversal = !m.alokasi_kelas || isUniversalAlloc(m.alokasi_kelas);
+                        const classes = isUniversal ? [] : splitCompoundTargets(m.alokasi_kelas);
+                        return (
+                          <div
+                            key={m.id_mapel}
+                            className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-3"
+                          >
+                            <div className="flex items-start justify-between gap-2.5">
+                              <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                                <input
+                                  type="checkbox"
+                                  aria-label={`Pilih mapel ${m.nama_mapel}`}
+                                  checked={selectedMapelBulk.includes(m.id_mapel)}
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedMapelBulk(prev => e.target.checked ? [...prev, m.id_mapel] : prev.filter(id => id !== m.id_mapel));
+                                  }}
+                                  className="rounded text-primary focus:ring-primary mt-0.5 shrink-0"
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <h4 className="font-bold text-sm text-slate-800 dark:text-white leading-snug">
+                                    {m.nama_mapel}
+                                  </h4>
+                                  <p className="text-[11px] font-mono text-slate-400">ID: {m.id_mapel}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  onClick={() => openEditModal('mapel', m)}
+                                  className="w-8 h-8 rounded-lg flex items-center justify-center text-primary hover:bg-primary/10 dark:hover:bg-primary/10"
+                                  title="Edit"
+                                >
+                                  <span className="material-symbols-outlined text-[18px]">edit</span>
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteClick(m.id_mapel, 'mapel', m)}
+                                  className="w-8 h-8 rounded-lg flex items-center justify-center text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                                  title="Hapus"
+                                >
+                                  <span className="material-symbols-outlined text-[18px]">delete</span>
+                                </button>
+                              </div>
+                            </div>
+
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <h4 className="font-bold text-xs sm:text-sm text-slate-800 dark:text-white truncate">{m.nama_mapel}</h4>
                               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                                 m.agama
                                   ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800'
@@ -5876,73 +6267,52 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                               }`}>
                                 {m.agama || 'Semua Agama'}
                               </span>
-                              {(!m.alokasi_kelas || isUniversalAlloc(m.alokasi_kelas) || splitCompoundTargets(m.alokasi_kelas).length <= 1) ? (
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                  m.alokasi_kelas && !isUniversalAlloc(m.alokasi_kelas)
-                                    ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800'
-                                    : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                                }`}>
-                                  {m.alokasi_kelas || 'Semua Kelas'}
+                              {isUniversal ? (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                                  Semua Kelas
                                 </span>
                               ) : (
-                                splitCompoundTargets(m.alokasi_kelas || (m.alokasi_kelas.split(/[,;|]+/))).map((cls, idx) => (
-                                  <span
-                                    key={idx}
-                                    className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800"
-                                  >
-                                    {cls}
-                                  </span>
-                                ))
+                                <>
+                                  {classes.slice(0, 2).map((cls, idx) => (
+                                    <span
+                                      key={idx}
+                                      className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800"
+                                    >
+                                      {cls}
+                                    </span>
+                                  ))}
+                                  {classes.length > 2 && (
+                                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                                      +{classes.length - 2}
+                                    </span>
+                                  )}
+                                </>
                               )}
+                              <span className="ml-auto text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                                <span className="material-symbols-outlined text-[14px] text-primary">quiz</span>
+                                {m.jumlah_soal || 0} Soal
+                              </span>
                             </div>
-                            <p className="text-[11px] text-slate-400 mt-0.5">{m.jumlah_soal || 0} Soal Tersedia</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            onClick={() => setSkemaModal({ isOpen: true, id_mapel: m.id_mapel })}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 transition-colors"
-                            title="Atur Bobot AKM"
-                          >
-                            <span className="material-symbols-outlined text-[16px]">tune</span>
-                            <span className="hidden sm:inline">Bobot AKM</span>
-                          </button>
-                          <button
-                            onClick={() => { setSelectedMapel(m.id_mapel); setBankSoalPage(1); }}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-                            title="Kelola Soal"
-                          >
-                            <span className="material-symbols-outlined text-[16px]">quiz</span>
-                            <span className="hidden sm:inline">Kelola Soal</span>
-                          </button>
-                          <button
-                            onClick={() => openEditModal('mapel', m)}
-                            className="w-8 h-8 rounded-lg flex items-center justify-center text-primary hover:bg-primary/10 dark:hover:bg-primary/10"
-                            title="Edit"
-                          >
-                            <span className="material-symbols-outlined text-[18px]">edit</span>
-                          </button>
-                          <button
-                            onClick={() => handleDeleteClick(m.id_mapel, 'mapel', m)}
-                            className="w-8 h-8 rounded-lg flex items-center justify-center text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
-                            title="Hapus"
-                          >
-                            <span className="material-symbols-outlined text-[18px]">delete</span>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
 
-                    {sortedFilteredMapel.length === 0 && (
-                      <div className="col-span-full">
-                        <EmptyState
-                          compact={true}
-                          icon="menu_book"
-                          title="Belum Ada Mata Pelajaran"
-                          description="Tambahkan mata pelajaran untuk memulai penyusunan soal."
-                          action={{ label: 'Tambah Mapel', onClick: () => openCreateModal('mapel'), icon: 'add' }}
-                        />
-                      </div>
+                            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/60">
+                              <button
+                                onClick={() => setSkemaModal({ isOpen: true, id_mapel: m.id_mapel })}
+                                className="inline-flex items-center justify-center gap-1 px-2.5 py-2 rounded-xl text-xs font-bold bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">tune</span>
+                                <span>Bobot AKM</span>
+                              </button>
+                              <button
+                                onClick={() => { setSelectedMapel(m.id_mapel); setBankSoalPage(1); }}
+                                className="inline-flex items-center justify-center gap-1 px-2.5 py-2 rounded-xl text-xs font-bold bg-primary text-white shadow-xs"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">menu_book</span>
+                                <span>Kelola Soal</span>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })
                     )}
                   </div>
                 </>
