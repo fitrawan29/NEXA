@@ -4,6 +4,7 @@
  * and strict bypass for Supabase and dynamic API calls.
  */
 
+// Base cache name; automatically versioned with unique build ID on production build by vite.config.js
 const CACHE_NAME = 'nexa-cbt-v5';
 const PRECACHE_URLS = [
   '/',
