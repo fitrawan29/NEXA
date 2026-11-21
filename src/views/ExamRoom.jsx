@@ -345,6 +345,12 @@ const ExamRoom = ({ user, jadwal, idLog, dataLog, showMessage, onFinish, isDarkM
     // Live Proctor & Schedule Polling: synchronize time extensions, unblock, and force stop
     const pollInterval = setInterval(async () => {
       if (!idLog) return;
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      // Anti-thundering herd jitter: distribute simultaneous requests across an 8s window
+      const jitterMs = Math.floor(Math.random() * 8000);
+      if (jitterMs > 0) {
+        await new Promise(resolve => setTimeout(resolve, jitterMs));
+      }
       try {
         const res = await api('get_status_log_ujian', { id_log: idLog, session_token: user?.session_token });
         if (res.status === 'error' && res.session_conflict) {

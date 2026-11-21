@@ -75,7 +75,28 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-first with cache fallback for static shell assets
+  // Cache-First strategy for immutable hashed build bundles (/assets/*)
+  if (url.pathname.startsWith('/assets/')) {
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+        return fetch(event.request).then((response) => {
+          if (response && response.status === 200 && response.type === 'basic') {
+            const responseToCache = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache).catch(() => {});
+            }).catch(() => {});
+          }
+          return response;
+        });
+      })
+    );
+    return;
+  }
+
+  // Network-first with cache fallback for remaining static shell assets
   event.respondWith(
     fetch(event.request)
       .then((response) => {

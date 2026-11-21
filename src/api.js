@@ -15,24 +15,36 @@ export { supabaseClient };
 
     let timeOffset = 0;
     let syncPromise = null;
+    export const setServerTimeOffset = (offset) => {
+      if (typeof offset === 'number' && !Number.isNaN(offset)) {
+        timeOffset = offset;
+      }
+    };
     export const getTrueNow = async () => {
       if (!syncPromise) {
         syncPromise = (async () => {
           try {
-            let signal = undefined;
-            let timeoutId = undefined;
-            if (typeof AbortController !== 'undefined') {
-              const controller = new AbortController();
-              signal = controller.signal;
-              timeoutId = setTimeout(() => controller.abort(), 3000);
+            if (typeof window !== 'undefined' && window.location && window.location.href) {
+              let signal = undefined;
+              let timeoutId = undefined;
+              if (typeof AbortController !== 'undefined') {
+                const controller = new AbortController();
+                signal = controller.signal;
+                timeoutId = setTimeout(() => controller.abort(), 2000);
+              }
+              const res = await fetch(window.location.href, { method: 'HEAD', cache: 'no-store', signal });
+              if (timeoutId) clearTimeout(timeoutId);
+              const dateHeader = res?.headers?.get('date');
+              if (dateHeader) {
+                const serverMs = new Date(dateHeader).getTime();
+                if (!Number.isNaN(serverMs)) {
+                  timeOffset = serverMs - Date.now();
+                  return;
+                }
+              }
             }
-            const res = await fetch('https://worldtimeapi.org/api/timezone/Etc/UTC', { signal });
-            if (timeoutId) clearTimeout(timeoutId);
-            if (!res.ok) throw new Error('API down');
-            const data = await res.json();
-            timeOffset = new Date(data.datetime).getTime() - Date.now();
-          } catch (error) {
-            console.warn('Network time sync unavailable, falling back to local system time.');
+          } catch (_) {
+            // Fallback safe to local system time (zero network freeze)
           }
         })();
       }
@@ -905,9 +917,6 @@ export { supabaseClient };
                  const currentUuid = dbData.session_token.split('|')[0];
                  const payloadUuid = payload.session_token.split('|')[0];
                  if (currentUuid === payloadUuid) {
-                     const nowTrue = await getTrueNow();
-                     const newToken = currentUuid + '|' + nowTrue.getTime();
-                     await supabaseClient.from('siswa').update({ session_token: newToken }).eq('id_siswa', payload.id_siswa);
                      return { status: 'success' };
                  }
              }
@@ -1948,7 +1957,7 @@ export { supabaseClient };
           }
 
           case 'get_jawaban_uraian': {
-            ({ data, error } = await supabaseClient.from('jawaban_siswa').select('*, soal_ujian(pertanyaan, tipe_soal, bobot, kunci_jawaban, sub_mapel)').eq('id_log', payload.id_log));
+            ({ data, error } = await supabaseClient.from('jawaban_siswa').select('*, soal_ujian(pertanyaan, tipe_soal, bobot, kunci_jawaban)').eq('id_log', payload.id_log));
             if (error) return { status: 'error', message: error.message };
             const uraianList = (data || []).filter(j => j.soal_ujian && j.soal_ujian.tipe_soal === 'URAIAN');
             return {
@@ -2032,10 +2041,10 @@ export { supabaseClient };
             if (logIds.length > 0) {
               const { data: jwbRows } = await supabaseClient
                 .from('jawaban_siswa')
-                .select('id_log, jawaban_user')
+                .select('id_log')
                 .in('id_log', logIds);
               (jwbRows || []).forEach(r => {
-                if (r.jawaban_user !== null && r.jawaban_user !== undefined && String(r.jawaban_user).trim() !== '' && String(r.jawaban_user) !== '{}' && String(r.jawaban_user) !== '[]') {
+                if (r && r.id_log) {
                   jawabanCountMap[r.id_log] = (jawabanCountMap[r.id_log] || 0) + 1;
                 }
               });
@@ -2243,7 +2252,7 @@ export { supabaseClient };
             if (log.id_jadwal) {
               const { data: jadwalInfo } = await supabaseClient
                 .from('jadwal')
-                .select('waktu_selesai, durasi_menit, status_ujian')
+                .select('waktu_selesai, durasi_menit')
                 .eq('id_jadwal', log.id_jadwal)
                 .maybeSingle();
               if (jadwalInfo) {
@@ -2435,7 +2444,7 @@ export { supabaseClient };
             const nowTrue = await getTrueNow();
             const { data: logItem, error: logErr } = await supabaseClient
               .from('log_ujian')
-              .select('*')
+              .select('id_log, id_jadwal, id_siswa, status_ujian, pelanggaran, is_blocked, waktu_login, nilai_auto')
               .eq('id_log', qIdLog)
               .maybeSingle();
 
@@ -2687,7 +2696,11 @@ export { supabaseClient };
             }
 
             const effectiveNpsn = payload.npsn || jadwal?.npsn;
-            const { data: rawSoalData } = await supabaseClient.from('soal_ujian').select('*').eq('id_mapel', jadwal?.id_mapel).eq('npsn', effectiveNpsn);
+            const { data: rawSoalData } = await supabaseClient
+              .from('soal_ujian')
+              .select('id_soal, id_mapel, npsn, tipe_soal, kunci_jawaban, bobot, opsi')
+              .eq('id_mapel', jadwal?.id_mapel)
+              .eq('npsn', effectiveNpsn);
             const soalData = (rawSoalData || []).map(s => {
               if (s.opsi && typeof s.opsi === 'string') {
                 try { s.opsi = JSON.parse(s.opsi); } catch(e) {}

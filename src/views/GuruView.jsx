@@ -232,6 +232,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
   useEffect(() => {
     fetchData();
     const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       api('get_jadwal_pengawas', { id_guru: guruId }).then(resJadwal => {
         if (resJadwal.status === 'success') setDataJadwal(resJadwal.data || []);
       }).catch(() => {});

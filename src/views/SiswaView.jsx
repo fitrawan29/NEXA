@@ -158,10 +158,14 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     }
   }, [activeTab]);
 
-  // Heartbeat session sync
+  // Heartbeat session sync (suppressed during active exam because ExamRoom handles session status)
   useEffect(() => {
+    if (activeExamData) return;
     const interval = setInterval(async () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       if (user && user.session_token) {
+        const jitterMs = Math.floor(Math.random() * 8000);
+        if (jitterMs > 0) await new Promise(r => setTimeout(r, jitterMs));
         const res = await api('heartbeat_siswa', { id_siswa: currentUserId, session_token: user.session_token });
         if (res.status === 'error' && res.session_conflict === true) {
           onLogout();
@@ -170,12 +174,13 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       }
     }, 60000);
     return () => clearInterval(interval);
-  }, [user, currentUserId]);
+  }, [user, currentUserId, activeExamData]);
 
   // Background polling for exam schedule & grades (non-active exam only, 60000ms anti-429)
   useEffect(() => {
     if (activeExamData) return;
     const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       loadJadwal(false);
       loadRiwayat();
     }, 60000);
@@ -353,7 +358,10 @@ const SiswaView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
 
       if (!isCancelled) {
         const jitter = Math.floor(Math.random() * 1000) - 500;
-        timerId = setTimeout(pollQueue, Math.max(3000, 4000 + jitter));
+        // Adaptive queue polling: slower intervals for higher queue positions to minimize Supabase query load
+        const curPos = queueModal.position || 1;
+        const baseDelay = curPos > 15 ? 9000 : curPos > 5 ? 6000 : 4000;
+        timerId = setTimeout(pollQueue, Math.max(3000, baseDelay + jitter));
       }
     };
 
