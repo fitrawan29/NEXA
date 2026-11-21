@@ -54,6 +54,18 @@ Setiap project Vercel dikonfigurasikan dengan environment variable masing-masing
 
 ## 3. Langkah Persiapan Database di Supabase (Wajib)
 
+### A. Untuk Instansi Database Supabase Baru (Fresh Project dari Nol)
+Jika Anda membuat project Supabase baru yang masih kosong:
+1. Buka dashboard project di [https://supabase.com/dashboard](https://supabase.com/dashboard).
+2. Masuk ke menu **SQL Editor** -> klik **New Query**.
+3. Salin dan tempelkan seluruh isi file **`database_backups/schema_master_init.sql`**.
+   *(Skrip master ini otomatis membuat 21 tabel, seluruh foreign key cascades, indeks performa, publikasi realtime, RPC `submit_ujian_atomic`, dan akun admin default).*
+4. Klik tombol **Run** dan pastikan status `Success`.
+5. Buka **Table Editor** untuk memverifikasi seluruh 21 tabel telah terbentuk.
+
+---
+
+### B. Untuk Database Eksisting (Hanya Pembaruan Migrasi Keandalan)
 Sebelum mengaktifkan deployment, jalankan skrip migrasi keandalan database pada **keempat** project database Supabase:
 
 1. Buka dashboard masing-masing project di [https://supabase.com/dashboard](https://supabase.com/dashboard).
