@@ -172,6 +172,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   const [bankSoalPage, setBankSoalPage] = useState(1);
   const [filterTipeSoal, setFilterTipeSoal] = useState('ALL');
   const [searchQuerySoal, setSearchQuerySoal] = useState('');
+  const [selectedSoalBulk, setSelectedSoalBulk] = useState([]);
   const [skemaModal, setSkemaModal] = useState({ isOpen: false, id_mapel: null });
   const [adminMapelSkemaData, setAdminMapelSkemaData] = useState([]);
   const [isAdminMapelSkemaLoading, setIsAdminMapelSkemaLoading] = useState(false);
@@ -456,6 +457,10 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     }
   }, [selectedMapel, activeTab]);
 
+  useEffect(() => {
+    setSelectedSoalBulk([]);
+  }, [selectedMapel, filterTipeSoal]);
+
   const isSelectedMapelActive = Boolean(
     selectedMapel && (dataJadwal || []).some(j => String(j.id_mapel) === String(selectedMapel) && j.status_ujian === 'AKTIF')
   );
@@ -567,12 +572,52 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     if (!confirm('Hapus butir soal ini?')) return;
     const res = await api('delete_soal_mapel', { id_soal: id });
     if (res.status === 'success') {
+      setSelectedSoalBulk(prev => prev.filter(sId => sId !== id));
       const refresh = await api('get_soal_by_mapel', { id_mapel: selectedMapel });
       if (refresh.status === 'success') setDataSoal(refresh.data || []);
       fetchData('mapel');
     } else {
       showMessage('Info', res.message, 'info');
     }
+  };
+
+  const handleBulkDeleteSoal = async () => {
+    if (isSelectedMapelActive) {
+      showMessage('Soal Terkunci', 'Tidak dapat menghapus soal karena jadwal ujian mapel ini sedang AKTIF.', 'error');
+      return;
+    }
+    if (!selectedSoalBulk || selectedSoalBulk.length === 0) {
+      showMessage('Peringatan', 'Pilih butir soal yang ingin dihapus terlebih dahulu.', 'error');
+      return;
+    }
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Konfirmasi Hapus Soal Terpilih',
+      message: `Hapus ${selectedSoalBulk.length} butir soal yang dipilih? Tindakan ini tidak dapat dibatalkan.`,
+      actionText: 'Hapus',
+      icon: 'delete_forever',
+      type: 'delete',
+      onConfirm: async () => {
+        setIsSoalLoading(true);
+        const res = await api('delete_soal_bulk', { ids: selectedSoalBulk, npsn: user.npsn });
+        setIsSoalLoading(false);
+        if (res.status === 'success') {
+          showMessage('Info', res.message, 'info');
+          await api('create_audit_log', {
+            username: user.username,
+            role: 'admin',
+            action: 'DELETE_BULK',
+            target: `soal (${selectedSoalBulk.length} item) pada mapel ${selectedMapel}`
+          });
+          setSelectedSoalBulk([]);
+          const refresh = await api('get_soal_by_mapel', { id_mapel: selectedMapel });
+          if (refresh.status === 'success') setDataSoal(refresh.data || []);
+          fetchData('mapel');
+        } else {
+          showMessage('Info', res.message, 'info');
+        }
+      }
+    });
   };
 
   const downloadTemplateSoal = () => {
@@ -5649,13 +5694,55 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     </div>
                   </div>
 
+                  {/* Soal Bulk Action Bar */}
+                  {selectedSoalBulk.length > 0 && (
+                    <div className="flex items-center justify-between bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 px-4 py-2.5 rounded-xl animate-fade-in">
+                      <div className="flex items-center gap-2 text-xs font-semibold text-rose-700 dark:text-rose-300">
+                        <span className="material-symbols-outlined text-[18px]">check_box</span>
+                        <span>{selectedSoalBulk.length} butir soal dipilih</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setSelectedSoalBulk([])}
+                          className="px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white"
+                        >
+                          Batal
+                        </button>
+                        <button
+                          onClick={handleBulkDeleteSoal}
+                          disabled={isSelectedMapelActive}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-xs font-bold shadow-sm transition-all"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">delete</span>
+                          <span>Hapus Terpilih ({selectedSoalBulk.length})</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* High-Density Question Table */}
                   <div className="w-full overflow-hidden bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse text-xs sm:text-sm">
                         <thead>
                           <tr className="border-b border-slate-200/80 dark:border-slate-700/80 bg-slate-50/90 dark:bg-slate-800/90 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                            <th className="py-3 px-4 w-12 text-center">#</th>
+                            <th className="py-3 px-3 w-10 text-center">
+                              <input
+                                type="checkbox"
+                                aria-label="Pilih Semua Soal"
+                                disabled={isSelectedMapelActive || filteredSoal.length === 0}
+                                checked={filteredSoal.length > 0 && selectedSoalBulk.length === filteredSoal.length}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedSoalBulk(filteredSoal.map(s => s.id_soal));
+                                  } else {
+                                    setSelectedSoalBulk([]);
+                                  }
+                                }}
+                                className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                              />
+                            </th>
+                            <th className="py-3 px-2 w-10 text-center">#</th>
                             <th className="py-3 px-4 w-24">Tipe</th>
                             <th className="py-3 px-4">Pertanyaan</th>
                             <th className="py-3 px-4 w-28 text-center">Bobot</th>
@@ -5664,10 +5751,10 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
                           {isSoalLoading ? (
-                            <TableSkeleton rows={6} cols={5} asTableRows={true} hasAvatar={false} />
+                            <TableSkeleton rows={6} cols={6} asTableRows={true} hasAvatar={false} />
                           ) : paginatedSoal.length === 0 ? (
                             <tr>
-                              <td colSpan={5} className="p-8">
+                              <td colSpan={6} className="p-8">
                                 <EmptyState
                                   compact={true}
                                   icon="quiz"
@@ -5683,7 +5770,23 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                           ) : (
                             paginatedSoal.map((soal, idx) => (
                               <tr key={soal.id_soal || idx} className="hover:bg-slate-50/80 dark:hover:bg-slate-700/40 transition-colors group">
-                                <td className="py-3 px-4 text-center font-mono text-slate-400 text-xs">
+                                <td className="py-3 px-3 text-center">
+                                  <input
+                                    type="checkbox"
+                                    aria-label={`Pilih soal #${(bankSoalPage - 1) * itemsPerPageSoal + idx + 1}`}
+                                    disabled={isSelectedMapelActive}
+                                    checked={selectedSoalBulk.includes(soal.id_soal)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedSoalBulk(prev => [...prev, soal.id_soal]);
+                                      } else {
+                                        setSelectedSoalBulk(prev => prev.filter(id => id !== soal.id_soal));
+                                      }
+                                    }}
+                                    className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                  />
+                                </td>
+                                <td className="py-3 px-2 text-center font-mono text-slate-400 text-xs">
                                   {(bankSoalPage - 1) * itemsPerPageSoal + idx + 1}
                                 </td>
                                 <td className="py-3 px-4">

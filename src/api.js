@@ -1956,6 +1956,20 @@ export { supabaseClient };
             return { status: 'success', message: 'Soal berhasil dihapus.' };
           }
 
+          case 'delete_soal_bulk':
+          case 'delete_soal_mapel_bulk': {
+            if (!Array.isArray(payload?.ids) || payload.ids.length === 0) {
+              return { status: 'error', message: 'Tidak ada butir soal yang dipilih.' };
+            }
+            let query = supabaseClient.from('soal_ujian').delete().in('id_soal', payload.ids);
+            if (payload.npsn) query = query.eq('npsn', payload.npsn);
+            const resBulkDelete = await query;
+            if (resBulkDelete.error) {
+              return { status: 'error', message: resBulkDelete.error.message };
+            }
+            return { status: 'success', message: `${payload.ids.length} butir soal berhasil dihapus.` };
+          }
+
           case 'get_jawaban_uraian': {
             ({ data, error } = await supabaseClient.from('jawaban_siswa').select('*, soal_ujian(pertanyaan, tipe_soal, bobot, kunci_jawaban)').eq('id_log', payload.id_log));
             if (error) return { status: 'error', message: error.message };

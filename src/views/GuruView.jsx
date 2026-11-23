@@ -118,6 +118,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
   const [filterSubMapel, setFilterSubMapel] = useState('ALL');
   const [bankSoalPage, setBankSoalPage] = useState(1);
   const itemsPerPage = 12;
+  const [selectedSoalBulk, setSelectedSoalBulk] = useState([]);
 
   // Modals State
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -255,6 +256,10 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
       }).catch(() => {});
     }
   }, [user?.npsn, selectedMapel]);
+
+  useEffect(() => {
+    setSelectedSoalBulk([]);
+  }, [selectedMapel, filterTipeSoal, filterSubMapel]);
 
   useEffect(() => {
     if (window.MathJax?.typesetPromise) {
@@ -646,9 +651,33 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
     setIsLoading(false);
     if (res.status === 'success') {
       logActivity('HAPUS SOAL', `Menghapus butir soal ID ${id}`);
+      setSelectedSoalBulk(prev => prev.filter(sId => sId !== id));
       fetchData();
     } else {
       showMessage('Info', res.message, 'info');
+    }
+  };
+
+  const handleBulkDeleteSoal = async () => {
+    if (isSelectedMapelActive) {
+      showMessage('Soal Terkunci', 'Tidak dapat menghapus soal karena jadwal ujian mapel ini sedang AKTIF berlangsung.', 'error');
+      return;
+    }
+    if (!selectedSoalBulk || selectedSoalBulk.length === 0) {
+      showMessage('Peringatan', 'Pilih butir soal yang ingin dihapus terlebih dahulu.', 'error');
+      return;
+    }
+    if (!confirm(`Hapus ${selectedSoalBulk.length} butir soal yang dipilih? Tindakan ini tidak dapat dibatalkan.`)) return;
+    setIsLoading(true);
+    const res = await api('delete_soal_bulk', { ids: selectedSoalBulk });
+    setIsLoading(false);
+    if (res.status === 'success') {
+      logActivity('HAPUS SOAL BULK', `Menghapus ${selectedSoalBulk.length} butir soal pada mapel ID ${selectedMapel}`);
+      showMessage('Sukses', res.message, 'success');
+      setSelectedSoalBulk([]);
+      fetchData();
+    } else {
+      showMessage('Error', res.message, 'error');
     }
   };
 
@@ -1982,13 +2011,55 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                     </div>
                   </div>
 
+                  {/* Soal Bulk Action Bar */}
+                  {selectedSoalBulk.length > 0 && (
+                    <div className="flex items-center justify-between bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 px-4 py-2.5 rounded-xl animate-fade-in">
+                      <div className="flex items-center gap-2 text-xs font-semibold text-rose-700 dark:text-rose-300">
+                        <span className="material-symbols-outlined text-[18px]">check_box</span>
+                        <span>{selectedSoalBulk.length} butir soal dipilih</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setSelectedSoalBulk([])}
+                          className="px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white"
+                        >
+                          Batal
+                        </button>
+                        <button
+                          onClick={handleBulkDeleteSoal}
+                          disabled={isSelectedMapelActive}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-xs font-bold shadow-sm transition-all"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">delete</span>
+                          <span>Hapus Terpilih ({selectedSoalBulk.length})</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* DESKTOP HIGH-DENSITY QUESTION TABLE (hidden md:block) */}
                   <div className="hidden md:block w-full overflow-hidden bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse text-xs sm:text-sm">
                         <thead>
                           <tr className="border-b border-slate-200/80 dark:border-slate-700/80 bg-slate-50/90 dark:bg-slate-800/90 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                            <th className="py-3 px-4 w-12 text-center">#</th>
+                            <th className="py-3 px-3 w-10 text-center">
+                              <input
+                                type="checkbox"
+                                aria-label="Pilih Semua Soal"
+                                disabled={isSelectedMapelActive || filteredSoal.length === 0}
+                                checked={filteredSoal.length > 0 && selectedSoalBulk.length === filteredSoal.length}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedSoalBulk(filteredSoal.map(s => s.id_soal));
+                                  } else {
+                                    setSelectedSoalBulk([]);
+                                  }
+                                }}
+                                className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                              />
+                            </th>
+                            <th className="py-3 px-2 w-10 text-center">#</th>
                             <th className="py-3 px-4 w-24">Tipe</th>
                             <th className="py-3 px-4">Pertanyaan</th>
                             <th className="py-3 px-4 w-28 text-center">Bobot</th>
@@ -1997,10 +2068,10 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
                           {isLoading ? (
-                            <TableSkeleton rows={6} cols={5} asTableRows={true} hasAvatar={false} />
+                            <TableSkeleton rows={6} cols={6} asTableRows={true} hasAvatar={false} />
                           ) : paginatedSoal.length === 0 ? (
                             <tr>
-                              <td colSpan={5} className="p-8">
+                              <td colSpan={6} className="p-8">
                                 <EmptyState
                                   compact={true}
                                   icon="quiz"
@@ -2016,7 +2087,23 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                           ) : (
                             paginatedSoal.map((soal, idx) => (
                               <tr key={soal.id_soal || idx} className="hover:bg-slate-50/80 dark:hover:bg-slate-700/40 transition-colors group">
-                                <td className="py-3 px-4 text-center font-mono text-slate-400 text-xs">
+                                <td className="py-3 px-3 text-center">
+                                  <input
+                                    type="checkbox"
+                                    aria-label={`Pilih soal #${(bankSoalPage - 1) * itemsPerPage + idx + 1}`}
+                                    disabled={isSelectedMapelActive}
+                                    checked={selectedSoalBulk.includes(soal.id_soal)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedSoalBulk(prev => [...prev, soal.id_soal]);
+                                      } else {
+                                        setSelectedSoalBulk(prev => prev.filter(id => id !== soal.id_soal));
+                                      }
+                                    }}
+                                    className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                  />
+                                </td>
+                                <td className="py-3 px-2 text-center font-mono text-slate-400 text-xs">
                                   {(bankSoalPage - 1) * itemsPerPage + idx + 1}
                                 </td>
                                 <td className="py-3 px-4">
@@ -2102,7 +2189,21 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
                           className="bg-white dark:bg-slate-800 rounded-xl p-3.5 border border-slate-200/80 dark:border-slate-700/80 shadow-xs space-y-2"
                         >
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-1.5 flex-wrap">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <input
+                                type="checkbox"
+                                aria-label={`Pilih soal #${(bankSoalPage - 1) * itemsPerPage + idx + 1}`}
+                                disabled={isSelectedMapelActive}
+                                checked={selectedSoalBulk.includes(soal.id_soal)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedSoalBulk(prev => [...prev, soal.id_soal]);
+                                  } else {
+                                    setSelectedSoalBulk(prev => prev.filter(id => id !== soal.id_soal));
+                                  }
+                                }}
+                                className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                              />
                               <span className="text-xs font-mono font-bold text-slate-400">#{(bankSoalPage - 1) * itemsPerPage + idx + 1}</span>
                               {getTipeBadge(soal.tipe_soal || soal.tipe)}
                               {soal.sub_mapel && (
