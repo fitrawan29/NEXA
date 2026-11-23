@@ -613,8 +613,14 @@ INSERT INTO public.admin (id_admin, nama_lengkap, username, password, npsn)
 VALUES ('ADM-INIT-001', 'Administrator Sekolah', 'admin', 'admin123', '10000001')
 ON CONFLICT (username) DO NOTHING;
 
--- 8. ROW LEVEL SECURITY (RLS) CONFIGURATION
--- NEXA CBT menggunakan role anon client-side secara langsung.
+-- 8. ROW LEVEL SECURITY (RLS) & ROLE PERMISSIONS CONFIGURATION
+-- Berikan izin akses ke role anon & authenticated untuk kueri client-side
+GRANT USAGE ON SCHEMA public TO anon, authenticated;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL ROUTINES IN SCHEMA public TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
+
 -- Nonaktifkan RLS untuk memastikan query client tidak terblokir:
 ALTER TABLE public.sekolah DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.super_admin DISABLE ROW LEVEL SECURITY;
