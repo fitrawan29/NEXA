@@ -614,12 +614,14 @@ VALUES ('ADM-INIT-001', 'Administrator Sekolah', 'admin', 'admin123', '10000001'
 ON CONFLICT (username) DO NOTHING;
 
 -- 8. ROW LEVEL SECURITY (RLS) & ROLE PERMISSIONS CONFIGURATION
--- Berikan izin akses ke role anon & authenticated untuk kueri client-side
-GRANT USAGE ON SCHEMA public TO anon, authenticated;
+-- Berikan izin akses penuh ke role anon & authenticated untuk kueri client-side
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
 GRANT ALL ON ALL ROUTINES IN SCHEMA public TO anon, authenticated, service_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON ROUTINES TO anon, authenticated, service_role;
 
 -- Nonaktifkan RLS untuk memastikan query client tidak terblokir:
 ALTER TABLE public.sekolah DISABLE ROW LEVEL SECURITY;
