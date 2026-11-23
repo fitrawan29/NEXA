@@ -1420,10 +1420,10 @@ export { supabaseClient };
                   nip: item.nip ? String(item.nip) : null,
                   role: item.role || 'guru',
                   alokasi_kelas: item.alokasi_kelas || null,
-                  nama_mapel: item.nama_mapel || null
+                  nama_mapel: item.nama_mapel || item.mata_pelajaran || null
                 },
                 id_guru,
-                _mapels: Array.isArray(item.mapels) ? item.mapels : []
+                _mapels: Array.isArray(item.mapels) ? Array.from(new Set(item.mapels)) : []
               };
             });
             const guruInserts = bulkData.map(x => x.record);

@@ -1469,9 +1469,13 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
       try {
         const bstr = evt.target.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
-        const wsname = wb.SheetNames && wb.SheetNames.length > 0 ? wb.SheetNames[0] : null;
+        let wsname = wb.SheetNames && wb.SheetNames.length > 0 ? wb.SheetNames[0] : null;
+        if (wb.SheetNames && wb.SheetNames.length > 1 && importModal.type) {
+          const matchedSheet = wb.SheetNames.find(s => s.toLowerCase().includes(importModal.type.toLowerCase()));
+          if (matchedSheet) wsname = matchedSheet;
+        }
         const ws = wsname ? wb.Sheets[wsname] : null;
-        const rawData = ws ? XLSX.utils.sheet_to_json(ws) : [];
+        const rawData = ws ? XLSX.utils.sheet_to_json(ws, { defval: '', raw: false }) : [];
 
         if (!rawData || rawData.length === 0) {
           showMessage('Peringatan', 'File kosong atau format salah.', 'error');
@@ -1546,29 +1550,55 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
             if (mRes.status === 'success') mapelList = mRes.data || [];
           }
 
-          processedData = rawData.map(row => {
-            const r = { ...row };
-            if (!r.role || String(r.role).trim() === '') {
-              r.role = 'guru';
+          const validTeachers = [];
+          for (const row of rawData) {
+            const norm = {};
+            for (const k of Object.keys(row || {})) {
+              const cleanKey = k.replace(/^\uFEFF/, '').trim().toLowerCase().replace(/[\s_]+/g, '_');
+              norm[cleanKey] = row[k];
             }
-            if (!r.password || String(r.password).trim() === '') {
-              r.password = 'Nexa123!';
+
+            const rawId = String(norm.id_guru || norm.id || '').trim();
+            const rawNama = String(norm.nama_lengkap || norm.nama_guru || norm.nama || '').trim();
+
+            if (rawId.toLowerCase() === 'nama lengkap' || rawNama.toLowerCase() === 'mata pelajaran' || String(norm.no || '').toLowerCase() === 'catatan') {
+              break;
             }
-            if (!r.username || String(r.username).trim() === '') {
-              r.username = r.nip ? String(r.nip).trim() : `guru_${Math.random().toString(36).substring(2, 7)}`;
-            }
-            if (r.mata_pelajaran) {
-              const mpNames = String(r.mata_pelajaran).split(/[,;]/).map(s => s.trim().toLowerCase()).filter(Boolean);
-              const matchedMapels = mapelList.filter(m =>
+            if (!rawNama || ['nama lengkap', 'nama guru', 'nama'].includes(rawNama.toLowerCase())) continue;
+
+            const rawNip = norm.nip !== undefined && norm.nip !== null ? String(norm.nip).trim() : '';
+            const rawUser = String(norm.username || norm.user || '').trim();
+            const rawMapel = String(norm.mata_pelajaran || norm.mapel || norm.nama_mapel || '').trim();
+
+            let matchedMapels = [];
+            if (rawMapel) {
+              const mpNames = rawMapel.split(/[,;]/).map(s => s.trim().toLowerCase()).filter(Boolean);
+              matchedMapels = mapelList.filter(m =>
                 mpNames.includes((m.nama_mapel || '').toLowerCase()) ||
                 mpNames.includes((m.kode_mapel || '').toLowerCase())
               ).map(m => m.id_mapel);
-              r.mapels = matchedMapels;
-            } else {
-              r.mapels = [];
             }
-            return r;
-          });
+
+            validTeachers.push({
+              ...(rawId ? { id_guru: rawId } : {}),
+              nama_lengkap: rawNama,
+              nama_guru: rawNama,
+              nip: rawNip || null,
+              username: rawUser || (rawNip && !/\s/.test(rawNip) ? rawNip : `guru_${Math.random().toString(36).substring(2, 7)}`),
+              password: String(norm.password || norm.pass || 'Nexa123!').trim(),
+              role: String(norm.role || 'guru').trim(),
+              nama_mapel: rawMapel || null,
+              mapels: Array.from(new Set(matchedMapels))
+            });
+          }
+
+          if (validTeachers.length === 0) {
+            showMessage('Peringatan', 'Tidak ada data guru valid yang dapat diimpor.', 'error');
+            setIsSubmitting(false);
+            return;
+          }
+
+          processedData = validTeachers;
         } else if (importModal.type === 'jadwal') {
           endpoint = 'create_jadwal_bulk';
           let mapelList = dataMapel;
