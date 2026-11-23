@@ -592,8 +592,8 @@ $$;
 GRANT EXECUTE ON FUNCTION public.delete_sekolah_cascade(TEXT) TO anon, authenticated, service_role;
 
 -- 7. INITIAL SEED DATA (DEFAULT TEMPLATE)
-INSERT INTO public.sekolah (npsn, nama_sekolah, alamat, status)
-VALUES ('10000001', 'SMA NEGERI CONTOH', 'Jl. Pendidikan No. 1', 'ACTIVE')
+INSERT INTO public.sekolah (npsn, nama_sekolah, status)
+VALUES ('10000001', 'SMA NEGERI CONTOH', 'ACTIVE')
 ON CONFLICT (npsn) DO NOTHING;
 
 INSERT INTO public.admin (id_admin, nama_lengkap, username, password, npsn)
