@@ -147,12 +147,16 @@ Buka bagian **Environment Variables** sebelum menekan deploy. Tambahkan 2 variab
 
 Setelah deployment aktif, lakukan inisialisasi awal pada website baru Anda:
 
-### 1. Login Pertama Kali sebagai Administrator
-- Buka URL Vercel aplikasi Anda di browser.
-- Gunakan kredensial awal bawaan dari `schema_master_init.sql`:
+### 1. Kredensial Akun Default Bawaan
+Buka URL Vercel aplikasi Anda di browser. Database inisialisasi menyediakan 2 akun default:
+- **Akun Super Admin (Manajemen Multi-Sekolah):**
+  - **Username:** `superadmin`
+  - **Password:** `superadmin123`
+  - **Hak Akses:** Melihat dan mengelola seluruh sekolah, suspend/aktifkan sekolah, serta manajemen akun admin sekolah.
+- **Akun Admin Sekolah (Operasional CBT Sekolah):**
   - **Username:** `admin`
   - **Password:** `admin123`
-- Setelah berhasil masuk, Anda akan diarahkan ke halaman **Admin Dashboard**.
+  - **Hak Akses:** Mengelola master data sekolah (kelas, mapel, guru, siswa, jadwal ujian, dan kartu/dokumen cetak).
 
 ### 2. Kustomisasi Profil Sekolah
 1. Masuk ke tab **Profil / Pengaturan Sekolah**.

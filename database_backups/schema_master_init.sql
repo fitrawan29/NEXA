@@ -596,6 +596,10 @@ INSERT INTO public.sekolah (npsn, nama_sekolah, status)
 VALUES ('10000001', 'SMA NEGERI CONTOH', 'ACTIVE')
 ON CONFLICT (npsn) DO NOTHING;
 
+INSERT INTO public.super_admin (nama_lengkap, username, password)
+VALUES ('Super Administrator', 'superadmin', 'superadmin123')
+ON CONFLICT (username) DO NOTHING;
+
 INSERT INTO public.admin (id_admin, nama_lengkap, username, password, npsn)
 VALUES ('ADM-INIT-001', 'Administrator Sekolah', 'admin', 'admin123', '10000001')
 ON CONFLICT (username) DO NOTHING;
