@@ -491,19 +491,27 @@ ALTER TABLE public.jadwal REPLICA IDENTITY FULL;
 ALTER TABLE public.pengumuman REPLICA IDENTITY FULL;
 ALTER TABLE public.sekolah REPLICA IDENTITY FULL;
 ALTER TABLE public.admin REPLICA IDENTITY FULL;
+ALTER TABLE public.absensi_ujian REPLICA IDENTITY FULL;
+ALTER TABLE public.pengawas_ruang REPLICA IDENTITY FULL;
 
 DO $$
+DECLARE
+    tbl text;
+    tables text[] := ARRAY['log_ujian', 'jadwal', 'pengumuman', 'sekolah', 'admin', 'absensi_ujian', 'pengawas_ruang'];
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
         CREATE PUBLICATION supabase_realtime;
     END IF;
-END $$;
 
-ALTER PUBLICATION supabase_realtime ADD TABLE public.log_ujian;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.jadwal;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.pengumuman;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.sekolah;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.admin;
+    FOREACH tbl IN ARRAY tables LOOP
+        BEGIN
+            EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', tbl);
+        EXCEPTION
+            WHEN duplicate_object THEN
+                NULL;
+        END;
+    END LOOP;
+END $$;
 
 -- 6. STORED PROCEDURES / RPC
 CREATE OR REPLACE FUNCTION public.submit_ujian_atomic(
