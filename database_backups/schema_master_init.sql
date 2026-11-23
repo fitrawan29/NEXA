@@ -605,8 +605,9 @@ VALUES ('10000001', 'SMA NEGERI CONTOH', 'ACTIVE')
 ON CONFLICT (npsn) DO NOTHING;
 
 INSERT INTO public.super_admin (nama_lengkap, username, password)
-VALUES ('Super Administrator', 'superadmin', 'superadmin123')
-ON CONFLICT (username) DO NOTHING;
+VALUES ('Super Administrator', 'superadmin', 'admin123')
+ON CONFLICT (username) DO UPDATE 
+SET password = EXCLUDED.password;
 
 INSERT INTO public.admin (id_admin, nama_lengkap, username, password, npsn)
 VALUES ('ADM-INIT-001', 'Administrator Sekolah', 'admin', 'admin123', '10000001')

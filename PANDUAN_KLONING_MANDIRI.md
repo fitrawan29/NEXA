@@ -151,7 +151,7 @@ Setelah deployment aktif, lakukan inisialisasi awal pada website baru Anda:
 Buka URL Vercel aplikasi Anda di browser. Database inisialisasi menyediakan 2 akun default:
 - **Akun Super Admin (Manajemen Multi-Sekolah):**
   - **Username:** `superadmin`
-  - **Password:** `superadmin123`
+  - **Password:** `admin123`
   - **Hak Akses:** Melihat dan mengelola seluruh sekolah, suspend/aktifkan sekolah, serta manajemen akun admin sekolah.
 - **Akun Admin Sekolah (Operasional CBT Sekolah):**
   - **Username:** `admin`
