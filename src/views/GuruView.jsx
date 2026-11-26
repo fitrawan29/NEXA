@@ -66,6 +66,24 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
   const [profileForm, setProfileForm] = useState({ password: '', foto: user?.foto || user?.foto_profil || '' });
   const [profileLoading, setProfileLoading] = useState(false);
+  const [gasDriveWebhook, setGasDriveWebhook] = useState(user?.gas_drive_webhook || (typeof window !== 'undefined' ? localStorage.getItem('nexa_gas_drive_webhook') : '') || '');
+
+  useEffect(() => {
+    if (!user?.npsn) return;
+    let active = true;
+    api('get_gas_drive_webhook', { npsn: user.npsn }).then((res) => {
+      if (!active || res?.status !== 'success') return;
+      const remoteUrl = (res.gas_drive_webhook || '').trim();
+      if (remoteUrl) {
+        setGasDriveWebhook(remoteUrl);
+        try { localStorage.setItem('nexa_gas_drive_webhook', remoteUrl); } catch (_) {}
+        if (onUpdateUser && user.gas_drive_webhook !== remoteUrl) {
+          onUpdateUser({ gas_drive_webhook: remoteUrl });
+        }
+      }
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [user?.npsn]);
 
   const handleAvatarSelect = async (avatarUrl) => {
     setIsLoading(true);
@@ -3926,7 +3944,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
           }
           subMapelList={curSubMapelList}
           isTerpadu={Boolean(curMapelObj?.is_terpadu || curSubMapelList.length > 0)}
-          gasWebhookUrl={user?.gas_drive_webhook || (typeof window !== 'undefined' ? localStorage.getItem('nexa_gas_drive_webhook') : '') || ''}
+          gasWebhookUrl={gasDriveWebhook || user?.gas_drive_webhook || (typeof window !== 'undefined' ? localStorage.getItem('nexa_gas_drive_webhook') : '') || ''}
           onClose={() => setFormSoal({ isOpen: false, data: null, id_mapel: '' })}
           onSave={handleSaveSoal}
         />

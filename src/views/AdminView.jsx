@@ -120,6 +120,23 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   const [gasDriveWebhook, setGasDriveWebhook] = useState(user?.gas_drive_webhook || (typeof window !== 'undefined' ? localStorage.getItem('nexa_gas_drive_webhook') : '') || '');
   const [isTestingWebhook, setIsTestingWebhook] = useState(false);
   const [isSavingWebhook, setIsSavingWebhook] = useState(false);
+
+  useEffect(() => {
+    if (!user?.npsn) return;
+    let active = true;
+    api('get_gas_drive_webhook', { npsn: user.npsn }).then((res) => {
+      if (!active || res?.status !== 'success') return;
+      const remoteUrl = (res.gas_drive_webhook || '').trim();
+      if (remoteUrl) {
+        setGasDriveWebhook(remoteUrl);
+        try { localStorage.setItem('nexa_gas_drive_webhook', remoteUrl); } catch (_) {}
+        if (onUpdateUser && user.gas_drive_webhook !== remoteUrl) {
+          onUpdateUser({ gas_drive_webhook: remoteUrl });
+        }
+      }
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [user?.npsn]);
   const [dataRekapHasil, setDataRekapHasil] = useState([]);
   const [dataPengumuman, setDataPengumuman] = useState([]);
   const [pengumumanForm, setPengumumanForm] = useState({ judul: '', isi: '' });
@@ -6847,6 +6864,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                           if (user?.npsn) {
                             await api('update_gas_drive_webhook', { npsn: user.npsn, gas_drive_webhook: url });
                           }
+                          if (onUpdateUser) onUpdateUser({ gas_drive_webhook: url });
                           showMessage('Berhasil', 'URL Webhook Google Drive berhasil disimpan untuk seluruh sekolah.', 'success');
                         } catch (err) {
                           showMessage('Gagal', err.message || 'Gagal menyimpan Webhook.', 'error');
@@ -7157,7 +7175,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
             dataMapel.find(m => String(m.id_mapel) === String(formSoal.id_mapel || selectedMapel))?.nama_mapel ||
             'Mata Pelajaran'
           }
-          gasWebhookUrl={user?.gas_drive_webhook || (typeof window !== 'undefined' ? localStorage.getItem('nexa_gas_drive_webhook') : '') || ''}
+          gasWebhookUrl={gasDriveWebhook || user?.gas_drive_webhook || (typeof window !== 'undefined' ? localStorage.getItem('nexa_gas_drive_webhook') : '') || ''}
           onClose={() => setFormSoal({ isOpen: false, data: null, id_mapel: '' })}
           onSave={handleSaveSoal}
         />
