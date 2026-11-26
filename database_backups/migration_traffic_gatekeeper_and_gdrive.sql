@@ -19,3 +19,5 @@ ON public.jawaban_siswa (id_log);
 ANALYZE public.log_ujian;
 ANALYZE public.sekolah;
 ANALYZE public.jawaban_siswa;
+
+NOTIFY pgrst, 'reload schema';

@@ -3932,6 +3932,7 @@ const GuruView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setIs
           isOpen={formSoal.isOpen}
           data={formSoal.data}
           narasiList={dataSoal.filter(s => s.tipe_soal === 'NARASI')}
+          npsn={user?.npsn || ''}
           schoolName={user?.nama_sekolah || 'SMA'}
           className={
             dataMapel.find(m => String(m.id_mapel) === String(formSoal.id_mapel || selectedMapel))?.alokasi_kelas ||

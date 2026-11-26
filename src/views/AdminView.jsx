@@ -6858,11 +6858,14 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                         setIsSavingWebhook(true);
                         try {
                           const url = gasDriveWebhook.trim();
+                          if (user?.npsn) {
+                            const res = await api('update_gas_drive_webhook', { npsn: user.npsn, gas_drive_webhook: url });
+                            if (res?.status !== 'success') {
+                              throw new Error(res?.message || 'Gagal menyimpan Webhook Google Drive ke server.');
+                            }
+                          }
                           if (typeof window !== 'undefined') {
                             localStorage.setItem('nexa_gas_drive_webhook', url);
-                          }
-                          if (user?.npsn) {
-                            await api('update_gas_drive_webhook', { npsn: user.npsn, gas_drive_webhook: url });
                           }
                           if (onUpdateUser) onUpdateUser({ gas_drive_webhook: url });
                           showMessage('Berhasil', 'URL Webhook Google Drive berhasil disimpan untuk seluruh sekolah.', 'success');
@@ -7165,6 +7168,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
           isOpen={formSoal.isOpen}
           data={formSoal.data}
           narasiList={dataSoal.filter(s => s.tipe_soal === 'NARASI')}
+          npsn={user?.npsn || ''}
           schoolName={user?.nama_sekolah || 'SMA'}
           className={
             dataMapel.find(m => String(m.id_mapel) === String(formSoal.id_mapel || selectedMapel))?.alokasi_kelas ||

@@ -3,11 +3,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { compressImageFile } from '../utils/imageHelper.js';
 import { safeJSONParse } from './UI';
 import { normalizeTipeSoal } from '../utils/nexaBundle.js';
+import { fetchAPI } from '../api.js';
 
     const FormSoalModal = ({
       isOpen,
       data,
       narasiList = [],
+      npsn = '',
       schoolName = '',
       className = '',
       subjectName = '',
@@ -134,12 +136,27 @@ import { normalizeTipeSoal } from '../utils/nexaBundle.js';
             }
           } catch (_) {}
 
-          const targetWebhook = (
+          let targetWebhook = (
             gasWebhookUrl || 
             storedWebhook || 
             (typeof window !== 'undefined' ? window.localStorage.getItem('nexa_gas_drive_webhook') : '') || 
             ''
           ).trim();
+
+          if (!targetWebhook && npsn) {
+            try {
+              const webhookRes = await fetchAPI('get_gas_drive_webhook', { npsn });
+              const remoteUrl = (webhookRes?.gas_drive_webhook || '').trim();
+              if (remoteUrl) {
+                targetWebhook = remoteUrl;
+                try {
+                  if (typeof window !== 'undefined') {
+                    window.localStorage.setItem('nexa_gas_drive_webhook', remoteUrl);
+                  }
+                } catch (_) {}
+              }
+            } catch (_) {}
+          }
 
           const safeSchool = (normSchool || schoolName || 'Umum').trim() || 'Umum';
           const safeClass = (normClass || className || 'Semua Kelas').trim() || 'Semua Kelas';
