@@ -157,6 +157,9 @@ CREATE TABLE IF NOT EXISTS public.soal_ujian (
     bobot INTEGER DEFAULT 1,
     gambar TEXT,
     id_narasi TEXT,
+    sub_mapel VARCHAR(50) DEFAULT NULL,
+    id_guru_pembuat VARCHAR(50) DEFAULT NULL,
+    nama_guru_pembuat VARCHAR(100) DEFAULT NULL,
     CONSTRAINT soal_ujian_pkey PRIMARY KEY (id_soal)
 );
 

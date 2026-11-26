@@ -70,6 +70,31 @@ export { supabaseClient };
 
 
     // Note: Database uses `id_mapel` now, `id_jadwal` column in `soal_ujian` might still exist but `id_mapel` is what we use.
+    const OPTIONAL_SOAL_COLUMNS = ['sub_mapel', 'id_guru_pembuat', 'nama_guru_pembuat'];
+
+    async function executeSoalMutationWithSchemaFallback(runQuery, payload) {
+      let current = Array.isArray(payload) ? payload.map(r => ({ ...r })) : { ...payload };
+      for (let i = 0; i < OPTIONAL_SOAL_COLUMNS.length; i++) {
+        const { error } = await runQuery(current);
+        if (!error) return { error: null };
+        const match = error.message?.match(/Could not find the '([^']+)' column of 'soal_ujian' in the schema cache/i);
+        const missingCol = match?.[1];
+        if (!missingCol || !OPTIONAL_SOAL_COLUMNS.includes(missingCol)) {
+          return { error };
+        }
+        console.warn(`[NEXA] Kolom '${missingCol}' belum ada di schema cache soal_ujian, melanjutkan tanpa kolom tersebut.`);
+        if (Array.isArray(current)) {
+          current = current.map((row) => {
+            const copy = { ...row };
+            delete copy[missingCol];
+            return copy;
+          });
+        } else {
+          delete current[missingCol];
+        }
+      }
+      return await runQuery(current);
+    }
 
     export const normalizeSkemaConfig = (raw) => {
       if (!raw || typeof raw !== 'object') return null;
@@ -1924,7 +1949,10 @@ export { supabaseClient };
               nama_guru_pembuat: nama_guru_pembuat || null
             };
             
-            ({ error } = await supabaseClient.from('soal_ujian').insert([insertData]));
+            ({ error } = await executeSoalMutationWithSchemaFallback(
+              (data) => supabaseClient.from('soal_ujian').insert([data]),
+              insertData
+            ));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Soal berhasil ditambahkan.' };
           }
@@ -1945,7 +1973,10 @@ export { supabaseClient };
             if (id_guru_pembuat !== undefined) updateData.id_guru_pembuat = id_guru_pembuat;
             if (nama_guru_pembuat !== undefined) updateData.nama_guru_pembuat = nama_guru_pembuat;
 
-            ({ error } = await supabaseClient.from('soal_ujian').update(updateData).eq('id_soal', upId).eq('npsn', upNpsn));
+            ({ error } = await executeSoalMutationWithSchemaFallback(
+              (data) => supabaseClient.from('soal_ujian').update(data).eq('id_soal', upId).eq('npsn', upNpsn),
+              updateData
+            ));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: 'Soal berhasil diperbarui.' };
           }
@@ -3483,7 +3514,10 @@ export { supabaseClient };
                 bobot: item.bobot !== undefined ? Number(item.bobot) : 10
               };
             });
-            ({ error } = await supabaseClient.from('soal_ujian').insert(sanitized));
+            ({ error } = await executeSoalMutationWithSchemaFallback(
+              (rows) => supabaseClient.from('soal_ujian').insert(rows),
+              sanitized
+            ));
             if (error) return { status: 'error', message: error.message };
             return { status: 'success', message: `${sanitized.length} butir soal berhasil diimpor.` };
           }

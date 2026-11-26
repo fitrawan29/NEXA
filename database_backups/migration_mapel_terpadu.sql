@@ -37,3 +37,6 @@ END $$;
 
 -- 3. Indeks Performa untuk Filter Sub-Mapel
 CREATE INDEX IF NOT EXISTS idx_soal_mapel_sub ON public.soal_ujian (id_mapel, sub_mapel);
+
+-- 4. Segarkan Schema Cache PostgREST
+NOTIFY pgrst, 'reload schema';
