@@ -96,6 +96,17 @@ export { supabaseClient };
       return await runQuery(current);
     }
 
+    async function executeSoalOrderWithFallback(buildQuery) {
+      const primary = await buildQuery(true);
+      if (!primary.error) return primary;
+      const msg = String(primary.error.message || '');
+      if (/urutan/i.test(msg) && /(schema cache|does not exist|column)/i.test(msg)) {
+        console.warn("[NEXA] Kolom 'urutan' belum ada di tabel soal_ujian, fallback ke urutan id_soal.");
+        return await buildQuery(false);
+      }
+      return primary;
+    }
+
     export const normalizeSkemaConfig = (raw) => {
       if (!raw || typeof raw !== 'object') return null;
       const targetSkema = raw.skema && typeof raw.skema === 'object' ? raw.skema : raw;
@@ -1908,7 +1919,17 @@ export { supabaseClient };
           }
 
           case 'get_soal_by_mapel': {
-            ({ data, error } = await supabaseClient.from('soal_ujian').select('*').eq('id_mapel', payload.id_mapel).eq('npsn', payload.npsn).neq('tipe_soal', 'MAPEL_ALLOC').neq('tipe_soal', 'SKEMA_DEFAULT'));
+            ({ data, error } = await executeSoalOrderWithFallback((useUrutan) => {
+              let q = supabaseClient
+                .from('soal_ujian')
+                .select('*')
+                .eq('id_mapel', payload.id_mapel)
+                .eq('npsn', payload.npsn)
+                .neq('tipe_soal', 'MAPEL_ALLOC')
+                .neq('tipe_soal', 'SKEMA_DEFAULT');
+              if (useUrutan) q = q.order('urutan', { ascending: true });
+              return q.order('id_soal', { ascending: true });
+            }));
             if (error) return { status: 'error', message: error.message };
             
             // Format opsi column string to array if it is a JSON string
@@ -2586,7 +2607,15 @@ export { supabaseClient };
             const soalColumns = isPrivileged
               ? 'id_soal, id_mapel, npsn, tipe_soal, pertanyaan, opsi, kunci_jawaban, bobot, gambar, id_narasi, sub_mapel'
               : 'id_soal, id_mapel, npsn, tipe_soal, pertanyaan, opsi, bobot, gambar, id_narasi, sub_mapel';
-            ({ data, error } = await supabaseClient.from('soal_ujian').select(soalColumns).eq('id_mapel', jadwal.id_mapel).eq('npsn', effectiveNpsn));
+            ({ data, error } = await executeSoalOrderWithFallback((useUrutan) => {
+              let q = supabaseClient
+                .from('soal_ujian')
+                .select(soalColumns)
+                .eq('id_mapel', jadwal.id_mapel)
+                .eq('npsn', effectiveNpsn);
+              if (useUrutan) q = q.order('urutan', { ascending: true });
+              return q.order('id_soal', { ascending: true });
+            }));
             if (error) return { status: 'error', message: error.message };
             
             // Format opsi
@@ -3036,14 +3065,18 @@ export { supabaseClient };
               }
             }
 
-            const { data: soalData, error: soalErr } = await supabaseClient.from('soal_ujian')
-              .select('id_soal, pertanyaan, opsi, kunci_jawaban, bobot, tipe_soal')
-              .eq('id_mapel', payload.id_mapel)
-              .eq('npsn', payload.npsn)
-              .neq('tipe_soal', 'NARASI')
-              .neq('tipe_soal', 'SKEMA_PENILAIAN')
-              .neq('tipe_soal', 'SKEMA_DEFAULT')
-              .neq('tipe_soal', 'MAPEL_ALLOC');
+            const { data: soalData, error: soalErr } = await executeSoalOrderWithFallback((useUrutan) => {
+              let q = supabaseClient.from('soal_ujian')
+                .select('id_soal, pertanyaan, opsi, kunci_jawaban, bobot, tipe_soal')
+                .eq('id_mapel', payload.id_mapel)
+                .eq('npsn', payload.npsn)
+                .neq('tipe_soal', 'NARASI')
+                .neq('tipe_soal', 'SKEMA_PENILAIAN')
+                .neq('tipe_soal', 'SKEMA_DEFAULT')
+                .neq('tipe_soal', 'MAPEL_ALLOC');
+              if (useUrutan) q = q.order('urutan', { ascending: true });
+              return q.order('id_soal', { ascending: true });
+            });
             if (soalErr) return { status: 'error', message: soalErr.message };
 
             let q = supabaseClient.from('log_ujian')
