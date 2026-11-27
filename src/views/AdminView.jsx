@@ -88,6 +88,8 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   const [filterKelas, setFilterKelas] = useState('');
   const [filterMapel, setFilterMapel] = useState('');
   const [filterJadwalStatus, setFilterJadwalStatus] = useState('ALL');
+  const [filterJadwalTarget, setFilterJadwalTarget] = useState('');
+  const [filterJadwalGuru, setFilterJadwalGuru] = useState('');
 
   // Multi-Select Bulk State
   const [selectedSiswa, setSelectedSiswa] = useState([]);
@@ -159,7 +161,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
   // Sorting State
   const [sortConfigSiswa, setSortConfigSiswa] = useState({ key: 'nama_lengkap', direction: 'asc' });
   const [sortConfigGuru, setSortConfigGuru] = useState({ key: 'nama_lengkap', direction: 'asc' });
-  const [sortConfigJadwal] = useState({ key: 'waktu_mulai', direction: 'desc' });
+  const [sortConfigJadwal, setSortConfigJadwal] = useState({ key: 'waktu_mulai', direction: 'desc' });
 
   // Live Monitoring Filters
   const [monitoringFilterStatus, setMonitoringFilterStatus] = useState('ALL');
@@ -222,6 +224,8 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     setSearchQuery('');
     setFilterKelas('');
     setFilterMapel('');
+    setFilterJadwalTarget('');
+    setFilterJadwalGuru('');
     setIsSidebarOpen(false);
     setIsMobileDrawerOpen(false);
   };
@@ -1989,26 +1993,81 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
     return list;
   }, [dataGuru, searchQuery, filterMapel, sortConfigGuru]);
 
+  const jadwalTargetOptions = useMemo(() => {
+    const set = new Set();
+    (dataJadwal || []).forEach(j => {
+      if (j.target_kelas && !isUniversalAlloc(j.target_kelas)) {
+        String(j.target_kelas).split(/[,;|\n\r]+/).map(s => s.trim()).filter(Boolean).forEach(t => set.add(t));
+      }
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'id'));
+  }, [dataJadwal]);
+
+  const jadwalGuruOptions = useMemo(() => {
+    const set = new Set();
+    (dataJadwal || []).forEach(j => {
+      if (j.guru && String(j.guru).trim()) set.add(String(j.guru).trim());
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'id'));
+  }, [dataJadwal]);
+
+  const handleSortJadwal = (key) => {
+    setSortConfigJadwal(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
+  const hasActiveJadwalFilters = Boolean(searchQuery || filterMapel || filterJadwalStatus !== 'ALL' || filterJadwalTarget || filterJadwalGuru);
+
+  const resetJadwalFilters = () => {
+    setSearchQuery('');
+    setFilterMapel('');
+    setFilterJadwalStatus('ALL');
+    setFilterJadwalTarget('');
+    setFilterJadwalGuru('');
+  };
+
   const sortedFilteredJadwal = useMemo(() => {
     let list = dataJadwal.filter(j => {
       const matchesMapel = !filterMapel || j.nama_mapel === filterMapel;
       const matchesStatus = filterJadwalStatus === 'ALL' || j.status_ujian === filterJadwalStatus;
+      const matchesGuru = !filterJadwalGuru || (j.guru || '').trim() === filterJadwalGuru;
+      const matchesTarget = !filterJadwalTarget || (
+        filterJadwalTarget === '__UMUM__'
+          ? isUniversalAlloc(j.target_kelas)
+          : String(j.target_kelas || '').split(/[,;|\n\r]+/).map(s => s.trim()).includes(filterJadwalTarget)
+      );
       const q = searchQuery.toLowerCase();
-      const matchesQuery = !q || (j.nama_mapel || '').toLowerCase().includes(q) || (j.guru || '').toLowerCase().includes(q) || (j.token || '').toLowerCase().includes(q);
-      return matchesMapel && matchesStatus && matchesQuery;
+      const matchesQuery = !q ||
+        (j.nama_mapel || '').toLowerCase().includes(q) ||
+        (j.guru || '').toLowerCase().includes(q) ||
+        (j.token || '').toLowerCase().includes(q) ||
+        (j.token_aktif || '').toLowerCase().includes(q) ||
+        (j.target_kelas || '').toLowerCase().includes(q);
+      return matchesMapel && matchesStatus && matchesGuru && matchesTarget && matchesQuery;
     });
 
     if (sortConfigJadwal.key) {
       list = [...list].sort((a, b) => {
-        const valA = a[sortConfigJadwal.key] || '';
-        const valB = b[sortConfigJadwal.key] || '';
+        if (sortConfigJadwal.key === 'waktu_mulai') {
+          const timeA = a.waktu_mulai ? new Date(a.waktu_mulai).getTime() || 0 : 0;
+          const timeB = b.waktu_mulai ? new Date(b.waktu_mulai).getTime() || 0 : 0;
+          return sortConfigJadwal.direction === 'asc' ? timeA - timeB : timeB - timeA;
+        }
+        const valA = sortConfigJadwal.key === 'token'
+          ? (a.token_aktif || a.token || '')
+          : (a[sortConfigJadwal.key] || '');
+        const valB = sortConfigJadwal.key === 'token'
+          ? (b.token_aktif || b.token || '')
+          : (b[sortConfigJadwal.key] || '');
         return sortConfigJadwal.direction === 'asc'
-          ? String(valA).localeCompare(String(valB))
-          : String(valB).localeCompare(String(valA));
+          ? String(valA).toLowerCase().localeCompare(String(valB).toLowerCase(), 'id')
+          : String(valB).toLowerCase().localeCompare(String(valA).toLowerCase(), 'id');
       });
     }
     return list;
-  }, [dataJadwal, filterMapel, filterJadwalStatus, searchQuery, sortConfigJadwal]);
+  }, [dataJadwal, filterMapel, filterJadwalStatus, filterJadwalGuru, filterJadwalTarget, searchQuery, sortConfigJadwal]);
 
   const sortedFilteredKelas = useMemo(() => {
     return (dataKelas || []).filter(k => {
@@ -4785,50 +4844,117 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
               </div>
 
               {/* Status Filter Tabs & Controls */}
-              <div className="bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-                {/* Status Pills */}
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
-                  {[
-                    { id: 'ALL', label: 'Semua Status' },
-                    { id: 'AKTIF', label: 'Aktif (Berlangsung)' },
-                    { id: 'BELUM MULAI', label: 'Akan Datang' },
-                    { id: 'SELESAI', label: 'Selesai' }
-                  ].map(st => (
-                    <button
-                      key={st.id}
-                      onClick={() => setFilterJadwalStatus(st.id)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap min-h-[38px] ${
-                        filterJadwalStatus === st.id
-                          ? 'bg-primary text-white shadow-xs'
-                          : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
-                      }`}
+              <div className="bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex flex-col gap-3">
+                <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+                  {/* Status Pills */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0 scrollbar-none">
+                    {[
+                      { id: 'ALL', label: 'Semua Status' },
+                      { id: 'AKTIF', label: 'Aktif (Berlangsung)' },
+                      { id: 'BELUM MULAI', label: 'Akan Datang' },
+                      { id: 'SELESAI', label: 'Selesai' }
+                    ].map(st => (
+                      <button
+                        key={st.id}
+                        onClick={() => setFilterJadwalStatus(st.id)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap min-h-[38px] ${
+                          filterJadwalStatus === st.id
+                            ? 'bg-primary text-white shadow-xs'
+                            : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                        }`}
+                      >
+                        {st.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Search & Sort Controls */}
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1 lg:max-w-lg">
+                    <div className="relative flex-1">
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+                      <input
+                        type="text"
+                        placeholder="Cari mapel, guru, kelas, atau token..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 pl-8 pr-8 py-2 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary/20 text-slate-700 dark:text-slate-200"
+                      />
+                      {searchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setSearchQuery('')}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                          title="Hapus pencarian"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">close</span>
+                        </button>
+                      )}
+                    </div>
+                    <select
+                      aria-label="Urutkan Jadwal Ujian"
+                      value={`${sortConfigJadwal.key}:${sortConfigJadwal.direction}`}
+                      onChange={(e) => {
+                        const [key, direction] = e.target.value.split(':');
+                        setSortConfigJadwal({ key, direction });
+                      }}
+                      className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs rounded-xl px-2.5 py-2 outline-none focus:ring-2 focus:ring-primary/20 text-slate-700 dark:text-slate-200 shrink-0"
                     >
-                      {st.label}
-                    </button>
-                  ))}
+                      <option value="waktu_mulai:desc">Urut: Waktu Terbaru</option>
+                      <option value="waktu_mulai:asc">Urut: Waktu Terlama</option>
+                      <option value="nama_mapel:asc">Urut: Mapel (A–Z)</option>
+                      <option value="nama_mapel:desc">Urut: Mapel (Z–A)</option>
+                      <option value="guru:asc">Urut: Guru (A–Z)</option>
+                      <option value="status_ujian:asc">Urut: Status (A–Z)</option>
+                    </select>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2 flex-1 md:max-w-md">
-                  <div className="relative flex-1">
-                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
-                    <input
-                      type="text"
-                      placeholder="Cari mapel / token..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 pl-8 pr-3 py-1.5 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary/20 text-slate-700 dark:text-slate-200"
-                    />
-                  </div>
+                {/* Secondary Filters */}
+                <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/60">
                   <select
+                    aria-label="Filter Mata Pelajaran"
                     value={filterMapel}
                     onChange={(e) => setFilterMapel(e.target.value)}
-                    className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs rounded-xl px-2.5 py-2 outline-none focus:ring-2 focus:ring-primary/20 text-slate-700 dark:text-slate-200 shrink-0"
+                    className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs rounded-xl px-2.5 py-2 outline-none focus:ring-2 focus:ring-primary/20 text-slate-700 dark:text-slate-200 flex-1 sm:flex-none sm:min-w-[160px]"
                   >
                     <option value="">Semua Mapel</option>
                     {dataMapel.map(m => (
                       <option key={m.id_mapel} value={m.nama_mapel}>{m.nama_mapel}</option>
                     ))}
                   </select>
+                  <select
+                    aria-label="Filter Target Kelas"
+                    value={filterJadwalTarget}
+                    onChange={(e) => setFilterJadwalTarget(e.target.value)}
+                    className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs rounded-xl px-2.5 py-2 outline-none focus:ring-2 focus:ring-primary/20 text-slate-700 dark:text-slate-200 flex-1 sm:flex-none sm:min-w-[150px]"
+                  >
+                    <option value="">Semua Target</option>
+                    <option value="__UMUM__">Umum (Semua Kelas)</option>
+                    {jadwalTargetOptions.map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                  <select
+                    aria-label="Filter Guru Pengampu"
+                    value={filterJadwalGuru}
+                    onChange={(e) => setFilterJadwalGuru(e.target.value)}
+                    className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs rounded-xl px-2.5 py-2 outline-none focus:ring-2 focus:ring-primary/20 text-slate-700 dark:text-slate-200 flex-1 sm:flex-none sm:min-w-[160px]"
+                  >
+                    <option value="">Semua Guru</option>
+                    {jadwalGuruOptions.map(g => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                  </select>
+                  {hasActiveJadwalFilters && (
+                    <button
+                      type="button"
+                      onClick={resetJadwalFilters}
+                      className="inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-200 transition-colors ml-auto"
+                    >
+                      <span className="material-symbols-outlined text-[15px]">filter_alt_off</span>
+                      <span>Reset Filter</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -4879,11 +5005,61 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                           />
                         </th>
                         <th className="py-3 px-2 w-10 text-center">#</th>
-                        <th className="py-3 px-4">Mata Pelajaran & Ujian</th>
-                        <th className="py-3 px-4">Guru Pengampu</th>
-                        <th className="py-3 px-4">Waktu Mulai</th>
-                        <th className="py-3 px-4">Token</th>
-                        <th className="py-3 px-4">Status</th>
+                        <th
+                          className="py-3 px-4 cursor-pointer select-none hover:text-primary transition-colors"
+                          onClick={() => handleSortJadwal('nama_mapel')}
+                        >
+                          <div className="flex items-center gap-1">
+                            <span>Mata Pelajaran & Ujian</span>
+                            <span className="material-symbols-outlined text-[14px]">
+                              {sortConfigJadwal.key === 'nama_mapel' ? (sortConfigJadwal.direction === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more'}
+                            </span>
+                          </div>
+                        </th>
+                        <th
+                          className="py-3 px-4 cursor-pointer select-none hover:text-primary transition-colors"
+                          onClick={() => handleSortJadwal('guru')}
+                        >
+                          <div className="flex items-center gap-1">
+                            <span>Guru Pengampu</span>
+                            <span className="material-symbols-outlined text-[14px]">
+                              {sortConfigJadwal.key === 'guru' ? (sortConfigJadwal.direction === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more'}
+                            </span>
+                          </div>
+                        </th>
+                        <th
+                          className="py-3 px-4 cursor-pointer select-none hover:text-primary transition-colors"
+                          onClick={() => handleSortJadwal('waktu_mulai')}
+                        >
+                          <div className="flex items-center gap-1">
+                            <span>Waktu Mulai</span>
+                            <span className="material-symbols-outlined text-[14px]">
+                              {sortConfigJadwal.key === 'waktu_mulai' ? (sortConfigJadwal.direction === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more'}
+                            </span>
+                          </div>
+                        </th>
+                        <th
+                          className="py-3 px-4 cursor-pointer select-none hover:text-primary transition-colors"
+                          onClick={() => handleSortJadwal('token')}
+                        >
+                          <div className="flex items-center gap-1">
+                            <span>Token</span>
+                            <span className="material-symbols-outlined text-[14px]">
+                              {sortConfigJadwal.key === 'token' ? (sortConfigJadwal.direction === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more'}
+                            </span>
+                          </div>
+                        </th>
+                        <th
+                          className="py-3 px-4 cursor-pointer select-none hover:text-primary transition-colors"
+                          onClick={() => handleSortJadwal('status_ujian')}
+                        >
+                          <div className="flex items-center gap-1">
+                            <span>Status</span>
+                            <span className="material-symbols-outlined text-[14px]">
+                              {sortConfigJadwal.key === 'status_ujian' ? (sortConfigJadwal.direction === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more'}
+                            </span>
+                          </div>
+                        </th>
                         <th className="py-3 px-4 text-right">Kontrol & Aksi</th>
                       </tr>
                     </thead>
@@ -4897,8 +5073,11 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                               compact={true}
                               icon="event_busy"
                               title="Tidak Ada Jadwal Ujian"
-                              description={searchQuery || filterMapel || filterJadwalStatus !== 'ALL' ? 'Tidak ada jadwal sesuai filter.' : 'Belum ada jadwal ujian dibuat.'}
-                              action={{ label: 'Buat Jadwal', onClick: () => openCreateModal('jadwal'), icon: 'add' }}
+                              description={hasActiveJadwalFilters ? 'Tidak ada jadwal sesuai filter.' : 'Belum ada jadwal ujian dibuat.'}
+                              action={hasActiveJadwalFilters
+                                ? { label: 'Reset Filter', onClick: resetJadwalFilters, icon: 'filter_alt_off' }
+                                : { label: 'Buat Jadwal', onClick: () => openCreateModal('jadwal'), icon: 'add' }
+                              }
                             />
                           </td>
                         </tr>
@@ -5069,7 +5248,8 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
                     compact={true}
                     icon="event_busy"
                     title="Tidak Ada Jadwal"
-                    description="Belum ada jadwal ujian yang cocok."
+                    description={hasActiveJadwalFilters ? 'Tidak ada jadwal sesuai filter.' : 'Belum ada jadwal ujian yang cocok.'}
+                    action={hasActiveJadwalFilters ? { label: 'Reset Filter', onClick: resetJadwalFilters, icon: 'filter_alt_off' } : undefined}
                   />
                 ) : (
                   sortedFilteredJadwal.map((j) => (
