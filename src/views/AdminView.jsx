@@ -3715,7 +3715,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
         )}
 
         {/* Navigation Links */}
-        <nav className="flex-1 overflow-y-auto p-3 space-y-5 scrollbar-thin">
+        <nav className="flex-1 overflow-y-auto p-3 space-y-5 hide-scrollbar">
           {navGroups.map((group, gIdx) => (
             <div key={gIdx} className="space-y-1">
               {!isSidebarCollapsed && (
@@ -3889,7 +3889,7 @@ const AdminView = ({ user, onLogout, onUpdateUser, showMessage, isDarkMode, setI
               </button>
             </div>
 
-            <nav className="flex-1 overflow-y-auto p-4 space-y-5">
+            <nav className="flex-1 overflow-y-auto p-4 space-y-5 hide-scrollbar">
               {navGroups.map((group, gIdx) => (
                 <div key={gIdx} className="space-y-1">
                   <p className="px-3 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-1.5">
